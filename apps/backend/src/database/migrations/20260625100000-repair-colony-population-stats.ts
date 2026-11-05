@@ -1,6 +1,4 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import * as yaml from 'js-yaml';
+import { loadMigrationBuildingSeed } from './support/building-seed-path';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 interface BuildingSeed {
@@ -21,11 +19,7 @@ export class RepairColonyPopulationStats20260625100000 implements MigrationInter
       ADD COLUMN IF NOT EXISTS "isActive" boolean NOT NULL DEFAULT true
     `);
 
-    const seedPath = join(
-      process.cwd(),
-      'game-data/data/buildings/stu-buildings.yaml',
-    );
-    const seed = yaml.load(readFileSync(seedPath, 'utf-8')) as BuildingSeedFile;
+    const seed = loadMigrationBuildingSeed() as BuildingSeedFile;
     const housingEntries = (seed.buildings ?? [])
       .map((building) => ({
         id: Number(building.id),

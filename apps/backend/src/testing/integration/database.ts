@@ -17,8 +17,8 @@ const PRESERVED_TABLES = new Set([
 
 /**
  * Opens a connection to the integration database and applies pending
- * migrations. Call {@link resetDatabase} in `beforeEach` for a clean state
- * per test.
+ * migrations and seeds the default factions. Call {@link resetDatabase} in
+ * `beforeEach` for a clean state per test.
  */
 export async function connectIntegrationDatabase(): Promise<DataSource> {
   const url = process.env.INTEGRATION_DATABASE_URL;
@@ -28,11 +28,17 @@ export async function connectIntegrationDatabase(): Promise<DataSource> {
     );
   }
   const dataSource = await createIntegrationDataSource(url).initialize();
-  // Files run sequentially (maxWorkers: 1), so this cannot race.
-  if (await dataSource.showMigrations()) {
-    await dataSource.runMigrations({ transaction: 'each' });
+  try {
+    // Files run sequentially (maxWorkers: 1), so this cannot race.
+    if (await dataSource.showMigrations()) {
+      await dataSource.runMigrations({ transaction: 'each' });
+    }
+    await ensureFactions(dataSource);
+    return dataSource;
+  } catch (error) {
+    await dataSource.destroy();
+    throw error;
   }
-  return dataSource;
 }
 
 /** Truncates every table except migration-seeded reference data. */

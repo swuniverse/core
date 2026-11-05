@@ -53,6 +53,10 @@ describe('MigrateColonyEvents20261013120000 migration (Postgres)', () => {
         factionId: rebels,
       }),
     ]);
+    await dataSource.query(
+      `INSERT INTO colonies (id, name, "userId", "colonyClassId") VALUES (44, 'Leia colony', $1, 1), (55, 'Han colony', $2, 1)`,
+      [leia.id, han.id],
+    );
     const createdAt = new Date('2026-10-12T08:15:00.000Z');
     const readAt = new Date('2026-10-12T09:30:00.000Z');
     const [unread, read] = await Promise.all([

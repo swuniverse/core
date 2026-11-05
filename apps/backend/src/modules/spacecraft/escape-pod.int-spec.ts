@@ -8,9 +8,10 @@ import { Crew, CrewType } from '../colony/entities/crew.entity';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { EscapePod, EscapePodLaunchReason } from './entities/escape-pod.entity';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
-import { GalaxyFieldType } from '../starmap/entities/galaxy-field-type.entity';
 import { Layer } from '../starmap/entities/layer.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
+
+const SPACE_FIELD_TYPE_ID = 1;
 
 describe('crew assignment location integrity', () => {
   let dataSource: DataSource;
@@ -29,17 +30,15 @@ describe('crew assignment location integrity', () => {
     ): Promise<T> =>
       (await dataSource.getRepository(entity).save(value as never)) as unknown as T;
     const layer = await save(Layer, { name: 'L', width: 5, height: 5 });
-    const type = await save(GalaxyFieldType, { key: 'empty', name: 'Leer' });
     const field = await save(GalaxyField, {
       layerId: layer.id,
       cx: 1,
       cy: 1,
-      fieldTypeId: type.id,
+      fieldTypeId: SPACE_FIELD_TYPE_ID,
     });
-    const location = await save(SpaceLocation, {
-      kind: 'GALAXY_FIELD',
-      galaxyFieldId: field.id,
-    });
+    const location = await dataSource
+      .getRepository(SpaceLocation)
+      .findOneByOrFail({ galaxyFieldId: field.id });
     const pod = await dataSource.getRepository(EscapePod).save(
       dataSource.getRepository(EscapePod).create({
         locationId: location.id,

@@ -16,6 +16,7 @@ import { User } from '../auth/user.entity';
 import { JwtStrategy } from '../auth/jwt.strategy';
 import { DatabaseController } from '../database/database.controller';
 import { DatabaseService } from '../database/database.service';
+import { CommodityOverviewService } from '../database/commodity-overview.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { Message } from '../messaging/entities/message.entity';
 import { StatisticsService } from './statistics.service';
@@ -64,6 +65,7 @@ describe('database statistics (Postgres, HTTP)', () => {
         },
         JwtStrategy,
         { provide: DatabaseService, useValue: {} },
+        { provide: CommodityOverviewService, useValue: {} },
         { provide: StatisticsService, useValue: statistics },
       ],
     }).compile();
@@ -308,9 +310,11 @@ describe('database statistics (Postgres, HTTP)', () => {
         factionId: empire.factionId,
         prestige: 1000,
       });
-      await setUsers([npc], { isNpc: true, lastActiveAt: new Date() });
+      const now = new Date();
+      await setUsers([player, empire, rebel2], { lastActiveAt: now });
+      await setUsers([npc], { isNpc: true, lastActiveAt: now });
 
-      await statistics.recordSnapshots(new Date());
+      await statistics.recordSnapshots(now);
 
       expect(await lastValues('players')).toEqual({
         active: 3,

@@ -1,0 +1,8 @@
+buildings:
+  - id: 101
+    bevPro: 40
+    fieldAlternatives:
+      - fieldtype: 10001
+        alternateBuildingId: 102
+  - id: 102
+    bevPro: 60

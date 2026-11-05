@@ -21,6 +21,8 @@ import { Message } from '../../modules/messaging/entities/message.entity';
 import { Layer } from '../../modules/starmap/entities/layer.entity';
 import { LayerKnowledge } from '../../modules/starmap/entities/layer-knowledge.entity';
 import { LayerExploredEvent } from '../../modules/starmap/entities/layer-explored-event.entity';
+import { ExplorationState } from '../../modules/starmap/entities/exploration-state.entity';
+import { SystemExploration } from '../../modules/starmap/entities/system-exploration.entity';
 import { StarSystem } from '../../modules/starmap/entities/star-system.entity';
 import { CelestialObject } from '../../modules/starmap/entities/celestial-object.entity';
 import { GalaxyFieldType } from '../../modules/starmap/entities/galaxy-field-type.entity';
@@ -74,6 +76,8 @@ export const INTEGRATION_ENTITIES = [
   Layer,
   LayerKnowledge,
   LayerExploredEvent,
+  ExplorationState,
+  SystemExploration,
   StarSystem,
   CelestialObject,
   GalaxyFieldType,
@@ -110,7 +114,9 @@ export function createIntegrationDataSource(url: string): DataSource {
     type: 'postgres',
     url,
     entities: INTEGRATION_ENTITIES,
-    migrations: [join(__dirname, '../../database/migrations/*.ts')],
+    migrations: [
+      join(__dirname, '../../database/migrations/[0-9]*-!(*.spec|*.test).ts'),
+    ],
     synchronize: false,
     logging: false,
   });

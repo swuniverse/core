@@ -1,6 +1,4 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import * as yaml from 'js-yaml';
+import { loadMigrationBuildingSeed } from './support/building-seed-path';
 import { MigrationInterface, QueryRunner, Table } from 'typeorm';
 
 interface BuildingSeed {
@@ -191,11 +189,7 @@ export class MigrateBonusFieldBuildings20260702100000 implements MigrationInterf
   }
 
   private loadBonusBuildingMapping(): Map<string, number> {
-    const seedPath = join(
-      process.cwd(),
-      'game-data/data/buildings/stu-buildings.yaml',
-    );
-    const seed = yaml.load(readFileSync(seedPath, 'utf-8')) as BuildingSeedFile;
+    const seed = loadMigrationBuildingSeed() as BuildingSeedFile;
     const mappings = new Map<string, number>();
 
     for (const building of seed.buildings ?? []) {

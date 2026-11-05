@@ -65,7 +65,7 @@ const appDataSource = new DataSource({
     News,
     ProfileVisit,
   ],
-  migrations: ['apps/backend/src/database/migrations/*.ts'],
+  migrations: ['apps/backend/src/database/migrations/[0-9]*-!(*.spec|*.test).ts'],
   synchronize: false,
   logging: false,
 });

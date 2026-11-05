@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -6,7 +7,8 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { AllianceRelationshipType, AllianceRole, ContactMode, Faction, type ContactDto } from '@swuniverse/shared';
 import { DataSource } from 'typeorm';
-import { createUser, factionId, resetDatabase } from '../../testing/integration/database';
+import { createUser, factionId } from '../../testing/integration/database';
+import { FactionEntity } from '../faction/entities/faction.entity';
 import { createIntegrationDataSource, INTEGRATION_ENTITIES } from '../../testing/integration/data-source';
 import { User } from '../auth/user.entity';
 import { JwtStrategy } from '../auth/jwt.strategy';
@@ -30,18 +32,33 @@ const JWT_SECRET = 'contact-permissions-test';
 
 describe('one-sided contact permissions (Postgres, HTTP)', () => {
   let database: DataSource;
+  let observer: DataSource;
+  let publicSchemaBefore: unknown;
+  const schema = `contact_permissions_${randomUUID().replace(/-/g, '')}`;
+  let schemaCreated = false;
   let app: INestApplication;
   let grantor: User;
   let recipient: User;
   const jwt = new JwtService({ secret: JWT_SECRET });
 
   beforeAll(async () => {
-    // Isolated schema: the full migration chain requires private game-data and
-    // currently includes spec files in its migration glob. No production sync.
     const url = process.env.INTEGRATION_DATABASE_URL;
     if (!url) throw new Error('Integration database URL missing');
+    observer = await new DataSource({ type: 'postgres', url }).initialize();
+    publicSchemaBefore = await publicSchemaObjects();
+    await observer.query(`CREATE SCHEMA "${schema}"`);
+    schemaCreated = true;
     database = createIntegrationDataSource(url);
-    database.setOptions({ migrations: [], entities: [...INTEGRATION_ENTITIES, Contact], synchronize: true });
+    database.setOptions({
+      migrations: [],
+      entities: [...INTEGRATION_ENTITIES, Contact],
+      schema,
+      // Raw SQL in the migration and store must use the same isolated schema
+      // on every pooled connection, without falling back to public.
+      extra: { options: `-c search_path=${schema}` },
+      synchronize: true,
+      installExtensions: false,
+    });
     await database.initialize();
     const moduleRef = await Test.createTestingModule({
       imports: [PassportModule],
@@ -61,12 +78,81 @@ describe('one-sided contact permissions (Postgres, HTTP)', () => {
   });
 
   afterAll(async () => {
-    await app?.close();
-    await database?.destroy();
+    try {
+      await app?.close();
+    } finally {
+      try {
+        if (database?.isInitialized) await database.destroy();
+      } finally {
+        if (observer?.isInitialized) {
+          try {
+            if (schemaCreated) await observer.query(`DROP SCHEMA "${schema}" CASCADE`);
+            if (publicSchemaBefore !== undefined) {
+              expect(await publicSchemaObjects()).toEqual(publicSchemaBefore);
+            }
+          } finally {
+            await observer.destroy();
+          }
+        }
+      }
+    }
+  });
+
+  async function publicSchemaObjects() {
+    return {
+      relations: await observer.query(`
+        SELECT c.relname, c.relkind, a.attname, pg_catalog.format_type(a.atttypid, a.atttypmod) AS type,
+          a.attnotnull, pg_get_expr(d.adbin, d.adrelid) AS default_value,
+          CASE WHEN c.relkind IN ('i', 'I') THEN pg_get_indexdef(c.oid) END AS index_definition,
+          CASE WHEN c.relkind IN ('v', 'm') THEN pg_get_viewdef(c.oid) END AS view_definition
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        LEFT JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+        LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
+        WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p', 'v', 'm', 'S', 'i', 'I', 'f')
+        ORDER BY c.relname, a.attnum
+      `),
+      constraints: await observer.query(`
+        SELECT c.relname, con.conname, pg_get_constraintdef(con.oid) AS definition
+        FROM pg_constraint con
+        JOIN pg_class c ON c.oid = con.conrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public'
+        ORDER BY c.relname, con.conname
+      `),
+      enums: await observer.query(`
+        SELECT t.typname, e.enumlabel, e.enumsortorder
+        FROM pg_type t
+        JOIN pg_namespace n ON n.oid = t.typnamespace
+        JOIN pg_enum e ON e.enumtypid = t.oid
+        WHERE n.nspname = 'public'
+        ORDER BY t.typname, e.enumsortorder
+      `),
+      routines: await observer.query(`
+        SELECT p.proname, pg_get_function_identity_arguments(p.oid) AS arguments,
+          pg_get_functiondef(p.oid) AS definition
+        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public' AND p.prokind IN ('f', 'p', 'w')
+        ORDER BY p.proname, arguments
+      `),
+    };
+  }
+
+  it('does not create or alter public schema objects when starting the harness', async () => {
+    expect(await publicSchemaObjects()).toEqual(publicSchemaBefore);
   });
 
   beforeEach(async () => {
-    await resetDatabase(database);
+    const tables: Array<{ tablename: string }> = await database.query(
+      'SELECT tablename FROM pg_tables WHERE schemaname = $1', [schema],
+    );
+    if (tables.length) {
+      await database.query(`TRUNCATE ${tables.map(({ tablename }) => `"${schema}"."${tablename.replace(/"/g, '""')}"`).join(', ')} RESTART IDENTITY CASCADE`);
+    }
+    await database.getRepository(FactionEntity).insert([
+      { key: Faction.REBEL_ALLIANCE, name: 'Rebellenallianz', colorPrimary: '#ffffff', colorSecondary: '#000000' },
+      { key: Faction.GALACTIC_EMPIRE, name: 'Galaktisches Imperium', colorPrimary: '#ffffff', colorSecondary: '#000000' },
+    ]);
     const rebels = await factionId(database, Faction.REBEL_ALLIANCE);
     grantor = await createUser(database, { username: 'grantor', factionId: rebels });
     recipient = await createUser(database, { username: 'recipient', factionId: rebels });

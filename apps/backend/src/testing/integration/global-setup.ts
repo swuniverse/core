@@ -1,8 +1,11 @@
+import { join } from 'node:path';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 
 declare global {
-  // eslint-disable-next-line no-var
   var __INTEGRATION_CONTAINER__: { stop(): Promise<unknown> } | undefined;
+  var __INTEGRATION_PREVIOUS_ENV__:
+    | { seed: string | undefined; url: string | undefined }
+    | undefined;
 }
 
 /**
@@ -13,10 +16,26 @@ declare global {
  * Jest's module resolution.
  */
 export default async function globalSetup(): Promise<void> {
-  if (process.env.INTEGRATION_DATABASE_URL) return;
-  const container = await new PostgreSqlContainer('postgres:16-alpine')
-    .withDatabase('swuniverse_test')
-    .start();
-  globalThis.__INTEGRATION_CONTAINER__ = container;
-  process.env.INTEGRATION_DATABASE_URL = container.getConnectionUri();
+  globalThis.__INTEGRATION_PREVIOUS_ENV__ = {
+    seed: process.env.SWU_MIGRATION_BUILDING_SEED_PATH,
+    url: process.env.INTEGRATION_DATABASE_URL,
+  };
+  process.env.SWU_MIGRATION_BUILDING_SEED_PATH = join(
+    __dirname,
+    'fixtures/migration-buildings.yaml',
+  );
+  try {
+    if (process.env.INTEGRATION_DATABASE_URL) return;
+    const container = await new PostgreSqlContainer('postgres:16-alpine')
+      .withDatabase('swuniverse_test')
+      .start();
+    globalThis.__INTEGRATION_CONTAINER__ = container;
+    process.env.INTEGRATION_DATABASE_URL = container.getConnectionUri();
+  } catch (error) {
+    const { seed } = globalThis.__INTEGRATION_PREVIOUS_ENV__;
+    if (seed === undefined) delete process.env.SWU_MIGRATION_BUILDING_SEED_PATH;
+    else process.env.SWU_MIGRATION_BUILDING_SEED_PATH = seed;
+    globalThis.__INTEGRATION_PREVIOUS_ENV__ = undefined;
+    throw error;
+  }
 }

@@ -138,7 +138,7 @@ describe('member operations reader (Postgres)', () => {
     const han = await rebel({ username: 'han' });
     const lando = await rebel({ username: 'lando' });
 
-    await colony(leia.id, starSystem.id, { name: 'Hoth Base' });
+    const hothBase = await colony(leia.id, starSystem.id, { name: 'Hoth Base' });
     await colony(leia.id, starSystem.id, {
       name: 'Aufgegeben',
       isAbandoned: true,
@@ -180,7 +180,7 @@ describe('member operations reader (Postgres)', () => {
       await dataSource.getRepository(CrewAssignment).save({
         crewId: member.id,
         userId: leia.id,
-        colonyId: null,
+        colonyId: hothBase.id,
         spacecraftId: null,
         slot: CrewType.CREWMAN,
       });

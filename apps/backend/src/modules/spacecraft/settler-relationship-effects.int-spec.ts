@@ -20,6 +20,8 @@ import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { Spacecraft } from './entities/spacecraft.entity';
 import { StarmapVisibilityService } from './starmap-visibility.service';
 import { TransferService } from './transfer.service';
+import { InteractionContextService } from './interaction-context.service';
+import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 
 const { FRIENDSHIP, ALLIANCE } = AllianceRelationshipType;
 
@@ -121,8 +123,16 @@ describe('Siedler relationships reach the game consumers (Postgres)', () => {
     await alliances.acceptApplication(president.id, application.id);
   }
 
-  /** Only the quote reads the resolver, so the other collaborators are unused. */
+  /** The quote uses the relationship resolver and the ship interaction context. */
   function transfers() {
+    const relationships = resolver();
+    const interactionContext = new InteractionContextService(
+      dataSource.getRepository(Spacecraft),
+      dataSource.getRepository(User),
+      null as never,
+      new SpacecraftRuntimeStateService(),
+      relationships,
+    );
     return new TransferService(
       dataSource.getRepository(CargoItem),
       null as never,
@@ -130,8 +140,8 @@ describe('Siedler relationships reach the game consumers (Postgres)', () => {
       null as never,
       null as never,
       { getCommodity: () => undefined } as never,
-      resolver(),
-      null as never,
+      relationships,
+      interactionContext,
     );
   }
 
