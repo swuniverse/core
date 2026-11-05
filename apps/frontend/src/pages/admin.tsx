@@ -54,6 +54,12 @@ const adminCards = [
     description: 'Wählbarkeit der Fraktionen für neue Spieler verwalten.',
     badge: 'Onboarding',
   },
+  {
+    title: 'Awards',
+    path: '/admin/awards',
+    description: 'NPC-, Rollenspiel- und Community-Awards an Spieler vergeben.',
+    badge: 'Spieler',
+  },
 ];
 
 function GameStatusControl() {

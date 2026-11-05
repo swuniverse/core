@@ -1,6 +1,6 @@
 # Awards: Vergabe durch Admins
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** soc-G1
@@ -22,9 +22,11 @@ Admins vergeben Awards manuell an Spieler, insbesondere NPC-/Fraktions-Awards un
 
 ## Akzeptanzkriterien
 
-- [ ] `POST /admin/awards/grant` (Spieler-ID, Award-Key, optional `incrementExisting`) nur für Admins (403 sonst); unbekannter Spieler/Award liefert 404.
-- [ ] Admin-UI: Auswahl Spieler und Award aus dem Katalog, Ergebnis als Toast.
+- [x] `POST /admin/awards/grant` (Spieler-ID, Award-Key, optional `incrementExisting`) nur für Admins (403 sonst); unbekannter Spieler/Award liefert 404.
+- [x] Admin-UI: Auswahl Spieler und Award aus dem Katalog, Ergebnis als Toast.
 - [ ] Optional: Award entziehen (Anzahl verringern bzw. Eintrag löschen) ohne Prestige-Rückbuchung, mit Bestätigung.
-- [ ] Backend-Tests: Rechte, Vergabe, Fehlerfälle. Frontend-Test: Formular ruft den Endpunkt.
+- [x] Backend-Tests: Rechte, Vergabe, Fehlerfälle. Frontend-Test: Formular ruft den Endpunkt.
 
 ## Comments
+
+- Implemented admin-only award grants with validation, explicit unknown-player/award 404s, persisted catalog choices, and the existing idempotent `AwardService.grant`; added an admin awards page and card. Verified: backend HTTP integration (3 tests), award service unit tests (3), frontend page test (1), TypeScript build, lint, and `git diff --check`. Optional revoke support remains out of scope.

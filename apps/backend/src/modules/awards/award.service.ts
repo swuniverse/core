@@ -25,7 +25,9 @@ export class AwardService {
     options: { incrementExisting?: boolean } = {},
   ): Promise<{ granted: boolean; count: number }> {
     return this.userAwardRepo.manager.transaction(async (manager) => {
-      const award = await manager.getRepository(Award).findOneBy({ key: awardKey });
+      const award = await manager
+        .getRepository(Award)
+        .findOneBy({ key: awardKey });
       if (!award) throw new NotFoundException(`Award ${awardKey} not found`);
 
       const repository = manager.getRepository(UserAward);
@@ -37,7 +39,9 @@ export class AwardService {
         .orIgnore()
         .returning('id')
         .execute();
-      const inserted = insert.identifiers.length > 0;
+      const inserted = insert.raw
+        ? insert.raw.length > 0
+        : insert.identifiers.length > 0;
 
       let userAward = await repository.findOneBy({ userId, awardKey });
       if (!userAward) throw new Error('Award grant was not persisted');

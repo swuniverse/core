@@ -15,7 +15,8 @@ function createService() {
   const manager = {
     transaction: jest.fn(async (work) => work(manager)),
     getRepository: jest.fn((entity) => {
-      if (entity === Award) return { findOneBy: jest.fn().mockResolvedValue(award) };
+      if (entity === Award)
+        return { findOneBy: jest.fn().mockResolvedValue(award) };
       if (entity === UserAward) {
         return {
           createQueryBuilder: jest.fn(() => ({
@@ -25,9 +26,14 @@ function createService() {
             orIgnore: jest.fn().mockReturnThis(),
             returning: jest.fn().mockReturnThis(),
             execute: jest.fn(async () => {
-              if (userAward) return { identifiers: [] };
-              userAward = { id: 1, userId: 7, awardKey: award.key, count: 1 } as UserAward;
-              return { identifiers: [{ id: 1 }] };
+              if (userAward) return { identifiers: [], raw: [] };
+              userAward = {
+                id: 1,
+                userId: 7,
+                awardKey: award.key,
+                count: 1,
+              } as UserAward;
+              return { identifiers: [{ id: 1 }], raw: [{ id: 1 }] };
             }),
           })),
           findOneBy: jest.fn(async () => userAward),
@@ -54,7 +60,10 @@ describe('AwardService', () => {
   it('grants once and books prestige with the STU text', async () => {
     const { service, prestige, messaging, getUserAward } = createService();
 
-    expect(await service.grant(7, 'LOTTERY_WINNER')).toEqual({ granted: true, count: 1 });
+    expect(await service.grant(7, 'LOTTERY_WINNER')).toEqual({
+      granted: true,
+      count: 1,
+    });
     expect(getUserAward()?.count).toBe(1);
     expect(prestige.change).toHaveBeenCalledWith(
       7,
@@ -75,7 +84,10 @@ describe('AwardService', () => {
     await service.grant(7, 'LOTTERY_WINNER');
     prestige.change.mockClear();
 
-    expect(await service.grant(7, 'LOTTERY_WINNER')).toEqual({ granted: false, count: 1 });
+    expect(await service.grant(7, 'LOTTERY_WINNER')).toEqual({
+      granted: false,
+      count: 1,
+    });
     expect(prestige.change).not.toHaveBeenCalled();
 
     expect(
