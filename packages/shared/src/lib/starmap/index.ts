@@ -30,6 +30,7 @@ export interface StarmapLayerDto {
   isDefault: boolean;
   isFinished: boolean;
   isHidden: boolean;
+  awardKey?: string | null;
 }
 
 export enum LayerKnowledgeStatus {
@@ -272,6 +273,7 @@ export interface StarmapCreateLayerDto {
   isDefault?: boolean;
   isFinished?: boolean;
   isHidden?: boolean;
+  awardKey?: string | null;
 }
 
 export interface StarmapInitializeGridDto {

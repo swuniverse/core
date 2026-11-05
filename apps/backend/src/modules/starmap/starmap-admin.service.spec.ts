@@ -60,12 +60,16 @@ function repo(overrides: Partial<MockRepo> = {}): MockRepo {
   };
 }
 
-function createService(overrides: { objectRepo?: MockRepo } = {}) {
+function createService(
+  overrides: { objectRepo?: MockRepo; layerRepo?: MockRepo } = {},
+) {
   const objectRepo = overrides.objectRepo ?? repo();
+  const layerRepo = overrides.layerRepo ?? repo();
   return {
     objectRepo,
+    layerRepo,
     service: new StarmapAdminService(
-      repo() as never,
+      layerRepo as never,
       repo() as never,
       repo() as never,
       repo() as never,
@@ -80,6 +84,27 @@ function createService(overrides: { objectRepo?: MockRepo } = {}) {
     ),
   };
 }
+
+describe('StarmapAdminService createLayer', () => {
+  it('persists and returns an optional layer award key', async () => {
+    const layerRepo = repo();
+    const { service } = createService({ layerRepo });
+
+    const result = await service.createLayer({
+      name: 'Outer Rim',
+      width: 12,
+      height: 12,
+      awardKey: 'LAYER_EXPLORED',
+    });
+
+    expect(layerRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ awardKey: 'LAYER_EXPLORED' }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({ awardKey: 'LAYER_EXPLORED' }),
+    );
+  });
+});
 
 describe('StarmapAdminService importLayer colony bindings', () => {
   it('restores existing colony system/object references after replacing layer content', async () => {

@@ -1,4 +1,10 @@
+import { Logger } from '@nestjs/common';
 import { LayerKnowledgeStatus } from '@swuniverse/shared';
+import { Layer } from './entities/layer.entity';
+import { ExplorationState } from './entities/exploration-state.entity';
+import { LayerKnowledge } from './entities/layer-knowledge.entity';
+import { GalaxyField } from './entities/galaxy-field.entity';
+import { LayerExploredEvent } from './entities/layer-explored-event.entity';
 import type { EntityManager } from 'typeorm';
 
 jest.mock('./entities/galaxy-field.entity', () => ({
@@ -12,16 +18,32 @@ function createManager(options: {
   fieldCount?: number;
   exploredCount?: number;
   failDelete?: boolean;
+  awardKey?: string;
 }) {
   const knowledgeRows = options.known ?? [{ userId: 7, layerId: 3 }];
+  const statuses = new Map<string, LayerKnowledgeStatus>();
   const knowledgeRepo = {
     find: jest.fn(async () => knowledgeRows),
-    findOne: jest.fn(async () => ({
-      ...knowledgeRows[0],
-      status: LayerKnowledgeStatus.KNOWN,
-      exploredAt: null,
-    })),
-    update: jest.fn(async () => ({ affected: 1 })),
+    findOne: jest.fn(
+      async ({ where }: { where: { userId: number; layerId: number } }) => ({
+        ...knowledgeRows.find(
+          (row) => row.userId === where.userId && row.layerId === where.layerId,
+        ),
+        status:
+          statuses.get(`${where.userId}:${where.layerId}`) ??
+          LayerKnowledgeStatus.KNOWN,
+        exploredAt: null,
+      }),
+    ),
+    update: jest.fn(
+      async (
+        where: { userId: number; layerId: number },
+        values: { status: LayerKnowledgeStatus },
+      ) => {
+        statuses.set(`${where.userId}:${where.layerId}`, values.status);
+        return { affected: 1 };
+      },
+    ),
   };
   const fieldRepo = {
     count: jest.fn(async () => options.fieldCount ?? 2),
@@ -44,16 +66,80 @@ function createManager(options: {
   const manager = {
     transaction: jest.fn(async (work) => work(manager)),
     getRepository: jest.fn((entity: { name: string }) => {
-      if (entity.name === 'LayerKnowledge') return knowledgeRepo;
-      if (entity.name === 'GalaxyField') return fieldRepo;
-      if (entity.name === 'ExplorationState') return explorationRepo;
-      return eventRepo;
+      if (entity === LayerKnowledge) return knowledgeRepo;
+      if (entity === GalaxyField) return fieldRepo;
+      if (entity === Layer)
+        return {
+          findOneBy: jest.fn(async ({ id }: { id: number }) => ({
+            awardKey: options.awardKey,
+            id,
+          })),
+        };
+      if (entity === ExplorationState) return explorationRepo;
+      if (entity === LayerExploredEvent) return eventRepo;
+      throw new Error(`Unexpected repository: ${entity.name}`);
     }),
   } as unknown as EntityManager;
   return { manager, knowledgeRepo, fieldRepo, explorationRepo, eventRepo };
 }
 
 describe('LayerMapCycleService', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('grants and increments the configured award when a layer becomes explored', async () => {
+    const setup = createManager({
+      fieldCount: 2,
+      exploredCount: 2,
+      awardKey: 'LAYER_EXPLORED',
+    });
+    const awards = {
+      grant: jest.fn().mockResolvedValue({ granted: true, count: 1 }),
+    };
+    const service = new LayerMapCycleService(setup.manager, awards as never);
+
+    expect(await service.run(new Date('2026-10-30T03:00:00Z'))).toBe(
+      '1 Ebene vollständig erkundet',
+    );
+    expect(awards.grant).toHaveBeenCalledWith(7, 'LAYER_EXPLORED', {
+      incrementExisting: true,
+    });
+  });
+
+  it('does not grant an award when the layer has no award key', async () => {
+    const setup = createManager({ fieldCount: 2, exploredCount: 2 });
+    const awards = { grant: jest.fn() };
+    const service = new LayerMapCycleService(setup.manager, awards as never);
+
+    await service.run(new Date());
+
+    expect(awards.grant).not.toHaveBeenCalled();
+  });
+
+  it('logs award failures without aborting other map-cycle transitions', async () => {
+    const setup = createManager({
+      known: [
+        { userId: 7, layerId: 3 },
+        { userId: 7, layerId: 4 },
+      ],
+      fieldCount: 2,
+      exploredCount: 2,
+      awardKey: 'LAYER_EXPLORED',
+    });
+    const awards = {
+      grant: jest.fn().mockRejectedValueOnce(new Error('award unavailable')),
+    };
+    const logger = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const service = new LayerMapCycleService(setup.manager, awards as never);
+
+    await expect(service.run(new Date())).resolves.toBe(
+      '2 Ebenen vollständig erkundet',
+    );
+    expect(awards.grant).toHaveBeenCalledTimes(2);
+    expect(logger).toHaveBeenCalledWith(
+      expect.stringContaining('award unavailable'),
+    );
+  });
+
   it('leaves an incomplete known layer unchanged', async () => {
     const setup = createManager({ fieldCount: 3, exploredCount: 2 });
     const service = new LayerMapCycleService(setup.manager);

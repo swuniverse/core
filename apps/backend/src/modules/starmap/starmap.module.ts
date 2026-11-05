@@ -42,6 +42,7 @@ import { LayerKnowledge } from './entities/layer-knowledge.entity';
 import { LayerKnowledgeService } from './layer-knowledge.service';
 import { LayerExploredEvent } from './entities/layer-explored-event.entity';
 import { LayerMapCycleService } from './layer-map-cycle.service';
+import { AwardsModule } from '../awards/awards.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { LayerMapCycleService } from './layer-map-cycle.service';
       FactionEntity,
     ]),
     PrestigeModule,
+    AwardsModule,
   ],
   controllers: [StarmapController, PlanetSurfacesController],
   providers: [

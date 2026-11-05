@@ -1,6 +1,8 @@
 import { join } from 'node:path';
 import { DataSource } from 'typeorm';
 import { User } from '../../modules/auth/user.entity';
+import { Award } from '../../modules/awards/entities/award.entity';
+import { UserAward } from '../../modules/awards/entities/user-award.entity';
 import { FactionEntity } from '../../modules/faction/entities/faction.entity';
 import { FactionModifier } from '../../modules/faction/entities/faction-modifier.entity';
 import { Alliance } from '../../modules/alliance/entities/alliance.entity';
@@ -56,6 +58,8 @@ import { News } from '../../modules/news/entities/news.entity';
 /** Entities used by integration tests. Add more as suites need them. */
 export const INTEGRATION_ENTITIES = [
   User,
+  Award,
+  UserAward,
   FactionEntity,
   FactionModifier,
   Alliance,

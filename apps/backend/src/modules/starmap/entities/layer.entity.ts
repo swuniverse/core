@@ -32,4 +32,7 @@ export class Layer {
 
   @Column({ default: true })
   isHidden: boolean;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  awardKey: string | null;
 }

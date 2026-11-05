@@ -44,6 +44,7 @@ export class StarmapService {
       isDefault: layer.isDefault,
       isFinished: layer.isFinished,
       isHidden: layer.isHidden,
+      awardKey: layer.awardKey,
     }));
   }
 

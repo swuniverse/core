@@ -351,6 +351,7 @@ export class StarmapAdminService {
       isDefault: input.isDefault ?? false,
       isFinished: input.isFinished ?? false,
       isHidden: input.isHidden ?? false,
+      awardKey: input.awardKey?.trim() || null,
     });
     const createdLayer = await this.layerRepo.save(layer);
     return this.toLayerDto(createdLayer);
@@ -2711,6 +2712,7 @@ export class StarmapAdminService {
       isDefault: layer.isDefault,
       isFinished: layer.isFinished,
       isHidden: layer.isHidden,
+      awardKey: layer.awardKey,
     };
   }
 
