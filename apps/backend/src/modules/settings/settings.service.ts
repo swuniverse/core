@@ -20,6 +20,7 @@ import {
   EMAIL_BLOCKLIST,
   type EmailBlocklistPort,
 } from './email-blocklist.port';
+import { RpgBehavior } from '@swuniverse/shared';
 
 const SETTING_DEFAULTS: Record<string, string> = {
   email_notification: '1',
@@ -29,7 +30,14 @@ const SETTING_DEFAULTS: Record<string, string> = {
   inbox_messenger_style: '0',
   rgb_code: '',
   default_view: 'maindesk',
+  rpg_behavior: String(RpgBehavior.NOT_SET),
 };
+
+const RPG_BEHAVIORS = new Set(
+  Object.values(RpgBehavior)
+    .filter((value): value is RpgBehavior => typeof value === 'number')
+    .map(String),
+);
 
 const BOOLEAN_SETTINGS = new Set([
   'email_notification',
@@ -87,6 +95,9 @@ export class SettingsService {
         throw new BadRequestException(`Invalid setting value: ${key}`);
       }
       if (key === 'default_view' && !DEFAULT_VIEWS.has(value)) {
+        throw new BadRequestException(`Invalid setting value: ${key}`);
+      }
+      if (key === 'rpg_behavior' && !RPG_BEHAVIORS.has(value)) {
         throw new BadRequestException(`Invalid setting value: ${key}`);
       }
       if (

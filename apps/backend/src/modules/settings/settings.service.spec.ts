@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { SettingsService } from './settings.service';
-import { AccountDeletionMark } from '@swuniverse/shared';
+import { AccountDeletionMark, RpgBehavior } from '@swuniverse/shared';
 import { AccountTokenPurpose } from '../auth/account-token.entity';
 
 const createService = (
@@ -92,6 +92,30 @@ describe('SettingsService settings validation', () => {
       { userId: 7, key: 'profile_visit_optout', value: '1' },
       ['userId', 'key'],
     );
+  });
+
+  it('defaults RPG behavior to unset and accepts only the four shared values', async () => {
+    const { service, settingRepo } = createService();
+
+    await expect(service.getSettings(7)).resolves.toMatchObject({
+      rpg_behavior: String(RpgBehavior.NOT_SET),
+    });
+    for (const behavior of [
+      RpgBehavior.NOT_SET,
+      RpgBehavior.ACTIVE,
+      RpgBehavior.OPEN,
+      RpgBehavior.NONE,
+    ]) {
+      await service.updateSettings(7, { rpg_behavior: String(behavior) });
+    }
+    expect(settingRepo.upsert).toHaveBeenCalledTimes(4);
+    await expect(
+      service.updateSettings(7, { rpg_behavior: '4' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.updateSettings(7, { rpg_behavior: '1.5' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(settingRepo.upsert).toHaveBeenCalledTimes(4);
   });
 
   it('returns messenger style disabled by default and validates its boolean values', async () => {

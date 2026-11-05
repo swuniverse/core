@@ -273,6 +273,43 @@ describe('PlayerProfilePage', () => {
     expect(screen.getByRole('button', { name: 'Zu Kontakten hinzufügen' })).toBeTruthy();
   });
 
+  it('renders nonzero RPG behavior with its exact STU text and links all plots', async () => {
+    apiMocks.get.mockResolvedValue({
+      id: 1, username: 'leia', displayName: null, avatar: null,
+      description: null, faction: 'REBEL_ALLIANCE', factionName: 'Rebellenallianz',
+      prestige: 0, colonies: 0, ships: 0, completedResearch: 0,
+      onboardingCompleted: true, isAdmin: false, createdAt: '2026-08-04T00:00:00.000Z',
+      alliance: { id: 5, name: 'Alderaan', color: null }, rpgBehavior: 2,
+      plots: [
+        { id: 11, title: 'Active plot', endedAt: null },
+        { id: 12, title: 'Ended plot', endedAt: '2026-10-01T00:00:00.000Z' },
+      ],
+    });
+
+    renderProfile();
+
+    expect(await screen.findByTitle('Betreibt gelegentlich Rollenspiel')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Plots' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Active plot' }).getAttribute('href')).toBe('/holonet/plots/11');
+    expect(screen.getByRole('link', { name: 'Ended plot' }).getAttribute('href')).toBe('/holonet/plots/12');
+  });
+
+  it('omits unset RPG behavior and shows the exact empty plot state', async () => {
+    apiMocks.get.mockResolvedValue({
+      id: 1, username: 'leia', displayName: null, avatar: null,
+      description: null, faction: 'REBEL_ALLIANCE', factionName: 'Rebellenallianz',
+      prestige: 0, colonies: 0, ships: 0, completedResearch: 0,
+      onboardingCompleted: true, isAdmin: false, createdAt: '2026-08-04T00:00:00.000Z',
+      alliance: { id: 5, name: 'Alderaan', color: null }, rpgBehavior: 0, plots: [],
+    });
+
+    renderProfile();
+
+    expect(await screen.findByRole('heading', { name: 'Plots' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Plots' }).parentElement?.textContent).toContain('Keine');
+    expect(screen.queryByTitle('Nicht gesetzt')).toBeNull();
+  });
+
   it('renders awards with descriptions and repeat counts', async () => {
     apiMocks.get.mockResolvedValue({
       id: 1,

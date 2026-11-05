@@ -50,6 +50,9 @@ import { UserAward } from '../awards/entities/user-award.entity';
 import { ProfileVisitorService } from '../profile-visitor/profile-visitor.service';
 import { HolonetRating } from '../holonet/entities/holonet-rating.entity';
 import { HolonetPost } from '../holonet/entities/holonet-post.entity';
+import { RpgBehavior } from '@swuniverse/shared';
+import { RpgPlotService } from '../rpg/rpg-plot.service';
+import { UserSettingsReader } from '../settings/user-settings-reader';
 import {
   AURODIUM_RANKING_SOURCES,
   type AurodiumRankingSource,
@@ -145,6 +148,8 @@ export class DatabaseService {
     @Inject(AURODIUM_RANKING_SOURCES)
     private readonly aurodiumRankingSources: AurodiumRankingSource[] = [],
     private readonly contacts: ContactService = {} as ContactService,
+    private readonly settingsReader: UserSettingsReader = {} as UserSettingsReader,
+    private readonly rpgPlotService: RpgPlotService = {} as RpgPlotService,
   ) {}
 
   async getTradePosts(userId: number) {
@@ -328,7 +333,7 @@ export class DatabaseService {
       factions.map((faction) => [faction.id, faction]),
     );
 
-    const [entry, alliance, awards, colonyScans, friends] = await Promise.all([
+    const [entry, alliance, awards, colonyScans, friends, settings, plots] = await Promise.all([
       this.toSettlerEntry(user, factionById),
       this.allianceService.getRef(user.id),
       this.userAwardRepo.find({
@@ -343,6 +348,8 @@ export class DatabaseService {
             user.id,
           ),
       this.getProfileFriends(user.id),
+      this.settingsReader.getSettings(user.id),
+      this.getSettlerPlots(user.id),
     ]);
     const scansWithSystemContext =
       colonyScans === undefined
@@ -350,6 +357,8 @@ export class DatabaseService {
         : await this.withDiscoveredSystemContext(viewerId, colonyScans);
     return {
       ...entry,
+      rpgBehavior: Number(settings.rpg_behavior ?? RpgBehavior.NOT_SET),
+      plots,
       alliance,
       friends,
       awards: awards.map(({ award, count }) => ({
@@ -362,6 +371,10 @@ export class DatabaseService {
         ? {}
         : { colonyScans: scansWithSystemContext }),
     };
+  }
+
+  private async getSettlerPlots(userId: number) {
+    return this.rpgPlotService.membershipsForUser(userId);
   }
 
   private async getProfileFriends(userId: number): Promise<ProfileFriendDto[]> {

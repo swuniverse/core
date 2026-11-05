@@ -28,6 +28,7 @@ function repository(): MockRepository {
     create: jest.fn((value: unknown) => value),
     save: jest.fn(async (value: unknown) => value),
     findOne: jest.fn(),
+    find: jest.fn(),
     findAndCount: jest.fn(),
   } as unknown as MockRepository;
   repo.manager = {
@@ -95,6 +96,32 @@ describe('RpgPlotService', () => {
     expect(result.members).toEqual([
       expect.objectContaining({ userId: creator.id, username: 'Leia' }),
     ]);
+  });
+
+  it('returns no memberships without loading plots when the player is not a member', async () => {
+    members.find.mockResolvedValue([]);
+
+    await expect(service.membershipsForUser(8)).resolves.toEqual([]);
+    expect(plots.find).not.toHaveBeenCalled();
+  });
+
+  it('lists every membership for a player without pagination, active first', async () => {
+    members.find.mockResolvedValue([{ plotId: 11 }, { plotId: 12 }]);
+    plots.find.mockResolvedValue([
+      { id: 11, title: 'Active', endedAt: null },
+      { id: 12, title: 'Ended', endedAt: startedAt },
+    ]);
+
+    await expect(service.membershipsForUser(8)).resolves.toMatchObject([
+      { id: 11, title: 'Active', endedAt: null },
+      { id: 12, title: 'Ended', endedAt: startedAt },
+    ]);
+    expect(members.find).toHaveBeenCalledWith({ where: { userId: 8 }, select: ['plotId'] });
+    expect(plots.find).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: expect.anything() },
+      order: { endedAt: { direction: 'ASC', nulls: 'FIRST' }, startedAt: 'DESC', id: 'DESC' },
+    }));
+    expect(plots.find).not.toHaveBeenCalledWith(expect.objectContaining({ take: expect.any(Number) }));
   });
 
   it('lists active plots first with pagination', async () => {

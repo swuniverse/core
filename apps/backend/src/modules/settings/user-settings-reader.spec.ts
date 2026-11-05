@@ -1,4 +1,5 @@
 import { UserSettingsReader } from './user-settings-reader';
+import { RpgBehavior } from '@swuniverse/shared';
 
 describe('UserSettingsReader', () => {
   it('returns boolean defaults and overrides for one user', async () => {
@@ -13,6 +14,24 @@ describe('UserSettingsReader', () => {
       false,
     );
     await expect(reader.getBoolean(8, 'email_notification')).resolves.toBe(true);
+  });
+
+  it('keeps RPG behavior default aligned with settings and returns a stored value', async () => {
+    const repository = {
+      find: jest.fn(async ({ where }: { where: { userId: number } }) =>
+        where.userId === 7
+          ? [{ userId: 7, key: 'rpg_behavior', value: String(RpgBehavior.OPEN) }]
+          : [],
+      ),
+    };
+    const reader = new UserSettingsReader(repository as any);
+
+    await expect(reader.getSettings(8)).resolves.toMatchObject({
+      rpg_behavior: String(RpgBehavior.NOT_SET),
+    });
+    await expect(reader.getSettings(7)).resolves.toMatchObject({
+      rpg_behavior: String(RpgBehavior.OPEN),
+    });
   });
 
   it('loads boolean settings for many users in one query', async () => {

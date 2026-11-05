@@ -44,6 +44,8 @@ import { HolonetRating } from '../holonet/entities/holonet-rating.entity';
 import { ColonyAurodiumRankingSource } from './colony-aurodium-ranking.source';
 import { SpacecraftAurodiumRankingSource } from './spacecraft-aurodium-ranking.source';
 import { AURODIUM_RANKING_SOURCES } from './aurodium-ranking-source';
+import { SettingsModule } from '../settings/settings.module';
+import { RpgModule } from '../rpg/rpg.module';
 
 @Module({
   imports: [
@@ -83,6 +85,8 @@ import { AURODIUM_RANKING_SOURCES } from './aurodium-ranking-source';
     ContactModule,
     StatisticsModule,
     ProfileVisitorModule,
+    SettingsModule,
+    RpgModule,
   ],
   controllers: [DatabaseController],
   providers: [

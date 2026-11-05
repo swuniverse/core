@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { UserSetting } from './entities/user-setting.entity';
+import { RpgBehavior } from '@swuniverse/shared';
 
 export const BOOLEAN_SETTING_DEFAULTS = {
   email_notification: true,
@@ -21,6 +22,7 @@ const SETTING_DEFAULTS: Record<string, string> = {
   inbox_messenger_style: '0',
   rgb_code: '',
   default_view: 'maindesk',
+  rpg_behavior: String(RpgBehavior.NOT_SET),
 };
 
 @Injectable()

@@ -1,6 +1,6 @@
 # RPG: Plots im Profil und RPG-Verhalten
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** soc-E3a
@@ -25,9 +25,11 @@ Das Spielerprofil zeigt die Plots, in denen der Spieler Mitglied ist, sowie sein
 
 ## Akzeptanzkriterien
 
-- [ ] Einstellung `rpg_behavior` mit Werten `0`–`3` (Default `0`), serverseitig gegen das Enum validiert, im Einstellungs-UI als Auswahl.
-- [ ] Die Profil-API liefert `rpgBehavior`; das Profil zeigt bei gesetztem Wert den STU-Text (bei `0` nichts) als Icon/Text mit `title`.
-- [ ] Profilbox „Plots“: Plots mit Mitgliedschaft (aktive zuerst, mit Link zur Plotdetailseite), „Keine“ wenn leer.
-- [ ] Backend-Tests: Validierung der Einstellung, Plots eines Spielers. Frontend-Tests: Profilanzeige beider Elemente.
+- [x] Einstellung `rpg_behavior` mit Werten `0`–`3` (Default `0`), serverseitig gegen das Enum validiert, im Einstellungs-UI als Auswahl.
+- [x] Die Profil-API liefert `rpgBehavior`; das Profil zeigt bei gesetztem Wert den STU-Text (bei `0` nichts) als Text mit `title`.
+- [x] Profilbox „Plots“: Plots mit Mitgliedschaft (aktive zuerst, mit Link zur Plotdetailseite), „Keine“ wenn leer.
+- [x] Backend-Tests: Validierung der Einstellung, Plots eines Spielers. Frontend-Tests: Profilanzeige beider Elemente.
 
 ## Comments
+
+- Verifiziert: Einstellungs- und Profiltests grün (Backend 49 Tests, Frontend 17 Tests), PostgreSQL-Profilintegration 2 Tests, TypeScript-Builds für Shared, Backend und Frontend sowie ESLint für alle geänderten Quell- und Testdateien erfolgreich. Nx-Projektgraph war wegen fehlendem `node_modules/.modules.yaml` nicht verfügbar; direkte Builds/Tests wurden verwendet.

@@ -17,5 +17,6 @@ import { UserCharacter } from './user-character.entity';
   ],
   controllers: [RpgController, RpgPlotController],
   providers: [RpgService, RpgPlotService],
+  exports: [RpgPlotService],
 })
 export class RpgModule {}

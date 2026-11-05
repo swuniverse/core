@@ -12,6 +12,11 @@ import { createIntegrationDataSource, INTEGRATION_ENTITIES } from '../../testing
 import { AllianceService } from '../alliance/alliance.service';
 import { TypeOrmAllianceStore } from '../alliance/typeorm-alliance.store';
 import { User } from '../auth/user.entity';
+import { UserSetting } from '../settings/entities/user-setting.entity';
+import { UserSettingsReader } from '../settings/user-settings-reader';
+import { RpgPlotMember } from '../rpg/rpg-plot-member.entity';
+import { RpgPlotService } from '../rpg/rpg-plot.service';
+import { RpgPlot } from '../rpg/rpg-plot.entity';
 import { JwtStrategy } from '../auth/jwt.strategy';
 import { FactionEntity } from '../faction/entities/faction.entity';
 import { ContactService } from '../contacts/contact.service';
@@ -28,7 +33,7 @@ describe('profile friends (Postgres)', () => {
   beforeAll(async () => {
     container = await new PostgreSqlContainer('postgres:16-alpine').start();
     database = createIntegrationDataSource(container.getConnectionUri());
-    database.setOptions({ migrations: [], entities: [...INTEGRATION_ENTITIES, Contact], synchronize: true });
+    database.setOptions({ migrations: [], entities: [...INTEGRATION_ENTITIES, Contact, UserSetting, RpgPlot, RpgPlotMember], synchronize: true });
     await database.initialize();
     const users = database.getRepository(User);
     const alliance = new AllianceService(new TypeOrmAllianceStore(database), {} as never);
@@ -43,7 +48,8 @@ describe('profile friends (Postgres)', () => {
       { newestAccessibleForColonies: async () => [] } as never,
       {} as never, {} as never, {} as never, {} as never,
       { registerVisit: async () => undefined } as never,
-      {} as never, [], contacts,
+      {} as never, [], contacts, new UserSettingsReader(database.getRepository(UserSetting)),
+      new RpgPlotService(database.getRepository(RpgPlot), database.getRepository(RpgPlotMember), users, {} as never),
     );
     const moduleRef = await Test.createTestingModule({
       imports: [PassportModule],
@@ -71,6 +77,50 @@ describe('profile friends (Postgres)', () => {
     });
     return { status: response.status, body: await response.json() as { friends: ProfileFriendDto[] } };
   }
+
+  it('returns all target plot memberships active first and target RPG behavior', async () => {
+    const owner = await createUser(database, { username: 'plot-owner' });
+    const viewer = await createUser(database, { username: 'plot-viewer' });
+    await database.getRepository(UserSetting).save({
+      userId: owner.id, key: 'rpg_behavior', value: '2',
+    });
+    const plots = database.getRepository(RpgPlot);
+    const active = await plots.save(plots.create({
+      creatorId: owner.id, title: 'Active plot', description: '', endedAt: null,
+      startedAt: new Date('2026-01-02T00:00:00.000Z'),
+    }));
+    const ended = await plots.save(plots.create({
+      creatorId: owner.id, title: 'Ended plot', description: '', endedAt: new Date(),
+      startedAt: new Date('2026-01-03T00:00:00.000Z'),
+    }));
+    const outsider = await createUser(database, { username: 'plot-outsider' });
+    const unrelated = await plots.save(plots.create({
+      creatorId: outsider.id, title: 'Other creator plot', description: '', endedAt: null,
+      startedAt: new Date('2026-01-01T00:00:00.000Z'),
+    }));
+    const notMember = await plots.save(plots.create({
+      creatorId: outsider.id, title: 'Not a member', description: '', endedAt: null,
+    }));
+    const memberships = database.getRepository(RpgPlotMember);
+    await memberships.save([
+      { plotId: ended.id, userId: owner.id },
+      { plotId: unrelated.id, userId: owner.id },
+      { plotId: active.id, userId: owner.id },
+      { plotId: notMember.id, userId: outsider.id },
+    ]);
+
+    const response = await profile(viewer, owner.id);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      rpgBehavior: 2,
+      plots: [
+        { id: active.id, title: 'Active plot', endedAt: null },
+        { id: unrelated.id, title: 'Other creator plot', endedAt: null },
+        { id: ended.id, title: 'Ended plot' },
+      ],
+    });
+  });
 
   it('includes current alliance members and inbound FRIEND contacts only', async () => {
     const faction = (await database.getRepository(FactionEntity).save({
@@ -104,6 +154,7 @@ describe('profile friends (Postgres)', () => {
       { id: member.id, name: 'Alliance Friend', avatar: '/avatar.png' },
       { id: inbound.id, name: 'inbound', avatar: null },
     ]);
+    expect(response.body).toMatchObject({ rpgBehavior: 0, plots: [] });
     expect((await fetch(`${await app.getUrl()}/database/settlers/${owner.id}`)).status).toBe(401);
     expect((await profile(owner, 999999)).status).toBe(404);
     await store.deleteMembership(alliance.id, member.id);

@@ -36,6 +36,8 @@ function createService() {
     getMemberIds: jest.fn().mockResolvedValue([]),
   };
   const contacts = { incomingFriendIds: jest.fn().mockResolvedValue([]) };
+  const settingsReader = { getSettings: jest.fn().mockResolvedValue({ rpg_behavior: '0' }) };
+  const rpgPlotService = { membershipsForUser: jest.fn().mockResolvedValue([]) };
   const userAwardRepo = { find: jest.fn().mockResolvedValue([]) };
   const profileVisitorService = { registerVisit: jest.fn() };
   const colonyScanProjection = {
@@ -72,6 +74,8 @@ function createService() {
     {} as never,
     [],
     contacts as never,
+    settingsReader as never,
+    rpgPlotService as never,
   );
   return {
     service,
@@ -80,6 +84,8 @@ function createService() {
     shipRepo,
     researchRepo,
     factionService,
+    settingsReader,
+    rpgPlotService,
     prestigeHistoryRepo,
     allianceService,
     contacts,
@@ -313,6 +319,29 @@ describe('DatabaseService settlers', () => {
     expect(contacts.incomingFriendIds).toHaveBeenCalledWith(10, 51);
   });
 
+  it('returns RPG behavior and every target-player plot membership, active first', async () => {
+    const { service, userRepo, colonyRepo, shipRepo, researchRepo, factionService, settingsReader, rpgPlotService } = createService();
+    const active = { id: 11, title: 'Active plot', endedAt: null };
+    const ended = { id: 12, title: 'Ended plot', endedAt: new Date('2026-10-01') };
+    settingsReader.getSettings.mockResolvedValue({ rpg_behavior: '2' });
+    rpgPlotService.membershipsForUser.mockResolvedValue([active, ended]);
+    userRepo.findOne.mockResolvedValue({
+      id: 9, username: 'leia', factionId: null, createdAt: new Date(),
+      rpgBehavior: 2,
+    });
+    userRepo.find.mockResolvedValue([]);
+    factionService.findAll.mockResolvedValue([]);
+    colonyRepo.count.mockResolvedValue(0);
+    shipRepo.count.mockResolvedValue(0);
+    researchRepo.count.mockResolvedValue(0);
+
+    const result = await service.getSettler(1, 9);
+
+    expect(result.rpgBehavior).toBe(2);
+    expect(result.plots).toEqual([active, ended]);
+    expect(rpgPlotService.membershipsForUser).toHaveBeenCalledWith(9);
+  });
+
   it('returns a single settler profile with public counts', async () => {
     const {
       service,
@@ -368,6 +397,8 @@ describe('DatabaseService settlers', () => {
       alliance: null,
       friends: [],
       awards: [],
+      rpgBehavior: 0,
+      plots: [],
     });
     expect(JSON.stringify(result)).not.toContain('passwordHash');
     expect(JSON.stringify(result)).not.toContain('refreshToken');

@@ -10,7 +10,7 @@ import type {
   RpgPlotListDto,
   SaveRpgPlotDto,
 } from '@swuniverse/shared';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
 import { MessagingService } from '../messaging/messaging.service';
 import { RpgPlotMember } from './rpg-plot-member.entity';
@@ -51,6 +51,18 @@ export class RpgPlotService {
 
   async detail(id: number): Promise<RpgPlotDto> {
     return this.toDto(await this.find(id));
+  }
+
+  async membershipsForUser(userId: number): Promise<Pick<RpgPlot, 'id' | 'title' | 'endedAt'>[]> {
+    const memberships = await this.members.find({ where: { userId }, select: ['plotId'] });
+    const plotIds = memberships.map(({ plotId }) => plotId);
+    if (plotIds.length === 0) return [];
+
+    return this.plots.find({
+      where: { id: In(plotIds) },
+      select: ['id', 'title', 'endedAt', 'startedAt'],
+      order: { endedAt: { direction: 'ASC', nulls: 'FIRST' }, startedAt: 'DESC', id: 'DESC' },
+    });
   }
 
   async create(userId: number, input: SaveRpgPlotDto): Promise<RpgPlotDto> {

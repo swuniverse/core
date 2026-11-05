@@ -513,6 +513,27 @@ function GameplayTab() {
 
   return (
     <div className="space-y-3 max-w-lg">
+      <Section title="RPG-Verhalten">
+        <label className="block text-xs text-swu-muted" htmlFor="rpg-behavior">
+          Wie gern betreibst du Rollenspiel?
+        </label>
+        <select
+          id="rpg-behavior"
+          aria-label="RPG-Verhalten"
+          value={settings.rpg_behavior || '0'}
+          onChange={(event) => {
+            const value = event.target.value;
+            setSettings((current) => ({ ...current, rpg_behavior: value }));
+            void api.patch('/user/settings', { rpg_behavior: value });
+          }}
+          className="bg-swu-bg border border-swu-border rounded p-2 text-sm text-swu-primary w-full"
+        >
+          <option value="0">Nicht gesetzt</option>
+          <option value="1">Betreibt gerne Rollenspiel</option>
+          <option value="2">Betreibt gelegentlich Rollenspiel</option>
+          <option value="3">Betreibt ungern Rollenspiel</option>
+        </select>
+      </Section>
       <Section title="Startseite">
         <select
           value={settings.default_view || 'maindesk'}

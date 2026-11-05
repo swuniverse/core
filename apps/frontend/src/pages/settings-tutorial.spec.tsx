@@ -41,6 +41,29 @@ describe('SettingsPage territorial color', () => {
   });
 });
 
+describe('SettingsPage RPG behavior', () => {
+  beforeEach(() => {
+    apiMocks.get.mockReset().mockResolvedValue({ rpg_behavior: '0' });
+    apiMocks.post.mockReset().mockResolvedValue({});
+    apiMocks.patch.mockReset().mockResolvedValue({});
+  });
+
+  it('offers all four behaviors and saves a selection', async () => {
+    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Gameplay' }));
+
+    const selector = await screen.findByLabelText('RPG-Verhalten') as HTMLSelectElement;
+    expect(Array.from(selector.options).map((option) => [option.value, option.textContent])).toEqual([
+      ['0', 'Nicht gesetzt'],
+      ['1', 'Betreibt gerne Rollenspiel'],
+      ['2', 'Betreibt gelegentlich Rollenspiel'],
+      ['3', 'Betreibt ungern Rollenspiel'],
+    ]);
+    fireEvent.change(selector, { target: { value: '2' } });
+    await waitFor(() => expect(apiMocks.patch).toHaveBeenCalledWith('/user/settings', { rpg_behavior: '2' }));
+  });
+});
+
 describe('SettingsPage tutorial controls', () => {
   beforeEach(() => {
     apiMocks.get.mockReset().mockResolvedValue({ default_view: 'maindesk' });

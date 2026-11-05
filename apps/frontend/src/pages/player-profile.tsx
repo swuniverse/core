@@ -13,6 +13,7 @@ import {
   type ContactDto,
   type IgnoreListEntryDto,
   type ProfileFriendDto,
+  RpgBehavior,
 } from '@swuniverse/shared';
 import { ApiError, api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
@@ -44,7 +45,15 @@ interface PlayerProfile {
   friends: ProfileFriendDto[];
   colonyScans?: ColonyScanProjection[];
   onVacation: boolean;
+  rpgBehavior?: RpgBehavior;
+  plots?: { id: number; title: string; endedAt: string | null }[];
 }
+
+const RPG_BEHAVIOR_TEXT: Partial<Record<RpgBehavior, string>> = {
+  [RpgBehavior.ACTIVE]: 'Betreibt gerne Rollenspiel',
+  [RpgBehavior.OPEN]: 'Betreibt gelegentlich Rollenspiel',
+  [RpgBehavior.NONE]: 'Betreibt ungern Rollenspiel',
+};
 
 const dateFormatter = new Intl.DateTimeFormat('de-DE', {
   day: '2-digit',
@@ -247,6 +256,11 @@ export function PlayerProfilePage() {
               <p className="text-xs text-swu-muted">Login: {player.username}</p>
             )}
             <p className="text-sm text-swu-primary">{player.factionName}</p>
+            {player.rpgBehavior != null && player.rpgBehavior !== RpgBehavior.NOT_SET && RPG_BEHAVIOR_TEXT[player.rpgBehavior] && (
+              <p className="text-xs text-swu-muted" title={RPG_BEHAVIOR_TEXT[player.rpgBehavior]}>
+                {RPG_BEHAVIOR_TEXT[player.rpgBehavior]}
+              </p>
+            )}
             {currentUser?.id !== player.id && (
               contact ? (
                 <label className="inline-flex items-center gap-2 text-xs text-swu-muted">
@@ -344,6 +358,25 @@ export function PlayerProfilePage() {
             {player.friends.map((friend) => (
               <Link key={friend.id} to={`/players/${friend.id}`} title={friend.name}>
                 <PlayerAvatar name={friend.name} avatar={friend.avatar} faction={null} />
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-lg border border-swu-border bg-swu-surface p-4">
+        <h2 className="mb-3 text-sm font-bold text-swu-primary">Plots</h2>
+        {(player.plots ?? []).length === 0 ? (
+          <p className="text-center text-sm text-swu-muted">Keine</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {(player.plots ?? []).map((plot) => (
+              <Link
+                key={plot.id}
+                to={`/holonet/plots/${plot.id}`}
+                className="text-sm text-swu-primary hover:underline"
+              >
+                {plot.title}
               </Link>
             ))}
           </div>
