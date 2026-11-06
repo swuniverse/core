@@ -9,11 +9,19 @@ export function PanelDefense({
   onLoadColonyShields,
   onSetShieldFrequency,
   onSetDefenseTorpedoType,
+  shieldGenerators,
+  onToggleShieldGenerator,
 }: {
   defense: NonNullable<ColonyDetailV2['defense']>;
   inventory: ColonyDetailV2['inventory'];
   onLoadColonyShields: (amount: number) => Promise<void> | void;
   onSetShieldFrequency: (frequency: number) => Promise<void> | void;
+  shieldGenerators: Array<{
+    fieldIndex: number;
+    isActive: boolean;
+    isBuilding?: boolean;
+  }>;
+  onToggleShieldGenerator: (fieldIndex: number) => Promise<void> | void;
   onSetDefenseTorpedoType: (
     torpedoTypeId: number | null,
   ) => Promise<void> | void;
@@ -23,6 +31,10 @@ export function PanelDefense({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const torpedoItems = defense.availableTorpedoTypes ?? [];
+  const shieldGenerator =
+    shieldGenerators.length === 1 && !shieldGenerators[0].isBuilding
+      ? shieldGenerators[0]
+      : null;
 
   const run = async (key: string, action: () => Promise<void> | void) => {
     setBusy(key);
@@ -50,6 +62,32 @@ export function PanelDefense({
             {defense.shields.current}/{defense.shields.max}
           </span>
         </div>
+        {shieldGenerator && (
+          <div className="flex items-center justify-between gap-2">
+            <span>
+              Schildgenerator:{' '}
+              <span
+                className={
+                  shieldGenerator.isActive ? 'text-green-400' : 'text-swu-muted'
+                }
+              >
+                {shieldGenerator.isActive ? 'aktiv' : 'inaktiv'}
+              </span>
+            </span>
+            <button
+              onClick={() =>
+                run('generator', () =>
+                  onToggleShieldGenerator(shieldGenerator.fieldIndex),
+                )
+              }
+              disabled={busy === 'generator'}
+              className="px-3 py-1 bg-swu-primary/10 border border-swu-border text-swu-primary text-xs rounded disabled:opacity-40"
+            >
+              Schildgenerator{' '}
+              {shieldGenerator.isActive ? 'deaktivieren' : 'aktivieren'}
+            </button>
+          </div>
+        )}
         <div className="flex gap-2">
           <input
             type="number"

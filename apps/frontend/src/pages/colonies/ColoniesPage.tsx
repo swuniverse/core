@@ -879,6 +879,15 @@ export function ColonyDetail({
   const commodityLocationsRequestSequenceRef = useRef(0);
 
   const detail = colony.detailV2;
+  const shieldGenerators = (detail?.buildingManagement?.fields ?? [])
+    .filter((field) =>
+      field.functions?.some((buildingFunction) => buildingFunction.id === 24),
+    )
+    .map((field) => ({
+      fieldIndex: field.fieldIndex,
+      isActive: field.isActive,
+      isBuilding: field.isBuilding,
+    }));
   const currentEnergy = detail?.energy.current ?? colony.energy;
   const shield =
     detail?.defense?.shields.max != null &&
@@ -1187,6 +1196,8 @@ export function ColonyDetail({
           <PanelDefense
             defense={detail.defense}
             inventory={detail.inventory}
+            shieldGenerators={shieldGenerators}
+            onToggleShieldGenerator={onToggle}
             onLoadColonyShields={onLoadColonyShields}
             onSetShieldFrequency={onSetShieldFrequency}
             onSetDefenseTorpedoType={onSetDefenseTorpedoType}
