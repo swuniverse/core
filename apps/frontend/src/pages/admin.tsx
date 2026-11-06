@@ -258,6 +258,72 @@ function TickTrigger() {
   );
 }
 
+function SendOrder66() {
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const send = async () => {
+    if (
+      !window.confirm(
+        'Nachricht an ALLE Spieler senden? Sie erscheint als Overlay, bis sie bestätigt wird.',
+      )
+    )
+      return;
+    setBusy(true);
+    setError(null);
+    setDone(false);
+    try {
+      await api.post('/order-broadcasts', { message });
+      setMessage('');
+      setDone(true);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Nachricht konnte nicht gesendet werden.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-swu-border bg-swu-surface p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-lg font-semibold text-swu-text">Order 66 senden</div>
+          <p className="mt-1 text-sm text-swu-muted">
+            Zeigt allen Spielern beim Login ein Overlay mit dieser Nachricht, bis sie bestätigt wird.
+          </p>
+        </div>
+        <span className="rounded border border-swu-accent/40 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-swu-accent">
+          Broadcast
+        </span>
+      </div>
+      <div className="mt-4 space-y-3">
+        <textarea
+          className="block w-full rounded border border-swu-border bg-swu-bg px-3 py-2 text-swu-text"
+          value={message}
+          maxLength={2000}
+          rows={3}
+          placeholder="Nachricht an alle Spieler"
+          onChange={(event) => setMessage(event.target.value)}
+        />
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            disabled={busy || !message.trim()}
+            onClick={() => void send()}
+            className="rounded border border-swu-accent bg-swu-accent/10 px-4 py-2 text-sm font-semibold text-swu-accent transition hover:bg-swu-accent/20 disabled:opacity-50"
+          >
+            {busy ? 'Sendet...' : 'Senden'}
+          </button>
+          {done && <span className="text-sm text-swu-success">Gesendet</span>}
+          {error && <span className="text-sm text-red-400">{error}</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AdminPage() {
   return (
     <div className="p-6 space-y-6">
@@ -276,6 +342,7 @@ export function AdminPage() {
           <TickTrigger />
           <CompleteAllBuilds />
           <GameStatusControl />
+          <SendOrder66 />
         </div>
       </section>
 

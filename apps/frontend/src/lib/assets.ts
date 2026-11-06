@@ -5,6 +5,20 @@ import {
 
 const ASSET_BASE = import.meta.env.VITE_ASSET_BASE_URL || '/assets';
 
+/** Bild für Spielleitungs-Nachrichten (Order-66-Overlay), je Fraktion. */
+export function orderBroadcastImage(
+  faction: 'REBEL_ALLIANCE' | 'GALACTIC_EMPIRE' | null | undefined,
+): string | null {
+  switch (faction) {
+    case 'REBEL_ALLIANCE':
+      return `${ASSET_BASE}/avatars/Avatar_Rebellen.png`;
+    case 'GALACTIC_EMPIRE':
+      return `${ASSET_BASE}/avatars/Avatar_Imperium.png`;
+    default:
+      return null;
+  }
+}
+
 export function factionAvatarImage(
   faction: 'REBEL_ALLIANCE' | 'GALACTIC_EMPIRE' | null | undefined,
 ): string | null {

@@ -19,6 +19,9 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { DatabaseModule } from './modules/database/database.module';
 import { MailModule } from './modules/mail/mail.module';
 import { EventsModule } from './modules/events/events.module';
+import { OrderBroadcastModule } from './modules/order-broadcast/order-broadcast.module';
+import { OrderBroadcast } from './modules/order-broadcast/entities/order-broadcast.entity';
+import { OrderBroadcastAck } from './modules/order-broadcast/entities/order-broadcast-ack.entity';
 import { GameStatusModule } from './modules/game-status/game-status.module';
 import { User } from './modules/auth/user.entity';
 import { InviteKey } from './modules/auth/invite-key.entity';
@@ -176,6 +179,8 @@ import { ForumPost } from './modules/alliance/entities/forum-post.entity';
           UserSetting,
           GameEvent,
           GameStatus,
+          OrderBroadcast,
+          OrderBroadcastAck,
           PrestigeHistoryEntry,
           DashboardSnapshot,
           StatisticSnapshot,
@@ -202,6 +207,7 @@ import { ForumPost } from './modules/alliance/entities/forum-post.entity';
     GameDataModule,
     FactionModule,
     GameStatusModule,
+    OrderBroadcastModule,
     AuthModule,
     OnboardingModule,
     ColonyModule,

@@ -4,6 +4,7 @@ import type { ColonyTickReportPayload } from '@swuniverse/shared';
 import { Header } from './header';
 import { Sidebar } from './sidebar';
 import { BottomNav } from './bottom-nav';
+import { OrderBroadcastOverlay } from '../OrderBroadcastOverlay';
 import { useSocket } from '../../hooks/use-socket';
 import type { UserProfile } from '@swuniverse/shared';
 import { api } from '../../services/api';
@@ -85,6 +86,7 @@ export function AppShell() {
       <Header />
       <Sidebar />
       <BottomNav />
+      <OrderBroadcastOverlay />
       {gameStatus?.status !== 'ONLINE' && (
         <div
           className={`fixed inset-x-0 top-[58px] z-40 border-b px-3 py-2 text-center text-xs md:top-[86px] ${
