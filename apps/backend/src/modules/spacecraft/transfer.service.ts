@@ -164,7 +164,7 @@ export class TransferService {
         .select('COALESCE(SUM(storage.amount), 0)', 'total')
         .where('storage.colonyId = :colonyId', { colonyId })
         .getRawOne<{ total: string }>();
-      if (Number(totalStorage?.total ?? 0) + amount > colony.storageMax) {
+      if (Number(totalStorage?.total ?? 0) + amount > this.contextService.getEffectiveStorageMax(colony)) {
         throw new BadRequestException('Not enough colony storage capacity');
       }
       cargoItem.amount -= amount;

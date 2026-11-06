@@ -20,7 +20,10 @@ import {
   TRANSFER_CAPACITY_PER_EPS,
 } from './transfer-cost';
 import { matchesColonyOrbit } from './spacecraft-field';
-import { deductColonyEnergy } from '../colony/colony-stats.service';
+import {
+  ColonyStatsService,
+  deductColonyEnergy,
+} from '../colony/colony-stats.service';
 
 export type TransferInitiator = 'SHIP' | 'COLONY';
 
@@ -40,7 +43,13 @@ export class ShipColonyContextService {
     private readonly storageService: ColonyStorageService,
     private readonly crewService: SpacecraftCrewService,
     private readonly gameData: GameDataService,
+    private readonly statsService: ColonyStatsService,
   ) {}
+
+  /** Storage capacity including building bonuses, as shown in the colony inventory. */
+  getEffectiveStorageMax(colony: Colony): number {
+    return this.statsService.calculateSummary(colony).effectiveStorageMax;
+  }
 
   async requireContext(
     shipId: number,
@@ -64,7 +73,7 @@ export class ShipColonyContextService {
       }),
       colonyRepo.findOne({
         where: { id: colonyId, userId },
-        relations: ['systemField'],
+        relations: ['systemField', 'fields'],
         lock: lockFor('colonies'),
       }),
     ]);
@@ -122,7 +131,10 @@ export class ShipColonyContextService {
       );
       const [colonyFree, colonyCrew, assignedCrew, colonyStorage, shipCargo] =
         await Promise.all([
-          this.storageService.getFreeStorage(colony, colony.storageMax),
+          this.storageService.getFreeStorage(
+            colony,
+            this.getEffectiveStorageMax(colony),
+          ),
           this.crewRepo.count({ where: { colonyId: colony.id } }),
           this.crewService.getAssignedCrewCount(ship.id),
           this.colonyStorageRepo.find({
