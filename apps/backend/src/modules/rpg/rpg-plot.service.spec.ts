@@ -17,6 +17,7 @@ type MockRepository = {
   create: jest.Mock;
   save: jest.Mock;
   findOne: jest.Mock;
+  find: jest.Mock;
   findAndCount: jest.Mock;
   manager: {
     transaction: <T>(run: (manager: TransactionManager) => Promise<T>) => Promise<T>;

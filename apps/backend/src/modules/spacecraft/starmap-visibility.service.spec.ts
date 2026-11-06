@@ -460,6 +460,8 @@ describe('StarmapVisibilityService.listContacts', () => {
       [10, 'OWN'],
       [20, 'SHARED_LIVE_POSITION'],
     ]);
+    expect(result.contacts[0].sensorRange).toBe(4);
+    expect(result.contacts[1]).not.toHaveProperty('sensorRange');
   });
 
   describe('alliance ships', () => {
@@ -673,7 +675,7 @@ describe('StarmapVisibilityService.listContacts', () => {
         async (role) => {
           const contact = await mateContactSeenAs(role);
 
-          expect(contact).toMatchObject({ reason: 'ALLIANCE' });
+          expect(contact).toMatchObject({ reason: 'ALLIANCE', sensorRange: 4 });
           expect(contact?.management).toEqual(MANAGEMENT);
         },
       );
@@ -685,6 +687,7 @@ describe('StarmapVisibilityService.listContacts', () => {
 
           expect(contact).toMatchObject({ reason: 'ALLIANCE' });
           expect(contact).not.toHaveProperty('management');
+          expect(contact).not.toHaveProperty('sensorRange');
         },
       );
 

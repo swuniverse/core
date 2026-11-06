@@ -1,4 +1,7 @@
-import { validateTutorialDefinitions } from './tutorial-definitions';
+import {
+  TUTORIAL_DEFINITIONS,
+  validateTutorialDefinitions,
+} from './tutorial-definitions';
 
 const validDefinitions = {
   version: 1,
@@ -52,9 +55,7 @@ describe('tutorial definitions', () => {
   });
 
   it('defines the German maindesk, colony, and research walkthroughs', () => {
-    const definitions = validateTutorialDefinitions(
-      require('./tutorial-definitions').TUTORIAL_DEFINITIONS,
-    );
+    const definitions = validateTutorialDefinitions(TUTORIAL_DEFINITIONS);
 
     expect(definitions.views.maindesk).toHaveLength(5);
     expect(definitions.views.colony).toHaveLength(8);

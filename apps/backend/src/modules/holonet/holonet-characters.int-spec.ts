@@ -37,7 +37,7 @@ describe('HoloNet character mentions (Postgres)', () => {
     await new AddHolonetPostCharacters20261104120000().up(runner);
     await runner.release();
     const messages = new MessagingService(db.getRepository(Message), db.getRepository(User), {} as never, { emitToUser: jest.fn() } as never, {} as never);
-    service = new HolonetService(db.getRepository(HolonetPost), db.getRepository(HolonetComment), db.getRepository(HolonetRating), db.getRepository(HolonetCheckpoint), db.getRepository(User), messages, {} as never, db.getRepository(RpgPlot), db.getRepository(RpgPlotMember), db.getRepository(UserCharacter));
+    service = new HolonetService(db.getRepository(HolonetPost), db.getRepository(HolonetComment), db.getRepository(HolonetRating), db.getRepository(HolonetCheckpoint), db.getRepository(User), messages, {} as never, db.getRepository(RpgPlot), db.getRepository(RpgPlotMember), db.getRepository(UserCharacter), {} as never);
   });
   afterAll(async () => {
     await db?.destroy();

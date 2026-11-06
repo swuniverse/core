@@ -95,7 +95,7 @@ describe('HolonetService public behavior', () => {
       update: jest.fn().mockResolvedValue(undefined),
       manager: {
         transaction: jest.fn(async (callback) => callback({
-          getRepository: (entity) => entity.name === 'PlotPostRequest'
+          getRepository: (entity: { name: string }) => entity.name === 'PlotPostRequest'
             ? requestRepo
             : postRepo,
         })),
@@ -124,7 +124,7 @@ describe('HolonetService public behavior', () => {
       update: jest.fn().mockResolvedValue(undefined),
       manager: {
         transaction: jest.fn(async (callback) => callback({
-          getRepository: (entity) => entity.name === 'PlotPostRequest'
+          getRepository: (entity: { name: string }) => entity.name === 'PlotPostRequest'
             ? requestRepo
             : postRepo,
         })),
@@ -179,7 +179,7 @@ describe('HolonetService public behavior', () => {
   it('rejects direct assignment when the post becomes assigned before it is locked', async () => {
     const assignedPost = { id: 1, authorId: voterId, category: 'ROLEPLAY', plotId: 8 };
     postRepo.manager.transaction.mockImplementation(async (callback) => callback({
-      getRepository: (entity) => entity.name === 'PlotPostRequest'
+      getRepository: (entity: { name: string }) => entity.name === 'PlotPostRequest'
         ? requestRepo
         : {
             findOne: jest.fn().mockResolvedValue(assignedPost),

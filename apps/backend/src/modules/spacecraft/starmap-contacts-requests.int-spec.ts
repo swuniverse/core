@@ -41,6 +41,21 @@ import { SpacecraftService } from './spacecraft.service';
 import { SpacecraftController } from './spacecraft.controller';
 import { StarmapVisibilityService } from './starmap-visibility.service';
 import { TransferService } from './transfer.service';
+import { SpacecraftTractorService } from './spacecraft-tractor.service';
+import { SpacecraftBoardingService } from './spacecraft-boarding.service';
+import { SpacecraftTakeoverService } from './spacecraft-takeover.service';
+import { SpacecraftCrewService } from './spacecraft-crew.service';
+import { CrewEnhancementService } from './crew-enhancement.service';
+import { SpacecraftRepairService } from './spacecraft-repair.service';
+import { StationConstructionService } from './station-construction.service';
+import { EpsTransferService } from './eps-transfer.service';
+import { EscapePodService } from './escape-pod.service';
+import { SpacecraftDockingService } from './spacecraft-docking.service';
+import { DockingPrivilegeService } from './docking-privilege.service';
+import { StationShipManagementService } from './station-ship-management.service';
+import { StationRepairService } from './station-repair.service';
+import { StationShipyardService } from './station-shipyard.service';
+import { SpacecraftTrackerService } from './spacecraft-tracker.service';
 
 const { NONE, PRESIDENT, VICE, DIPLOMAT } = AllianceRole;
 const JWT_SECRET = 'integration-secret';
@@ -48,7 +63,6 @@ const SPACE_FIELD_TYPE_ID = 1;
 
 /** Controller collaborators the starmap contact routes never touch. */
 const UNRELATED_SPACECRAFT_SERVICES = [
-  SpacecraftService,
   TransferService,
   SpacecraftScanService,
   GameDataService,
@@ -57,6 +71,21 @@ const UNRELATED_SPACECRAFT_SERVICES = [
   SpacecraftCommunicationService,
   SpacecraftEngineeringService,
   SpacecraftDestructionService,
+  SpacecraftTractorService,
+  SpacecraftBoardingService,
+  SpacecraftTakeoverService,
+  SpacecraftCrewService,
+  CrewEnhancementService,
+  SpacecraftRepairService,
+  StationConstructionService,
+  EpsTransferService,
+  EscapePodService,
+  SpacecraftDockingService,
+  DockingPrivilegeService,
+  StationShipManagementService,
+  StationRepairService,
+  StationShipyardService,
+  SpacecraftTrackerService,
 ];
 
 /**
@@ -97,6 +126,10 @@ describe('starmap contact requests (Postgres, HTTP)', () => {
           useValue: { findOneBy: ({ id }: { id: number }) => dataSource.getRepository(User).findOneBy({ id }) },
         },
         JwtStrategy,
+        {
+          provide: SpacecraftService,
+          useValue: { getSensorRange: jest.fn().mockResolvedValue(4) },
+        },
         StarmapVisibilityService,
         RelationshipResolverService,
         {
@@ -273,6 +306,49 @@ describe('starmap contact requests (Postgres, HTTP)', () => {
       .sort();
 
   const ROGUE_SHIPS = ['bail-ship', 'han-ship', 'leia-ship', 'mon-ship'];
+
+  it('resolves the visibility provider through Nest and uses its sensor dependency', async () => {
+    const getSensorRange = jest.fn().mockResolvedValue(4);
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        StarmapVisibilityService,
+        RelationshipResolverService,
+        {
+          provide: PERSONAL_CONTACT_STATUS,
+          useClass: NoPersonalContactStatusPort,
+        },
+        {
+          provide: ALLIANCE_STORE,
+          useFactory: () => new TypeOrmAllianceStore(dataSource),
+        },
+        {
+          provide: getRepositoryToken(Spacecraft),
+          useValue: dataSource.getRepository(Spacecraft),
+        },
+        {
+          provide: getRepositoryToken(Layer),
+          useValue: dataSource.getRepository(Layer),
+        },
+        { provide: SpacecraftService, useValue: { getSensorRange } },
+      ],
+    }).compile();
+    try {
+      const w = await world();
+      const result = await moduleRef
+        .get(StarmapVisibilityService)
+        .listContacts(w.president.id, w.core.id);
+      expect(result.contacts).toContainEqual(
+        expect.objectContaining({
+          spacecraftName: 'leia-ship',
+          reason: 'OWN',
+          sensorRange: 4,
+        }),
+      );
+      expect(getSensorRange).toHaveBeenCalled();
+    } finally {
+      await moduleRef.close();
+    }
+  });
 
   describe('with a running app', () => {
     let app: INestApplication;

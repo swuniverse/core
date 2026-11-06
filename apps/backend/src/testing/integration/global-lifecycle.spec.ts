@@ -23,10 +23,7 @@ describe('integration global lifecycle', () => {
       else process.env.SWU_MIGRATION_BUILDING_SEED_PATH = prior;
       await globalSetup();
       expect(process.env.SWU_MIGRATION_BUILDING_SEED_PATH).toBe(
-        join(
-          process.cwd(),
-          'apps/backend/src/testing/integration/fixtures/migration-buildings.yaml',
-        ),
+        join(__dirname, 'fixtures/migration-buildings.yaml'),
       );
       await globalTeardown();
       expect(process.env.SWU_MIGRATION_BUILDING_SEED_PATH).toBe(prior);

@@ -595,7 +595,9 @@ describe('RelationshipResolverService', () => {
       const store = settlerPair();
       store.addPlayer(3, 'Imperial Settler', EMPIRE.id);
       seedSettlers(store, { type: AllianceRelationshipType.WAR });
-      const friendlyContact = { statuses: async () => new Map([[3, 'FRIEND']]) };
+      const friendlyContact: PersonalContactStatusPort = {
+        statuses: async () => new Map([[3, 'FRIEND']]),
+      };
 
       await expect(
         resolverFor(store, friendlyContact).resolve(1, 3),

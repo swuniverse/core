@@ -64,6 +64,8 @@ function createService(overrides: Record<string, unknown> = {}) {
       getMemberIds: jest.fn().mockResolvedValue([]),
     },
     contacts: { incomingFriendIds: jest.fn().mockResolvedValue([]) },
+    settingsReader: { getSettings: jest.fn().mockResolvedValue({ rpg_behavior: '0' }) },
+    rpgPlotService: { membershipsForUser: jest.fn().mockResolvedValue([]) },
     colonyRepo: { count: jest.fn().mockResolvedValue(1) },
     systemExplorationRepo: {
       find: jest.fn().mockResolvedValue([{ userId: 42, starSystemId: 9 }]),

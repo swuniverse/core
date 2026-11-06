@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type {
   SharedLivePositionDto,
@@ -52,6 +52,7 @@ export class StarmapVisibilityService {
     private readonly relationships: RelationshipResolverService,
     @InjectRepository(Layer)
     private readonly layerRepo: Repository<Layer>,
+    @Inject(SpacecraftService)
     private readonly spacecraftService: Pick<SpacecraftService, 'getSensorRange'>,
   ) {}
 
@@ -86,7 +87,11 @@ export class StarmapVisibilityService {
           if (isHiddenFromViewer(ship, viewerId)) return null;
           const owner = visibility.get(ship.userId);
           const contact = owner ? this.toContact(ship, owner, layerId) : null;
-          if (contact && (contact.reason === 'OWN' || contact.reason === 'ALLIANCE')) {
+          if (
+            contact &&
+            (contact.reason === 'OWN' ||
+              (contact.reason === 'ALLIANCE' && owner?.managementDetails))
+          ) {
             contact.sensorRange = await this.spacecraftService.getSensorRange(ship);
           }
           return contact;
