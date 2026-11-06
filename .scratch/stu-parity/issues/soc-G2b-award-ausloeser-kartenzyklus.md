@@ -1,6 +1,6 @@
 # Award-Auslöser: Ebene vollständig erkundet (Kartenzyklus)
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** soc-G1, tmw-K5
@@ -37,4 +37,4 @@ PostgreSQL verification on the integrated sh-AP-24 harness: the focused command 
 
 Verification after rebase on `stu-parity` (2026-11-06): the soc-G2b focused unit/migration command passed (3 suites, 16 tests); focused PostgreSQL count-2 integration passed (1 suite, 1 test); full PostgreSQL integration passed on the final tree (36 suites, 289 tests); `npx tsc --build apps/backend/tsconfig.app.json --pretty false` passed; focused ESLint passed with no errors; `git diff --check` passed. PostgreSQL mode was the harness-managed disposable PostgreSQL 16 Testcontainer with migrations applied; no shared schema was used.
 
-The required backend build gate is blocked: `npx nx run backend:build` fails during Nx graph processing because `node_modules/.modules.yaml` is missing, and direct `webpack-cli build` cannot load the Nx cached project graph. The issue remains `ready-for-agent` pending a successful backend build.
+Build verification after the Nx cache reset: `npx nx run shared:build` passed (`tsc --build tsconfig.lib.json`; target succeeded), and `npx nx run backend:build` passed (`webpack-cli build --node-env=production`; webpack compiled successfully). Nx reused cached output for the shared dependency on the backend build (1 of 2 tasks); backend webpack compilation ran successfully. With the unit/migration tests, count-2 PostgreSQL integration, complete backend PostgreSQL integration suite, typecheck, lint, diff checks, and both builds passing, this issue is resolved.
