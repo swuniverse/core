@@ -217,7 +217,10 @@ describe('ResearchService – state deduplication', () => {
       makeTech(910001, 10),
       { ...makeTech(910002, 20), neededAwardKey: 'RESEARCH_STATIONS' },
     ];
-    const hasAward = jest.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const hasAward = jest
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
     (service as any).awardService = { hasAward };
 
     const withoutAward = await service.getResearchState(42, null);
@@ -274,6 +277,33 @@ describe('ResearchService – state deduplication', () => {
     expect(empireCloakingGenerator?.dependencies).toEqual([
       { type: 'REQUIRE', techIds: [200503] },
     ]);
+  });
+
+  it('includes excluded research in the tree payload with an EXCLUDED status', async () => {
+    techs = [
+      makeTech(10, 5, [{ type: 'EXCLUDE', techIds: [20] }]),
+      makeTech(20, 5),
+      makeTech(30, 5, [], Faction.GALACTIC_EMPIRE),
+    ];
+    mockRepo.find.mockResolvedValue([
+      { techId: 10, status: 'IN_PROGRESS' } as never,
+    ]);
+
+    const state = await service.getResearchTreeState(
+      42,
+      Faction.REBEL_ALLIANCE,
+    );
+    const excluded = state.find((entry) => entry.id === 20);
+
+    expect(state.map((entry) => entry.id)).toEqual([10, 20]);
+    expect(state.find((entry) => entry.id === 10)?.dependencies).toEqual([
+      { type: 'EXCLUDE', techIds: [20] },
+    ]);
+    expect(excluded?.status).toBe('EXCLUDED');
+    expect(excluded?.dependencies).toEqual([]);
+    expect(await service.getResearchState(42, Faction.REBEL_ALLIANCE)).toEqual(
+      expect.not.arrayContaining([expect.objectContaining({ id: 20 })]),
+    );
   });
 
   it('hides the excluded target after its source research starts', async () => {

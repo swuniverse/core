@@ -79,6 +79,58 @@ const techs = [
   },
 ] satisfies Array<Record<string, unknown>>;
 
+const treeRelationshipTechs = [
+  {
+    ...techs[0],
+    id: 101,
+    name: 'Grundlagenforschung',
+    dependencies: [],
+  },
+  {
+    ...techs[1],
+    id: 102,
+    name: 'Erforderliche Folgeforschung',
+    dependencies: [{ type: 'REQUIRE', techIds: [101] }],
+  },
+  {
+    ...techs[2],
+    id: 103,
+    name: 'Alternative Folgeforschung',
+    dependencies: [{ type: 'REQUIRE_SOME', techIds: [101, 102] }],
+  },
+  {
+    ...techs[1],
+    id: 104,
+    name: 'Ausschließende Forschung',
+    status: 'COMPLETED',
+    dependencies: [{ type: 'EXCLUDE', techIds: [105] }],
+  },
+  {
+    ...techs[2],
+    id: 105,
+    name: 'Ausgeschlossene Forschung',
+    status: 'EXCLUDED',
+    dependencies: [],
+  },
+] satisfies Array<Record<string, unknown>>;
+
+const excludedAlternativePathTechs = [
+  ...treeRelationshipTechs,
+  {
+    ...techs[1],
+    id: 106,
+    name: 'Forschung mit ausgeschlossener Alternative',
+    dependencies: [{ type: 'REQUIRE_SOME', techIds: [105, 107] }],
+  },
+  {
+    ...techs[1],
+    id: 107,
+    name: 'Nicht erforschte Alternative',
+    status: 'LOCKED',
+    dependencies: [],
+  },
+] satisfies Array<Record<string, unknown>>;
+
 const apiMocks = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
@@ -88,15 +140,22 @@ const apiMocks = vi.hoisted(() => ({
 type MockTreeEdge = {
   id: string;
   type?: string;
-  data?: { points?: Array<{ x: number; y: number }> };
-  style?: { stroke?: string; strokeWidth?: number };
+  data?: {
+    points?: Array<{ x: number; y: number }>;
+    dependencyType?: string;
+  };
+  style?: {
+    stroke?: string;
+    strokeWidth?: number;
+    strokeDasharray?: string;
+  };
   animated?: boolean;
 };
 
 const reactFlowMock = vi.hoisted(() => ({
   lastProps: null as {
     nodes: Node<{
-      tech: { id: number; name: string };
+      tech: { id: number; name: string; status?: string };
       isHighlighted: boolean;
       onOpenDetails: () => void;
     }>[];
@@ -104,7 +163,7 @@ const reactFlowMock = vi.hoisted(() => ({
     onNodeClick?: (
       _event: unknown,
       node: Node<{
-        tech: { id: number; name: string };
+        tech: { id: number; name: string; status?: string };
         isHighlighted: boolean;
         onOpenDetails: () => void;
       }>,
@@ -137,7 +196,7 @@ vi.mock('@xyflow/react', () => ({
   }: {
     children?: ReactNode;
     nodes: Node<{
-      tech: { id: number; name: string };
+      tech: { id: number; name: string; status?: string };
       isHighlighted: boolean;
       onOpenDetails: () => void;
     }>[];
@@ -145,7 +204,7 @@ vi.mock('@xyflow/react', () => ({
     onNodeClick?: (
       _event: unknown,
       node: Node<{
-        tech: { id: number; name: string };
+        tech: { id: number; name: string; status?: string };
         isHighlighted: boolean;
         onOpenDetails: () => void;
       }>,
@@ -163,6 +222,9 @@ vi.mock('@xyflow/react', () => ({
             >
               {node.data.tech.name}
             </button>
+            {node.data.tech.status === 'EXCLUDED' && (
+              <span>AUSGESCHLOSSEN</span>
+            )}
             <button
               type="button"
               aria-label={`${node.data.tech.name} Details anzeigen`}
@@ -178,6 +240,8 @@ vi.mock('@xyflow/react', () => ({
             data-testid={`edge-${edge.id}`}
             data-stroke={edge.style?.stroke}
             data-width={edge.style?.strokeWidth}
+            data-dash={edge.style?.strokeDasharray}
+            data-dependency-type={edge.data?.dependencyType}
             data-animated={String(edge.animated ?? false)}
             data-type={edge.type}
             data-points={edge.data?.points?.length ?? 0}
@@ -648,10 +712,10 @@ describe('ResearchPage routing', () => {
       screen.getAllByText('Alternative Reaktortheorie').length,
     ).toBeGreaterThan(0);
     expect(
-      (await screen.findByRole('button', {
-        name: 'Alternative Reaktortheorie (eine von)',
-      })).textContent,
-    ).toContain('(eine von)');
+      await screen.findByRole('button', {
+        name: /Alternative Reaktortheorie.*eine von/,
+      }),
+    ).toBeTruthy();
     expect(screen.getByText('A-Wing Aufklärer')).toBeTruthy();
     expect(screen.getByText('Militär-Scanner')).toBeTruthy();
     expect(screen.getByAltText('A-Wing Aufklärer').getAttribute('src')).toBe(
@@ -844,7 +908,7 @@ describe('ResearchPage routing', () => {
     ).toBe('#38bdf8');
     expect(
       screen.getByTestId('edge-e-211300-211301').getAttribute('data-width'),
-    ).toBe('1.25');
+    ).toBe('1.5');
     expect(
       screen.getByTestId('edge-e-211300-211301').getAttribute('data-animated'),
     ).toBe('false');
@@ -853,13 +917,13 @@ describe('ResearchPage routing', () => {
     ).toBe('#38bdf8');
     expect(
       screen.getByTestId('edge-e-211200-211300').getAttribute('data-width'),
-    ).toBe('1.25');
+    ).toBe('1.5');
     expect(
       screen.getByTestId('edge-e-211200-211300').getAttribute('data-animated'),
     ).toBe('false');
     expect(
       screen.getByTestId('edge-e-211200-211302').getAttribute('data-stroke'),
-    ).toBe('#38bdf8');
+    ).toBe('#a78bfa');
     expect(
       screen.getByTestId('edge-e-211200-211302').getAttribute('data-animated'),
     ).toBe('false');
@@ -867,9 +931,9 @@ describe('ResearchPage routing', () => {
     fireEvent.click(treeNodeButton);
 
     await waitFor(() => {
-      expect(
-        screen.getByTestId('edge-e-211300-211301').getAttribute('data-stroke'),
-      ).toBe('#f59e0b');
+      const highlightedEdge = screen.getByTestId('edge-e-211300-211301');
+      expect(highlightedEdge.getAttribute('data-width')).toBe('2.75');
+      expect(highlightedEdge.getAttribute('data-animated')).toBe('true');
     });
     expect(screen.getByTestId('location').textContent).toBe(
       '/research/tree?highlight=211301',
@@ -889,7 +953,7 @@ describe('ResearchPage routing', () => {
     ).toBeTruthy();
     expect(
       screen.getByTestId('edge-e-211300-211301').getAttribute('data-stroke'),
-    ).toBe('#f59e0b');
+    ).toBe('#38bdf8');
     expect(
       screen.getByTestId('edge-e-211300-211301').getAttribute('data-width'),
     ).toBe('2.75');
@@ -898,7 +962,7 @@ describe('ResearchPage routing', () => {
     ).toBe('true');
     expect(
       screen.getByTestId('edge-e-211200-211300').getAttribute('data-stroke'),
-    ).toBe('#f59e0b');
+    ).toBe('#38bdf8');
     expect(
       screen.getByTestId('edge-e-211200-211300').getAttribute('data-width'),
     ).toBe('2.75');
@@ -907,7 +971,7 @@ describe('ResearchPage routing', () => {
     ).toBe('true');
     expect(
       screen.getByTestId('edge-e-211200-211302').getAttribute('data-stroke'),
-    ).toBe('#38bdf8');
+    ).toBe('#a78bfa');
     expect(
       screen.getByTestId('edge-e-211200-211302').getAttribute('data-animated'),
     ).toBe('false');
@@ -925,7 +989,7 @@ describe('ResearchPage routing', () => {
     ).toBe('#38bdf8');
     expect(
       screen.getByTestId('edge-e-211300-211301').getAttribute('data-width'),
-    ).toBe('1.25');
+    ).toBe('1.5');
     expect(
       screen.getByTestId('edge-e-211300-211301').getAttribute('data-animated'),
     ).toBe('false');
@@ -934,7 +998,7 @@ describe('ResearchPage routing', () => {
     ).toBe('#38bdf8');
     expect(
       screen.getByTestId('edge-e-211200-211300').getAttribute('data-width'),
-    ).toBe('1.25');
+    ).toBe('1.5');
     expect(
       screen.getByTestId('edge-e-211200-211300').getAttribute('data-animated'),
     ).toBe('false');
@@ -964,6 +1028,77 @@ describe('ResearchPage routing', () => {
       screen.getByTestId('edge-e-211200-211300').getAttribute('data-animated'),
     ).toBe('false');
     expect(screen.getByText('Forschungsbaum')).toBeTruthy();
+  });
+
+  it('renders each research relationship and excluded technology distinctly', async () => {
+    apiMocks.get.mockResolvedValueOnce(treeRelationshipTechs);
+
+    render(
+      <MemoryRouter initialEntries={['/research/tree']}>
+        <Routes>
+          <Route path="/research/tree" element={<ResearchTreePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Forschungsbaum');
+    expect(apiMocks.get).toHaveBeenCalledWith('/research/tree');
+
+    expect(
+      screen.getByTestId('edge-e-101-102').getAttribute('data-stroke'),
+    ).toBe('#38bdf8');
+    expect(
+      screen.getByTestId('edge-e-101-103').getAttribute('data-stroke'),
+    ).not.toBe('#38bdf8');
+    expect(
+      screen.getByTestId('edge-e-101-102').getAttribute('data-dependency-type'),
+    ).toBe('REQUIRE');
+    expect(
+      screen.getByTestId('edge-e-101-103').getAttribute('data-dependency-type'),
+    ).toBe('REQUIRE_SOME');
+    expect(screen.getByTestId('edge-ex-104-105')).toBeTruthy();
+    expect(
+      screen.getByTestId('edge-ex-104-105').getAttribute('data-stroke'),
+    ).toBe('#ef4444');
+    expect(
+      screen
+        .getByTestId('edge-ex-104-105')
+        .getAttribute('data-dependency-type'),
+    ).toBe('EXCLUDE');
+    expect(
+      screen.getByTestId('edge-ex-104-105').getAttribute('data-dash'),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId('edge-e-101-103').getAttribute('data-dash'),
+    ).toBeTruthy();
+    expect(screen.getAllByText('AUSGESCHLOSSEN').length).toBeGreaterThan(0);
+    expect(screen.getByText('REQUIRE')).toBeTruthy();
+    expect(screen.getByText('REQUIRE_SOME')).toBeTruthy();
+    expect(screen.getByText('EXCLUDE')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Ausgeschlossene Forschung' }),
+    ).toBeTruthy();
+  });
+
+  it('does not highlight an excluded REQUIRE_SOME fallback alternative', async () => {
+    apiMocks.get.mockResolvedValueOnce(excludedAlternativePathTechs);
+
+    render(
+      <MemoryRouter initialEntries={['/research/tree?focus=106']}>
+        <Routes>
+          <Route path="/research/tree" element={<ResearchTreePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('edge-e-107-106').getAttribute('data-animated'),
+      ).toBe('true');
+    });
+    expect(
+      screen.getByTestId('edge-e-105-106').getAttribute('data-animated'),
+    ).toBe('false');
   });
 
   it('renders consolidated modules and disconnected chains in tree and list views', async () => {

@@ -27,15 +27,26 @@ type ResearchTreeNodeData = {
   isHighlighted: boolean;
   onOpenDetails: () => void;
 };
-type ResearchTreeEdgeData = { points?: Array<{ x: number; y: number }> };
+type ResearchDependencyType = 'REQUIRE' | 'REQUIRE_SOME' | 'EXCLUDE';
+type ResearchTreeEdgeData = {
+  points?: Array<{ x: number; y: number }>;
+  dependencyType: ResearchDependencyType;
+};
 
 const NODE_WIDTH = 208;
 const NODE_HEIGHT = 64;
 
 const elk = new ELK();
 
-const DEFAULT_EDGE_STYLE = { stroke: '#38bdf8', strokeWidth: 1.25 };
-const HIGHLIGHT_EDGE_STYLE = { stroke: '#f59e0b', strokeWidth: 2.75 };
+const EDGE_STYLES: Record<
+  ResearchDependencyType,
+  { stroke: string; strokeWidth: number; strokeDasharray?: string }
+> = {
+  REQUIRE: { stroke: '#38bdf8', strokeWidth: 1.5 },
+  REQUIRE_SOME: { stroke: '#a78bfa', strokeWidth: 1.5, strokeDasharray: '6 4' },
+  EXCLUDE: { stroke: '#ef4444', strokeWidth: 1.75, strokeDasharray: '2 4' },
+};
+const HIGHLIGHT_EDGE_STYLE = { strokeWidth: 2.75 };
 const HIGHLIGHT_NODE_RING = '0 0 0 2px #f59e0b';
 
 function collectHighlightedPathIds(
@@ -72,9 +83,10 @@ function collectHighlightedPathIds(
               });
               if (preferred !== undefined) return [preferred];
 
-              const fallback = dependency.techIds.find((depId) =>
-                techById.has(depId),
-              );
+              const fallback = dependency.techIds.find((depId) => {
+                const depTech = techById.get(depId);
+                return depTech && depTech.status !== 'EXCLUDED';
+              });
               return fallback !== undefined ? [fallback] : [];
             })();
 
@@ -111,25 +123,28 @@ async function getLayoutedElements(
   const edges: Edge<ResearchTreeEdgeData>[] = [];
   for (const tech of dedupedTechs) {
     for (const dep of tech.dependencies) {
-      if (dep.type === 'EXCLUDE') continue;
       for (const depId of dep.techIds) {
-        const edgeId = `e-${depId}-${tech.id}`;
-        if (techMap.has(depId) && !edgeSet.has(edgeId)) {
-          edgeSet.add(edgeId);
-          edges.push({
-            id: edgeId,
-            source: String(depId),
-            target: String(tech.id),
-            type: 'routed',
-            style: DEFAULT_EDGE_STYLE,
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              color: '#38bdf8',
-              width: 12,
-              height: 12,
-            },
-          });
-        }
+        if (!techMap.has(depId)) continue;
+        const edgeId =
+          dep.type === 'EXCLUDE'
+            ? `ex-${tech.id}-${depId}`
+            : `e-${depId}-${tech.id}`;
+        if (edgeSet.has(edgeId)) continue;
+        edgeSet.add(edgeId);
+        edges.push({
+          id: edgeId,
+          source: String(dep.type === 'EXCLUDE' ? tech.id : depId),
+          target: String(dep.type === 'EXCLUDE' ? depId : tech.id),
+          type: 'routed',
+          data: { dependencyType: dep.type },
+          style: EDGE_STYLES[dep.type],
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: EDGE_STYLES[dep.type].stroke,
+            width: 12,
+            height: 12,
+          },
+        });
       }
     }
   }
@@ -166,11 +181,13 @@ async function getLayoutedElements(
         width: NODE_WIDTH,
         height: NODE_HEIGHT,
       })),
-    edges: edges.map((e) => ({
-      id: e.id,
-      sources: [e.source],
-      targets: [e.target],
-    })),
+    edges: edges
+      .filter((edge) => edge.data?.dependencyType !== 'EXCLUDE')
+      .map((e) => ({
+        id: e.id,
+        sources: [e.source],
+        targets: [e.target],
+      })),
   };
 
   const laid = await elk.layout(elkGraph);
@@ -218,15 +235,26 @@ async function getLayoutedElements(
   );
 
   const styledEdges = edges.map((edge) => {
-    const isHighlighted = highlightedEdgeIds.has(edge.id);
+    const dependencyType = edge.data!.dependencyType;
+    const isHighlighted =
+      dependencyType !== 'EXCLUDE' && highlightedEdgeIds.has(edge.id);
+    const baseStyle = EDGE_STYLES[dependencyType];
     return {
       ...edge,
-      data: { points: routePointsByEdgeId.get(edge.id) },
-      style: isHighlighted ? HIGHLIGHT_EDGE_STYLE : DEFAULT_EDGE_STYLE,
+      data: {
+        dependencyType,
+        points:
+          dependencyType === 'EXCLUDE'
+            ? undefined
+            : routePointsByEdgeId.get(edge.id),
+      },
+      style: isHighlighted
+        ? { ...baseStyle, ...HIGHLIGHT_EDGE_STYLE }
+        : baseStyle,
       animated: isHighlighted,
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: isHighlighted ? '#f59e0b' : '#38bdf8',
+        color: baseStyle.stroke,
         width: 12,
         height: 12,
       },
@@ -245,6 +273,7 @@ const STATUS_COLORS: Record<
   QUEUED: { bg: '#c2b942', border: '#c2b94280', text: '#0d121c' },
   AVAILABLE: { bg: '#8897cf', border: '#8897cf', text: '#0d121c' },
   LOCKED: { bg: '#1a1a2e', border: '#0f3460', text: '#aaaaaa' },
+  EXCLUDED: { bg: '#351c24', border: '#ef4444', text: '#fecaca' },
 };
 
 function TechNodeComponent({ data }: { data: ResearchTreeNodeData }) {
@@ -324,7 +353,11 @@ function TechNodeComponent({ data }: { data: ResearchTreeNodeData }) {
         </button>
       </div>
       <div style={{ fontSize: 10, color: '#aaaaaa', marginTop: 2 }}>
-        {tech.status === 'COMPLETED' ? '✓' : `${tech.pointsRequired} FP`}
+        {tech.status === 'EXCLUDED'
+          ? 'AUSGESCHLOSSEN'
+          : tech.status === 'COMPLETED'
+            ? '✓'
+            : `${tech.pointsRequired} FP`}
       </div>
       <Handle
         type="source"
@@ -387,7 +420,7 @@ export function ResearchTreePage() {
 
   const loadTechs = useCallback(async () => {
     const sequence = ++loadSequence.current;
-    const data = await api.get<TechState[]>('/research');
+    const data = await api.get<TechState[]>('/research/tree');
     if (sequence !== loadSequence.current) return;
     setTechs(data);
   }, []);
@@ -505,6 +538,48 @@ export function ResearchTreePage() {
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
       >
+        <div
+          aria-label="Forschungsbaum-Legende"
+          style={{
+            position: 'absolute',
+            zIndex: 5,
+            top: 12,
+            left: 12,
+            display: 'grid',
+            gap: 6,
+            padding: '8px 10px',
+            borderRadius: 6,
+            background: '#1a1a2e',
+            border: '1px solid #0f3460',
+            color: '#eeeeee',
+            fontSize: 10,
+          }}
+        >
+          {(['REQUIRE', 'REQUIRE_SOME', 'EXCLUDE'] as const).map((type) => (
+            <div
+              key={type}
+              style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 24,
+                  borderTop: `${EDGE_STYLES[type].strokeWidth}px ${type === 'REQUIRE' ? 'solid' : 'dashed'} ${EDGE_STYLES[type].stroke}`,
+                }}
+              />
+              <span>{type}</span>
+              {type === 'REQUIRE_SOME' && <span>(one of)</span>}
+              {type === 'EXCLUDE' && <span>(excluded)</span>}
+            </div>
+          ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span
+              aria-hidden="true"
+              style={{ width: 24, height: 2, background: '#ef4444' }}
+            />
+            <span>AUSGESCHLOSSEN</span>
+          </div>
+        </div>
         <Background color="#0f3460" gap={20} size={1} />
         <Controls
           position="bottom-right"

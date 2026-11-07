@@ -51,8 +51,13 @@ export class ResearchController {
   constructor(private readonly researchService: ResearchService) {}
 
   @Get('tree')
-  getTechTree() {
-    return this.researchService.getTechTree();
+  getTechTreeState(
+    @Request() req: { user: { sub: number; faction?: Faction } },
+  ) {
+    return this.researchService.getResearchTreeState(
+      req.user.sub,
+      req.user.faction,
+    );
   }
 
   @Get()

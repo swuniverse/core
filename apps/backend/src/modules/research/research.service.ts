@@ -71,7 +71,19 @@ export class ResearchService {
     });
   }
 
-  async getResearchState(userId: number, faction?: Faction | null) {
+  getResearchState(userId: number, faction?: Faction | null) {
+    return this.buildResearchState(userId, faction, false);
+  }
+
+  getResearchTreeState(userId: number, faction?: Faction | null) {
+    return this.buildResearchState(userId, faction, true);
+  }
+
+  private async buildResearchState(
+    userId: number,
+    faction: Faction | null | undefined,
+    includeExcluded: boolean,
+  ) {
     const techTree = this.gameData.getTechTree();
     const userResearch = await this.getUserResearch(userId);
     const completed = new Set(
@@ -117,11 +129,9 @@ export class ResearchService {
     const visibleTechs = new Map<number, TechDef>();
     for (const tech of techTree) {
       if (tech.hidden || tech.excludeFromNormalProgression) continue;
-      if (
-        tech.neededAwardKey &&
-        !ownedAwardKeys.has(tech.neededAwardKey)
-      ) continue;
-      if (excludedByStartedResearch.has(tech.id)) continue;
+      if (tech.neededAwardKey && !ownedAwardKeys.has(tech.neededAwardKey))
+        continue;
+      if (excludedByStartedResearch.has(tech.id) && !includeExcluded) continue;
       if (!isTechForFaction(tech, faction ?? null)) continue;
       if (
         ROOT_TECH_IDS.has(tech.id) &&
@@ -139,9 +149,11 @@ export class ResearchService {
     }
     return [...visibleTechs.values()].map((tech) => {
       const existing = userResearch.find((r) => r.techId === tech.id);
-      let status: ResearchStatus;
+      let status: ResearchStatus | 'EXCLUDED';
 
-      if (existing) {
+      if (includeExcluded && excludedByStartedResearch.has(tech.id)) {
+        status = 'EXCLUDED';
+      } else if (existing) {
         status = existing.status;
       } else if (this.areDependenciesMet(tech, completed)) {
         status = ResearchStatus.AVAILABLE;
