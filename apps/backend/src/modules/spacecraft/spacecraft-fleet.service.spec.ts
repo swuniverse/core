@@ -56,7 +56,13 @@ jest.mock('../faction/entities/faction-modifier.entity', () => ({
 }));
 
 import { SpacecraftService } from './spacecraft.service';
-import { AlertState, SpacecraftStatus } from './entities/spacecraft.entity';
+import {
+  AlertState,
+  SpacecraftStatus,
+  Spacecraft,
+} from './entities/spacecraft.entity';
+import { Fleet } from './entities/fleet.entity';
+import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 
 function createService() {
   const shipRepo = {
@@ -127,6 +133,66 @@ function createService() {
     }),
   };
   const statistics = { countEvent: jest.fn(async () => undefined) };
+  const manager = {
+    queryRunner: { isTransactionActive: true },
+    findOneBy: jest.fn((entity, where) =>
+      entity === Fleet
+        ? fleetRepo.findOne({ where })
+        : shipRepo.findOne({ where }),
+    ),
+    findOne: jest.fn(async (entity, options) => {
+      if (entity !== Fleet) return shipRepo.findOne(options);
+      const fleet = await fleetRepo.findOne(options);
+      return fleet ? { ...fleet } : null;
+    }),
+    findBy: jest.fn(async (entity, where) => {
+      if (entity === Spacecraft) {
+        const members = await shipRepo.find({ where });
+        return (
+          members ??
+          [await shipRepo.findOne({ where: { id: 3 } })].filter(Boolean)
+        ).filter((member: Spacecraft) => member.fleetId === where.fleetId);
+      }
+      return [];
+    }),
+    find: jest.fn(
+      async () =>
+        (await shipRepo.find({})) ??
+        [await shipRepo.findOne({})].filter(Boolean),
+    ),
+    count: jest.fn(async (entity) => (entity === CrewAssignment ? 100 : 0)),
+    create: jest.fn((_entity, value) => fleetRepo.create(value)),
+    save: jest.fn((_entity, value) => fleetRepo.save(value)),
+    update: jest.fn(async (entity, id, values) => {
+      if (entity === Fleet) {
+        const fleet = await fleetRepo.findOne({ where: { id, userId: 5 } });
+        Object.assign(fleet, values);
+        return;
+      }
+      const members = await shipRepo.find({});
+      const member = members?.find((ship: Spacecraft) => ship.id === id);
+      if (member) Object.assign(member, values);
+      return shipRepo.save({ id, ...values });
+    }),
+    delete: jest.fn(async (_entity, id) =>
+      fleetRepo.remove(await fleetRepo.findOne({ where: { id, userId: 5 } })),
+    ),
+    createQueryBuilder: jest.fn(() => {
+      const builder: Record<string, jest.Mock> = {
+        where: jest.fn(() => builder),
+        orderBy: jest.fn(() => builder),
+        setLock: jest.fn(() => builder),
+        setOnLocked: jest.fn(() => builder),
+        getMany: jest.fn(async () => {
+          const members = await shipRepo.find({});
+          if (members) return members;
+          const ship = await shipRepo.findOne({});
+          return ship ? [ship] : [];
+        }),
+      };
+      return builder;
+    }),
+  };
   const service = new SpacecraftService(
     shipRepo as unknown as ConstructorParameters<typeof SpacecraftService>[0],
     moduleRepo as unknown as ConstructorParameters<typeof SpacecraftService>[1],
@@ -143,6 +209,7 @@ function createService() {
     userRepo as unknown as ConstructorParameters<typeof SpacecraftService>[8],
     {
       getRepository: jest.fn(() => locationRepo),
+      transaction: jest.fn(async (callback) => callback(manager)),
     } as unknown as ConstructorParameters<typeof SpacecraftService>[9],
     gameData as unknown as ConstructorParameters<typeof SpacecraftService>[10],
     shipClassService as unknown as ConstructorParameters<
@@ -386,17 +453,18 @@ describe('SpacecraftService fleet management', () => {
     await expect(service.toggleFleetFixation(5, 7)).resolves.toMatchObject({
       isFixed: true,
     });
-    expect(fleetRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ isFixed: true }),
-    );
+    expect(fleet.isFixed).toBe(true);
   });
 
   it('only joins a local idle ship to its own fleet', async () => {
     const { service, shipRepo, fleetRepo } = createService();
     fleetRepo.findOne.mockResolvedValue({ id: 7, userId: 5, leaderId: 3 });
-    shipRepo.findOne
-      .mockResolvedValueOnce(ship())
-      .mockResolvedValueOnce(ship({ id: 3 }));
+    const joiner = ship();
+    const leader = ship({ id: 3, fleetId: 7 });
+    shipRepo.findOne.mockImplementation(({ where }) =>
+      Promise.resolve(where.id === 3 ? leader : joiner),
+    );
+    shipRepo.find.mockResolvedValue([leader, joiner]);
 
     await service.joinFleet(5, 7, 2);
 
@@ -420,11 +488,12 @@ describe('SpacecraftService fleet management', () => {
   ])('rejects invalid joins', async (status, locationId, message) => {
     const { service, shipRepo, fleetRepo } = createService();
     fleetRepo.findOne.mockResolvedValue({ id: 7, userId: 5, leaderId: 3 });
-    shipRepo.findOne
-      .mockResolvedValueOnce(
-        ship({ status, locationId, location: { id: locationId } }),
-      )
-      .mockResolvedValueOnce(ship({ id: 3 }));
+    const joiner = ship({ status, locationId, location: { id: locationId } });
+    const leader = ship({ id: 3, fleetId: 7 });
+    shipRepo.findOne.mockImplementation(({ where }) =>
+      Promise.resolve(where.id === 3 ? leader : joiner),
+    );
+    shipRepo.find.mockResolvedValue([leader, joiner]);
 
     await expect(service.joinFleet(5, 7, 2)).rejects.toThrow(message);
   });
@@ -460,9 +529,7 @@ describe('SpacecraftService fleet management', () => {
     ).resolves.toEqual({
       alertState: AlertState.RED,
       applied: [{ shipId: 2, shipName: 'Falke' }],
-      failed: [
-        { shipId: 3, shipName: 'Falke', reason: 'Reaktor überlastet' },
-      ],
+      failed: [{ shipId: 3, shipName: 'Falke', reason: 'Reaktor überlastet' }],
     });
     expect(service.setAlertState).toHaveBeenCalledTimes(2);
   });
@@ -473,8 +540,12 @@ describe('SpacecraftService fleet management', () => {
     fleetRepo.findOne.mockImplementation(({ where }) =>
       Promise.resolve(where.userId === 5 ? fleet : null),
     );
-    shipRepo.findOne.mockResolvedValue(ship({ id: 3, fleetId: 7 }));
-    shipRepo.find = jest.fn().mockResolvedValue([ship({ fleetId: 7 })]);
+    const leader = ship({ fleetId: 7 });
+    const successor = ship({ id: 3, fleetId: 7 });
+    shipRepo.findOne.mockImplementation(({ where }) =>
+      Promise.resolve(where.id === 3 ? successor : leader),
+    );
+    shipRepo.find.mockResolvedValue([leader, successor]);
 
     await expect(service.renameFleet(6, 7, 'Neu')).rejects.toThrow(
       'Flotte nicht gefunden',

@@ -39,6 +39,10 @@ import { SpacecraftTorpedoStorage } from '../../modules/spacecraft/entities/spac
 import { SpacecraftModule } from '../../modules/spacecraft/entities/spacecraft-module.entity';
 import { EscapePod } from '../../modules/spacecraft/entities/escape-pod.entity';
 import { Fleet } from '../../modules/spacecraft/entities/fleet.entity';
+import { SpacecraftTakeover } from '../../modules/spacecraft/entities/spacecraft-takeover.entity';
+import { FlightSignature } from '../../modules/spacecraft/entities/flight-signature.entity';
+import { SpacecraftRepairTask } from '../../modules/spacecraft/entities/spacecraft-repair-task.entity';
+import { StationShipRepair } from '../../modules/spacecraft/entities/station-ship-repair.entity';
 import { ShipClassDef } from '../../modules/spacecraft/entities/ship-class-def.entity';
 import { Colony } from '../../modules/colony/entities/colony.entity';
 import { ColonyField } from '../../modules/colony/entities/colony-field.entity';
@@ -95,6 +99,10 @@ export const INTEGRATION_ENTITIES = [
   SpacecraftTorpedoStorage,
   SpacecraftModule,
   Fleet,
+  SpacecraftTakeover,
+  FlightSignature,
+  SpacecraftRepairTask,
+  StationShipRepair,
   EscapePod,
   ShipClassDef,
   Colony,
