@@ -212,12 +212,14 @@ export class SpacecraftService {
       cancelForShip: async () => false,
       processTick: async () => null,
     } as unknown as SpacecraftTakeoverService,
+    @InjectRepository(Buoy)
     private readonly buoyRepo: Repository<Buoy> = {
       find: async () => [],
       countBy: async () => 0,
       create: (value: Partial<Buoy>) => value as Buoy,
       findOneBy: async () => null,
     } as unknown as Repository<Buoy>,
+    @InjectRepository(CargoItem)
     private readonly cargoRepo: Repository<CargoItem> = {
       findOneBy: async () => null,
     } as unknown as Repository<CargoItem>,

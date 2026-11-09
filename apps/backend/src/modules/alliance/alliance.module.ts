@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { GameGateway } from '../websocket/game.gateway';
@@ -70,7 +70,7 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
     ]),
     MessagingModule,
     WebsocketModule,
-    ColonyModule,
+    forwardRef(() => ColonyModule),
     ContactModule,
   ],
   controllers: [AllianceController, AllianceBannerController],

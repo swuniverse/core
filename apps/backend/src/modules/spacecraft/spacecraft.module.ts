@@ -79,7 +79,10 @@ import { SpacecraftRepairService } from './spacecraft-repair.service';
 import { StationConstructionService } from './station-construction.service';
 import { InteractionContextService } from './interaction-context.service';
 import { SpacecraftTractorService } from './spacecraft-tractor.service';
-import { SpacecraftBoardingService } from './spacecraft-boarding.service';
+import {
+  BOARDING_RANDOM_TOKEN,
+  SpacecraftBoardingService,
+} from './spacecraft-boarding.service';
 import { SpacecraftTakeover } from './entities/spacecraft-takeover.entity';
 import { Buoy } from './entities/buoy.entity';
 import { SpacecraftTakeoverService } from './spacecraft-takeover.service';
@@ -91,7 +94,11 @@ import {
   FlightConsequencePipeline,
 } from './flight-consequence-pipeline';
 import { FieldTransitionExecutor } from './field-transition-executor';
-import { FieldEffectConsequence } from './field-effect-consequence';
+import {
+  FieldEffectConsequence,
+  STU_CLOCK_TOKEN,
+  STU_RANDOM_TOKEN,
+} from './field-effect-consequence';
 import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue.entity';
 import { ShipbuildingModule } from '../shipbuilding/shipbuilding.module';
 import { StationShipyardService } from './station-shipyard.service';
@@ -188,10 +195,19 @@ import { StationShipyardService } from './station-shipyard.service';
     InteractionContextService,
     SpacecraftTractorService,
     SpacecraftBoardingService,
+    {
+      provide: BOARDING_RANDOM_TOKEN,
+      useValue: {
+        integer: (min: number, max: number) =>
+          Math.floor(Math.random() * (max - min + 1)) + min,
+      },
+    },
     SpacecraftTakeoverService,
     SpacecraftTrackerService,
     FieldTransitionExecutor,
     FieldEffectConsequence,
+    { provide: STU_RANDOM_TOKEN, useValue: Math.random },
+    { provide: STU_CLOCK_TOKEN, useValue: () => new Date() },
     FlightConsequencePipeline,
     {
       provide: FLIGHT_CONSEQUENCES,

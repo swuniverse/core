@@ -14,6 +14,19 @@ module.exports = {
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
   transform: {
+    '^.+app-module-graph\\.spec\\.ts$': [
+      'ts-jest',
+      {
+        isolatedModules: true,
+        tsconfig: {
+          module: 'commonjs',
+          moduleResolution: 'node10',
+          experimentalDecorators: true,
+          emitDecoratorMetadata: true,
+          esModuleInterop: true,
+        },
+      },
+    ],
     '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
   },
   moduleFileExtensions: ['ts', 'js', 'html'],

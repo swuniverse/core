@@ -10,7 +10,7 @@ import {
   GameTickType,
 } from './entities/game-tick-state.entity';
 import { MaintenanceService } from './maintenance.service';
-import type { TickService } from './tick.service';
+import { TickService } from './tick.service';
 
 const ERROR_PREVIEW_LENGTH = 500;
 

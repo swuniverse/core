@@ -1,7 +1,32 @@
-import { GameTickStatus, GameTickType } from './entities/game-tick-state.entity';
+import { Test } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import {
+  GameTickState,
+  GameTickStatus,
+  GameTickType,
+} from './entities/game-tick-state.entity';
+import { User } from '../auth/user.entity';
+import { MessagingService } from '../messaging/messaging.service';
+import { MaintenanceService } from './maintenance.service';
+import { TickService } from './tick.service';
 import { TickAdminService } from './tick-admin.service';
 
 describe('TickAdminService', () => {
+  it('can be initialized by Nest with the TickModule TickService provider', async () => {
+    await expect(
+      Test.createTestingModule({
+        providers: [
+          TickAdminService,
+          { provide: getRepositoryToken(GameTickState), useValue: {} },
+          { provide: getRepositoryToken(User), useValue: {} },
+          { provide: MessagingService, useValue: {} },
+          { provide: TickService, useValue: {} },
+          { provide: MaintenanceService, useValue: {} },
+        ],
+      }).compile(),
+    ).resolves.toBeDefined();
+  });
+
   const createService = () => {
     const tickStateRepo = {
       find: jest.fn(),

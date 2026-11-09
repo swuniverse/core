@@ -68,6 +68,7 @@ export class SpacecraftScanService {
     private readonly systemTypeDiscoveryService: SystemTypeDiscoveryService,
     private readonly celestialClassDiscoveryService: CelestialClassDiscoveryService,
     private readonly colonyScanProjection: ColonyScanProjectionService,
+    @InjectRepository(Buoy)
     private readonly buoyRepo: Repository<Buoy> = {
       find: async () => [],
     } as unknown as Repository<Buoy>,

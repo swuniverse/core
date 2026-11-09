@@ -2,9 +2,27 @@ jest.mock('../spacecraft/entities/spacecraft-wreck.entity', () => ({
   SpacecraftWreck: class SpacecraftWreck {},
 }));
 
-import { WreckDecayService } from './wreck-decay.service';
+import { Test } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { SpacecraftWreck } from '../spacecraft/entities/spacecraft-wreck.entity';
+import {
+  WRECK_DECAY_RANDOM_TOKEN,
+  WreckDecayService,
+} from './wreck-decay.service';
 
 describe('WreckDecayService', () => {
+  it('can be initialized by Nest with the default damage function', async () => {
+    await expect(
+      Test.createTestingModule({
+        providers: [
+          WreckDecayService,
+          { provide: getRepositoryToken(SpacecraftWreck), useValue: {} },
+          { provide: WRECK_DECAY_RANDOM_TOKEN, useValue: () => 5 },
+        ],
+      }).compile(),
+    ).resolves.toBeDefined();
+  });
+
   const wreckRepo = {
     find: jest.fn(),
     save: jest.fn(),

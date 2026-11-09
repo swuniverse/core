@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { FieldEffect, knownFieldEffects, WsEventType } from '@swuniverse/shared';
 import { MessageFolder } from '../messaging/message-folder';
 import { MessagingService } from '../messaging/messaging.service';
@@ -6,6 +6,8 @@ import { GameGateway } from '../websocket/game.gateway';
 import type { Spacecraft } from './entities/spacecraft.entity';
 import type { FlightConsequence, FlightConsequenceField } from './flight-consequence-pipeline';
 
+export const STU_RANDOM_TOKEN = 'STU_RANDOM';
+export const STU_CLOCK_TOKEN = 'STU_CLOCK';
 export type StuRandom = () => number;
 type SystemState = { active?: boolean; integrity?: number; current?: number; max?: number };
 
@@ -14,7 +16,9 @@ export class FieldEffectConsequence implements FlightConsequence {
   constructor(
     private readonly messaging: MessagingService,
     private readonly gateway: GameGateway,
+    @Inject(STU_RANDOM_TOKEN)
     private readonly random: StuRandom = Math.random,
+    @Inject(STU_CLOCK_TOKEN)
     private readonly clock: () => Date = () => new Date(),
   ) {}
 

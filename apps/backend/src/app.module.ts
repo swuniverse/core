@@ -64,6 +64,7 @@ import { FactionModifier } from './modules/faction/entities/faction-modifier.ent
 import { OnboardingSelection } from './modules/onboarding/entities/onboarding-selection.entity';
 import { Spacecraft } from './modules/spacecraft/entities/spacecraft.entity';
 import { CargoItem } from './modules/spacecraft/entities/cargo-item.entity';
+import { Buoy } from './modules/spacecraft/entities/buoy.entity';
 import { SpacecraftModule as SpacecraftModuleEntity } from './modules/spacecraft/entities/spacecraft-module.entity';
 import { SpacecraftTorpedoStorage } from './modules/spacecraft/entities/spacecraft-torpedo-storage.entity';
 import { SpacecraftWreck } from './modules/spacecraft/entities/spacecraft-wreck.entity';
@@ -200,6 +201,7 @@ import { IgnoreList } from './modules/contacts/entities/ignore-list.entity';
           OnboardingSelection,
           Spacecraft,
           CargoItem,
+          Buoy,
           SpacecraftModuleEntity,
           SpacecraftTorpedoStorage,
           SpacecraftWreck,

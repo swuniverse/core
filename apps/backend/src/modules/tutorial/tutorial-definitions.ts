@@ -1,5 +1,7 @@
 import type { TutorialDefinitions } from '@swuniverse/shared';
 
+export const TUTORIAL_DEFINITIONS_TOKEN = 'TUTORIAL_DEFINITIONS';
+
 export const TUTORIAL_DEFINITIONS: TutorialDefinitions = {
   version: 2,
   views: {

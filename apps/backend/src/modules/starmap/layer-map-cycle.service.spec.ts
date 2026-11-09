@@ -86,6 +86,9 @@ function createManager(options: {
 describe('LayerMapCycleService', () => {
   afterEach(() => jest.restoreAllMocks());
 
+  const createService = (manager: EntityManager) =>
+    new LayerMapCycleService(manager, { grant: jest.fn() } as never);
+
   it('grants and increments the configured award when a layer becomes explored', async () => {
     const setup = createManager({
       fieldCount: 2,
@@ -142,7 +145,7 @@ describe('LayerMapCycleService', () => {
 
   it('leaves an incomplete known layer unchanged', async () => {
     const setup = createManager({ fieldCount: 3, exploredCount: 2 });
-    const service = new LayerMapCycleService(setup.manager);
+    const service = createService(setup.manager);
 
     expect(await service.run(new Date('2026-10-30T03:00:00Z'))).toBe(
       '0 Ebenen vollständig erkundet',
@@ -154,7 +157,7 @@ describe('LayerMapCycleService', () => {
 
   it('atomically explores a complete known layer, clears fog and records one event', async () => {
     const setup = createManager({ fieldCount: 2, exploredCount: 3 });
-    const service = new LayerMapCycleService(setup.manager);
+    const service = createService(setup.manager);
     const now = new Date('2026-10-30T03:00:00Z');
 
     expect(await service.run(now)).toBe('1 Ebene vollständig erkundet');
@@ -174,7 +177,7 @@ describe('LayerMapCycleService', () => {
 
   it('rolls the transition back when fog removal fails', async () => {
     const setup = createManager({ failDelete: true });
-    const service = new LayerMapCycleService(setup.manager);
+    const service = createService(setup.manager);
 
     await expect(service.run(new Date())).rejects.toThrow('delete failed');
     expect(setup.eventRepo.save).not.toHaveBeenCalled();
@@ -188,7 +191,7 @@ describe('LayerMapCycleService', () => {
       status: LayerKnowledgeStatus.EXPLORED,
       exploredAt: null,
     });
-    const service = new LayerMapCycleService(setup.manager);
+    const service = createService(setup.manager);
 
     expect(await service.run(new Date())).toBe('0 Ebenen vollständig erkundet');
     expect(setup.knowledgeRepo.update).not.toHaveBeenCalled();

@@ -7,9 +7,18 @@ jest.mock('./entities/spacecraft-module.entity', () => ({
   SpacecraftModule: class SpacecraftModule {},
 }));
 
+import { Test } from '@nestjs/testing';
+import { DataSource } from 'typeorm';
 import { CrewType } from '../colony/entities/crew.entity';
+import { MessagingService } from '../messaging/messaging.service';
+import { PrestigeService } from '../prestige/prestige.service';
+import { CrewEnhancementService } from './crew-enhancement.service';
+import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 import { SpacecraftKind, SpacecraftStatus } from './entities/spacecraft.entity';
-import { SpacecraftBoardingService } from './spacecraft-boarding.service';
+import {
+  BOARDING_RANDOM_TOKEN,
+  SpacecraftBoardingService,
+} from './spacecraft-boarding.service';
 
 const shipModule = (overrides = {}) => ({
   moduleType: 'Truppenquartiere',
@@ -41,6 +50,25 @@ const ship = (id: number, userId: number, overrides = {}) => ({
 });
 
 describe('SpacecraftBoardingService', () => {
+  it('can be initialized by Nest with its default random dependency', async () => {
+    await expect(
+      Test.createTestingModule({
+        providers: [
+          SpacecraftBoardingService,
+          { provide: DataSource, useValue: {} },
+          { provide: SpacecraftRuntimeStateService, useValue: {} },
+          { provide: PrestigeService, useValue: {} },
+          { provide: CrewEnhancementService, useValue: {} },
+          { provide: MessagingService, useValue: {} },
+          {
+            provide: BOARDING_RANDOM_TOKEN,
+            useValue: { integer: () => 0 },
+          },
+        ],
+      }).compile(),
+    ).resolves.toBeDefined();
+  });
+
   function setup(attacker = ship(1, 10), target = ship(2, 20), roll = 0) {
     const assignments = [
       { spacecraftId: 1, crewId: 101, crew: { id: 101, type: CrewType.SECURITY } },

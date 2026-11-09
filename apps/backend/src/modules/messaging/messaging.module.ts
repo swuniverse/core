@@ -7,6 +7,7 @@ import { StatisticsModule } from '../statistics/statistics.module';
 import { ColonyEventService } from './colony-event.service';
 import { User } from '../auth/user.entity';
 import { SettingsModule } from '../settings/settings.module';
+import { WebsocketModule } from '../websocket/websocket.module';
 
 @Global()
 @Module({
@@ -14,6 +15,7 @@ import { SettingsModule } from '../settings/settings.module';
     TypeOrmModule.forFeature([Message, User]),
     StatisticsModule,
     SettingsModule,
+    WebsocketModule,
   ],
   controllers: [MessagingController],
   providers: [MessagingService, ColonyEventService],

@@ -1,4 +1,8 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { UserTutorialProgress } from './entities/user-tutorial-progress.entity';
+import { TUTORIAL_DEFINITIONS_TOKEN } from './tutorial-definitions';
 import { TutorialService } from './tutorial.service';
 
 const definitions = {
@@ -24,6 +28,21 @@ const createService = () => {
 };
 
 describe('TutorialService', () => {
+  it('can be initialized by Nest with the optional definitions omitted', async () => {
+    await expect(
+      Test.createTestingModule({
+        providers: [
+          TutorialService,
+          {
+            provide: getRepositoryToken(UserTutorialProgress),
+            useValue: {},
+          },
+          { provide: TUTORIAL_DEFINITIONS_TOKEN, useValue: definitions },
+        ],
+      }).compile(),
+    ).resolves.toBeDefined();
+  });
+
   it('returns the current tutorial and starts an enabled view at its first step', async () => {
     const { service, progressRepo } = createService();
     progressRepo.findOneBy.mockResolvedValue({

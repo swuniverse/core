@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SpacecraftWreck } from '../spacecraft/entities/spacecraft-wreck.entity';
 
+export const WRECK_DECAY_RANDOM_TOKEN = 'WRECK_DECAY_RANDOM';
 export type WreckDecayRandom = () => number;
 
 const randomWreckDamage: WreckDecayRandom = () =>
@@ -13,6 +14,7 @@ export class WreckDecayService {
   constructor(
     @InjectRepository(SpacecraftWreck)
     private readonly wreckRepo: Repository<SpacecraftWreck>,
+    @Inject(WRECK_DECAY_RANDOM_TOKEN)
     private readonly randomDamage: WreckDecayRandom = randomWreckDamage,
   ) {}
 

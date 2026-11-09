@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { DataSource, EntityManager, In } from 'typeorm';
 import {
   isVacationEffective,
@@ -19,6 +19,7 @@ import { buildNearbyInteractionContext, decideNearbyInteraction } from './nearby
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 
 export const TROOP_QUARTERS_MODULE_TYPE = 'Truppenquartiere';
+export const BOARDING_RANDOM_TOKEN = 'BOARDING_RANDOM';
 
 @Injectable()
 export class SpacecraftBoardingService {
@@ -28,6 +29,7 @@ export class SpacecraftBoardingService {
     private readonly prestige: PrestigeService,
     private readonly crewEnhancement: CrewEnhancementService,
     private readonly messaging: MessagingService,
+    @Inject(BOARDING_RANDOM_TOKEN)
     private readonly random: BoardingRandom = {
       integer: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
     },

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type {
   TutorialDefinitions,
@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { UserTutorialProgress } from './entities/user-tutorial-progress.entity';
 import {
   TUTORIAL_DEFINITIONS,
+  TUTORIAL_DEFINITIONS_TOKEN,
   validateTutorialDefinitions,
 } from './tutorial-definitions';
 
@@ -19,6 +20,7 @@ export class TutorialService {
   constructor(
     @InjectRepository(UserTutorialProgress)
     private readonly progressRepo: Repository<UserTutorialProgress>,
+    @Inject(TUTORIAL_DEFINITIONS_TOKEN)
     definitions: TutorialDefinitions = TUTORIAL_DEFINITIONS,
   ) {
     this.definitions = validateTutorialDefinitions(definitions);

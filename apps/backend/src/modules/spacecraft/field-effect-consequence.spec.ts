@@ -1,5 +1,12 @@
+import { Test } from '@nestjs/testing';
 import { FieldEffect } from '@swuniverse/shared';
-import { FieldEffectConsequence } from './field-effect-consequence';
+import { GameGateway } from '../websocket/game.gateway';
+import { MessagingService } from '../messaging/messaging.service';
+import {
+  FieldEffectConsequence,
+  STU_CLOCK_TOKEN,
+  STU_RANDOM_TOKEN,
+} from './field-effect-consequence';
 import type { Spacecraft } from './entities/spacecraft.entity';
 
 const field = (...effects: FieldEffect[]) => ({
@@ -34,6 +41,20 @@ function ship(): Spacecraft {
 }
 
 describe('FieldEffectConsequence', () => {
+  it('can be initialized by Nest with default random and clock dependencies', async () => {
+    await expect(
+      Test.createTestingModule({
+        providers: [
+          FieldEffectConsequence,
+          { provide: MessagingService, useValue: {} },
+          { provide: GameGateway, useValue: {} },
+          { provide: STU_RANDOM_TOKEN, useValue: Math.random },
+          { provide: STU_CLOCK_TOKEN, useValue: () => new Date() },
+        ],
+      }).compile(),
+    ).resolves.toBeDefined();
+  });
+
   const now = new Date('2026-10-30T12:00:00Z');
   const messages = { sendSystem: jest.fn() };
   const gateway = { emitToUser: jest.fn() };
