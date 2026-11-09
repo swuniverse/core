@@ -648,10 +648,9 @@ describe('ResearchPage routing', () => {
       screen.getAllByText('Alternative Reaktortheorie').length,
     ).toBeGreaterThan(0);
     expect(
-      screen
-        .getAllByText('Alternative Reaktortheorie')
-        .find((element) => element.closest('button'))
-        ?.closest('button')?.textContent,
+      (await screen.findByRole('button', {
+        name: 'Alternative Reaktortheorie (eine von)',
+      })).textContent,
     ).toContain('(eine von)');
     expect(screen.getByText('A-Wing Aufklärer')).toBeTruthy();
     expect(screen.getByText('Militär-Scanner')).toBeTruthy();
