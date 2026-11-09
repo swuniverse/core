@@ -146,6 +146,8 @@ const apiMocks = vi.hoisted(() => ({
 
 type MockTreeEdge = {
   id: string;
+  source: string;
+  target: string;
   type?: string;
   data?: {
     points?: Array<{ x: number; y: number }>;
@@ -248,6 +250,15 @@ vi.mock('@xyflow/react', async (importOriginal) => {
               {createElement(nodeTypes[node.type ?? 'techNode'], {
                 ...node,
                 type: node.type ?? 'techNode',
+                dragging: false,
+                zIndex: 0,
+                selectable: true,
+                deletable: true,
+                selected: false,
+                draggable: false,
+                isConnectable: true,
+                positionAbsoluteX: node.position.x,
+                positionAbsoluteY: node.position.y,
                 data: node.data,
               })}
             </div>
@@ -267,6 +278,9 @@ vi.mock('@xyflow/react', async (importOriginal) => {
               >
                 {createElement(edgeTypes[edge.type ?? 'routed'], {
                   id: edge.id,
+                  source: edge.source,
+                  target: edge.target,
+                  type: edge.type ?? 'routed',
                   sourceX: 10,
                   sourceY: 20,
                   targetX: 30,
