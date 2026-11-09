@@ -6,7 +6,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type MessageTarget, WsEventType } from '@swuniverse/shared';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
+
 import { User } from '../auth/user.entity';
 import { PRIVATE_MESSAGES_EVENT } from '../statistics/statistic-events';
 import { StatisticsService } from '../statistics/statistics.service';
@@ -18,6 +19,11 @@ import {
   MessageFolder,
   MESSAGE_FOLDERS,
 } from './message-folder';
+
+export interface TransactionalNotifications {
+  manager: EntityManager;
+  afterCommit: Array<() => void>;
+}
 
 @Injectable()
 export class MessagingService {
@@ -314,9 +320,16 @@ export class MessagingService {
     folder: MessageFolder = MessageFolder.SYSTEM,
     target?: MessageTarget,
     markRead = false,
+    transaction?: TransactionalNotifications,
   ): Promise<Message> {
+    const repository = transaction?.manager.getRepository(Message) ?? this.messageRepo;
+    const notify = () => this.notifyRecipient(recipientId, folder);
+    const scheduleNotification = () => {
+      if (transaction) transaction.afterCommit.push(notify);
+      else notify();
+    };
     if (!deliveryKey) {
-      const message = this.messageRepo.create({
+      const message = repository.create({
         senderId: recipientId,
         recipientId,
         subject,
@@ -327,12 +340,12 @@ export class MessagingService {
         targetKind: target?.kind ?? null,
         targetId: target?.id ?? null,
       });
-      const saved = await this.messageRepo.save(message);
-      this.notifyRecipient(recipientId, folder);
+      const saved = await repository.save(message);
+      scheduleNotification();
       return saved;
     }
 
-    const inserted = await this.messageRepo
+    const inserted = await repository
       .createQueryBuilder()
       .insert()
       .into(Message)
@@ -352,13 +365,13 @@ export class MessagingService {
       .execute();
     const insertedId = inserted.identifiers[0]?.id as number | undefined;
     if (insertedId !== undefined) {
-      const message = await this.messageRepo.findOneBy({ id: insertedId });
+      const message = await repository.findOneBy({ id: insertedId });
       if (message) {
-        this.notifyRecipient(recipientId, folder);
+        scheduleNotification();
         return message;
       }
     }
-    const existing = await this.messageRepo.findOneBy({ deliveryKey });
+    const existing = await repository.findOneBy({ deliveryKey });
     if (!existing)
       throw new Error('System message delivery key was not persisted');
     return existing;

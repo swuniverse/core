@@ -27,8 +27,8 @@ Ein Schiff auf einem Wurmlocheingang kann das Wurmloch betreten und erscheint am
 
 Dieses Parent-Ticket ist ein Tracking-Split; die Ausführung erfolgt in den drei geordneten Child-Issues:
 
-- [ ] `tmw-K7a1`: Backend-Kern für Passage, Endpunkt, Zugriffs-Policy und deterministische Ausgangswahl.
-- [ ] `tmw-K7a2`: atomare Flottenvalidierung sowie Zielfeldfolgen, Erkundung, Signatur/Log und Ebenenkenntnis.
+- [x] `tmw-K7a1`: Backend-Kern für Passage, Endpunkt, Zugriffs-Policy und deterministische Ausgangswahl.
+- [x] `tmw-K7a2`: atomare Flottenvalidierung sowie Zielfeldfolgen, Erkundung, Signatur/Log und Ebenenkenntnis.
 - [ ] `tmw-K7a3`: Shared-/Frontend-Verträge, Feldkontext- und Schnellaktionen sowie Oberflächentests.
 
 ## Comments
@@ -39,3 +39,4 @@ Dieses Parent-Ticket ist ein Tracking-Split; die Ausführung erfolgt in den drei
 - 2026-10-30 Ralph: Abbruch vor Produktcode: Das Issue ist trotz markierter Größe M ein vertikaler Querschnitt über transaktionale/atomare Flottenbewegung, neue Zugangs-Policy, deterministische Zufallsauswahl, Zielfeld-Pipeline, Signaturen/Schiffslog, Reparaturabbruch, Ebenenkenntnis, Shared-DTO, Feldkontext und Frontend-Test. Die bestehende `SpacecraftService`-Flottenlogik ist zudem bei nicht fixierten Flotten bewusst partiell und damit nicht direkt für die geforderte vollständige atomare Vorabvalidierung wiederverwendbar. Entscheidung, in geordnete Backend-Kern-, Integrations-/Flotten- und Frontend-Child-Issues aufzuteilen; Parent `resolved`, Implementierung in `tmw-K7a1` bis `tmw-K7a3`.
 
 - 2026-11-06 Product Owner: Bestätigt die Aufteilung in drei geordnete Child-Issues; Parent bleibt `resolved` als Tracking-Split. `tmw-K7a1` ist der Backend-Kern, `tmw-K7a2` die atomare Flotten-/Ankunftsintegration und `tmw-K7a3` die Shared-/Frontend-Oberfläche.
+- 2026-11-09: K7a1/K7a2 gemeinsam implementiert und lokal am vollständigen Backend geprüft; deren Tracking-Checkboxen sind abgeschlossen. Unabhängiger Review und serielle Integration bleiben ausstehend; K7a3 bleibt offen, ohne Shared-/Frontend-Änderung. Evidenz einschließlich finaler Gates und Build-Zeitpunkt: `.workmux/tmw-K7a2-resumed-atomic-report-20261109.md`.

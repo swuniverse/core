@@ -140,6 +140,7 @@ import { RpgPlot } from './modules/rpg/rpg-plot.entity';
 import { UserCharacter } from './modules/rpg/user-character.entity';
 import { ContactModule } from './modules/contacts/contact.module';
 import { Contact } from './modules/contacts/entities/contact.entity';
+import { SpacecraftTakeover } from './modules/spacecraft/entities/spacecraft-takeover.entity';
 import { IgnoreList } from './modules/contacts/entities/ignore-list.entity';
 
 @Module({
@@ -200,6 +201,7 @@ import { IgnoreList } from './modules/contacts/entities/ignore-list.entity';
           FactionModifier,
           OnboardingSelection,
           Spacecraft,
+          SpacecraftTakeover,
           CargoItem,
           Buoy,
           SpacecraftModuleEntity,

@@ -29,6 +29,7 @@ import { StarSystem } from '../../modules/starmap/entities/star-system.entity';
 import { CelestialObject } from '../../modules/starmap/entities/celestial-object.entity';
 import { GalaxyFieldType } from '../../modules/starmap/entities/galaxy-field-type.entity';
 import { GalaxyField } from '../../modules/starmap/entities/galaxy-field.entity';
+import { Wormhole } from '../../modules/starmap/entities/wormhole.entity';
 import { SystemField } from '../../modules/starmap/entities/system-field.entity';
 import { SpaceLocation } from '../../modules/starmap/entities/space-location.entity';
 import { MapRegion } from '../../modules/starmap/entities/map-region.entity';
@@ -41,6 +42,7 @@ import { EscapePod } from '../../modules/spacecraft/entities/escape-pod.entity';
 import { Fleet } from '../../modules/spacecraft/entities/fleet.entity';
 import { SpacecraftTakeover } from '../../modules/spacecraft/entities/spacecraft-takeover.entity';
 import { FlightSignature } from '../../modules/spacecraft/entities/flight-signature.entity';
+import { ShipLogEntry } from '../../modules/spacecraft/entities/ship-log-entry.entity';
 import { SpacecraftRepairTask } from '../../modules/spacecraft/entities/spacecraft-repair-task.entity';
 import { StationShipRepair } from '../../modules/spacecraft/entities/station-ship-repair.entity';
 import { ShipClassDef } from '../../modules/spacecraft/entities/ship-class-def.entity';
@@ -58,6 +60,7 @@ import { CartographyPlan } from '../../modules/spacecraft/entities/cartography-p
 import { StatisticSnapshot } from '../../modules/statistics/entities/statistic-snapshot.entity';
 import { StatisticHourCounter } from '../../modules/statistics/entities/statistic-hour-counter.entity';
 import { News } from '../../modules/news/entities/news.entity';
+import { PrestigeHistoryEntry } from '../../modules/prestige/entities/prestige-history-entry.entity';
 
 /** Entities used by integration tests. Add more as suites need them. */
 export const INTEGRATION_ENTITIES = [
@@ -90,6 +93,7 @@ export const INTEGRATION_ENTITIES = [
   CelestialObject,
   GalaxyFieldType,
   GalaxyField,
+  Wormhole,
   SystemField,
   SpaceLocation,
   MapRegion,
@@ -101,6 +105,7 @@ export const INTEGRATION_ENTITIES = [
   Fleet,
   SpacecraftTakeover,
   FlightSignature,
+  ShipLogEntry,
   SpacecraftRepairTask,
   StationShipRepair,
   EscapePod,
@@ -119,6 +124,7 @@ export const INTEGRATION_ENTITIES = [
   StatisticSnapshot,
   StatisticHourCounter,
   News,
+  PrestigeHistoryEntry,
 ];
 
 export function createIntegrationDataSource(url: string): DataSource {

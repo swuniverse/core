@@ -69,6 +69,9 @@ import {
   SpacecraftLssMode,
 } from './entities/spacecraft.entity';
 
+import { WormholePassageService } from './wormhole-passage.service';
+import { WormholeEntryDto } from './wormhole-entry-contract';
+
 class StationShipModuleSelectionDto {
   @IsString()
   slotId: string;
@@ -400,6 +403,7 @@ class ShipCargoTransferDto {
 export class SpacecraftController {
   constructor(
     private readonly spacecraftService: SpacecraftService,
+    private readonly wormholePassage: WormholePassageService,
     private readonly tractorService: SpacecraftTractorService,
     private readonly boardingService: SpacecraftBoardingService = {
       board: async () => ({ message: '' }),
@@ -484,6 +488,15 @@ export class SpacecraftController {
       deactivate: async () => undefined,
     } as unknown as SpacecraftTrackerService,
   ) {}
+
+  @Post(':id/wormhole/enter')
+  enterWormhole(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body() dto: WormholeEntryDto,
+  ) {
+    return this.wormholePassage.enter(id, req.user.sub, dto.wormholeId);
+  }
 
   // Static routes first (before :id)
   @Get('modules/available')

@@ -1,6 +1,6 @@
 import { IsInt, IsOptional, Min } from 'class-validator';
 
-// This contract is not a registered route. Activation belongs to tmw-K7a2.
+// Registered only with the atomic passage executor from tmw-K7a2.
 export const WORMHOLE_ENTRY_ROUTE = {
   method: 'POST',
   path: 'spacecraft/:id/wormhole/enter',

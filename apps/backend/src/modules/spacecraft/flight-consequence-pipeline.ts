@@ -2,6 +2,7 @@ import { Injectable, Inject, Optional } from '@nestjs/common';
 import type { GalaxyField } from '../starmap/entities/galaxy-field.entity';
 import type { SystemField } from '../starmap/entities/system-field.entity';
 import type { Spacecraft } from './entities/spacecraft.entity';
+import type { TransactionalNotifications } from '../messaging/messaging.service';
 
 export type FlightConsequenceField = GalaxyField | SystemField;
 const DESTROYED_STATUS = 'DESTROYED';
@@ -11,6 +12,7 @@ export interface FlightConsequence {
     ship: Spacecraft,
     field: FlightConsequenceField,
     messages: string[],
+    transaction?: TransactionalNotifications,
   ): Promise<void> | void;
   onTick(ship: Spacecraft, field: FlightConsequenceField): Promise<void> | void;
 }
@@ -28,11 +30,12 @@ export class FlightConsequencePipeline {
   async onEnterField(
     ship: Spacecraft,
     field: FlightConsequenceField,
+    transaction?: TransactionalNotifications,
   ): Promise<string[]> {
     const messages: string[] = [];
     for (const consequence of this.consequences) {
       if (ship.status === DESTROYED_STATUS) break;
-      await consequence.onEnterField(ship, field, messages);
+      await consequence.onEnterField(ship, field, messages, transaction);
     }
     return messages;
   }

@@ -27,6 +27,16 @@ export interface FieldTransitionResult {
 
 @Injectable()
 export class FieldTransitionExecutor {
+  /** A discontinuous passage enters only its destination, never an invented route. */
+  async enterDestination<TField>(
+    field: TField,
+    isPassable: (field: TField) => boolean,
+    enter: (field: TField) => void | Promise<void>,
+  ): Promise<void> {
+    if (!isPassable(field)) throw new BadRequestException('Destination field is not passable');
+    await enter(field);
+  }
+
   async execute<TField>(
     plan: FieldTransitionPlan<TField>,
   ): Promise<FieldTransitionResult> {

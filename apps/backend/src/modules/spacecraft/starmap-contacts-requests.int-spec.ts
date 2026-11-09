@@ -56,6 +56,7 @@ import { StationShipManagementService } from './station-ship-management.service'
 import { StationRepairService } from './station-repair.service';
 import { StationShipyardService } from './station-shipyard.service';
 import { SpacecraftTrackerService } from './spacecraft-tracker.service';
+import { WormholePassageService } from './wormhole-passage.service';
 
 const { NONE, PRESIDENT, VICE, DIPLOMAT } = AllianceRole;
 const JWT_SECRET = 'integration-secret';
@@ -63,6 +64,7 @@ const SPACE_FIELD_TYPE_ID = 1;
 
 /** Controller collaborators the starmap contact routes never touch. */
 const UNRELATED_SPACECRAFT_SERVICES = [
+  WormholePassageService,
   TransferService,
   SpacecraftScanService,
   GameDataService,

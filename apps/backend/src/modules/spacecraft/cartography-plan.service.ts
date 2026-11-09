@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import { SystemField } from '../starmap/entities/system-field.entity';
 import { SystemExploration } from '../starmap/entities/system-exploration.entity';
 import {
@@ -164,12 +164,14 @@ export class CartographyPlanService {
     return this.planRepo.save(plan);
   }
 
-  async resetFinishingForSpacecraft(spacecraftId: number): Promise<void> {
-    const plan = await this.planRepo.findOne({
+  async resetFinishingForSpacecraft(spacecraftId: number, manager?: EntityManager): Promise<void> {
+    const repository = manager?.getRepository(CartographyPlan) ?? this.planRepo;
+    const plan = await repository.findOne({
       where: {
         finalizingSpacecraftId: spacecraftId,
         status: CartographyPlanStatus.FINISHING,
       },
+      ...(manager ? { lock: { mode: 'pessimistic_write' as const, onLocked: 'nowait' as const } } : {}),
     });
     if (!plan) return;
     plan.status = CartographyPlanStatus.MEASURED;
@@ -177,7 +179,7 @@ export class CartographyPlanService {
     plan.finalizingSpacecraftId = null;
     plan.finalizationStartedAt = null;
     plan.finalizationTick = null;
-    await this.planRepo.save(plan);
+    await repository.save(plan);
   }
 
   async progressFinalization(spacecraftId: number): Promise<{

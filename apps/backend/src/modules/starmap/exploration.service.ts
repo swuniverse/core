@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import {
   ExplorationState,
   ExplorationLevel,
@@ -32,11 +32,12 @@ export class ExplorationService {
     private readonly systemExplorationRepo: Repository<SystemExploration>,
   ) {}
 
-  async discoverArea(input: DiscoverFieldsInput): Promise<number> {
-    return this.discoverField(input);
+  async discoverArea(input: DiscoverFieldsInput, manager?: EntityManager): Promise<number> {
+    return this.discoverField(input, manager);
   }
 
-  async discoverField(input: DiscoverFieldsInput): Promise<number> {
+  async discoverField(input: DiscoverFieldsInput, manager?: EntityManager): Promise<number> {
+    const repository = manager?.getRepository(ExplorationState) ?? this.explorationRepo;
     const radius = input.radius ?? 0;
     const level = input.level ?? ExplorationLevel.TERRAIN;
     let discovered = 0;
@@ -50,7 +51,7 @@ export class ExplorationService {
         const cy = input.cy + dy;
         if (cx < 1 || cy < 1) continue;
 
-        const existing = await this.explorationRepo.findOne({
+        const existing = await repository.findOne({
           where: { userId: input.userId, layerId: input.layerId, cx, cy },
         });
 
@@ -62,17 +63,17 @@ export class ExplorationService {
             existing.explorationLevel = ExplorationLevel.FULL;
             existing.discoverySource = input.source ?? existing.discoverySource;
             existing.lastSeenAt = now;
-            await this.explorationRepo.save(existing);
+            await repository.save(existing);
             discovered++;
           } else {
             existing.lastSeenAt = now;
-            await this.explorationRepo.save(existing);
+            await repository.save(existing);
           }
           continue;
         }
 
-        await this.explorationRepo.save(
-          this.explorationRepo.create({
+        await repository.save(
+          repository.create({
             userId: input.userId,
             layerId: input.layerId,
             cx,

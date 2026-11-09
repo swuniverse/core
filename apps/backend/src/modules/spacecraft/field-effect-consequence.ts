@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { FieldEffect, knownFieldEffects, WsEventType } from '@swuniverse/shared';
 import { MessageFolder } from '../messaging/message-folder';
-import { MessagingService } from '../messaging/messaging.service';
+import { MessagingService, type TransactionalNotifications } from '../messaging/messaging.service';
 import { GameGateway } from '../websocket/game.gateway';
 import type { Spacecraft } from './entities/spacecraft.entity';
 import type { FlightConsequence, FlightConsequenceField } from './flight-consequence-pipeline';
@@ -22,7 +22,7 @@ export class FieldEffectConsequence implements FlightConsequence {
     private readonly clock: () => Date = () => new Date(),
   ) {}
 
-  async onEnterField(ship: Spacecraft, field: FlightConsequenceField, messages: string[]): Promise<void> {
+  async onEnterField(ship: Spacecraft, field: FlightConsequenceField, messages: string[], transaction?: TransactionalNotifications): Promise<void> {
     const effects = this.effects(field);
     if (effects.has(FieldEffect.WARPDRIVE_LEAK)) {
       const loss = Math.min(ship.warpdrive, Math.ceil(ship.warpdriveMax / 10));
@@ -53,7 +53,7 @@ export class FieldEffectConsequence implements FlightConsequence {
       }
     }
     await this.applyRecurring(ship, effects, messages);
-    await this.notify(ship, messages);
+    await this.notify(ship, messages, transaction);
   }
 
   async onTick(ship: Spacecraft, field: FlightConsequenceField): Promise<void> {
@@ -105,12 +105,18 @@ export class FieldEffectConsequence implements FlightConsequence {
     return minimum + Math.floor(this.random() * (maximum - minimum + 1));
   }
 
-  private async notify(ship: Spacecraft, messages: string[]): Promise<void> {
+  private async notify(ship: Spacecraft, messages: string[], transaction?: TransactionalNotifications): Promise<void> {
     if (!messages.length) return;
     for (const detail of messages) {
       const positive = detail.startsWith('Energetische Regeneration');
-      await this.messaging.sendSystem(ship.userId, positive ? 'Feldregeneration' : 'Feldeffekt', `${ship.name}: ${detail}`, undefined, MessageFolder.SHIP);
-      this.gateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, { shipId: ship.id, type: 'FIELD_EFFECT', severity: positive ? 'SUCCESS' : 'WARNING', detail });
+      if (transaction) {
+        await this.messaging.sendSystem(ship.userId, positive ? 'Feldregeneration' : 'Feldeffekt', `${ship.name}: ${detail}`, undefined, MessageFolder.SHIP, undefined, false, transaction);
+      } else {
+        await this.messaging.sendSystem(ship.userId, positive ? 'Feldregeneration' : 'Feldeffekt', `${ship.name}: ${detail}`, undefined, MessageFolder.SHIP);
+      }
+      const notify = () => this.gateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, { shipId: ship.id, type: 'FIELD_EFFECT', severity: positive ? 'SUCCESS' : 'WARNING', detail });
+      if (transaction) transaction.afterCommit.push(notify);
+      else notify();
     }
   }
 }

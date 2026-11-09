@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, Repository } from 'typeorm';
+import { EntityManager, LessThan, Repository } from 'typeorm';
+import { ShipClassDef } from './entities/ship-class-def.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import {
   FlightDirection,
@@ -37,10 +38,14 @@ export class FlightSignatureService {
     ship: Spacecraft,
     origin: SpaceLocation | null,
     destination: SpaceLocation | null,
-    direction: FlightDirection,
+    direction: FlightDirection | null,
+    manager?: EntityManager,
   ): Promise<void> {
     if (!origin || !destination) return;
-    const shipClass = await this.shipClassService.findById(ship.shipClassId);
+    const repository = manager?.getRepository(FlightSignature) ?? this.signatureRepo;
+    const shipClass = manager
+      ? await manager.findOneBy(ShipClassDef, { id: ship.shipClassId })
+      : await this.shipClassService.findById(ship.shipClassId);
     const common = {
       userId: ship.userId,
       spacecraftId: ship.id,
@@ -49,17 +54,17 @@ export class FlightSignatureService {
       shipClassName: shipClass?.name ?? `Klasse #${ship.shipClassId}`,
       isCloaked: isCloaked(ship),
     };
-    await this.signatureRepo.save([
-      this.signatureRepo.create({
+    await repository.save([
+      repository.create({
         ...common,
         locationId: origin.id,
         fromDirection: null,
         toDirection: direction,
       }),
-      this.signatureRepo.create({
+      repository.create({
         ...common,
         locationId: destination.id,
-        fromDirection: this.opposite(direction),
+        fromDirection: direction === null ? null : this.opposite(direction),
         toDirection: null,
       }),
     ]);

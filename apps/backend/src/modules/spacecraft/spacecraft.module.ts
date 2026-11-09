@@ -102,6 +102,8 @@ import {
 import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue.entity';
 import { ShipbuildingModule } from '../shipbuilding/shipbuilding.module';
 import { StationShipyardService } from './station-shipyard.service';
+import { WormholePassageService, WORMHOLE_ACCESS_POLICY, WORMHOLE_RANDOM } from './wormhole-passage.service';
+import { allowAllWormholeAccess } from './wormhole-passage-planner';
 
 @Module({
   imports: [
@@ -160,6 +162,9 @@ import { StationShipyardService } from './station-shipyard.service';
   controllers: [SpacecraftController],
   providers: [
     SpacecraftService,
+    WormholePassageService,
+    { provide: WORMHOLE_ACCESS_POLICY, useValue: allowAllWormholeAccess },
+    { provide: WORMHOLE_RANDOM, useValue: Math.random },
     ShipClassService,
     ShipClassDiscoveryService,
     StationClassDiscoveryService,

@@ -13,7 +13,7 @@ import { CrewType } from '../colony/entities/crew.entity';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { CrewEnhancementService } from './crew-enhancement.service';
 import { CrewEnhancementEvent } from './crew-expertise';
-import { MessagingService } from '../messaging/messaging.service';
+import { MessagingService, type TransactionalNotifications } from '../messaging/messaging.service';
 import { CargoItem } from './entities/cargo-item.entity';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import { StationShipRepair } from './entities/station-ship-repair.entity';
@@ -256,6 +256,7 @@ export class SpacecraftRepairService {
   async cancelTasks(
     manager: EntityManager,
     spacecraftIds: number[],
+    nowait = false,
   ): Promise<Array<{ userId: number; name: string }>> {
     const results: Array<{ userId: number; name: string }> = [];
     for (const spacecraftId of spacecraftIds) {
@@ -263,7 +264,7 @@ export class SpacecraftRepairService {
       const stationJob = await manager.findOne(StationShipRepair, {
         where: { shipId: spacecraftId },
         relations: ['ship'],
-        lock: { mode: 'pessimistic_write', tables: ['station_ship_repairs'] },
+        lock: { mode: 'pessimistic_write', tables: ['station_ship_repairs'], ...(nowait ? { onLocked: 'nowait' as const } : {}) },
       });
       if (stationJob) {
         await manager.remove(stationJob);
@@ -272,7 +273,7 @@ export class SpacecraftRepairService {
       const task = await manager.findOne(SpacecraftRepairTask, {
         where: { spacecraftId },
         relations: ['spacecraft'],
-        lock: { mode: 'pessimistic_write', tables: ['spacecraft_repair_tasks'] },
+        lock: { mode: 'pessimistic_write', tables: ['spacecraft_repair_tasks'], ...(nowait ? { onLocked: 'nowait' as const } : {}) },
       });
       if (!task) continue;
       await this.refund(
@@ -280,12 +281,14 @@ export class SpacecraftRepairService {
         spacecraftId,
         SPARE_PARTS_ID,
         task.spareParts,
+        nowait,
       );
       await this.refund(
         manager,
         spacecraftId,
         SYSTEM_COMPONENTS_ID,
         task.systemComponents,
+        nowait,
       );
       await manager.remove(task);
       results.push({
@@ -299,15 +302,16 @@ export class SpacecraftRepairService {
   async notifyCancelled(
     cancelled: Array<{ userId: number; name: string }>,
     cause = 'Der Flug',
+    transaction?: TransactionalNotifications,
   ): Promise<void> {
     await Promise.all(
-      cancelled.map(({ userId, name }) =>
-        this.messagingService.sendSystem(
-          userId,
-          'Schiffsreparatur abgebrochen',
-          `${cause} der ${name} hat die laufende Reparatur abgebrochen. Die eingesetzten Teile wurden zurückerstattet.`,
-        ),
-      ),
+      cancelled.map(({ userId, name }) => {
+        const subject = 'Schiffsreparatur abgebrochen';
+        const body = `${cause} der ${name} hat die laufende Reparatur abgebrochen. Die eingesetzten Teile wurden zurückerstattet.`;
+        return transaction
+          ? this.messagingService.sendSystem(userId, subject, body, undefined, undefined, undefined, false, transaction)
+          : this.messagingService.sendSystem(userId, subject, body);
+      }),
     );
   }
 
@@ -394,13 +398,14 @@ export class SpacecraftRepairService {
     spacecraftId: number,
     commodityId: number,
     amount: number,
+    nowait = false,
   ): Promise<void> {
     if (amount === 0) return;
     let item = await manager.findOne(CargoItem, {
       where: { spacecraftId, commodityId },
-      lock: { mode: 'pessimistic_write' },
+      lock: { mode: 'pessimistic_write', ...(nowait ? { onLocked: 'nowait' as const } : {}) },
     });
-    if (!item) item = manager.create(CargoItem, { spacecraftId, commodityId });
+    if (!item) item = manager.create(CargoItem, { spacecraftId, commodityId, amount: 0 });
     item.amount += amount;
     await manager.save(item);
   }

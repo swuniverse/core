@@ -5,7 +5,7 @@ import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { GameEventService } from '../events/game-event.service';
 import { GameEventType } from '@swuniverse/shared';
 import { MessageFolder } from '../messaging/message-folder';
-import { MessagingService } from '../messaging/messaging.service';
+import { MessagingService, type TransactionalNotifications } from '../messaging/messaging.service';
 import { PrestigeService } from '../prestige/prestige.service';
 import { CrewEnhancementService } from './crew-enhancement.service';
 import { CrewEnhancementEvent } from './crew-expertise';
@@ -82,6 +82,22 @@ export class SpacecraftTakeoverService {
     return true;
   }
 
+  async cancelForShipsInTransaction(
+    shipIds: number[],
+    transaction: TransactionalNotifications,
+    reason = 'Flug oder Zerstörung eines beteiligten Schiffs',
+  ): Promise<void> {
+    const takeovers = await transaction.manager.find(SpacecraftTakeover, {
+      where: [{ attackerId: In(shipIds) }, { targetId: In(shipIds) }],
+      order: { id: 'ASC' },
+      lock: { mode: 'pessimistic_write', onLocked: 'nowait' },
+    });
+    for (const takeover of takeovers) {
+      await this.cancelInManager(transaction.manager, takeover);
+      await this.notify(takeover, 'Übernahme abgebrochen', `Die Übernahme wurde abgebrochen: ${reason}. Das eingesetzte Prestige wurde erstattet.`, transaction);
+    }
+  }
+
   async processTick(shipId: number): Promise<SpacecraftTakeoverDto | null> {
     const outcome = await this.dataSource.transaction(async (manager) => {
       const takeover = await manager.findOne(SpacecraftTakeover, { where: { attackerId: shipId }, lock: { mode: 'pessimistic_write' } });
@@ -134,10 +150,10 @@ export class SpacecraftTakeoverService {
     await manager.remove(takeover);
   }
 
-  private async notify(takeover: SpacecraftTakeover, subject: string, body: string) {
+  private async notify(takeover: SpacecraftTakeover, subject: string, body: string, transaction?: TransactionalNotifications) {
     await Promise.all([
-      this.messaging.sendSystem(takeover.attackerUserId, subject, body, undefined, MessageFolder.SHIP),
-      this.messaging.sendSystem(takeover.targetUserId, subject, body, undefined, MessageFolder.SHIP),
+      this.messaging.sendSystem(takeover.attackerUserId, subject, body, undefined, MessageFolder.SHIP, undefined, false, transaction),
+      this.messaging.sendSystem(takeover.targetUserId, subject, body, undefined, MessageFolder.SHIP, undefined, false, transaction),
     ]);
   }
 
