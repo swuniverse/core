@@ -2304,78 +2304,29 @@ export class SpacecraftService {
     originals: MovementOriginals,
     carried: Spacecraft[] = [],
   ): Promise<void> {
-    const moving = [...new Set([...participants, ...carried])];
-    await this.dataSource.transaction('READ COMMITTED', async (manager) => {
-      const {
-        ship: currentLeader,
-        fleet,
-        members,
-      } = await lockFleetParticipants(manager, leader.userId, leader.id);
-      // This bounded extra set uses NOWAIT too; never wait ship-first or chase another fleet.
-      let carriedRows: Spacecraft[] = [];
-      if (carried.length) {
-        try {
-          carriedRows = await manager
-            .createQueryBuilder(Spacecraft, 'ship')
-            .where({ id: In(carried.map((member) => member.id)) })
-            .orderBy('ship.id', 'ASC')
-            .setLock('pessimistic_write')
-            .setOnLocked('nowait')
-            .getMany();
-        } catch (error) {
-          if (
-            error instanceof QueryFailedError &&
-            error.driverError.code === '55P03'
-          ) {
-            throw new BadRequestException(
-              'Bewegungszustand ist gesperrt; bitte erneut versuchen',
-            );
-          }
-          throw error;
-        }
-      }
-      if (await manager.findOneBy(Spacecraft, { tractoredShipId: leader.id })) {
-        throw new BadRequestException(
-          'Bewegungszustand ist veraltet; bitte erneut versuchen',
-        );
-      }
-      const expectedFleet = originals.fleet;
-      if (
-        fleet
-          ? !expectedFleet ||
-            fleet.id !== expectedFleet.id ||
-            fleet.leaderId !== expectedFleet.leaderId ||
-            fleet.isFixed !== expectedFleet.isFixed ||
-            members.length !== expectedFleet.memberIds.length ||
-            members.some(
-              (member, index) =>
-                member.id !== expectedFleet.memberIds[index] ||
-                member.locationId !==
-                  expectedFleet.memberLocations.get(member.id),
-            )
-          : expectedFleet !== null
-      ) {
-        throw new BadRequestException(
-          'Bewegungszustand ist veraltet; bitte erneut versuchen',
-        );
-      }
-      const currentRows = new Map<Spacecraft, Spacecraft>();
-      for (const member of moving) {
-        const current =
-          member === leader
-            ? currentLeader
-            : [...members, ...carriedRows].find((row) => row.id === member.id);
-        if (!current || current.status === SpacecraftStatus.DESTROYED) {
-          throw new BadRequestException('Ship is destroyed');
-        }
-        const original = originals.get(member);
-        if (!original) throw new Error('Movement original state missing');
-        if (original.modules) {
+    const aliases = [...new Set([...participants, ...carried])];
+    // A selected participant owns payment/runtime mutations; a carried alias
+    // must not write the same spacecraft again with its older local state.
+    const moving = new Map<number, Spacecraft>();
+    for (const member of aliases) {
+      if (!moving.has(member.id)) moving.set(member.id, member);
+    }
+    const committedRows = await this.dataSource.transaction(
+      'READ COMMITTED',
+      async (manager) => {
+        const {
+          ship: currentLeader,
+          fleet,
+          members,
+        } = await lockFleetParticipants(manager, leader.userId, leader.id);
+        // This bounded extra set uses NOWAIT too; never wait ship-first or chase another fleet.
+        let carriedRows: Spacecraft[] = [];
+        if (carried.length) {
           try {
-            current.modules = await manager
-              .createQueryBuilder(SpacecraftModule, 'module')
-              .where({ spacecraftId: current.id })
-              .orderBy('module.id', 'ASC')
+            carriedRows = await manager
+              .createQueryBuilder(Spacecraft, 'ship')
+              .where({ id: In(carried.map((member) => member.id)) })
+              .orderBy('ship.id', 'ASC')
               .setLock('pessimistic_write')
               .setOnLocked('nowait')
               .getMany();
@@ -2391,27 +2342,94 @@ export class SpacecraftService {
             throw error;
           }
         }
-        assertMovementState(current, original);
-        currentRows.set(member, current);
-        const assigned = await manager.count(CrewAssignment, {
-          where: { spacecraftId: member.id },
-        });
         if (
-          participants.includes(member) &&
-          assigned < Math.max(0, current.crewRequired)
+          await manager.findOneBy(Spacecraft, { tractoredShipId: leader.id })
         ) {
           throw new BadRequestException(
             'Bewegungszustand ist veraltet; bitte erneut versuchen',
           );
         }
-      }
-      for (const member of moving) {
-        const current = currentRows.get(member)!;
-        applyMovementState(current, member);
-        await manager.save(current);
-      }
-    });
-    for (const member of moving) {
+        const expectedFleet = originals.fleet;
+        if (
+          fleet
+            ? !expectedFleet ||
+              fleet.id !== expectedFleet.id ||
+              fleet.leaderId !== expectedFleet.leaderId ||
+              fleet.isFixed !== expectedFleet.isFixed ||
+              members.length !== expectedFleet.memberIds.length ||
+              members.some(
+                (member, index) =>
+                  member.id !== expectedFleet.memberIds[index] ||
+                  member.locationId !==
+                    expectedFleet.memberLocations.get(member.id),
+              )
+            : expectedFleet !== null
+        ) {
+          throw new BadRequestException(
+            'Bewegungszustand ist veraltet; bitte erneut versuchen',
+          );
+        }
+        const currentRows = new Map<number, Spacecraft>();
+        for (const member of aliases) {
+          const current =
+            currentRows.get(member.id) ??
+            (member.id === leader.id
+              ? currentLeader
+              : [...members, ...carriedRows].find(
+                  (row) => row.id === member.id,
+                ));
+          if (!current || current.status === SpacecraftStatus.DESTROYED) {
+            throw new BadRequestException('Ship is destroyed');
+          }
+          const original = originals.get(member);
+          if (!original) throw new Error('Movement original state missing');
+          if (original.modules) {
+            try {
+              current.modules = await manager
+                .createQueryBuilder(SpacecraftModule, 'module')
+                .where({ spacecraftId: current.id })
+                .orderBy('module.id', 'ASC')
+                .setLock('pessimistic_write')
+                .setOnLocked('nowait')
+                .getMany();
+            } catch (error) {
+              if (
+                error instanceof QueryFailedError &&
+                error.driverError.code === '55P03'
+              ) {
+                throw new BadRequestException(
+                  'Bewegungszustand ist gesperrt; bitte erneut versuchen',
+                );
+              }
+              throw error;
+            }
+          }
+          assertMovementState(current, original);
+          currentRows.set(member.id, current);
+          const assigned = await manager.count(CrewAssignment, {
+            where: { spacecraftId: member.id },
+          });
+          if (
+            participants.includes(member) &&
+            assigned < Math.max(0, current.crewRequired)
+          ) {
+            throw new BadRequestException(
+              'Bewegungszustand ist veraltet; bitte erneut versuchen',
+            );
+          }
+        }
+        for (const member of moving.values()) {
+          const current = currentRows.get(member.id)!;
+          applyMovementState(current, member);
+          await manager.save(current);
+        }
+        return currentRows;
+      },
+    );
+    for (const member of aliases) {
+      const committed = committedRows.get(member.id);
+      if (!committed) throw new Error('Committed movement state missing');
+      applyMovementState(member, committed);
       originals.set(member, captureMovementState(member));
       if (originals.fleet?.memberLocations.has(member.id)) {
         originals.fleet.memberLocations.set(member.id, member.locationId);

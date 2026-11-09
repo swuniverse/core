@@ -1002,6 +1002,186 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
     await expect(persistence.saveCombatSurvivor(survivor)).resolves.toBe(false);
   });
 
+  it('navigates two fields when the towed ship is also a selected fleet member', async () => {
+    const layer = await dataSource
+      .getRepository(Layer)
+      .findOneByOrFail({ name: 'Movement test layer' });
+    const system = await dataSource.getRepository(StarSystem).save({
+      name: 'Overlapping tractor fleet',
+      layerId: layer.id,
+      cx: 1,
+      cy: 1,
+      maxX: 3,
+      maxY: 1,
+      systemTypeId: 1,
+    });
+    const fields = await dataSource.getRepository(SystemField).save(
+      [1, 2, 3].map((sx) => ({
+        starSystemId: system.id,
+        sx,
+        sy: 1,
+        fieldTypeId: 1,
+      })),
+    );
+    const systemLocations = await Promise.all(
+      fields.map((field) =>
+        dataSource
+          .getRepository(SpaceLocation)
+          .findOneByOrFail({ systemFieldId: field.id }),
+      ),
+    );
+    const fleet = await dataSource.getRepository(Fleet).save({
+      name: 'Towed member fleet',
+      userId: ship.userId,
+      leaderId: ship.id,
+    });
+    const member = await dataSource.getRepository(Spacecraft).save({
+      name: 'Towed fleet member',
+      userId: ship.userId,
+      shipClassId: ship.shipClassId,
+      fleetId: fleet.id,
+      locationId: systemLocations[0].id,
+      energy: 53,
+      status: SpacecraftStatus.IDLE,
+      runtimeSystems: {},
+    });
+    await dataSource.getRepository(SpacecraftModule).save([
+      {
+        spacecraftId: ship.id,
+        category: 'SUBLIGHT_DRIVE',
+        moduleType: 'Sublight',
+        isActive: true,
+      },
+      {
+        spacecraftId: ship.id,
+        category: 'SENSORS',
+        moduleType: 'Sensors',
+        isActive: true,
+      },
+      {
+        spacecraftId: ship.id,
+        category: 'TRACTOR_BEAM',
+        moduleType: 'Tractor',
+        isActive: true,
+      },
+      {
+        spacecraftId: member.id,
+        category: 'SUBLIGHT_DRIVE',
+        moduleType: 'Sublight',
+        isActive: false,
+      },
+    ]);
+    // An already active tractor may target an owned local IDLE fleet member.
+    await dataSource.getRepository(Spacecraft).update(ship.id, {
+      fleetId: fleet.id,
+      locationId: systemLocations[0].id,
+      tractoredShipId: member.id,
+      runtimeSystems: {
+        TRACTOR_BEAM: { active: true, integrity: 100, cooldown: 0 },
+      },
+    });
+
+    await expect(
+      fixture.service.navigate(ship.id, ship.userId, 3, 1),
+    ).resolves.toMatchObject({
+      locationId: systemLocations[2].id,
+      energy: 67,
+      status: SpacecraftStatus.IDLE,
+      fleetId: fleet.id,
+      tractoredShipId: member.id,
+    });
+    expect(
+      await dataSource
+        .getRepository(Spacecraft)
+        .findOneByOrFail({ id: member.id }),
+    ).toMatchObject({
+      locationId: systemLocations[2].id,
+      energy: 51,
+      status: SpacecraftStatus.IDLE,
+      fleetId: fleet.id,
+      runtimeSystems: {
+        SUBLIGHT_DRIVE: { active: true, integrity: 100, cooldown: 0 },
+      },
+    });
+    expect(
+      await dataSource
+        .getRepository(Spacecraft)
+        .findOneByOrFail({ id: ship.id }),
+    ).toMatchObject({
+      locationId: systemLocations[2].id,
+      energy: 67,
+      tractoredShipId: member.id,
+      runtimeSystems: {
+        TRACTOR_BEAM: { active: true },
+        SUBLIGHT_DRIVE: { active: true },
+      },
+    });
+    const signatures = await dataSource
+      .getRepository(FlightSignature)
+      .find({ order: { id: 'ASC' } });
+    expect(
+      signatures.map(
+        ({ spacecraftId, locationId, fromDirection, toDirection }) => ({
+          spacecraftId,
+          locationId,
+          fromDirection,
+          toDirection,
+        }),
+      ),
+    ).toEqual([
+      {
+        spacecraftId: ship.id,
+        locationId: systemLocations[0].id,
+        fromDirection: null,
+        toDirection: 'EAST',
+      },
+      {
+        spacecraftId: ship.id,
+        locationId: systemLocations[1].id,
+        fromDirection: 'WEST',
+        toDirection: null,
+      },
+      {
+        spacecraftId: member.id,
+        locationId: systemLocations[0].id,
+        fromDirection: null,
+        toDirection: 'EAST',
+      },
+      {
+        spacecraftId: member.id,
+        locationId: systemLocations[1].id,
+        fromDirection: 'WEST',
+        toDirection: null,
+      },
+      {
+        spacecraftId: ship.id,
+        locationId: systemLocations[1].id,
+        fromDirection: null,
+        toDirection: 'EAST',
+      },
+      {
+        spacecraftId: ship.id,
+        locationId: systemLocations[2].id,
+        fromDirection: 'WEST',
+        toDirection: null,
+      },
+      {
+        spacecraftId: member.id,
+        locationId: systemLocations[1].id,
+        fromDirection: null,
+        toDirection: 'EAST',
+      },
+      {
+        spacecraftId: member.id,
+        locationId: systemLocations[2].id,
+        fromDirection: 'WEST',
+        toDirection: null,
+      },
+    ]);
+    expect(fixture.gateway.emitToUser).not.toHaveBeenCalled();
+    expect(fixture.messaging.sendSystem).not.toHaveBeenCalled();
+  });
+
   it('navigation refuses a stale directly saved tractor target before signatures and field effects', async () => {
     const layer = await dataSource
       .getRepository(Layer)
