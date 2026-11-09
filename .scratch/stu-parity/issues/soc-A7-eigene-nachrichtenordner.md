@@ -1,6 +1,6 @@
 # Eigene Nachrichtenordner und Verschieben
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P3
 **Size:** M
 **Blocked by:** —
@@ -41,3 +41,4 @@ Vorgabe: Variante (a). Eigene Ordner als zweite, spielerdefinierte Ebene nur fü
 - 2026-10-21 Product Owner: Option a – Eigene Nachrichtenordner werden als zweite Ebene nur für persönliche Nachrichten eingeführt; die sieben Systemordner bleiben geschlossen und die Spec erhält einen Nachtrag.
 
 - 2026-10-29 Agent: Abbruch nach zwei ernsthaften Prüfversuchen: Die verpflichtende affected-Prüfung scheitert reproduzierbar im bestehenden Frontend-Typecheck mit zahlreichen TS6305-Fehlern für nicht gebaute Deklarationsdateien, auch nach `nx reset`; der fokussierte Nachrichten-Frontendtest war grün (22/22). Produktcode wurde gemäß Abbruchregel verworfen. Blocker: Bitte den Frontend-Typecheck-/Build-Artefakt-Zustand reparieren oder bestätigen, wie die verpflichtende Prüfung in diesem Zustand bewertet werden soll.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Frontend-TS6305-Gate); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

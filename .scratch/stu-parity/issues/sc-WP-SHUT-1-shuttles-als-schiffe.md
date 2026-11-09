@@ -1,6 +1,6 @@
 # Shuttles als eigenständige Schiffe starten und aufnehmen
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P3
 **Size:** M
 **Blocked by:** —
@@ -38,3 +38,4 @@ Vorgabe: Variante (a), STU-Parität. Shuttlerampe als Laufzeitsystem, Start/Aufn
 - 2026-10-21 Product Owner: Option a – Shuttles werden wie in STU startbare Schiffe (Start, Aufnahme, Landung, Shuttle-Management an Stationen), mit derselben Mechanik wie das Starten der Workbees.
 
 - 2026-10-29 Agent: Umsetzung nach zwei ernsthaften Prüfversuchen abgebrochen. Der verpflichtende Lauf `npx nx affected -t lint typecheck test --base=HEAD` scheitert reproduzierbar im bereits bestehenden Frontend-Typecheck außerhalb dieses Issues (`apps/frontend/src/pages/database.tsx:1015` inkompatibler Faction-Typ sowie zahlreiche TS6305-Ausgabedatei-Fehler). Die isolierten Shuttle-Tests waren grün (Backend 5/5, Frontend 13/13), aber gemäß Ablauf darf das Issue erst fortgesetzt werden, wenn der Basis-Typecheck wieder grün ist.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Frontend-Faction-/TS6305-Gate); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

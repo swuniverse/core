@@ -1,6 +1,6 @@
 # Kolonie-Sandbox: Datenmodell und Kopie der Oberfläche
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P3
 **Size:** M
 **Blocked by:** —
@@ -37,3 +37,4 @@ Vorgabe: Variante (a), vollständig (col-G3a bis col-G3c). Höchstzahl Sandboxen
 
 - 2026-10-21 Product Owner: Option a – Die Kolonie-Sandbox ist gewünscht und wird vollständig umgesetzt (col-G3a bis col-G3c), mit niedriger Priorität.
 - 2026-10-28 Blocker: Die vorgeschriebenen Prüfungen bleiben nach zwei ernsthaften Versuchen rot. `frontend:typecheck` scheitert bereits außerhalb dieses Issues an `apps/frontend/src/pages/database.tsx:1015` (`"REBEL" | "EMPIRE"` ist nicht `Faction`) und erzeugt danach zahlreiche TS6305-Folgefehler; der vollständige Frontend-Testlauf hat zusätzlich einen bestehenden Fehler in `src/pages/research.spec.tsx`. Die Sandbox-spezifischen Backend- und Frontend-Tests sowie `npx nx run-many --targets=build` waren grün. Bitte zuerst den Branch-Baseline-Fehler beheben oder bestätigen, dass bekannte unabhängige Fehler für diesen Durchlauf ausgenommen werden dürfen.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Frontend-Faction-/TS6305-Gate und Research-Test); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

@@ -1,6 +1,6 @@
 # Flottenpflege: ausblenden, priorisieren, Sichtbarkeit
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P3
 **Size:** S
 **Blocked by:** sc-WP-FLEET-1b
@@ -31,3 +31,4 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Comments
 
 - 2026-10-29: Umsetzung und issue-spezifische Backend-/Frontend-Tests waren grün, ebenso `nx run-many --targets=build`. Die vorgeschriebene Gesamtabnahme scheitert jedoch nach zwei ernsthaften Versuchen an bestehenden, issue-fremden Fehlern: `frontend:typecheck` meldet zahlreiche TS6305-Fehler wegen fehlender `apps/frontend/dist/**/*.d.ts`-Buildartefakte sowie bestehende TS7006-Fehler; `frontend:test` scheitert in `src/pages/research.spec.tsx` (`button` mit Name `/eine von/` fehlt). Produktcode wurde gemäß Abbruchregel verworfen. Bitte die Baseline-Prüfungen reparieren oder bestätigen, dass diese bekannten Fehler für den Durchlauf ausgenommen werden dürfen.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Frontend-Typecheck und Research-Test); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

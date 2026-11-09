@@ -3,7 +3,7 @@
 **Status:** ready-for-agent
 **Priority:** P2
 **Size:** M
-**Blocked by:** tmw-K10a
+**Blocked by:** tmw-K10a3
 
 ## Ziel
 
@@ -31,3 +31,4 @@ Ionenstürme als zweiter Anomalietyp: Ein Wurzelobjekt mit Richtung, Geschwindig
 - [ ] Backend-Tests mit deterministischem Zufall: Erzeugung, Bewegung, Ausbreitung, Tickschaden, Einflugschaden, Antriebsausfall. Frontend-Test: Darstellung im LSS.
 
 ## Comments
+- 2026-11-09: Registry und geforderte Anomalieanzeige in LSS/Feldkontext benötigen die geordnete K10a-Kette bis tmw-K10a3; der Parent ist nur Tracking-Split.

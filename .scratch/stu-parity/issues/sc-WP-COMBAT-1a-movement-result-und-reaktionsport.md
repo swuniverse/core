@@ -1,6 +1,6 @@
 # Movement-Result und neutraler Reaktionsport
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K1b1
@@ -27,9 +27,9 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Akzeptanzkriterien
 
 - [ ] Der Executor aus `tmw-K1b1` bleibt der einzige gemeinsame Routen-/Transition-Kern; dieses Issue erzeugt keinen parallelen alarm-spezifischen Bewegungspfad.
-- [ ] Alle betroffenen Bewegungen liefern einen gemeinsamen `MovementResult` mit Teilfortschritt, Stopgrund `ARRIVED | ALERT_COMBAT | DESTROYED`, bewegten und zerstörten Schiffs-IDs sowie optionalem Kampfbericht.
-- [ ] Ein neutraler injizierbarer Ankunfts-/Reaktionsport läuft nach jeder tatsächlich vollzogenen Feldtransition und kann die weitere Route mit strukturiertem Ergebnis stoppen, ohne Combat-Typen in den Spacecraft-Kern zu importieren.
-- [ ] Systemflug, Galaxieflug, Systemeintritt/-austritt und Abfangen verwenden denselben Ergebnisvertrag; Befehle ohne Feldwechsel lösen den Port nicht aus.
+- [ ] System- und Galaxieflug liefern einen gemeinsamen `MovementResult` mit Teilfortschritt, Stopgrund `ARRIVED | ALERT_COMBAT | DESTROYED`, bewegten und zerstörten Schiffs-IDs sowie optionalem Kampfbericht.
+- [ ] Ein neutraler injizierbarer Ankunfts-/Reaktionsport läuft nach jeder tatsächlich vollzogenen Transition des System- oder Galaxieflugs und kann die weitere Route mit strukturiertem Ergebnis stoppen, ohne Combat-Typen in den Spacecraft-Kern zu importieren.
+- [ ] Systemflug und Galaxieflug verwenden denselben Ergebnisvertrag; Befehle ohne Feldwechsel lösen den Port nicht aus. Systemeintritt, Systemaustritt und Abfangen sind nicht Teil dieses Issues und werden in Folgeissues migriert.
 - [ ] Bei einem Stopp bleiben Standort, Kosten, Signatur, Erkundung, Statistik und bereits erfolgte Konsequenzen des erreichten Feldes erhalten; spätere Schritte werden nicht ausgeführt.
 - [ ] Zerstörte Schiffe fliegen nicht weiter; überlebende Flottenmitglieder bleiben konsistent auf dem zuletzt erreichten Feld.
 - [ ] Backend-Vertragstests decken Ankunft, Reaktionsstopp auf Zwischenfeld, Zerstörungsstopp, Teilfortschritt und Flottenverluste ab.
@@ -41,4 +41,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Comments
 
-Blocker nach zwei ernsthaften Umsetzungs-/Prüfversuchen: Das Issue verlangt Systemeintritt, Systemaustritt und Abfangen über denselben `MovementResult`-/Reaktionsvertrag. Diese Aktionen umgehen im aktuellen Stand den einzigen `FieldTransitionExecutor`; die geforderte Einbindung ist damit kein isoliertes Vertragsextension-Issue, sondern erfordert einen fachlichen Umbau der drei Bewegungsabläufe (inklusive Kosten-, Flotten-, Signatur- und Konsequenzreihenfolge). Zusätzlich bleibt der verpflichtende Affected-Gate wegen bereits vorhandener fachfremder Änderungen rot (`wreck-decay`, `tutorial` und ältere Spacecraft-Testfixtures). Die versuchten Produktänderungen wurden gemäß Abbruchregel verworfen. Bitte entscheiden, ob der Scope um die Migration dieser drei Pfade erweitert oder in Folgeissues geteilt werden soll.
+- 2026-11-06: Maintainer bestätigt, Systemeintritt, Systemaustritt und Abfangen aus diesem Issue auszuklammern und in Folgeissues zu migrieren. Die Kriterien beschränken sich damit auf System- und Galaxieflug über den vorhandenen `FieldTransitionExecutor`; die fachlichen Umbauten der übrigen Pfade werden separat geplant. Die zuvor verworfenen Änderungen bleiben verworfen. Der bereits dokumentierte fachfremde Affected-Gate-Blocker bleibt von dieser Scope-Entscheidung unberührt.
+- 2026-11-09: Die integrierte Baseline `14b86081`/`c8e14f1c` behebt die dokumentierten fachfremden Typecheck-/Testfixture- und Tutorial-Probleme; die regulären Gates und vollständigen Tests sind laut Baseline-Review grün. Keine Feature-Fertigstellung: Die verworfene Umsetzung ist neu zu erstellen und mit Issue-Tests und aktuellen Pflicht-Gates erneut zu prüfen.

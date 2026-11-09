@@ -1,9 +1,9 @@
 # Wurmloch betreten und verlassen
 
-**Status:** needs-info
+**Status:** resolved
 **Priority:** P2
 **Size:** M
-**Blocked by:** tmw-K1a
+**Blocked by:** —
 
 ## Ziel
 
@@ -25,16 +25,17 @@ Ein Schiff auf einem Wurmlocheingang kann das Wurmloch betreten und erscheint am
 
 ## Akzeptanzkriterien
 
-- [ ] `POST spacecraft/:id/wormhole/enter` (optional mit `wormholeId`, falls mehrere) bewegt ein Schiff vom Eingangsfeld zum Ausgang. Abgelehnt wird mit klarer Meldung, wenn das Schiff im Hyperraum bzw. `IN_FLIGHT` ist, im Kampf, zerstört oder im Standby, wenn es kein aktives Wurmloch am Feld gibt oder wenn Crew bzw. Energie fehlt (Kosten wie ein Flugschritt).
-- [ ] Ein bidirektionales Wurmloch kann vom Ausgang zurück betreten werden. Bei `isRandomExit` wird ein zufälliges passierbares Feld der Zielebene gewählt (deterministisch testbar).
-- [ ] Nach dem Sprung laufen Positionswechsel, Erkundung um das Schiff, Pipeline-Folgen am Zielfeld, Flottenschiffe nach bestehender Flottenlogik und ein Ereignis bzw. Logeintrag „Wurmloch durchflogen“. Falls tmw-K5 umgesetzt ist, wird die Zielebene bekannt.
-- [ ] Die Zugriffsprüfung läuft über eine Schnittstelle `WormholeAccessPolicy`, deren Standardimplementierung alles erlaubt. tmw-K7b ersetzt sie.
-- [ ] Frontend: Feldkontext bzw. Schnellaktionen zeigen auf einem Wurmlochfeld „Wurmloch betreten“ mit Name und Zielebene. Nach dem Sprung aktualisieren sich Schiffsdetail und Karte.
-- [ ] Backend-Tests: Erfolgsfall, Rückrichtung, zufälliger Ausgang, alle Ablehnungsfälle, Flotte. Frontend-Test: Die Aktion erscheint nur auf Wurmlochfeldern und ruft die API auf.
+Dieses Parent-Ticket ist ein Tracking-Split; die Ausführung erfolgt in den drei geordneten Child-Issues:
+
+- [ ] `tmw-K7a1`: Backend-Kern für Passage, Endpunkt, Zugriffs-Policy und deterministische Ausgangswahl.
+- [ ] `tmw-K7a2`: atomare Flottenvalidierung sowie Zielfeldfolgen, Erkundung, Signatur/Log und Ebenenkenntnis.
+- [ ] `tmw-K7a3`: Shared-/Frontend-Verträge, Feldkontext- und Schnellaktionen sowie Oberflächentests.
 
 ## Comments
 
 - 2026-10-28: Blockiert durch eine fehlende Produktentscheidung: Das Akzeptanzkriterium verlangt „Kosten wie ein Flugschritt“, aber SWU hat zwei unterschiedliche Flugressourcen (Systemflug verbraucht rumpfabhängige EPS, Galaxieflug verbraucht Warpdrive). Bitte festlegen, ob eine Wurmlochpassage rumpfabhängige EPS, Warpdrive oder eine andere feste Ressource kostet. Zusätzlich bitte festlegen, ob der Kostenbegriff für jedes Flottenmitglied separat gilt.
-- 2026-10-30 Product Owner: Option 1. Wurmlochpassagen folgen der aktuellen STU-Laufzeitsemantik statt der ungenauen Formulierung „Kosten wie ein Flugschritt“. Beim Eintritt muss jedes bewegte Schiff einen funktionsfähigen Sublight-/Impulsantrieb besitzen; nur wenn dieser inaktiv ist, fällt für dieses Schiff dessen normale Aktivierungs-EPS an. Die Passage selbst verbraucht weder rumpfabhängige Flug-EPS noch Warpdrive. Beim Austritt fällt keine Antriebs- oder Streckenressource an. Flotten werden in SWU vollständig vorab und atomar validiert; jedes Mitglied muss seine eigene gegebenenfalls anfallende Aktivierungs-EPS tragen, Teilresultate wie in STU werden nicht übernommen. `isRandomExit` bleibt eine SWU-Funktion und wählt über einen injizierbaren RNG deterministisch testbar ein passierbares Feld der Zielebene. Ankunft führt Zielfeld-Pipeline, Erkundung, Ebenenkenntnis aus `tmw-K5c`, Signatur/Log und Reparaturabbruch in derselben erfolgreichen Operation aus. Das Issue ist `ready-for-agent`.
+- 2026-10-30 Product Owner: Option 1. Wurmlochpassagen folgen der aktuellen STU-Laufzeitsemantik statt der ungenauen Formulierung „Kosten wie ein Flugschritt“. Beim Eintritt muss jedes bewegte Schiff einen funktionsfähigen Sublight-/Impulsantrieb besitzen; nur wenn dieser inaktiv ist, fällt für dieses Schiff dessen normale Aktivierungs-EPS an. Die Passage selbst verbraucht weder rumpfabhängige Flug-EPS noch Warpdrive. Beim Austritt fällt keine Antriebs- oder Streckenressource an. Flotten werden in SWU vollständig vorab und atomar validiert; jedes Mitglied muss seine eigene gegebenenfalls anfallende Aktivierungs-EPS tragen, Teilresultate wie in STU werden nicht übernommen. `isRandomExit` bleibt eine SWU-Funktion und wählt über einen injizierbaren RNG deterministisch testbar ein passierbares Feld der Zielebene. Ankunft führt Zielfeld-Pipeline, Erkundung, Ebenenkenntnis aus `tmw-K5c`, Signatur/Log und Reparaturabbruch in derselben erfolgreichen Operation aus.
 
-- 2026-10-30 Ralph: Abbruch vor Produktcode: Das Issue ist trotz markierter Größe M ein vertikaler Querschnitt über transaktionale/atomare Flottenbewegung, neue Zugriffs-Policy, deterministische Zufallsauswahl, Zielfeld-Pipeline, Signaturen/Schiffslog, Reparaturabbruch, Ebenenkenntnis, Shared-DTO, Feldkontext und Frontend-Test. Die bestehende `SpacecraftService`-Flottenlogik ist zudem bei nicht fixierten Flotten bewusst partiell und damit nicht direkt für die geforderte vollständige atomare Vorabvalidierung wiederverwendbar. Bitte das Issue in geordnete Backend-Kern-, Integrations-/Flotten- und Frontend-Children aufteilen oder ausdrücklich als L/XL-Einzelissue freigeben.
+- 2026-10-30 Ralph: Abbruch vor Produktcode: Das Issue ist trotz markierter Größe M ein vertikaler Querschnitt über transaktionale/atomare Flottenbewegung, neue Zugangs-Policy, deterministische Zufallsauswahl, Zielfeld-Pipeline, Signaturen/Schiffslog, Reparaturabbruch, Ebenenkenntnis, Shared-DTO, Feldkontext und Frontend-Test. Die bestehende `SpacecraftService`-Flottenlogik ist zudem bei nicht fixierten Flotten bewusst partiell und damit nicht direkt für die geforderte vollständige atomare Vorabvalidierung wiederverwendbar. Entscheidung, in geordnete Backend-Kern-, Integrations-/Flotten- und Frontend-Child-Issues aufzuteilen; Parent `resolved`, Implementierung in `tmw-K7a1` bis `tmw-K7a3`.
+
+- 2026-11-06 Product Owner: Bestätigt die Aufteilung in drei geordnete Child-Issues; Parent bleibt `resolved` als Tracking-Split. `tmw-K7a1` ist der Backend-Kern, `tmw-K7a2` die atomare Flotten-/Ankunftsintegration und `tmw-K7a3` die Shared-/Frontend-Oberfläche.

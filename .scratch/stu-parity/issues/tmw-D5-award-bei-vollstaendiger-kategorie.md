@@ -1,9 +1,9 @@
 # Award bei vollständig entdeckter Datenbankkategorie und Meldung „Neuer Datenbankeintrag“
 
-**Status:** needs-info
+**Status:** resolved
 **Priority:** P2
 **Size:** M
-**Blocked by:** soc-G1
+**Blocked by:** —
 
 ## Ziel
 
@@ -25,14 +25,12 @@ Hat ein Spieler eine Datenbankkategorie vollständig entdeckt, erhält er den zu
 
 ## Akzeptanzkriterien
 
-- [ ] Eine Konfiguration „Kategorie (+ optional Ebene) → Award“ liegt als Seed bzw. in den Spieldaten vor, zunächst für Schiffsrümpfe, Planetentypen, Sternensystemtypen und Sternensysteme je Ebene. Regionen werden erst ergänzt, wenn `tmw-K8b2` und `tmw-D4` den autoritativen Regionskatalog bereitstellen, und blockieren diese erste Umsetzung nicht.
-- [ ] `StarSystem` besitzt ein explizites persistentes Katalogmerkmal (z. B. `isDatabaseCatalogEntry`). Bestehende produktive Systeme werden bei der Migration als katalogberechtigt übernommen; versteckte, Test- oder Admin-Experimentsysteme können ausdrücklich ausgeschlossen werden. Der Nenner je Ebene umfasst ausschließlich katalogberechtigte Systeme.
-- [ ] Nach jeder neuen Entdeckung wird geprüft, ob die Kategorie (bzw. Kategorie × Ebene) vollständig ist. Falls ja, wird der Award über den idempotenten soc-G1-Dienst genau einmal vergeben.
-- [ ] Jede Entdeckung erzeugt ein Spielereignis „Neuer Datenbankeintrag: <Name> (+x Prestige)“, das im Frontend als Meldung erscheint. Ein Award erzeugt eine eigene Meldung.
-- [ ] Der Datenbank-Hub zeigt je Kategorie „x / y entdeckt“.
-- [ ] NPC-Konten (tmw-W1, falls vorhanden) erhalten weder Awards noch Prestige.
-- [ ] Die gewählten Award-Namen und Bilder sind in `map.md` unter „Entscheidungen“ festgehalten. Bilder liegen nach Asset-Konvention unter `/assets/awards/…` oder sind als fehlendes Asset markiert.
-- [ ] Backend-Tests: Vollständigkeit erkannt (mit und ohne Ebene), keine doppelte Vergabe, keine Vergabe bei unvollständiger Kategorie. Frontend-Test: Fortschrittsanzeige und Meldung.
+Dieses Parent-Ticket ist ein Tracking-Split; die Umsetzung erfolgt in vier geordneten Child-Issues:
+
+- [ ] `tmw-D5a`: gemeinsame Kategorie-Award-Konfiguration und Completion-Service.
+- [ ] `tmw-D5b`: Schiffsrümpfe, Planetentypen und Systemtypen – Entdeckung, Meldung und Award-Prüfung.
+- [ ] `tmw-D5c`: Sternensystem-Katalogmerkmal, Backfill und Entdeckungsintegration je Ebene.
+- [ ] `tmw-D5d`: Datenbank-Hub-Fortschritt und Frontend-Meldungen.
 
 ## Entscheidung
 
@@ -44,4 +42,5 @@ Regions-Awards sind nicht Teil der ersten produktiven Konfiguration. Sie werden 
 
 - 2026-10-28 – Blocker: Das Issue verlangt eine produktive Konfiguration für fünf Kategorien, aber zwei davon sind noch nicht vollständig implementiert: Regionen hängen von `tmw-D4`/`tmw-K8b` ab, und für die Systemkategorie fehlt eine eindeutige Produktentscheidung, welche Sternensysteme je Ebene zur Vollständigkeit zählen (alle kartierten Systeme, alle generierten Systeme oder nur betretbare Systeme). Außerdem ist `tmw-D4` derzeit selbst noch blockiert. Bitte die Vollständigkeitsmenge für „Sternensysteme je Ebene“ festlegen und entscheiden, ob Regionen in diesem Issue bis `tmw-D4` ausgenommen werden oder `tmw-D5` entsprechend blockiert werden soll.
 - 2026-10-30 Product Owner: Option 3. Die Vollständigkeitsmenge je Ebene besteht aus Sternensystemen mit expliziter persistenter Katalogberechtigung. Bestehende produktive Systeme werden als berechtigt migriert; versteckte, Test- und Admin-Experimentsysteme können ausgeschlossen werden. Weder bloße Persistenz noch dynamische Erreichbarkeit definiert den Nenner. Regions-Awards werden bis zum autoritativen Katalog aus `tmw-K8b2` und `tmw-D4` zurückgestellt und blockieren die erste Umsetzung nicht.
-- 2026-10-30 – Blocker nach Implementierungsanalyse: Das Issue verlangt vier voneinander unabhängige Entdeckungspfade, persistente Meldungen, NPC-Ausschluss, katalog-/ebenenabhängige Vollständigkeit, Migration/Backfill, Award-Seeds und Frontend-Fortschritt samt Tests. Das überschreitet die verbindliche Issue-Größe M deutlich und lässt sich nicht in einem sicheren vertikalen Durchlauf umsetzen. Bitte in mindestens folgende Children teilen: (1) gemeinsame Kategorie-Award-Konfiguration und Completion-Service, (2) Schiffsrumpf-/Planetentyp-/Systemtyp-Integration mit Meldungen, (3) Systemkatalogmerkmal, Backfill und Systementdeckungsintegration je Ebene, (4) Datenbank-Hub-Fortschritt und Frontend-Meldungstests.
+- 2026-10-30 – Blocker nach Implementierungsanalyse: Das Issue verlangt vier voneinander unabhängige Entdeckungspfade, persistente Meldungen, NPC-Ausschluss, katalog-/ebenenabhängige Vollständigkeit, Migration/Backfill, Award-Seeds und Frontend-Fortschritt samt Tests. Das überschreitet die verbindliche Issue-Größe M deutlich und lässt sich nicht in einem sicheren vertikalen Durchlauf umsetzen. Deshalb wurde die Aufteilung in vier geordnete Child-Issues vorgeschlagen.
+- 2026-11-06 Product Owner: Bestätigt den Tracking-Split in vier Child-Issues. `tmw-D5a` enthält die gemeinsame Award-Konfiguration und Completion-Prüfung; `tmw-D5b` integriert Schiffsrümpfe, Planetentypen und Systemtypen; `tmw-D5c` ergänzt Systemkatalogmerkmal, Backfill und Entdeckung je Ebene; `tmw-D5d` liefert Fortschrittsanzeige und Frontend-Meldungen. `tmw-D5b` und `tmw-D5c` hängen von `tmw-D5a` ab; `tmw-D5d` hängt von beiden ab. Regionen bleiben bis zum autoritativen Regionskatalog aus `tmw-K8b2` und `tmw-D4` ausgenommen. Das Parent-Ticket bleibt `resolved` als Tracking-Split.

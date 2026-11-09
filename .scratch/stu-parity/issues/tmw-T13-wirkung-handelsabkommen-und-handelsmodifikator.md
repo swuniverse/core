@@ -3,7 +3,7 @@
 **Status:** ready-for-agent
 **Priority:** P2
 **Size:** S
-**Blocked by:** tmw-T2, tmw-T7a
+**Blocked by:** tmw-T2b, tmw-T7a
 
 ## Ziel
 
@@ -36,3 +36,4 @@ Vorgabe:
 ## Comments
 
 - 2026-10-21 Product Owner: Option 1a, 2b – Handelsabkommen-Partner erhalten am Spielerposten des Eigentümers die Lizenz kostenlos (1a); `tradeModifier` wird entfernt (2b).
+- 2026-11-09: Die Vergünstigung erweitert den transaktionalen Lizenzkauf tmw-T2b; kein Frontend-Split als Voraussetzung erfunden.

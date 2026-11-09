@@ -1,9 +1,9 @@
 # Forschungsabschluss: Datenbankeinträge
 
-**Status:** needs-info
+**Status:** wontfix
 **Priority:** P3
 **Size:** S
-**Blocked by:** col-D1
+**Blocked by:** —
 
 ## Ziel
 
@@ -31,3 +31,4 @@ STU legt beim Abschluss bestimmter Forschungen Datenbankeinträge für den Spiel
 ## Comments
 
 - 2026-10-29: Blockiert durch fehlende autoritative STU-Datenzuordnung. Die drei genannten STU-Codequellen enthalten nur numerische `database_entries`-IDs; im verfügbaren Referenz-Repo/Assets liegen weder die produktiven `stu_research.database_entries`-Werte noch die zugehörigen `stu_database_entry`-Datensätze vor. Ohne diese Tabelle lassen sich die geforderten STU-Einträge nicht belastbar auf SWU-Kategorien und Schlüssel (insbesondere Schiffsklassen) abbilden. Bitte einen STU-Dump bzw. eine bestätigte Mapping-Tabelle Research-ID → Database-Entry-ID → SWU-Kategorie/Schlüssel bereitstellen oder bestätigen, dass zunächst nur Schema/Hook ohne produktive Mappings umgesetzt werden soll.
+- 2026-11-06: Nach Klärung mit dem Maintainer als `wontfix` geschlossen. Forschungsfreischaltung und Datenbank-Discovery sind getrennte Spielvorgänge: Schiffsklassen werden durch Scannen eines Schiffs des jeweiligen Rumpftyps entdeckt; Planetentypen und Systemtypen werden ebenfalls nicht durch Forschungsabschluss entdeckt. Indirekte Beziehungen zwischen Forschungen und Rümpfen/Planetentypen dienen daher nicht als Beleg für Forschungs-Discovery. Der Forschungsabschluss-Hook und das Import-Mapping aus diesem Ticket werden nicht umgesetzt. Abhängigkeit `col-D1` entfernt.

@@ -1,6 +1,6 @@
 # Kontolöschung: Handler für Schiffe, Flotten, Forschung und Kartenwissen
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P2
 **Size:** M
 **Blocked by:** sh-AP-05a
@@ -33,3 +33,4 @@ Schiffe, Flotten, Baupläne, Forschung und das persönliche Kartenwissen eines g
 ## Comments
 
 - 2026-10-30: Die Implementierung und der fokussierte Postgres-Integrationstest sind grün, aber die verpflichtenden Workspace-Gates scheitern nach zwei ernsthaften Läufen an unabhängigen Baseline-Fehlern: Backend-Build/Typecheck kann `dotenv` aus `typeorm-migration.config.ts` nicht auflösen (zusätzlich TS6305-Artefaktfehler), Frontend-Build kann `pixi.js` aus `SystemViewDialog.tsx` nicht auflösen. Produktcode wurde gemäß Ralph-Abbruchregel verworfen. Bitte zuerst die Build-/Dependency-Baseline reparieren (vgl. `sh-AP-23`) und dieses Issue danach erneut auf `ready-for-agent` setzen.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Dependency-/Build-Gates (dotenv, pixi.js, TS6305)); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

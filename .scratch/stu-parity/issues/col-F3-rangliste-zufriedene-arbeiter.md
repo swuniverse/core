@@ -1,6 +1,6 @@
 # Rangliste „Die besten Arbeitgeber“ (zufriedene Arbeiter)
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -31,3 +31,4 @@ STU führt in der Datenbank eine Top-10-Rangliste der besten Arbeitgeber: je Spi
 ## Comments
 
 - 2026-10-28: Abgebrochen, weil der verpflichtende Lauf `npx nx affected -t lint typecheck test --base=HEAD` nach zwei ernsthaften Reparaturversuchen weiterhin an einem bereits vorhandenen, themenfremden TypeScript-Fehler in `apps/frontend/src/pages/colonies.spec.tsx:239` scheitert: Der Fixture-Wert benötigt das Pflichtfeld `hasFighterShipyard`. Die Änderungen für diese Aufgabe unter `apps/` wurden gemäß Abbruchregel zurückgesetzt. `npx nx run-many --targets=build` war zuvor erfolgreich.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Frontend-Fixture hasFighterShipyard); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

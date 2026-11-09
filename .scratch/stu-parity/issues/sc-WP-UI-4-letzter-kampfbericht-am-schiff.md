@@ -1,6 +1,6 @@
 # Letzten Kampfbericht am Schiff anzeigen
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -32,3 +32,4 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Comments
 
 Umsetzung nach zwei Prüfversuchen abgebrochen und Produktcode verworfen: Backend- und Frontend-Tests sowie alle Builds waren grün, aber der verpflichtende Frontend-Typecheck scheitert repo-weit an bereits vorhandenen Fehlern (`database.tsx`-Faction-Typ sowie zahlreiche TS6305-Fehler für fehlende Deklarationsausgaben). Bitte den Typecheck-Baselinefehler beheben oder bestätigen, dass für dieses Issue ein sauberer Changed-Files-Typecheck genügt.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Frontend-Faction-/TS6305-Gate); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

@@ -1,6 +1,6 @@
 # Kontolöschung: Handler für Konto, Kommunikation und Allianz
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P2
 **Size:** M
 **Blocked by:** sh-AP-05a
@@ -36,3 +36,4 @@ Die Lösch-Handler für alle konto- und kommunikationsbezogenen Daten werden am 
 ## Comments
 
 - 2026-10-30: Abbruch nach zwei Prüfversuchen. Die fokussierten Account-/Messaging-/HoloNet-Tests waren grün (22 Tests), aber die verpflichtenden Gates sind in der vorhandenen Arbeitskopie fachfremd rot: Backend-Typecheck/Build scheitern an fehlendem `dotenv` sowie zahlreichen stale TS6305-Buildartefakten; der Frontend-Build findet `pixi.js` nicht. Bitte die Dependency-/Build-Baseline wiederherstellen oder bestätigen, welche bestehende Baseline-Ausnahme für diesen Durchlauf gilt. Produktcode wurde gemäß Abbruchregel verworfen.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Dependency-/Build-Gates (dotenv, pixi.js, TS6305)); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

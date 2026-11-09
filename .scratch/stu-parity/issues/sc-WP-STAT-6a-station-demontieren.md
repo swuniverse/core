@@ -1,6 +1,6 @@
 # Station demontieren
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P3
 **Size:** S
 **Blocked by:** sc-WP-STAT-2
@@ -29,3 +29,4 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Comments
 
 - 2026-10-29: Blockiert nach zwei ernsthaften Verifikationsläufen. Die fokussierten Backend- und Frontend-Tests sowie alle Builds sind grün, aber der vorgeschriebene affected-Lauf scheitert weiterhin an bereits vorhandenen, issue-fremden Frontend-Typecheck- und Backend-/Frontend-Testfehlern. Produktänderungen wurden gemäß Ralph-Abbruchregel verworfen.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (fachfremde Typecheck-/Testbaseline); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

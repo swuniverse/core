@@ -33,11 +33,15 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] Bei mehreren berechtigten fremden Eignern werden Kandidaten stabil deterministisch geordnet und höchstens ein Eigner beginnt pro Transition einen Kampf.
 - [ ] Die alarmierte Einzel-/Flottenpartei ist Angreifer, der Einflieger beziehungsweise seine Flotte Verteidiger. Der interne Resolver aus `sc-WP-COMBAT-1b` wird ohne simulierte Benutzerautorisierung aufgerufen.
 - [ ] Jeder Alarmkampf stoppt die Bewegungsanfrage auf dem erreichten Feld mit `ALERT_COMBAT` und gemeinsamem Kampfbericht.
-- [ ] Systemflug, Galaxieflug, Systemeintritt/-austritt und Abfangen reichen das Ergebnis weiter; alle betroffenen Frontend-Oberflächen öffnen den bestehenden `CombatReportDialog` und aktualisieren den erreichten Zustand.
+- [ ] System- und Galaxieflug reichen das Ergebnis weiter; die betroffenen Frontend-Oberflächen öffnen den bestehenden `CombatReportDialog` und aktualisieren den erreichten Zustand. Systemeintritt, Systemaustritt und Abfangen werden in Folgeissues migriert.
 - [ ] Der Traktor-Kontextport bleibt für `sc-WP-TRACT-1a` erweiterbar; dessen Freundunterdrückung und Trojanisches-Pferd-Verhalten gehören nicht zu diesem Issue.
-- [ ] Backend-Tests decken Grün/Gelb/Rot × Friend/Neutral/Enemy, persönlichen Feind, Urlaub, Tarnung, deterministische Mehrbesitzer-Auswahl, Zwischenfeld-Stopp, Ein-/Austritt und Flottenverluste ab; Frontend-Tests decken Bericht und Zustandsaktualisierung ab.
+- [ ] Backend-Tests decken Grün/Gelb/Rot × Friend/Neutral/Enemy, persönlichen Feind, Urlaub, Tarnung, deterministische Mehrbesitzer-Auswahl, Zwischenfeld-Stopp im System- und Galaxieflug und Flottenverluste ab; Frontend-Tests decken Bericht und Zustandsaktualisierung ab.
 - [ ] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Entscheidung
 
 Alarmkandidaten und automatische Kampfinitiierung liegen in einer neutralen Orchestrierung außerhalb des Spacecraft-Kerns. Sie verbindet Reaktionsport und internen Battle-Resolver ohne zyklische NestJS-Modulabhängigkeit.
+
+## Comments
+
+- 2026-11-06: Maintainer bestätigt, Alarmreaktionen bei Systemeintritt, Systemaustritt und Abfangen aus diesem Issue auszuklammern und in Folgeissues zu migrieren. Dieses Issue deckt System- und Galaxieflug über den gemeinsamen Bewegungsvertrag aus `sc-WP-COMBAT-1a` ab. Der vorhandene Status `ready-for-agent` und der Blocker `sc-WP-COMBAT-1a` bleiben unverändert.

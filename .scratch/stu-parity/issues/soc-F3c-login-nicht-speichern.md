@@ -1,6 +1,6 @@
 # Einstellung „Login nicht speichern“
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -33,3 +33,4 @@ STU erlaubt mit `SAVE_LOGIN`, die Anmeldung nicht dauerhaft zu speichern. In SWU
 ## Comments
 
 - 2026-10-29: Umsetzung und fokussierte Frontend-Tests waren erfolgreich, aber die Pflichtprüfung `npx nx affected -t lint typecheck test --base=HEAD` scheitert nach zwei ernsthaften Versuchen an bereits bestehenden Frontend-Typecheck-Fehlern (u. a. `database.tsx:1015` Faction-Typfehler und zahlreiche TS6305-Fehler zu fehlenden Declaration-Ausgaben). `npx nx run-many --targets=build` ist grün. Bitte den Frontend-Typecheck-Basiszustand reparieren oder bestätigen, dass diese bekannten Fehler für diesen Durchlauf ausgenommen werden dürfen. Produktcode wurde gemäß Abbruchregel verworfen.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Frontend-Faction-/TS6305-Gate); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

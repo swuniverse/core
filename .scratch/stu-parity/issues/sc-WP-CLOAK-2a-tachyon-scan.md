@@ -1,6 +1,6 @@
 # Tachyon-Scan: getarnte Schiffe aufdecken
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P3
 **Size:** S
 **Blocked by:** sc-WP-CLOAK-1a, sc-WP-NAV-2a
@@ -34,3 +34,4 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Comments
 
 Blocked after two serious validation attempts: the full backend suite has one unrelated pre-existing failure in `spacecraft-fleet.service.spec.ts` (`detaches an incapable member but blocks a fixed fleet`, `Not enough EPS for navigation`). Focused tachyon backend/frontend tests, affected lint/typecheck, and all builds pass. Product code was discarded per Ralph step 7; rerun after the backend baseline is green.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Spacecraft-Flotten-Testbaseline); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

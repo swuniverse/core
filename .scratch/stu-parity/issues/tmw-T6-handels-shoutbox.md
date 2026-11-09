@@ -1,9 +1,9 @@
 # Handels-Shoutbox je Netzwerk
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P2
 **Size:** S
-**Blocked by:** tmw-T2
+**Blocked by:** tmw-T2c
 
 ## Ziel
 
@@ -30,3 +30,5 @@ Jedes Handelsnetz hat eine Shoutbox: eine kurze Chatliste mit den letzten Eintr�
 ## Comments
 
 - 2026-11-02: Umsetzung lokal vollständig (Entity/Migration, lizenzgeschützte GET/POST-API, HTML-Bereinigung, 200-Zeichen-/30-Einträge-Grenze, Rate-Limit und Handelsseiten-UI). Fokussierte Backend- und Frontend-Tests sowie alle Builds sind grün. Der verpflichtende `nx affected`-Gate bleibt nach zwei ernsthaften Läufen an fachfremden, bereits vorhandenen Backend-Baselinefehlern rot: Typecheck in `field-effect-consequence.spec.ts`, `wreck-decay.service.spec.ts` und `tutorial.service.spec.ts`; außerdem sechs bestehende Spacecraft-/Tick-Tests. Produktcode wurde gemäß Abbruchregel verworfen. Bitte Baseline reparieren und Issue erneut auf `ready-for-agent` setzen.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Backend-Typecheck und Spacecraft-/Tick-Testbaseline); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.
+- 2026-11-09: Die Netzberechtigung benötigt den Gültigkeits-/Ablaufvertrag aus tmw-T2c; dessen Kauf- und Modellvoraussetzungen gelten transitiv.

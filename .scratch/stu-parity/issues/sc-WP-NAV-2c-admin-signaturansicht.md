@@ -1,6 +1,6 @@
 # Admin-Ansicht der Flugsignaturen
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P3
 **Size:** S
 **Blocked by:** sc-WP-NAV-2a
@@ -31,3 +31,4 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Comments
 
 - 2026-10-29: Blockiert durch die verpflichtende Gesamtprüfung: Zwei ernsthafte Implementierungs-/Prüfversuche scheiterten an bereits auf dem sauberen Claim-Stand vorhandenen Frontend-Typecheck-Fehlern (`apps/frontend/src/pages/database.tsx:1015`, `Faction`-Typkonflikt) sowie zahlreichen TS6305-Fehlern zu fehlenden Declaration-Ausgaben. Backend-Service- und Frontend-Filter-Fokustests waren grün, der Frontend-Build ebenfalls; da `npx nx affected -t lint typecheck test --base=HEAD` nicht vollständig grün werden kann, wurden alle Produktcodeänderungen gemäß Abbruchregel verworfen. Bitte den Baseline-Typecheck reparieren oder bestätigen, dass diese bekannten Fehler für diesen Durchlauf ausgenommen werden dürfen.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Frontend-Faction-/TS6305-Gate); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

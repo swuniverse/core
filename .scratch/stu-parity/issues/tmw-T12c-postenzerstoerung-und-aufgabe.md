@@ -3,7 +3,7 @@
 **Status:** ready-for-agent
 **Priority:** P2
 **Size:** S
-**Blocked by:** tmw-T12a, sh-AP-05a
+**Blocked by:** tmw-T12a, tmw-T11b
 
 ## Ziel
 
@@ -28,3 +28,4 @@ Wird die Station eines Handelspostens zerstört, wird der Posten nach STU-Regel 
 - [ ] Backend-Tests: Zerstörung mit Bergungsgut, Benachrichtigung, verlassener Posten sperrt die richtigen Aktionen.
 
 ## Comments
+- 2026-11-09: Der geforderte TradeDeletionHandler stammt aus tmw-T11b; dessen Abhängigkeit auf den Löschorchestrator bleibt transitiv.

@@ -1,9 +1,9 @@
 # Anomalie-Framework mit Subraumellipse
 
-**Status:** needs-info
+**Status:** resolved
 **Priority:** P2
 **Size:** M
-**Blocked by:** tmw-K1a, tmw-K3c
+**Blocked by:** —
 
 ## Ziel
 
@@ -28,15 +28,15 @@ SWU bekommt ein Anomalie-Framework nach STU-Vorbild: Entität (Typ, Ort, Resttic
 
 ## Akzeptanzkriterien
 
-- [ ] Die Entitäten Anomalie und Anomalietyp sind per Migration angelegt. Eine Anomalie hat Typ, Ort (nullable für Wurzelobjekte), Restticks, JSON-Daten und Eltern/Kinder.
-- [ ] Ein Handler-Register: Jeder Typ implementiert `checkForCreation`, `handleTick`, `handleIncomingSpacecraft` und `onDisappear`. Der Haupttick ruft erst die Verarbeitung bestehender Anomalien auf (Restticks −1, Entfernen bei 0), dann die Erzeugungsprüfung.
-- [ ] Die Einflugfolgen laufen über die Pipeline aus tmw-K1a. Felder mit `NO_ANOMALIES` erhalten nie eine Anomalie.
-- [ ] Subraumellipse: entsteht an Orten, deren berechnete Masse (Crew × aktive Systeme, Masse der Schiffe; SWU-Äquivalent der STU-Formel, dokumentiert) den Schwellwert übersteigt. Je Tick werden für alle Schiffe am Ort die Schilde abgeschaltet und auf 0 gesetzt, und das Schildsystem nimmt 1–50 Schaden. Die Besitzer werden bei Entstehung und bei Wirkung benachrichtigt.
-- [ ] LSS, Feldkontext und Kolonie-Umgebungsscan zeigen Anomalien (Icon aus `/assets/anomalies/<typ>.png`, Name, Restdauer). Fehlende Assets sind dokumentiert.
-- [ ] Backend-Tests: Lebenszyklus (Erzeugen, Ticken, Verschwinden), Handler-Register, Subraumellipse (Schwelle, Schildwirkung), Sperre `NO_ANOMALIES`. Frontend-Tests: `LssMap` und `FieldContextPanel` zeigen die Anomalie.
+Dieses Parent-Ticket ist ein Tracking-Split; die Umsetzung erfolgt in drei geordneten Child-Issues:
+
+- [ ] `tmw-K10a1`: Anomalie-Datenmodell, Migration, Handler-Registry und Lebenszyklus.
+- [ ] `tmw-K10a2`: Subraumellipse, Tick-/Einflugwirkung und Backend-Tests.
+- [ ] `tmw-K10a3`: Scan- und UI-Verträge für LSS, Feldkontext und Kolonie-Umgebungsscan.
 
 ## Comments
 
 - 2026-10-28: Blockiert durch fehlende Produktentscheidung zur Subraumellipse. Die STU-Referenz verwendet eine Schwellwertformel über Crew und `rump.mass`, während SWU-Schiffsklassen aktuell keine persistierte Masse besitzen. Zusätzlich verlangt das Issue eine 1–50-Schadensverteilung, legt aber weder Zufallsquelle/Determinismus noch den Lebensdauer- und Erzeugungsmodus für den Anomalietyp fest. Bitte festlegen: (1) welches SWU-Masseäquivalent bzw. welche Klassenmetrik und welcher Schwellwert gelten, (2) ob Schildemitterschaden deterministisch oder zufällig ist und wie getestet wird, (3) Lebensdauer und Erzeugungswahrscheinlichkeit/-häufigkeit der Subraumellipse.
 - 2026-10-30 Product Owner: Option 1. Jede Schiffsklasse erhält den expliziten Integerwert `anomalyMass`. Bei eindeutig zugeordneten STU-Rümpfen wird er aus `tractor_mass` übernommen; SWU-eigene Klassen benötigen einen bewusst gepflegten Wert und dürfen nicht still aus Kampfwerten abgeleitet werden. Der Score folgt STU: mobile Schiffe zählen mit voller `anomalyMass`, Stationen mit `anomalyMass / 10`, hinzu kommen `Crewzahl × Anzahl aktiver Systeme × 100`; NPC-/Systemschiffe, Schiffe im Bau und Schiffe mit aktivem Hyperraumantrieb zählen nicht. Schwelle ist `33_333_333`. Oberhalb davon beträgt die Chance je Haupttick `clamp(5 + ceil(Überschuss / 1_000_000), 0, 100)` Prozent. Ein injizierbarer RNG wird sowohl für diese Chance als auch für zufällige `1–50` Schildemitterschäden verwendet; Tests steuern ihn deterministisch. Anders als der fehlerhafte strikte STU-Vergleich gilt eine explizite Prozentprobe `roll <= chance`. Lebensdauer ist ein Tick: Erzeugung erfolgt nach Verarbeitung bestehender Anomalien, Wirkung im folgenden Haupttick, danach verschwindet die Ellipse. Das Issue ist `ready-for-agent`.
-- 2026-10-30: Abbruch nach zwei ernsthaften Umsetzungsversuchen ohne Produktcode-Fortschritt. Der Scope umfasst gleichzeitig neues Persistenzmodell und Migration, ein Handler-Register, globale Tick-Orchestrierung, Flugpipeline-Integration, Schiffsklassen-Massendaten, Benachrichtigungen sowie drei Anzeigeverträge. Das ist nicht sicher als einzelnes M-Issue test-first abschließbar. Bitte in geordnete Teilissues für (1) Datenmodell/Registry, (2) Subraumellipse/Tick/Einflug und (3) Scan-/UI-Verträge aufteilen.
+- 2026-10-30: Abbruch nach zwei ernsthaften Umsetzungsversuchen ohne Produktcode-Fortschritt. Der Scope umfasst gleichzeitig neues Persistenzmodell und Migration, ein Handler-Register, globale Tick-Orchestrierung, Flugpipeline-Integration, Schiffsklassen-Massendaten, Benachrichtigungen sowie drei Anzeigeverträge. Das ist nicht sicher als einzelnes M-Issue test-first abschließbar; deshalb wurde die Aufteilung in geordnete Teilissues vorgeschlagen.
+- 2026-11-06 Product Owner: Bestätigt den Tracking-Split in drei geordnete Child-Issues. `tmw-K10a1` umfasst Datenmodell, Migration, Handler-Registry und Lebenszyklus; `tmw-K10a2` die Subraumellipse mit Tick-/Einflugwirkung; `tmw-K10a3` die Scan-/UI-Verträge. Kind 2 hängt von Kind 1 ab, Kind 3 von Kind 2. Das Parent-Ticket bleibt `resolved` als Tracking-Split.

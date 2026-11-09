@@ -1,6 +1,6 @@
 # Admin: Spieler blockieren und Löschverbot setzen
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P2
 **Size:** S
 **Blocked by:** sh-AP-08a, sh-AP-05a
@@ -35,3 +35,4 @@ Admins können einen Spieler blockieren: Seine E-Mail-Adresse wird als Hash auf 
 ## Comments
 
 - 2026-10-30: Blockiert durch die verpflichtenden Repository-Gates: `npx nx affected -t lint typecheck test --base=HEAD` und `npx nx run-many --targets=build` scheitern bereits außerhalb dieses Issues im Backend an `TS2307: Cannot find module 'dotenv'` in `apps/backend/src/database/typeorm-migration.config.ts` sowie zahlreichen bestehenden `TS6305`-Fehlern. Zwei Umsetzungs-/Prüfversuche mit grünen fokussierten Backend- und Frontend-Tests konnten die vorgeschriebenen Gesamtprüfungen daher nicht grün bekommen. Produktcode gemäß Abbruchregel verworfen. Bitte zuerst die Baseline (z. B. sh-AP-23 oder Abhängigkeits-/Build-Artefakt-Reparatur) beheben und das Issue danach erneut freigeben.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Backend-Dependency-/TS6305-Gates); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

@@ -1,6 +1,6 @@
 # Zeitbasierten Hyperraumsprung zurückbauen
 
-**Status:** needs-triage
+**Status:** ready-for-agent
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-NAV-3
@@ -38,3 +38,4 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Comments
 
 - Entdeckt bei sc-WP-NAV-3. Die Migration darf Schiffe nicht direkt ans Ziel teleportieren, weil der verworfene Zeitflug sonst beim Upgrade noch spielmechanisch belohnt würde.
+- 2026-11-09: Das Rückbauziel und die Migration laufender Flüge auf den Ausgangsort (ersatzweise den aktuellen gültigen Ort) sind bereits entschieden und oben spezifiziert. `sc-WP-NAV-3` ist erledigt; Status `ready-for-agent`. Umsetzung und issue-spezifische Prüfungen stehen noch aus.

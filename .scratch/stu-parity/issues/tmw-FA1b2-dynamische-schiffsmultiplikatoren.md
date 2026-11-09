@@ -1,6 +1,6 @@
 # Dynamische Fraktionsmultiplikatoren für Schiffswerte
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-FA1a
@@ -34,3 +34,4 @@ Option 1: Die aktuelle Eigentümerfraktion wird bei jeder autoritativen Statisti
 ## Comments
 
 - 2026-10-30: Umsetzung nach zwei vollständigen Validierungsversuchen abgebrochen und Produktcode zurückgesetzt. Der Pflicht-Gate ist bereits außerhalb dieses Issues rot: `backend:typecheck` scheitert in `wreck-decay.service.spec.ts` (Zeilen 20/38) und `tutorial.service.spec.ts` (Zeile 22) an veralteten Konstruktoraufrufen; `backend:test` scheitert zusätzlich in `spacecraft-core-controls.spec.ts` (`shipRepo.findOneBy` fehlt im Fixture), `faction.service.spec.ts`, `wreck-decay.service.spec.ts` und `tutorial.service.spec.ts`. Die fokussierten Multiplikator-/Transfer-Tests waren zuvor grün (36/36), der globale Gate kann aber nicht erfüllt werden, ohne fremde Baseline-Arbeiten zu übernehmen.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Backend-Konstruktor- und Test-Fixtures); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

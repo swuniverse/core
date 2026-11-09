@@ -35,3 +35,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] Service-, Tick- und Integrationstests decken Ladung, Erzeugung, Zerstörung und Reparatur ab.
 
 ## Comments
+
+- 2026-11-09: `needs-triage` bleibt: Für die Laderezeptur fehlen die konkreten SWU-Waren und deren Mengen pro Ladeeinheit. Leistung, Kapazität und Rezeptur sollen datengetrieben sein; die grüne technische Baseline legt diese Spieldaten nicht fest. Keine Waren oder Mengen vorwegnehmen.

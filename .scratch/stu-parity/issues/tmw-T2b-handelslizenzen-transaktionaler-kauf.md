@@ -1,6 +1,6 @@
 # Handelslizenzen: transaktionaler Kauf
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-T2a
@@ -40,3 +40,4 @@ SWU übernimmt das STU-Zahlungsmodell, korrigiert aber fehlende Autorisierungen,
 ## Comments
 
 Abbruch am verpflichtenden Prüf-Gate: Die fokussierten Handelslizenztests und alle Builds sind grün, aber `npx nx affected -t lint typecheck test --base=HEAD` scheitert auch nach zwei Läufen an fachfremden bestehenden Spacecraft-Tests (`spacecraft-core-controls.spec.ts`: `shipRepo.findOneBy is not a function`; `spacecraft-fleet.service.spec.ts`: `socket failed`). Der Produktcode wurde gemäß Abbruchregel verworfen. Bitte die Testbaseline reparieren oder eine explizite Baseline-Ausnahme für diese beiden Fehler bestätigen.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Spacecraft-Repository- und Flotten-Testbaseline); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

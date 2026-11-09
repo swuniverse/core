@@ -1,6 +1,6 @@
 # Demontage nach STU-Regel
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -36,3 +36,4 @@ Vorgabe: Variante (b) mit (b1). STU-Rückgabe (zufälliger Teil der Module, Reak
 
 - 2026-10-21 Product Owner: Option b1 – Die Demontage folgt der STU-Rückgabe (einige Module, Reaktorladung und Torpedos statt 50 % Rumpfkosten); die Werftpflicht bleibt als SWU-Regel bestehen.
 - 2026-10-27 Blocker: Die test-first Umsetzung war lokal grün (`colony-tick.spec.ts`: 178/178; `PanelShipyard.spec.tsx`: 2/2; `npx nx run-many --targets=build`: 3/3), aber die vorgeschriebene Prüfung `npx nx affected -t lint typecheck test --base=dd5d110` scheitert auch nach vollständigem Build reproduzierbar im bestehenden Backend-Typecheck an repository-weiten `TS6305`-Fehlern (fehlende `apps/backend/dist/**/*.d.ts` für Quellimporte; der Webpack-Build erzeugt diese Deklarationen nicht). Der dokumentierte Fallback `npm run lint && npm run typecheck && npm run test` scheitert am selben Typecheck. Produktcode und Tests wurden gemäß Abbruchregel verworfen. Benötigt wird eine Entscheidung bzw. Reparatur des Backend-Typecheck-Setups, damit die Pflichtprüfung grün werden kann.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Backend-TS6305/Deklarations-Gate); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

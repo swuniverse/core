@@ -1,6 +1,6 @@
 # Forschungsbaum: EXCLUDE- und REQUIRE_SOME-Kanten unterscheiden
 
-**Status:** needs-info
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -20,10 +20,11 @@ Der SWU-Forschungsbaum zeichnet alle Abhängigkeiten gleich. Der STU-Admin-Baum 
 
 ## Akzeptanzkriterien
 
-- [ ] REQUIRE-, REQUIRE_SOME- und EXCLUDE-Kanten haben unterschiedliche Farben bzw. Strichart mit Legende.
-- [ ] Gesperrte (ausgeschlossene) Forschungen sind im Baum als ausgeschlossen erkennbar.
-- [ ] Frontend-Test: die drei Kantentypen werden unterschiedlich gerendert.
+- [x] REQUIRE-, REQUIRE_SOME- und EXCLUDE-Kanten haben unterschiedliche Farben bzw. Strichart mit Legende.
+- [x] Gesperrte (ausgeschlossene) Forschungen sind im Baum als ausgeschlossen erkennbar.
+- [x] Frontend-Test: die drei Kantentypen werden unterschiedlich gerendert.
 
 ## Comments
 
-- 2026-10-28: Implementierung und fokussierte Backend-/Frontend-Tests sind grün; `npx nx run-many --targets=build` ist grün. Der verpflichtende Lauf `npx nx affected -t lint typecheck test --base=HEAD` scheitert nach zwei ernsthaften Versuchen am bereits vorhandenen globalen Frontend-Typecheck (u. a. `database.tsx:1015` Faction-Typfehler sowie zahlreiche TS6305-Ausgabedateifehler außerhalb dieses Issues). Soll der Lauf trotz dieses bekannten Baseline-Blockers abgeschlossen werden, oder soll zuerst der globale Frontend-Typecheck repariert werden?
+- 2026-10-28: Implementierung und fokussierte Backend-/Frontend-Tests sind grün; `npx nx run-many --targets=build` ist grün. Der verpflichtende Lauf `npx nx affected -t lint typecheck test --base=HEAD` scheiterte damals am globalen Frontend-Typecheck. Die zuvor dokumentierte Baseline-Ausnahme ist durch die Fertigstellung von `sh-AP-21` am 2026-10-30 überholt. Das Issue ist mit den regulären Gates erneut auszuführen; keine Baseline-Ausnahme gilt.
+- 2026-11-09: Implementierung und unabhängige Review ohne Findings integriert bei `c8e14f1c`: rebasiertes `b46988ff` (Verhalten), `67e8d36e` (Produktionsrenderer-Tests) und `c8e14f1c` (typisierte Adapter). Frischer fokussierter Frontend-Lauf 15/15; gemeldeter vollständiger Frontend-Lauf 92 Dateien/655 Tests (Shared-Build aus Cache). Frischer unabhängiger Backend-Lauf 211/211 Suites, 1981/1981 Tests ohne Skips, darunter Research-Service 28/28. Reguläre Lint-, Typecheck- und Build-Gates bestanden laut Bericht; Cache-Nutzung bei Types/Builds, diese Gates hier nicht frisch wiederholt. SVG-, Label- und Marker-Mutationen sowie typisierte Adapter wurden geprüft. Renderer-Tests nutzen Produktionskomponenten und BaseEdge, aber mocken ReactFlow-Wrapper, ELK, Geometrie und Marker-URLs: kein Nachweis für reales Browser-Layout oder tatsächliche Pfeilspitzen. Kein forschungsspezifischer PostgreSQL-Test gefunden; unveränderte Baseline 36 Suites/290 Integrationstests nicht erneut ausgeführt. Status `resolved`.

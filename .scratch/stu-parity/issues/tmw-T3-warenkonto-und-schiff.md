@@ -1,9 +1,9 @@
 # Warenkonto ↔ Schiff (Handelsmenü am Posten)
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P2
 **Size:** M
-**Blocked by:** tmw-T2
+**Blocked by:** tmw-T2d
 
 ## Ziel
 
@@ -39,3 +39,5 @@ Vorgabe: Variante (a), Feld-Kopräsenz wie STU über `TradePostPresencePolicy.is
 
 - 2026-10-21 Product Owner: Option a – Der Kontotransfer verlangt wie in STU nur Feld-Kopräsenz: Das Schiff steht am selben Ort wie der Posten; Docking ist nicht nötig.
 - 2026-10-30 Agent: Blockiert durch die bestehende Backend-Testbaseline. Zwei ernsthafte Läufe von `npx nx affected -t lint typecheck test --base=HEAD` enden unabhängig von tmw-T3 mit `spacecraft-fleet.service.spec.ts` (`Not enough EPS for navigation`) und `spacecraft-core-controls.spec.ts` (`this.shipRepo.findOneBy is not a function`); 192 von 194 Suites bestehen. Die fokussierten tmw-T3-Backend- und Frontend-Tests, Typechecks, Lints sowie `npx nx run-many --targets=build` waren grün. Gemäß Abbruchregel wurden sämtliche tmw-T3-Produktcodeänderungen verworfen. Fortsetzung nach Reparatur bzw. Freigabe dieser Testbaseline.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Flotten- und Core-Controls-Testbaseline); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.
+- 2026-11-09: Der Tracking-Split tmw-T2 ersetzt keine Umsetzung: das geforderte Kaufmenü setzt tmw-T2d voraus; Kauf, Gültigkeit und Presence-Policy folgen transitiv.

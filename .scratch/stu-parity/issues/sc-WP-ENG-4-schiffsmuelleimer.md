@@ -1,6 +1,6 @@
 # Schiffsmülleimer: Waren entsorgen
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -31,3 +31,4 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Comments
 
 - 2026-10-28: Umsetzung und fokussierte Backend-/Frontend-Tests waren erfolgreich, aber die vorgeschriebene Prüfung `npx nx affected -t lint typecheck test --base=HEAD` bleibt nach zwei ernsthaften Versuchen rot. `frontend:typecheck` meldet repo-weit TS6305 für nicht erzeugte `apps/frontend/dist/**/*.d.ts`-Ausgaben (auch nach erfolgreichem `npx nx run-many --targets=build`). Produktcode gemäß Abbruchregel verworfen. Bitte den Frontend-Typecheck-/Declaration-Build reparieren oder bestätigen, wie diese bekannte Infrastrukturblockade im Ralph-Lauf zu behandeln ist.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Frontend-TS6305-Gate); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

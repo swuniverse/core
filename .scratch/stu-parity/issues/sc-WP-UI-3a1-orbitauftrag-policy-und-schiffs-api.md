@@ -1,6 +1,6 @@
 # Orbitauftrag-Policy und schiffsbezogene API
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -43,3 +43,4 @@ SWU übernimmt die bestätigte STU-Regel: Haltung und Eigentum filtern weder Ver
 ## Comments
 
 - 2026-10-30: Produktcode nach zwei Prüfversuchen verworfen. Der fokussierte Orbit-Test war grün (201/201), aber das verpflichtende Gate `npx nx affected -t lint typecheck test --base=HEAD` bleibt repositoryweit rot: Backend-Typecheck mit zahlreichen TS6305-Ausgabedateifehlern sowie unabhängige bestehende Fehler in `tutorial.service.spec.ts`, `spacecraft-core-controls.spec.ts` und `spacecraft-cartography-api.spec.ts`. Bitte diese Baseline reparieren oder eine ausdrückliche Ausnahme für dieses Issue festlegen.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Backend-TS6305 sowie Tutorial-/Spacecraft-Fixtures); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

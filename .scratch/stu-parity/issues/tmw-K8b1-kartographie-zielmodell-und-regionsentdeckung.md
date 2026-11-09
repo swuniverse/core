@@ -1,6 +1,6 @@
 # Kartographie-Zielmodell und Regionsentdeckung
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K8a
@@ -40,3 +40,4 @@ STU nutzt ein gemeinsames polymorphes Modell. SWU bildet es explizit mit Zieltyp
 ## Comments
 
 - 2026-10-30: Umsetzung nach zwei Prüfversuchen abgebrochen. Die fokussierten Kartographie-/Migrations-/DTO-/Regionsentdeckungs-Tests (30 Tests) und alle Builds sind grün, aber das verpflichtende affected-Test-Gate bleibt wegen zwei fachfremder bestehender Spacecraft-Testfixture-Fehler rot: `spacecraft-core-controls.spec.ts` stellt kein `shipRepo.findOneBy` bereit; `spacecraft-fleet.service.spec.ts` endet in `Not enough EPS for navigation`. Produktcode wurde gemäß Abbruchregel verworfen. Bitte zuerst die Backend-Testfixture-Baseline (`sh-AP-23`) reparieren oder dieses Issue ausdrücklich mit dokumentierter Baseline-Ausnahme erneut freigeben.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Spacecraft-Repository- und Flotten-Fixtures); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

@@ -3,7 +3,7 @@
 **Status:** ready-for-agent
 **Priority:** P3
 **Size:** S
-**Blocked by:** tmw-K10a
+**Blocked by:** tmw-K10a3
 
 ## Ziel
 
@@ -31,3 +31,4 @@ Zu Advent und Ostern entstehen zufällige saisonale Anomalien. Ein Schiff auf ih
 - [ ] Backend-Tests mit festgesetzter Uhr: Erzeugungstag, Tageslimit, Prestige an den Sondertagen, voller Frachtraum. Frontend-Test: Die Aktion ist sichtbar und ruft die API auf.
 
 ## Comments
+- 2026-11-09: Saisonaktionen auf dem Anomaliefeld benötigen Framework und Feldkontextvertrag der K10a-Kette bis tmw-K10a3; der Parent ist nur Tracking-Split.

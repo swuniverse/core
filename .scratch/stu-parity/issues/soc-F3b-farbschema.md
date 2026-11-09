@@ -1,6 +1,6 @@
 # Wählbares Interface-Farbschema
 
-**Status:** needs-info
+**Status:** ready-for-agent
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -36,3 +36,4 @@ Vorgabe: Variante (a). Zwei bis drei Schemata (Standard, Kontrast/Hell, Imperial
 
 - 2026-10-21 Product Owner: Option a – SWU erhält zwei bis drei wählbare Farbschemata (Standard, Kontrast/Hell, Imperial/Rebellen-Akzent) als Token-Overrides.
 - 2026-10-29 Agent: Umsetzung und fokussierte Tests sind grün, aber die vorgeschriebene Gesamtsuite scheitert nach zwei ernsthaften Versuchen an bereits vorhandenen, issuefremden Fehlern: `frontend:typecheck` (u. a. `database.tsx:1015` Faction-Typ sowie zahlreiche TS6305-Ausgabefehler) und `backend:test` (`database-settler-scans.service.spec.ts`, fehlender `profileVisitService.registerVisit`). Produktcode wurde gemäß Abbruchregel verworfen; bitte die Baseline-Prüfungen reparieren und das Issue erneut freigeben.
+- 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Frontend-Typecheck und profileVisitService-Fixture); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.

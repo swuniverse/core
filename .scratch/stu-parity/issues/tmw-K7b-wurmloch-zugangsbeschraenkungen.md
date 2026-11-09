@@ -3,7 +3,7 @@
 **Status:** ready-for-agent
 **Priority:** P2
 **Size:** M
-**Blocked by:** tmw-K7a, sc-WP-STAT-2
+**Blocked by:** tmw-K7a1, sc-WP-STAT-2
 
 ## Ziel
 
@@ -38,3 +38,4 @@ Vorgabe: Variante (b), wie STU. Der Betreiber einer Station auf dem Wurmloch-Ein
 ## Comments
 
 - 2026-10-21 Product Owner: Option b – Wurmloch-Zugangsregeln verwaltet wie in STU der Betreiber einer Station auf dem Eingangsfeld; das Issue ist deshalb zusätzlich durch sc-WP-STAT-2 blockiert.
+- 2026-11-09: Die Access-Policy wird im Backend-Kern tmw-K7a1 eingeführt; der Tracking-Split tmw-K7a ist kein Implementierungsnachweis.
