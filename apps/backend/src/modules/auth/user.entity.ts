@@ -8,7 +8,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { Faction } from '@swuniverse/shared';
+import type { Faction } from '@swuniverse/shared';
 import { FactionEntity } from '../faction/entities/faction.entity';
 
 @Entity('users')
@@ -30,7 +30,11 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   emailVerifiedAt: Date | null;
 
-  @Column({ type: 'enum', enum: Faction, nullable: true })
+  @Column({
+    type: 'enum',
+    enum: ['REBEL_ALLIANCE', 'GALACTIC_EMPIRE'],
+    nullable: true,
+  })
   faction: Faction | null;
 
   @Column({ type: 'int', nullable: true })

@@ -1,7 +1,10 @@
 import 'reflect-metadata';
 import { config as loadEnv } from 'dotenv';
 import { DataSource } from 'typeorm';
-import { User } from './migration-entities/user.entity.js';
+import { User as MigrationUser } from './migration-entities/user.entity.js';
+import { User as AppUser } from '../modules/auth/user.entity.js';
+import { FactionEntity as AppFactionEntity } from '../modules/faction/entities/faction.entity.js';
+import { FactionModifier as AppFactionModifier } from '../modules/faction/entities/faction-modifier.entity.js';
 import { Layer } from '../modules/starmap/entities/layer.entity.js';
 import { LayerKnowledge } from '../modules/starmap/entities/layer-knowledge.entity.js';
 import { LayerExploredEvent } from '../modules/starmap/entities/layer-explored-event.entity.js';
@@ -39,7 +42,10 @@ const appDataSource = new DataSource({
   type: 'postgres',
   url: databaseUrl,
   entities: [
-    User,
+    MigrationUser,
+    AppUser,
+    AppFactionEntity,
+    AppFactionModifier,
     Layer,
     LayerKnowledge,
     LayerExploredEvent,

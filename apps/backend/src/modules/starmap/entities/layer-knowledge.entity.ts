@@ -6,7 +6,7 @@ import {
   ManyToOne,
   PrimaryColumn,
 } from 'typeorm';
-import { LayerKnowledgeStatus } from '@swuniverse/shared';
+import type { LayerKnowledgeStatus } from '@swuniverse/shared';
 import { User } from '../../auth/user.entity';
 import { Layer } from './layer.entity';
 
@@ -28,7 +28,7 @@ export class LayerKnowledge {
   @JoinColumn({ name: 'layerId' })
   layer: Layer;
 
-  @Column({ type: 'varchar', length: 16, default: LayerKnowledgeStatus.KNOWN })
+  @Column({ type: 'varchar', length: 16, default: 'KNOWN' })
   status: LayerKnowledgeStatus;
 
   @Column({ type: 'timestamp' })
