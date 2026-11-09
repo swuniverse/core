@@ -38,3 +38,4 @@ Wurmlochpassagen folgen dem aktuellen STU-Ressourcenmodell: beim Eintritt ggf. e
 ## Comments
 
 - 2026-11-06: Aus `tmw-K7a` als erster von drei geordneten Teilaufträgen extrahiert. Flottenatomik/Ankunftsfolgen und Frontend sind bewusst separat.
+- 2026-11-09: Sicherer Backend-Kern als interner, nicht mutierender Planer vorbereitet. Kein öffentlicher Passage-Endpunkt ist registriert und keine Position, Antriebsaktivierung oder EPS wird persistiert. Endpunktaktivierung und tatsächliche Mutation bleiben bis zur atomaren Flotten-/Ankunftsintegration in `tmw-K7a2` und gemeinsamer Backend-Abnahme offen; alle Kriterien bleiben ungeprüft. Die vorhandene SWU-Impulsaktivierung berechnet aktuell keine EPS; der Planer unterstützt einen je Schiff gelieferten Aktivierungskostenwert, ohne einen neuen Tarif zu erfinden.

@@ -115,6 +115,16 @@ describe('SpacecraftController cartography API contract', () => {
     expect(service.startCartographyFinalization).toHaveBeenCalledWith(4, 17);
   });
 
+  it('does not register the wormhole entry route before atomic integration', () => {
+    const routes = Object.getOwnPropertyNames(SpacecraftController.prototype)
+      .filter((name) => name !== 'constructor')
+      .map((name) => {
+        const handler = SpacecraftController.prototype[name as keyof SpacecraftController];
+        return typeof handler === 'function' ? Reflect.getMetadata('path', handler) : undefined;
+      });
+    expect(routes.flat()).not.toContain(':id/wormhole/enter');
+  });
+
   it('has no legacy astrometry or binary survey controller operation', () => {
     const prototype = SpacecraftController.prototype as unknown as Record<string, unknown>;
 
