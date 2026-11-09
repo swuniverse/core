@@ -13,11 +13,21 @@ const field = {
   cx: 2,
   cy: 2,
   fieldTypeId: 1,
-  fieldType: { id: 1, name: 'Leerer Raum' },
+  fieldType: {
+    id: 1, key: 'EMPTY_SPACE', name: 'Leerer Raum', passable: true,
+    energyCost: 1, damage: 0, isSystem: false, colorKey: null, category: null,
+  },
   systemTypeId: null,
-  systemType: null,
+  factionZone: 'NEUTRAL',
+  adminRegionKey: null,
+  starSystemId: null,
+  starSystem: null,
+  regionId: null,
+  borderTypeId: null,
+  effects: null,
+  passableOverride: null,
   explorationLevel: 'FULL',
-} as ColonyTelescopeDto['fields'][number];
+} satisfies ColonyTelescopeDto['fields'][number];
 
 const view = (required: number | null): ColonyTelescopeDto => ({
   layer: { id: 3, width: 101, height: 101 },

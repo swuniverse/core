@@ -8,6 +8,33 @@ import {
 import type { DashboardData } from './types';
 import { DashboardProcesses } from './DashboardProcesses';
 
+const emptyDashboard: DashboardData = {
+  activeResearch: null,
+  queuedResearch: null,
+  buildJobs: [],
+  processes: [],
+  holonetPosts: [],
+  holonetNewCount: 0,
+  colonizationLimits: null,
+  crewInfo: null,
+  onlinePlayers: [],
+  colonies: [],
+  colonyCount: 0,
+  fleetTotal: 0,
+  fleetInFlight: 0,
+  shipsInFlight: [],
+  allShips: [],
+  researchCompleted: 0,
+  unreadMessages: 0,
+  warnings: [],
+  recentEvents: [],
+  inboxMessages: [],
+  tickStatus: null,
+  currentObjective: null,
+  baustelleAlerts: [],
+  profileVisitors: [],
+};
+
 describe('STU-style Maindesk overview', () => {
   it('puts HoloNet posts beside colony and crew limits', () => {
     const data = {
@@ -71,7 +98,8 @@ describe('STU-style Maindesk overview', () => {
   });
 
   it('hides asteroid limits until asteroid colonization is unlocked', () => {
-    const data = {
+    const data: DashboardData = {
+      ...emptyDashboard,
       colonizationLimits: {
         limits: {
           planet: { type: 'PLANET', count: 1, limit: 2, max: 3 },
@@ -80,7 +108,7 @@ describe('STU-style Maindesk overview', () => {
         },
       },
       onlinePlayers: [],
-    } as DashboardData;
+    };
 
     render(
       <MemoryRouter>

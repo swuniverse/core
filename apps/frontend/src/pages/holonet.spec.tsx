@@ -70,7 +70,18 @@ const secondPostFixture = {
 
 const emptyCommentsResponse = { data: [], total: 0, page: 1, limit: 20 };
 
-const listResponse = (data = [postFixture], lastReadPostId = 0) => ({
+type ArchivePostFixture = typeof postFixture & {
+  characters?: Array<{
+    id: number;
+    userId: number;
+    name: string;
+    avatar: string | null;
+    description: string;
+    user?: { id: number; username: string };
+  }>;
+};
+
+const listResponse = (data: ArchivePostFixture[] = [postFixture], lastReadPostId = 0) => ({
   data,
   total: data.length,
   page: 1,

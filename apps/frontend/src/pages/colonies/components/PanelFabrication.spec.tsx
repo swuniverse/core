@@ -5,9 +5,9 @@ import type { ColonyDetailV2, CommodityDef } from '../types';
 import { PanelFabrication } from './PanelFabrication';
 
 const commodityMap = {
-  2: { id: 2, name: 'Durastahl' },
-  10701: { id: 10701, name: 'Turbolaser' },
-} as unknown as Record<number, CommodityDef>;
+  2: { id: 2, name: 'Durastahl', nameShort: 'Durastahl' },
+  10701: { id: 10701, name: 'Turbolaser', nameShort: 'Turbolaser' },
+} satisfies Record<number, CommodityDef>;
 
 const catalog = [
   {
@@ -101,8 +101,8 @@ describe('PanelFabrication', () => {
         ]}
         commodityMap={{
           ...commodityMap,
-          10001: { id: 10001, name: 'Instandhaltungsset' },
-        } as Record<number, CommodityDef>}
+          10001: { id: 10001, name: 'Instandhaltungsset', nameShort: 'Instandhaltungsset' },
+        }}
         storageAmounts={{ 10001: 6 }}
         onStartFabrication={vi.fn()}
         onCancelFabrication={vi.fn()}

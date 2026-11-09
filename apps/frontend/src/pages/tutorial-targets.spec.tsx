@@ -73,7 +73,7 @@ const layers = [{ id: 3, name: 'Galaxis', width: 100, height: 100, sectorSize: 2
 
 function expectTargets(keys: string[]) {
   for (const key of keys) {
-    const targets = [...document.querySelectorAll('[data-tutorial]')];
+    const targets = Array.from(document.querySelectorAll('[data-tutorial]'));
     expect(targets.some((target) => target.getAttribute('data-tutorial')?.split(/\\s+/).includes(key)), key).toBe(true);
   }
 }
