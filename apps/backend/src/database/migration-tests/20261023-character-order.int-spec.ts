@@ -95,6 +95,54 @@ describe('character migration ordering (Postgres)', () => {
     ).toEqual([{ name: null }]);
   });
 
+  it('preserves a table recorded under the previous calendar migration name', async () => {
+    await database.query(`CREATE TABLE user_characters (
+      id serial PRIMARY KEY,
+      "userId" integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name varchar(60) NOT NULL,
+      description text NOT NULL DEFAULT '',
+      avatar text,
+      "createdAt" timestamp NOT NULL DEFAULT now(),
+      "updatedAt" timestamp NOT NULL DEFAULT now()
+    )`);
+    await database.query(
+      'CREATE INDEX "IDX_user_characters_user" ON user_characters ("userId")',
+    );
+    await database.query(
+      `CREATE TABLE custom_migration_history (
+        id serial PRIMARY KEY, timestamp bigint NOT NULL, name varchar NOT NULL
+      )`,
+    );
+    await database.query(
+      `INSERT INTO custom_migration_history (timestamp, name)
+       VALUES (261023120000, 'AddUserCharacters20261023120000')`,
+    );
+    await database.query('INSERT INTO users (id) VALUES (1)');
+    await database.query(
+      `INSERT INTO user_characters ("userId", name) VALUES (1, 'Existing')`,
+    );
+
+    expect(
+      (await database.runMigrations({ transaction: 'each' })).map(
+        ({ name }) => name,
+      ),
+    ).toEqual([
+      'PrepareUserCharacters20261023110000',
+      'AddHolonetPostCharacters20261104120000',
+      'AddUserCharacters1792756800000',
+    ]);
+    expect(
+      await database.query('SELECT "userId", name FROM user_characters'),
+    ).toEqual([{ userId: 1, name: 'Existing' }]);
+
+    await database.undoLastMigration({ transaction: 'each' });
+    await database.undoLastMigration({ transaction: 'each' });
+    await database.undoLastMigration({ transaction: 'each' });
+    expect(
+      await database.query('SELECT "userId", name FROM user_characters'),
+    ).toEqual([{ userId: 1, name: 'Existing' }]);
+  });
+
   it('refuses to adopt an untracked pre-existing table', async () => {
     await database.query(
       'CREATE TABLE user_characters (id integer PRIMARY KEY, marker text)',

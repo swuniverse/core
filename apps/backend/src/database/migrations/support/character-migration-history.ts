@@ -1,5 +1,8 @@
 import { QueryRunner } from 'typeorm';
 
+export const PREVIOUS_CALENDAR_CHARACTER_MIGRATION =
+  'AddUserCharacters20261023120000';
+
 export async function characterMigrationId(
   queryRunner: QueryRunner,
   name: string,
