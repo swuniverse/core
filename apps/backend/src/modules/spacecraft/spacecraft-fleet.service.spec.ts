@@ -62,12 +62,15 @@ import {
   Spacecraft,
 } from './entities/spacecraft.entity';
 import { Fleet } from './entities/fleet.entity';
+import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
+import type { EntityManager } from 'typeorm';
 
 function createService() {
+  const movementRows = new Map<number, Spacecraft>();
   const shipRepo = {
     findOne: jest.fn(),
-    findOneBy: jest.fn(async () => null),
+    findOneBy: jest.fn(async (_where?: unknown) => null),
     save: jest.fn(async (ship) => ship),
     create: jest.fn((ship) => ship),
     find: jest.fn(),
@@ -138,7 +141,9 @@ function createService() {
     findOneBy: jest.fn((entity, where) =>
       entity === Fleet
         ? fleetRepo.findOne({ where })
-        : shipRepo.findOne({ where }),
+        : 'tractoredShipId' in where
+          ? shipRepo.findOneBy(where)
+          : shipRepo.findOne({ where }),
     ),
     findOne: jest.fn(async (entity, options) => {
       if (entity !== Fleet) return shipRepo.findOne(options);
@@ -156,13 +161,18 @@ function createService() {
       return [];
     }),
     find: jest.fn(
-      async () =>
+      async (
+        _entity?: unknown,
+        _options?: { where: { spacecraftId?: number } },
+      ) =>
         (await shipRepo.find({})) ??
         [await shipRepo.findOne({})].filter(Boolean),
     ),
     count: jest.fn(async (entity) => (entity === CrewAssignment ? 100 : 0)),
     create: jest.fn((_entity, value) => fleetRepo.create(value)),
-    save: jest.fn((_entity, value) => fleetRepo.save(value)),
+    save: jest.fn((entity, value) =>
+      value === undefined ? shipRepo.save(entity) : fleetRepo.save(value),
+    ),
     update: jest.fn(async (entity, id, values) => {
       if (entity === Fleet) {
         const fleet = await fleetRepo.findOne({ where: { id, userId: 5 } });
@@ -193,6 +203,48 @@ function createService() {
       return builder;
     }),
   };
+  const movementManager = {
+    ...manager,
+    findOneBy: jest.fn(
+      async (
+        _entity: unknown,
+        where: { id?: number; tractoredShipId?: number },
+      ) =>
+        where.id == null
+          ? ([...movementRows.values()].find(
+              (ship) => ship.tractoredShipId === where.tractoredShipId,
+            ) ?? null)
+          : (movementRows.get(where.id) ?? null),
+    ),
+    find: jest.fn(async () => [...movementRows.values()]),
+    findBy: jest.fn(async (_entity: unknown, where: { fleetId: number }) =>
+      [...movementRows.values()].filter(
+        (ship) => ship.fleetId === where.fleetId,
+      ),
+    ),
+    save: jest.fn(async (ship: Spacecraft) => {
+      movementRows.set(ship.id, structuredClone(ship));
+      return shipRepo.save(ship);
+    }),
+    createQueryBuilder: jest.fn((entity: unknown) => {
+      let spacecraftId = 0;
+      const builder: Record<string, jest.Mock> = {
+        where: jest.fn((where: { spacecraftId?: number }) => {
+          spacecraftId = where.spacecraftId ?? 0;
+          return builder;
+        }),
+        orderBy: jest.fn(() => builder),
+        setLock: jest.fn(() => builder),
+        setOnLocked: jest.fn(() => builder),
+        getMany: jest.fn(async () =>
+          entity === SpacecraftModule
+            ? (movementRows.get(spacecraftId)?.modules ?? [])
+            : [...movementRows.values()],
+        ),
+      };
+      return builder;
+    }),
+  };
   const service = new SpacecraftService(
     shipRepo as unknown as ConstructorParameters<typeof SpacecraftService>[0],
     moduleRepo as unknown as ConstructorParameters<typeof SpacecraftService>[1],
@@ -209,7 +261,30 @@ function createService() {
     userRepo as unknown as ConstructorParameters<typeof SpacecraftService>[8],
     {
       getRepository: jest.fn(() => locationRepo),
-      transaction: jest.fn(async (callback) => callback(manager)),
+      transaction: jest.fn(
+        async (
+          isolationOrCallback:
+            | string
+            | ((manager: EntityManager) => Promise<unknown>),
+          callback?: (manager: EntityManager) => Promise<unknown>,
+        ) => {
+          if (typeof isolationOrCallback === 'function') {
+            const result = await isolationOrCallback(
+              manager as unknown as EntityManager,
+            );
+            const members: Spacecraft[] = (await shipRepo.find({})) ?? [];
+            for (const member of members) {
+              if (!movementRows.has(member.id))
+                movementRows.set(member.id, structuredClone(member));
+              const current = movementRows.get(member.id);
+              if (current) current.fleetId = member.fleetId;
+            }
+            return result;
+          }
+          if (!callback) throw new Error('Transaction callback missing');
+          return callback(movementManager as unknown as EntityManager);
+        },
+      ),
     } as unknown as ConstructorParameters<typeof SpacecraftService>[9],
     gameData as unknown as ConstructorParameters<typeof SpacecraftService>[10],
     shipClassService as unknown as ConstructorParameters<
@@ -258,6 +333,24 @@ function createService() {
       typeof SpacecraftService
     >[29],
   );
+
+  const findOne = service.findOne.bind(service);
+  jest.spyOn(service, 'findOne').mockImplementation(async (id, userId) => {
+    const ship = await findOne(id, userId);
+    if (ship.fleetId != null)
+      ship.fleet = await fleetRepo.findOne({ where: { id: ship.fleetId } });
+    movementRows.set(id, structuredClone(ship));
+    return ship;
+  });
+  manager.find.mockImplementation(async (entity, options) => {
+    if (entity === SpacecraftModule)
+      return movementRows.get(options?.where.spacecraftId ?? 0)?.modules ?? [];
+    const members: Spacecraft[] =
+      (await shipRepo.find({})) ?? [await shipRepo.findOne({})].filter(Boolean);
+    for (const member of members)
+      movementRows.set(member.id, structuredClone(member));
+    return members;
+  });
 
   return {
     service,

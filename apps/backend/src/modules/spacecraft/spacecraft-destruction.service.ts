@@ -30,6 +30,11 @@ import { EscapePodService } from './escape-pod.service';
 import { EscapePodLaunchReason } from './entities/escape-pod.entity';
 import { SpacecraftTakeoverService } from './spacecraft-takeover.service';
 import { SpacecraftTrackerService } from './spacecraft-tracker.service';
+import {
+  applyMovementState,
+  assertMovementState,
+  type MovementState,
+} from './movement-state';
 
 /**
  * Canonical terminal-state transition for destroyed ships.
@@ -123,7 +128,10 @@ export class SpacecraftDestructionService {
     return result;
   }
 
-  async saveUnlessDestroyed(ship: Spacecraft): Promise<boolean> {
+  async saveUnlessDestroyed(
+    ship: Spacecraft,
+    original?: MovementState,
+  ): Promise<boolean> {
     return this.dataSource.transaction(async (manager) => {
       const persisted = await manager.findOne(Spacecraft, {
         where: { id: ship.id },
@@ -132,7 +140,18 @@ export class SpacecraftDestructionService {
       if (!persisted || persisted.status === SpacecraftStatus.DESTROYED) {
         return false;
       }
-      await manager.save(ship);
+      if (original) {
+        if (original.modules) {
+          persisted.modules = await manager.find(SpacecraftModule, {
+            where: { spacecraftId: ship.id },
+            order: { id: 'ASC' },
+            lock: { mode: 'pessimistic_write', onLocked: 'nowait' },
+          });
+        }
+        assertMovementState(persisted, original);
+        applyMovementState(persisted, ship);
+      }
+      await manager.save(original ? persisted : ship);
       return true;
     });
   }
@@ -228,7 +247,10 @@ export class SpacecraftDestructionService {
     ship: Spacecraft,
     reason: 'COMBAT' | 'SELF_DESTRUCT',
   ): Promise<{ evacuatedCrew: number }> {
-    await this.takeoverService.cancelForShip(ship.id, 'ein beteiligtes Schiff wurde zerstört');
+    await this.takeoverService.cancelForShip(
+      ship.id,
+      'ein beteiligtes Schiff wurde zerstört',
+    );
     await this.trackerService.clearTrackingTarget(manager, ship.id);
     const [cargo, torpedoes, installedModules] = await Promise.all([
       manager.find(CargoItem, { where: { spacecraftId: ship.id } }),

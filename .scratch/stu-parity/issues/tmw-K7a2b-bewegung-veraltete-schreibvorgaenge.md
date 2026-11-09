@@ -1,6 +1,6 @@
 # Bewegung: veraltete Schreibvorgänge verhindern
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K7a2a
@@ -17,13 +17,13 @@ Gewöhnliche Bewegung darf nach einem konkurrierenden Commit nicht aus veraltete
 
 ## Akzeptanzkriterien
 
-- [ ] Ursprünglicher autoritativer Bewegungszustand wird unter Sperre, über einen gleichwertigen CAS-Vertrag oder in einem unterstützten gemeinsamen Transaktionskontext geprüft. Ausgangsort, Zulässigkeit, gelesene beziehungsweise geschriebene Ressourcen und Laufzeitsystemzustände sowie relevante Mitgliedschaftsannahmen nach `tmw-K7a2a` sind geschützt; reine Zerstörungsprüfung genügt nicht.
-- [ ] `navigate` und `flyGalaxy` sowie ihre betroffenen direkten Mitgliederspeicherpfade nehmen am Schutz teil, nicht nur `saveUnlessDestroyed`: laut unabhängiger Review `spacecraft.service.ts:2082-2084`, `:2372-2380`, `:2523-2527` und `:2634-2640`. Die konkreten Aufrufstellen sind bei Umsetzung am aktuellen Stand zu verifizieren.
-- [ ] Veraltete Schritte werden von fehlenden oder zerstörten Schiffen und der bestehenden Kampfüberlebenden-Semantik unterscheidbar behandelt. Ein wegen Veralterung abgelehnter Schritt erzeugt keine Signaturen, Erkundung oder Feldfolgen; auch beim veralteten Leiter laufen diese nicht weiter.
-- [ ] Gültige gewöhnliche Bewegung und bestehende partielle Flottenpolitik bleiben erhalten. Keine Änderung des Ressourcentarifs, kein Rewrite sämtlicher Schiffs-Writer und keine Wurmlochimplementierung.
-- [ ] Ein dauerhaftes Regressionstest-Szenario mit echter disposable PostgreSQL-Datenbank und kontrollierter Barriere prüft den produktiven veralteten Speicherer gegen eine zwischenzeitlich bestätigte Verlagerung; der neu bestätigte Zustand wird nicht überschrieben.
-- [ ] Ein Regressionstest über einen tatsächlich betroffenen Bewegungsaufrufer prüft, dass ein abgelehnter veralteter Schritt keine Signaturen, Erkundung oder Effekte erzeugt. Weitere Tests decken einen Konflikt nur bei Ressourcen/Laufzeitsystemen sowie gültige nicht veraltete Bewegung und Zerstörungsbehandlung ab.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Ursprünglicher autoritativer Bewegungszustand wird unter Sperre, über einen gleichwertigen CAS-Vertrag oder in einem unterstützten gemeinsamen Transaktionskontext geprüft. Ausgangsort, Zulässigkeit, gelesene beziehungsweise geschriebene Ressourcen und Laufzeitsystemzustände sowie relevante Mitgliedschaftsannahmen nach `tmw-K7a2a` sind geschützt; reine Zerstörungsprüfung genügt nicht.
+- [x] `navigate` und `flyGalaxy` sowie ihre betroffenen direkten Mitgliederspeicherpfade nehmen am Schutz teil, nicht nur `saveUnlessDestroyed`: laut unabhängiger Review `spacecraft.service.ts:2082-2084`, `:2372-2380`, `:2523-2527` und `:2634-2640`. Die konkreten Aufrufstellen sind bei Umsetzung am aktuellen Stand zu verifizieren.
+- [x] Veraltete Schritte werden von fehlenden oder zerstörten Schiffen und der bestehenden Kampfüberlebenden-Semantik unterscheidbar behandelt. Ein wegen Veralterung abgelehnter Schritt erzeugt keine Signaturen, Erkundung oder Feldfolgen; auch beim veralteten Leiter laufen diese nicht weiter.
+- [x] Gültige gewöhnliche Bewegung und bestehende partielle Flottenpolitik bleiben erhalten. Keine Änderung des Ressourcentarifs, kein Rewrite sämtlicher Schiffs-Writer und keine Wurmlochimplementierung.
+- [x] Ein dauerhaftes Regressionstest-Szenario mit echter disposable PostgreSQL-Datenbank und kontrollierter Barriere prüft den produktiven veralteten Speicherer gegen eine zwischenzeitlich bestätigte Verlagerung; der neu bestätigte Zustand wird nicht überschrieben.
+- [x] Ein Regressionstest über einen tatsächlich betroffenen Bewegungsaufrufer prüft, dass ein abgelehnter veralteter Schritt keine Signaturen, Erkundung oder Effekte erzeugt. Weitere Tests decken einen Konflikt nur bei Ressourcen/Laufzeitsystemen sowie gültige nicht veraltete Bewegung und Zerstörungsbehandlung ab.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
 

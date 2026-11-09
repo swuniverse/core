@@ -5,8 +5,21 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  In,
+  QueryFailedError,
+  Repository,
+} from 'typeorm';
 import { lockFleetParticipants } from './fleet-lock';
+import {
+  applyMovementState,
+  assertMovementState,
+  captureMovementState,
+  captureMovementOriginals,
+  type MovementOriginals,
+} from './movement-state';
 import { User } from '../auth/user.entity';
 import { Crew, CrewType } from '../colony/entities/crew.entity';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
@@ -1963,6 +1976,7 @@ export class SpacecraftService {
     await this.cartographyPlanService.resetFinishingForSpacecraft(shipId);
     await this.takeoverService.cancelForShip(shipId);
     const ship = await this.findOne(shipId, userId);
+    const originals = captureMovementOriginals(ship);
     if (ship.kind === 'STATION')
       throw new BadRequestException('Stationen können nicht fliegen');
     await this.assertFleetLeader(ship, userId);
@@ -2011,14 +2025,18 @@ export class SpacecraftService {
       ship,
       userId,
       (member) => {
+        originals.set(member, captureMovementState(member));
         this.activateDriveForFlight(member, 'SUBLIGHT_DRIVE');
         this.assertSystemsForFlight(member, 'sublight');
         this.undockForFlight(member);
       },
+      originals,
     );
     const tractoredShip = ship.tractoredShipId
       ? await this.findOne(ship.tractoredShipId, userId)
       : null;
+    if (tractoredShip)
+      originals.set(tractoredShip, captureMovementState(tractoredShip));
     const tractoredShipClass = tractoredShip
       ? await this.shipClassService.findById(tractoredShip.shipClassId)
       : null;
@@ -2067,22 +2085,30 @@ export class SpacecraftService {
       })),
       enter: async (field) => {
         const destination = await this.findLocationBySystemField(field.id);
+        const origins = new Map(
+          participants.map((member) => [member, member.location]),
+        );
         for (const member of participants) {
-          const origin = member.location;
           await this.setCurrentLocation(member, destination);
           member.status = SpacecraftStatus.IDLE;
-          if (!(await this.destructionService.saveUnlessDestroyed(member)))
-            continue;
+        }
+        const carried =
+          tractoredShip && ship.tractoredShipId ? [tractoredShip] : [];
+        for (const target of carried)
+          await this.setCurrentLocation(target, destination);
+        await this.saveMovementParticipants(
+          ship,
+          participants,
+          originals,
+          carried,
+        );
+        for (const member of participants) {
           await this.flightSignatureService.createMovement(
             member,
-            origin,
+            origins.get(member) ?? null,
             member.location,
             this.flightDirection(direction),
           );
-        }
-        if (tractoredShip && ship.tractoredShipId) {
-          await this.setCurrentLocation(tractoredShip, destination);
-          await this.shipRepo.save(tractoredShip);
         }
         await this.flightConsequencePipeline.onEnterField(ship, field);
         await this.processCartographyArrival(
@@ -2163,6 +2189,7 @@ export class SpacecraftService {
     targetY: number,
   ): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    const originals = captureMovementOriginals(ship);
     if (ship.kind === 'STATION')
       throw new BadRequestException('Stationen können nicht fliegen');
     await this.assertFleetLeader(ship, userId);
@@ -2197,10 +2224,12 @@ export class SpacecraftService {
       ship,
       userId,
       (member) => {
+        originals.set(member, captureMovementState(member));
         this.activateDriveForFlight(member, 'WARPDRIVE');
         this.assertSystemsForFlight(member, 'warp');
         this.undockForFlight(member);
       },
+      originals,
     );
     const participants = [ship, ...fleetMembers];
     const direction = this.directionFromMove(
@@ -2227,16 +2256,19 @@ export class SpacecraftService {
       })),
       enter: async (field, coordinate) => {
         const destination = await this.findLocationByGalaxyField(field.id);
+        const origins = new Map(
+          participants.map((member) => [member, member.location]),
+        );
         for (const member of participants) {
-          const origin = member.location;
           member.lastGalaxyFlightDirection = direction;
           await this.setCurrentLocation(member, destination);
           member.status = SpacecraftStatus.IDLE;
-          if (!(await this.destructionService.saveUnlessDestroyed(member)))
-            continue;
+        }
+        await this.saveMovementParticipants(ship, participants, originals);
+        for (const member of participants) {
           await this.flightSignatureService.createMovement(
             member,
-            origin,
+            origins.get(member) ?? null,
             member.location,
             this.flightDirection(direction),
           );
@@ -2263,6 +2295,128 @@ export class SpacecraftService {
       participants.map((member) => member.id),
     );
     return this.findOne(ship.id, userId);
+  }
+
+  /** One movement step only; effects follow a successful commit, not a rejected snapshot. */
+  private async saveMovementParticipants(
+    leader: Spacecraft,
+    participants: Spacecraft[],
+    originals: MovementOriginals,
+    carried: Spacecraft[] = [],
+  ): Promise<void> {
+    const moving = [...new Set([...participants, ...carried])];
+    await this.dataSource.transaction('READ COMMITTED', async (manager) => {
+      const {
+        ship: currentLeader,
+        fleet,
+        members,
+      } = await lockFleetParticipants(manager, leader.userId, leader.id);
+      // This bounded extra set uses NOWAIT too; never wait ship-first or chase another fleet.
+      let carriedRows: Spacecraft[] = [];
+      if (carried.length) {
+        try {
+          carriedRows = await manager
+            .createQueryBuilder(Spacecraft, 'ship')
+            .where({ id: In(carried.map((member) => member.id)) })
+            .orderBy('ship.id', 'ASC')
+            .setLock('pessimistic_write')
+            .setOnLocked('nowait')
+            .getMany();
+        } catch (error) {
+          if (
+            error instanceof QueryFailedError &&
+            error.driverError.code === '55P03'
+          ) {
+            throw new BadRequestException(
+              'Bewegungszustand ist gesperrt; bitte erneut versuchen',
+            );
+          }
+          throw error;
+        }
+      }
+      if (await manager.findOneBy(Spacecraft, { tractoredShipId: leader.id })) {
+        throw new BadRequestException(
+          'Bewegungszustand ist veraltet; bitte erneut versuchen',
+        );
+      }
+      const expectedFleet = originals.fleet;
+      if (
+        fleet
+          ? !expectedFleet ||
+            fleet.id !== expectedFleet.id ||
+            fleet.leaderId !== expectedFleet.leaderId ||
+            fleet.isFixed !== expectedFleet.isFixed ||
+            members.length !== expectedFleet.memberIds.length ||
+            members.some(
+              (member, index) =>
+                member.id !== expectedFleet.memberIds[index] ||
+                member.locationId !==
+                  expectedFleet.memberLocations.get(member.id),
+            )
+          : expectedFleet !== null
+      ) {
+        throw new BadRequestException(
+          'Bewegungszustand ist veraltet; bitte erneut versuchen',
+        );
+      }
+      const currentRows = new Map<Spacecraft, Spacecraft>();
+      for (const member of moving) {
+        const current =
+          member === leader
+            ? currentLeader
+            : [...members, ...carriedRows].find((row) => row.id === member.id);
+        if (!current || current.status === SpacecraftStatus.DESTROYED) {
+          throw new BadRequestException('Ship is destroyed');
+        }
+        const original = originals.get(member);
+        if (!original) throw new Error('Movement original state missing');
+        if (original.modules) {
+          try {
+            current.modules = await manager
+              .createQueryBuilder(SpacecraftModule, 'module')
+              .where({ spacecraftId: current.id })
+              .orderBy('module.id', 'ASC')
+              .setLock('pessimistic_write')
+              .setOnLocked('nowait')
+              .getMany();
+          } catch (error) {
+            if (
+              error instanceof QueryFailedError &&
+              error.driverError.code === '55P03'
+            ) {
+              throw new BadRequestException(
+                'Bewegungszustand ist gesperrt; bitte erneut versuchen',
+              );
+            }
+            throw error;
+          }
+        }
+        assertMovementState(current, original);
+        currentRows.set(member, current);
+        const assigned = await manager.count(CrewAssignment, {
+          where: { spacecraftId: member.id },
+        });
+        if (
+          participants.includes(member) &&
+          assigned < Math.max(0, current.crewRequired)
+        ) {
+          throw new BadRequestException(
+            'Bewegungszustand ist veraltet; bitte erneut versuchen',
+          );
+        }
+      }
+      for (const member of moving) {
+        const current = currentRows.get(member)!;
+        applyMovementState(current, member);
+        await manager.save(current);
+      }
+    });
+    for (const member of moving) {
+      originals.set(member, captureMovementState(member));
+      if (originals.fleet?.memberLocations.has(member.id)) {
+        originals.fleet.memberLocations.set(member.id, member.locationId);
+      }
+    }
   }
 
   private activateDriveForFlight(
@@ -2311,6 +2465,7 @@ export class SpacecraftService {
   // Enter a star system from the galaxy map
   async enterSystem(shipId: number, userId: number): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    const originals = captureMovementOriginals(ship);
     if (ship.kind === 'STATION') {
       throw new BadRequestException('Stationen können nicht fliegen');
     }
@@ -2362,37 +2517,44 @@ export class SpacecraftService {
       ship,
       userId,
       (member) => {
+        originals.set(member, captureMovementState(member));
         this.activateDriveForFlight(member, 'SUBLIGHT_DRIVE');
         this.assertSystemsForFlight(member, 'sublight');
         this.undockForFlight(member);
       },
+      originals,
     );
     const previousLocation = ship.location;
     const destination = await this.findLocationBySystemField(entryField.id);
+    const origins = new Map(
+      fleetMembers.map((member) => [member, member.location]),
+    );
     await this.setCurrentLocation(ship, destination);
     for (const member of fleetMembers) {
-      const origin = member.location;
       await this.setCurrentLocation(member, destination);
       member.status = SpacecraftStatus.IDLE;
       const memberSystems =
         this.spacecraftRuntimeStateService.initialize(member);
       if (memberSystems.WARPDRIVE) memberSystems.WARPDRIVE.active = false;
       member.runtimeSystems = memberSystems;
-      await this.shipRepo.save(member);
-      await this.flightSignatureService.createMovement(
-        member,
-        origin,
-        member.location,
-        this.flightDirection(ship.lastGalaxyFlightDirection ?? 'TOP'),
-      );
     }
     ship.status = SpacecraftStatus.IDLE;
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
     if (systems.WARPDRIVE) systems.WARPDRIVE.active = false;
     ship.runtimeSystems = systems;
 
-    if (!(await this.destructionService.saveUnlessDestroyed(ship))) {
-      throw new BadRequestException('Ship is destroyed');
+    await this.saveMovementParticipants(
+      ship,
+      [ship, ...fleetMembers],
+      originals,
+    );
+    for (const member of fleetMembers) {
+      await this.flightSignatureService.createMovement(
+        member,
+        origins.get(member) ?? null,
+        member.location,
+        this.flightDirection(ship.lastGalaxyFlightDirection ?? 'TOP'),
+      );
     }
     await this.flightSignatureService.createMovement(
       ship,
@@ -2468,6 +2630,7 @@ export class SpacecraftService {
   // Leave a star system back to the galaxy map
   async leaveSystem(shipId: number, userId: number): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    const originals = captureMovementOriginals(ship);
     if (ship.kind === 'STATION') {
       throw new BadRequestException('Stationen können nicht fliegen');
     }
@@ -2511,32 +2674,39 @@ export class SpacecraftService {
       ship,
       userId,
       (member) => {
+        originals.set(member, captureMovementState(member));
         this.activateDriveForFlight(member, 'WARPDRIVE');
         this.assertSystemsForFlight(member, 'warp');
         this.undockForFlight(member);
       },
+      originals,
     );
     const previousLocation = ship.location;
     const destination = galaxyField
       ? await this.findLocationByGalaxyField(galaxyField.id)
       : null;
+    const origins = new Map(
+      fleetMembers.map((member) => [member, member.location]),
+    );
     await this.setCurrentLocation(ship, destination);
     for (const member of fleetMembers) {
-      const origin = member.location;
       await this.setCurrentLocation(member, destination);
       member.status = SpacecraftStatus.IDLE;
-      await this.shipRepo.save(member);
-      await this.flightSignatureService.createMovement(
-        member,
-        origin,
-        member.location,
-        this.flightDirection(ship.lastGalaxyFlightDirection ?? 'TOP'),
-      );
     }
     ship.status = SpacecraftStatus.IDLE;
 
-    if (!(await this.destructionService.saveUnlessDestroyed(ship))) {
-      throw new BadRequestException('Ship is destroyed');
+    await this.saveMovementParticipants(
+      ship,
+      [ship, ...fleetMembers],
+      originals,
+    );
+    for (const member of fleetMembers) {
+      await this.flightSignatureService.createMovement(
+        member,
+        origins.get(member) ?? null,
+        member.location,
+        this.flightDirection(ship.lastGalaxyFlightDirection ?? 'TOP'),
+      );
     }
     await this.flightSignatureService.createMovement(
       ship,
@@ -2562,6 +2732,7 @@ export class SpacecraftService {
     targetSystemId: number,
   ): Promise<Spacecraft> {
     const ship = await this.findOne(shipId, userId);
+    const originals = captureMovementOriginals(ship);
     await this.assertFleetLeader(ship, userId);
     await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
     assertSpacecraftNotInStandby(ship, 'dem Hyperraumflug');
@@ -2607,10 +2778,12 @@ export class SpacecraftService {
       ship,
       userId,
       (member) => {
+        originals.set(member, captureMovementState(member));
         this.assertSystemsForFlight(member, 'warp');
         this.consumeWarpdrive(member, warpdriveCost, 'warp');
         this.undockForFlight(member);
       },
+      originals,
     );
     this.consumeWarpdrive(ship, warpdriveCost, 'warp');
 
@@ -2638,14 +2811,15 @@ export class SpacecraftService {
       member.targetLocationId = destination?.id ?? null;
       member.arrivalAt = arrivalAt;
       member.warpCooldown = 3;
-      await this.shipRepo.save(member);
     }
 
     this.spacecraftRuntimeStateService.initialize(ship);
 
-    if (!(await this.destructionService.saveUnlessDestroyed(ship))) {
-      throw new BadRequestException('Ship is destroyed');
-    }
+    await this.saveMovementParticipants(
+      ship,
+      [ship, ...fleetMembers],
+      originals,
+    );
     await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT, galaxyDistance);
     await this.repairService.cancelForFlight([
       ship.id,
@@ -2752,6 +2926,7 @@ export class SpacecraftService {
     leader: Spacecraft,
     userId: number,
     validate: (member: Spacecraft) => void,
+    originals: MovementOriginals,
   ): Promise<Spacecraft[]> {
     if (!leader.fleetId) return [];
     const result = await this.dataSource.transaction(async (manager) => {
@@ -2766,6 +2941,24 @@ export class SpacecraftService {
       ) {
         throw new BadRequestException(
           'Flottenzustand hat sich geändert; bitte erneut versuchen',
+        );
+      }
+      if (currentLeader.status === SpacecraftStatus.DESTROYED) {
+        throw new BadRequestException('Ship is destroyed');
+      }
+      const original = originals.get(leader);
+      if (!original) throw new Error('Movement original state missing');
+      if (original.modules) {
+        currentLeader.modules = await manager.find(SpacecraftModule, {
+          where: { spacecraftId: currentLeader.id },
+          order: { id: 'ASC' },
+          lock: { mode: 'pessimistic_write', onLocked: 'nowait' },
+        });
+      }
+      assertMovementState(currentLeader, original);
+      if (await manager.findOneBy(Spacecraft, { tractoredShipId: leader.id })) {
+        throw new BadRequestException(
+          'Bewegungszustand ist veraltet; bitte erneut versuchen',
         );
       }
       if (!fleet) return { movable: [], blocked: [] };
@@ -2830,6 +3023,20 @@ export class SpacecraftService {
         await manager.update(Spacecraft, member.id, { fleetId: null });
         member.fleetId = null;
       }
+      originals.fleet = {
+        id: fleet.id,
+        leaderId: fleet.leaderId,
+        isFixed: fleet.isFixed,
+        memberIds: members
+          .filter((member) => member.fleetId === fleet.id)
+          .map((member) => member.id)
+          .sort((a, b) => a - b),
+        memberLocations: new Map(
+          members
+            .filter((member) => member.fleetId === fleet.id)
+            .map((member) => [member.id, member.locationId]),
+        ),
+      };
       return { movable, blocked };
     });
     for (const { member, reason } of result.blocked) {

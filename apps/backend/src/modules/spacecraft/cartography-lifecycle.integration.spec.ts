@@ -60,6 +60,9 @@ jest.mock('./entities/spacecraft.entity', () => ({
 }));
 
 import { SpacecraftService } from './spacecraft.service';
+import type { EntityManager } from 'typeorm';
+import type { Spacecraft } from './entities/spacecraft.entity';
+import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import {
   SpacecraftLssMode,
   SpacecraftOperatingMode,
@@ -258,10 +261,11 @@ function createHarness() {
   };
   const shipRepo = {
     findOne: jest.fn(async ({ where }: any) => ships.get(where.id) ?? null),
-    findOneBy: jest.fn(async ({ tractoredShipId }: any) =>
-      [...ships.values()].find(
-        (ship) => ship.tractoredShipId === tractoredShipId,
-      ) ?? null,
+    findOneBy: jest.fn(
+      async ({ tractoredShipId }: any) =>
+        [...ships.values()].find(
+          (ship) => ship.tractoredShipId === tractoredShipId,
+        ) ?? null,
     ),
     save: jest.fn(async (ship: any) => {
       ships.set(ship.id, ship);
@@ -282,7 +286,41 @@ function createHarness() {
       fields.filter((field) => ids.includes(field.id)),
     ),
   };
+  const movementRows = new Map<number, Spacecraft>();
+  const movementManager = {
+    queryRunner: { isTransactionActive: true },
+    findOneBy: async (_entity: unknown, where: { id: number }) =>
+      movementRows.get(where.id) ?? null,
+    find: async () => [...movementRows.values()],
+    findBy: async () => [],
+    count: async () => 100,
+    save: async (ship: Spacecraft) => {
+      movementRows.set(ship.id, structuredClone(ship));
+      return shipRepo.save(ship);
+    },
+    createQueryBuilder: (entity: unknown) => {
+      let spacecraftId = 0;
+      const builder = {
+        where: (where: { spacecraftId?: number }) => {
+          spacecraftId = where.spacecraftId ?? 0;
+          return builder;
+        },
+        orderBy: () => builder,
+        setLock: () => builder,
+        setOnLocked: () => builder,
+        getMany: async () =>
+          entity === SpacecraftModule
+            ? (movementRows.get(spacecraftId)?.modules ?? [])
+            : [...movementRows.values()],
+      };
+      return builder;
+    },
+  };
   const dataSource = {
+    transaction: async (
+      _isolation: string,
+      callback: (manager: EntityManager) => Promise<void>,
+    ) => callback(movementManager as unknown as EntityManager),
     getRepository: jest.fn(() => ({
       find: jest.fn(async () => []),
       findOne: jest.fn(async ({ where }: any) => {
@@ -349,6 +387,7 @@ function createHarness() {
     .mockImplementation(async (id: number, userId: number) => {
       const ship = ships.get(id);
       if (!ship || ship.userId !== userId) throw new Error('not found');
+      movementRows.set(id, structuredClone(ship));
       return ship;
     });
   jest.spyOn(service as any, 'getSensorRange').mockResolvedValue(1);

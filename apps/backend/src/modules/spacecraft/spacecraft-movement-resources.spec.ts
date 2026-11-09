@@ -57,10 +57,14 @@ jest.mock('../faction/entities/faction-modifier.entity', () => ({
 }));
 
 import { SpacecraftService } from './spacecraft.service';
-import { SpacecraftStatus } from './entities/spacecraft.entity';
+import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
+import { SpacecraftModule } from './entities/spacecraft-module.entity';
+import { Fleet } from './entities/fleet.entity';
+import type { EntityManager } from 'typeorm';
 import { FieldTransitionExecutor } from './field-transition-executor';
 
 function createService() {
+  const persisted = new Map<number, Spacecraft>();
   const shipRepo = {
     findOne: jest.fn(),
     findOneBy: jest.fn<Promise<{ id: number } | null>, [unknown]>(
@@ -132,6 +136,56 @@ function createService() {
   const layerKnowledgeService = {
     markKnown: jest.fn(async () => undefined),
   };
+  const manager = {
+    queryRunner: { isTransactionActive: true },
+    findOneBy: jest.fn(
+      async (_entity: unknown, where: { id: number }) =>
+        persisted.get(where.id) ?? null,
+    ),
+    findOne: jest.fn(
+      async (entity: unknown, options: { where: { id: number } }) =>
+        entity === Fleet ? null : (persisted.get(options.where.id) ?? null),
+    ),
+    find: jest.fn(async () => [...persisted.values()]),
+    findBy: jest.fn(async () => []),
+    count: jest.fn(async () => 100),
+    save: jest.fn(async (ship: Spacecraft) => {
+      persisted.set(ship.id, structuredClone(ship));
+      return shipRepo.save(ship);
+    }),
+    createQueryBuilder: jest.fn((entity: unknown) => {
+      if (entity === SpacecraftModule) {
+        let spacecraftId = 0;
+        const builder: Record<string, jest.Mock> = {
+          where: jest.fn((where: { spacecraftId: number }) => {
+            spacecraftId = where.spacecraftId;
+            return builder;
+          }),
+          orderBy: jest.fn(() => builder),
+          setLock: jest.fn(() => builder),
+          setOnLocked: jest.fn(() => builder),
+          getMany: jest.fn(
+            async () => persisted.get(spacecraftId)?.modules ?? [],
+          ),
+        };
+        return builder;
+      }
+      let ids: number[] = [];
+      const builder: Record<string, jest.Mock> = {
+        where: jest.fn((where: { id: { value: number[] } }) => {
+          ids = where.id.value;
+          return builder;
+        }),
+        orderBy: jest.fn(() => builder),
+        setLock: jest.fn(() => builder),
+        setOnLocked: jest.fn(() => builder),
+        getMany: jest.fn(async () =>
+          ids.map((id) => persisted.get(id)).filter(Boolean),
+        ),
+      };
+      return builder;
+    }),
+  };
   const service = new SpacecraftService(
     shipRepo as unknown as ConstructorParameters<typeof SpacecraftService>[0],
     moduleRepo as unknown as ConstructorParameters<typeof SpacecraftService>[1],
@@ -148,6 +202,12 @@ function createService() {
     userRepo as unknown as ConstructorParameters<typeof SpacecraftService>[8],
     {
       getRepository: jest.fn(() => locationRepo),
+      transaction: jest.fn(
+        async (
+          _isolation: string,
+          callback: (manager: EntityManager) => Promise<void>,
+        ) => callback(manager as unknown as EntityManager),
+      ),
     } as unknown as ConstructorParameters<typeof SpacecraftService>[9],
     gameData as unknown as ConstructorParameters<typeof SpacecraftService>[10],
     shipClassService as unknown as ConstructorParameters<
@@ -216,6 +276,13 @@ function createService() {
     >[42],
   );
 
+  const findOne = service.findOne.bind(service);
+  jest.spyOn(service, 'findOne').mockImplementation(async (id, userId) => {
+    const ship = await findOne(id, userId);
+    persisted.set(id, structuredClone(ship));
+    return ship;
+  });
+
   return {
     service,
     shipRepo,
@@ -252,12 +319,8 @@ describe('SpacecraftService movement resources', () => {
   });
 
   it('marks an arrived galaxy layer known once for every owned fleet ship', async () => {
-    const {
-      service,
-      shipRepo,
-      galaxyFieldRepo,
-      layerKnowledgeService,
-    } = createService();
+    const { service, shipRepo, galaxyFieldRepo, layerKnowledgeService } =
+      createService();
     const ship = {
       id: 7,
       userId: 1,
@@ -290,12 +353,8 @@ describe('SpacecraftService movement resources', () => {
   });
 
   it('does not mark a layer known when galaxy movement fails', async () => {
-    const {
-      service,
-      shipRepo,
-      galaxyFieldRepo,
-      layerKnowledgeService,
-    } = createService();
+    const { service, shipRepo, galaxyFieldRepo, layerKnowledgeService } =
+      createService();
     shipRepo.findOne.mockResolvedValue({
       id: 7,
       userId: 1,
