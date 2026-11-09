@@ -5,6 +5,18 @@ import { api } from '../../services/api';
 type Listener = (name: string) => Promise<void>;
 const listeners = new Set<Listener>();
 
+function isTutorialViewDto(value: unknown): value is TutorialViewDto {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<TutorialViewDto>;
+  return (
+    typeof candidate.currentStepId === 'string' &&
+    Array.isArray(candidate.steps) &&
+    candidate.steps.every(
+      (step) => step !== null && typeof step === 'object' && typeof step.id === 'string',
+    )
+  );
+}
+
 export async function tutorialEvent(name: string): Promise<void> {
   await Promise.all([...listeners].map((listener) => listener(name)));
 }
@@ -19,8 +31,8 @@ export function useTutorial(view: TutorialView | null) {
     setTutorial(null);
     setDismissed(false);
     if (view) {
-      void api.get<TutorialViewDto | null>(`/tutorial/${view}`).then((value) => {
-        if (active) setTutorial(value);
+      void api.get<unknown>(`/tutorial/${view}`).then((value) => {
+        if (active) setTutorial(isTutorialViewDto(value) ? value : null);
       }).catch(() => {
         if (active) setTutorial(null);
       });

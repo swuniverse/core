@@ -52,4 +52,22 @@ describe('useTutorial', () => {
     expect(second.result.current.step).toBeNull();
     expect(apiMocks.post).toHaveBeenCalledTimes(2);
   });
+
+  it('ignores an incomplete view response without crashing the tutorial host', async () => {
+    apiMocks.get.mockResolvedValue({
+      version: 1,
+      view: 'maindesk',
+      currentStepId: 'welcome',
+    });
+
+    const { result } = renderHook(() => useTutorial('maindesk'));
+
+    await act(async () => {
+      await apiMocks.get.mock.results[0].value;
+    });
+    expect(apiMocks.get).toHaveBeenCalledWith('/tutorial/maindesk');
+    expect(result.current.tutorial).toBeNull();
+    expect(result.current.step).toBeNull();
+    expect(result.current.index).toBe(-1);
+  });
 });
