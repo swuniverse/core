@@ -26,7 +26,7 @@ const NPC_DEFINITIONS = [
   },
   {
     key: NpcKey.REBEL_SUPPLY,
-    username: 'Nachschubkommando der Rebellenallianz',
+    username: 'Rebellen-Nachschub',
     faction: Faction.REBEL_ALLIANCE,
     description: 'Betreiber des Basishandelsnetzes der Rebellenallianz.',
   },
@@ -53,7 +53,10 @@ export class NpcAccountService implements OnModuleInit {
         this.userRepo.create({
           ...existing,
           username: definition.username,
-          displayName: definition.username,
+          displayName:
+            definition.key === NpcKey.REBEL_SUPPLY
+              ? 'Nachschubkommando der Rebellenallianz'
+              : definition.username,
           email: `npc-${definition.key.toLowerCase()}@invalid.local`,
           passwordHash: '',
           faction: definition.faction,

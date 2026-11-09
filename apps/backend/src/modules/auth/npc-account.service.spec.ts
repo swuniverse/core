@@ -42,9 +42,11 @@ describe('NpcAccountService', () => {
       factionId: 10,
     });
     await expect(service.get(NpcKey.REBEL_SUPPLY)).resolves.toMatchObject({
-      username: 'Nachschubkommando der Rebellenallianz',
+      username: 'Rebellen-Nachschub',
+      displayName: 'Nachschubkommando der Rebellenallianz',
       faction: Faction.REBEL_ALLIANCE,
       factionId: 20,
     });
+    expect((await service.get(NpcKey.REBEL_SUPPLY)).username.length).toBeLessThanOrEqual(32);
   });
 });
