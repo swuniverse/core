@@ -76,6 +76,9 @@
     }
   ],
   "analytics": false,
+  "cli": {
+    "packageManager": "npm"
+  },
   "sync": {
     "applyChanges": true
   },
