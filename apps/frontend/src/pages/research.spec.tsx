@@ -1,8 +1,15 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
+import { createElement } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 import type { UserProfile } from '@swuniverse/shared';
-import type { Node } from '@xyflow/react';
+import type { EdgeTypes, Node, NodeTypes } from '@xyflow/react';
 import type { ReactNode } from 'react';
 
 import { ResearchPage } from './research';
@@ -150,6 +157,12 @@ type MockTreeEdge = {
     strokeDasharray?: string;
   };
   animated?: boolean;
+  markerEnd?: {
+    type?: string;
+    color?: string;
+    width?: number;
+    height?: number;
+  };
 };
 
 const reactFlowMock = vi.hoisted(() => ({
@@ -186,87 +199,106 @@ vi.mock('../hooks/use-socket', () => ({
     }
   },
 }));
-vi.mock('@xyflow/react', () => ({
-  ReactFlow: ({
-    children,
-    nodes,
-    edges,
-    onNodeClick,
-    onPaneClick,
-  }: {
-    children?: ReactNode;
-    nodes: Node<{
-      tech: { id: number; name: string; status?: string };
-      isHighlighted: boolean;
-      onOpenDetails: () => void;
-    }>[];
-    edges: MockTreeEdge[];
-    onNodeClick?: (
-      _event: unknown,
-      node: Node<{
+vi.mock('@xyflow/react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@xyflow/react')>();
+  return {
+    ...actual,
+    Background: () => null,
+    Controls: () => null,
+    MiniMap: () => null,
+    ReactFlow: ({
+      children,
+      nodes,
+      edges,
+      nodeTypes,
+      edgeTypes,
+      onNodeClick,
+      onPaneClick,
+    }: {
+      children?: ReactNode;
+      nodes: Node<{
         tech: { id: number; name: string; status?: string };
         isHighlighted: boolean;
         onOpenDetails: () => void;
-      }>,
-    ) => void;
-    onPaneClick?: () => void;
-  }) => {
-    reactFlowMock.lastProps = { nodes, edges, onNodeClick, onPaneClick };
-    return (
-      <div data-testid="react-flow-mock">
-        {nodes.map((node) => (
-          <div key={node.id}>
-            <button
-              type="button"
-              onClick={() => onNodeClick?.(undefined, node)}
-            >
-              {node.data.tech.name}
-            </button>
-            {node.data.tech.status === 'EXCLUDED' && (
-              <span>AUSGESCHLOSSEN</span>
-            )}
-            <button
-              type="button"
-              aria-label={`${node.data.tech.name} Details anzeigen`}
-              onClick={() => node.data.onOpenDetails()}
-            >
-              i
-            </button>
-          </div>
-        ))}
-        {edges.map((edge) => (
-          <div
-            key={edge.id}
-            data-testid={`edge-${edge.id}`}
-            data-stroke={edge.style?.stroke}
-            data-width={edge.style?.strokeWidth}
-            data-dash={edge.style?.strokeDasharray}
-            data-dependency-type={edge.data?.dependencyType}
-            data-animated={String(edge.animated ?? false)}
-            data-type={edge.type}
-            data-points={edge.data?.points?.length ?? 0}
-          />
-        ))}
-        <button
-          type="button"
-          aria-label="Freies Feld"
-          onClick={() => onPaneClick?.()}
-        >
-          Freies Feld
-        </button>
-        {children}
-      </div>
-    );
-  },
-  Background: () => null,
-  Controls: () => null,
-  MiniMap: () => null,
-  Handle: () => null,
-  BaseEdge: () => null,
-  getBezierPath: () => ['M 0 0 L 1 1'],
-  MarkerType: { ArrowClosed: 'ArrowClosed' },
-  Position: { Left: 'left', Right: 'right', Top: 'top', Bottom: 'bottom' },
-}));
+      }>[];
+      edges: MockTreeEdge[];
+      nodeTypes: NodeTypes;
+      edgeTypes: EdgeTypes;
+      onNodeClick?: (
+        _event: unknown,
+        node: Node<{
+          tech: { id: number; name: string; status?: string };
+          isHighlighted: boolean;
+          onOpenDetails: () => void;
+        }>,
+      ) => void;
+      onPaneClick?: () => void;
+    }) => {
+      reactFlowMock.lastProps = { nodes, edges, onNodeClick, onPaneClick };
+      return (
+        <div data-testid="react-flow-mock">
+          {nodes.map((node) => (
+            <div data-testid={`node-${node.id}`} key={node.id}>
+              <button
+                type="button"
+                onClick={() => onNodeClick?.(undefined, node)}
+              >
+                {node.data.tech.name}
+              </button>
+              {createElement(nodeTypes[node.type ?? 'techNode'], {
+                ...node,
+                type: node.type ?? 'techNode',
+                data: node.data,
+              })}
+            </div>
+          ))}
+          <svg>
+            {edges.map((edge) => (
+              <g
+                key={edge.id}
+                data-testid={`edge-${edge.id}`}
+                data-stroke={edge.style?.stroke}
+                data-width={edge.style?.strokeWidth}
+                data-dash={edge.style?.strokeDasharray}
+                data-dependency-type={edge.data?.dependencyType}
+                data-animated={String(edge.animated ?? false)}
+                data-type={edge.type}
+                data-points={edge.data?.points?.length ?? 0}
+              >
+                {createElement(edgeTypes[edge.type ?? 'routed'], {
+                  id: edge.id,
+                  sourceX: 10,
+                  sourceY: 20,
+                  targetX: 30,
+                  targetY: 40,
+                  sourcePosition: actual.Position.Bottom,
+                  targetPosition: actual.Position.Top,
+                  markerEnd: edge.markerEnd
+                    ? `url(#${edge.id}-marker)`
+                    : undefined,
+                  style: edge.style,
+                  data: edge.data,
+                })}
+              </g>
+            ))}
+          </svg>
+          <button
+            type="button"
+            aria-label="Freies Feld"
+            onClick={() => onPaneClick?.()}
+          >
+            Freies Feld
+          </button>
+          {children}
+        </div>
+      );
+    },
+    Handle: () => null,
+    getBezierPath: () => ['M 0 0 L 1 1'],
+    MarkerType: actual.MarkerType,
+    Position: actual.Position,
+  };
+});
 
 vi.mock('elkjs/lib/elk.bundled.js', () => ({
   default: class {
@@ -1033,7 +1065,7 @@ describe('ResearchPage routing', () => {
   it('renders each research relationship and excluded technology distinctly', async () => {
     apiMocks.get.mockResolvedValueOnce(treeRelationshipTechs);
 
-    render(
+    const { container } = render(
       <MemoryRouter initialEntries={['/research/tree']}>
         <Routes>
           <Route path="/research/tree" element={<ResearchTreePage />} />
@@ -1043,6 +1075,30 @@ describe('ResearchPage routing', () => {
 
     await screen.findByText('Forschungsbaum');
     expect(apiMocks.get).toHaveBeenCalledWith('/research/tree');
+
+    const requirePath =
+      container.querySelector<SVGPathElement>('path#e-101-102');
+    const requireSomePath =
+      container.querySelector<SVGPathElement>('path#e-101-103');
+    const excludePath =
+      container.querySelector<SVGPathElement>('path#ex-104-105');
+    expect(requirePath).toBeTruthy();
+    expect(requirePath?.style.stroke).toBe('#38bdf8');
+    expect(requirePath?.style.strokeWidth).toBe('1.5');
+    expect(requirePath?.getAttribute('d')).toBe('M 104 64 L 104 110 L 304 140');
+    expect(requirePath?.getAttribute('marker-end')).toBe(
+      'url(#e-101-102-marker)',
+    );
+    expect(requireSomePath?.style.stroke).toBe('#a78bfa');
+    expect(requireSomePath?.style.strokeDasharray).toBe('6 4');
+    expect(excludePath?.style.stroke).toBe('#ef4444');
+    expect(excludePath?.style.strokeDasharray).toBe('2 4');
+    expect(excludePath?.getAttribute('marker-end')).toBe(
+      'url(#ex-104-105-marker)',
+    );
+    expect(
+      within(screen.getByTestId('node-105')).getByText('AUSGESCHLOSSEN'),
+    ).toBeTruthy();
 
     expect(
       screen.getByTestId('edge-e-101-102').getAttribute('data-stroke'),
