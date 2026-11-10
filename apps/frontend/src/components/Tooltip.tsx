@@ -54,10 +54,12 @@ function panelPosition(
 export function Tooltip({
   content,
   title,
+  onOpen,
   children,
 }: {
   content: ReactNode;
   title?: string;
+  onOpen?: () => void;
   children: ReactElement;
 }) {
   const generatedId = useId();
@@ -120,7 +122,10 @@ export function Tooltip({
     },
     'aria-describedby': position ? tooltipId : undefined,
     onMouseEnter: (event: ReactMouseEvent<HTMLElement>) => {
-      if (!touchOpen) open({ x: event.clientX, y: event.clientY + CURSOR_OFFSET });
+      if (!touchOpen) {
+        open({ x: event.clientX, y: event.clientY + CURSOR_OFFSET });
+        onOpen?.();
+      }
       (child.props.onMouseEnter as
         | ((event: ReactMouseEvent<HTMLElement>) => void)
         | undefined)?.(event);
@@ -141,6 +146,7 @@ export function Tooltip({
     },
     onFocus: (event: React.FocusEvent<HTMLElement>) => {
       open(elementPosition(event.currentTarget));
+      onOpen?.();
       (child.props.onFocus as
         | ((event: React.FocusEvent<HTMLElement>) => void)
         | undefined)?.(event);
@@ -160,6 +166,7 @@ export function Tooltip({
             : elementPosition(event.currentTarget),
           true,
         );
+        onOpen?.();
         ignoreNextClick.current = true;
       }
       (child.props.onTouchStart as

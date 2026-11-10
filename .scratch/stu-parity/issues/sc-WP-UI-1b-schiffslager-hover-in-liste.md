@@ -1,6 +1,6 @@
 # Lager-Hover am Schiffbild in der Schiffsliste
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -24,10 +24,12 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Hover (Desktop) bzw. Tap (Touch) auf das Schiffsbild zeigt sofort einen Tooltip mit Tabelle: Titel „Lager“, Waren mit Icon (`/assets/commodities/<id>.png`) und Menge, darunter Belegung/Kapazität.
-- [ ] Das Lager wird erst beim ersten Hover geladen (lazy) und je Schiff gecacht; leeres Lager zeigt „Leer“.
-- [ ] Frontend-Test: Hover löst genau einen Ladevorgang aus und rendert Ware und Menge.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Hover (Desktop) bzw. Tap (Touch) auf das Schiffsbild zeigt sofort einen Tooltip mit Tabelle: Titel „Lager“, Waren mit Icon (`/assets/commodities/<id>.png`) und Menge, darunter Belegung/Kapazität.
+- [x] Cargo-Mengen und Belegung/Kapazität werden mit deutscher Tausendertrennung dargestellt.
+- [x] Das Lager wird erst beim ersten Hover geladen (lazy) und je Schiff gecacht; leeres Lager zeigt „Leer“.
+- [x] Frontend-Test: Hover löst genau einen Ladevorgang aus und rendert Ware und Menge.
+- [x] Frontend-Test: Mengen 1234 und Kapazität 10000 werden im produktiven Tooltip als „1.234“ bzw. „10.000“ gerendert.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
 
@@ -36,3 +38,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - 2026-10-30 Product Owner: Option 1. Das Issue wird gegen den aktuellen Repository-Stand erneut freigegeben. Die historischen Fehler in `research.spec.tsx:648` und der durch `sh-AP-21` behobene TS6305-/Typecheck-Fehler gelten weder automatisch als fortbestehende Blocker noch als dauerhafte Ausnahme. Fokussierte Tests sowie die aktuellen Lint-, Typecheck-, Test- und Build-Gates bleiben vorgeschrieben; nur frisch reproduzierte Fehler werden nach der bestehenden Abbruchregel behandelt.
 - 2026-10-30: Dritter test-first Versuch: fokussierter Frontend-Test grün (8/8), Frontend-Typecheck nach Build grün und `nx run-many --targets=build` grün. Der vorgeschriebene `npx nx affected -t lint typecheck test --base=HEAD` scheitert nach zwei ernsthaften Versuchen an gleichzeitig vorhandenen, fachfremden Änderungen: `tutorial.service.spec.ts:22` kompiliert nicht (`TS2554`, Service-Signatur passt nicht zur Fixture) und `spacecraft-core-controls.spec.ts` scheitert mit `this.shipRepo.findOneBy is not a function`. Produktcode gemäß Abbruchregel verworfen. Bitte diese aktuelle Testbaseline reparieren bzw. die konkurrierenden Änderungen abschließen und das Issue danach erneut freigeben.
 - 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Tutorial-Konstruktor- und Spacecraft-Repository-Fixtures); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.
+- 2026-11-10: Implementiert im Frontend mit der gemeinsamen Tooltip-Komponente: Cargo lädt beim ersten Öffnen (Hover, Fokus oder Touch), pro Schiff werden erfolgreiche Anfragen gecacht und fehlgeschlagene Anfragen können erneut versucht werden. Tooltip zeigt Warenicon/-menge, Belegung/Kapazität bzw. „Leer“; öffentliche Schiffsliste-Tests decken Lazy Load, Cache, verschiedene Schiffe und Touch ab. Verifikation: `ui1b-red-fleet-hover-v2` war vor Implementierung rot (beide neuen Schiffslager-Verhaltenstests scheiterten am fehlenden Tooltip-Auslöser); `ui1b-green-hover-second` und `ui1b-focused-after-guard` grün. Finale direkte Gates grün: `ui1b-frontend-test-final` 93 Dateien/666 Tests, keine Skips; `ui1b-lint-final`; `ui1b-typecheck-final` (erzwungener spec-inklusiver Build); `ui1b-build-final`. Build meldet vorhandene CSS-@import-Reihenfolge- und Chunkgrößen-Warnungen; Lint meldet bestehende projektweite Warnungen. Gate-Logs/Receipts sind unter `.workmux/gates/`.
+- 2026-11-10 Standards-Korrektur: Unabhängiges Standards-Review meldete zwei Abweichungen (Shared-DTO-Feld außerhalb des kanonischen List-DTO; nicht lokalisierte Cargo-Zahlen). Der ursprüngliche Implementierungs- und Gate-Verlauf oben bleibt unverändert. Die zwei Findings wurden gezielt behoben: `SpacecraftListDto` enthält nun `cargoMax`, Frontend verwendet nur den Shared-Typ ohne optionales Duplikat/Fallback; Tooltip-Mengen, Belegung und Kapazität verwenden `formatNumber`. Produktions-Schiffsliste-Regression mit 1234/10000 zeigte vor Fix die erwarteten Werte nicht (`ui1b-correction-format-red`, Exit 1) und ist danach grün (`ui1b-correction-format-green`). Frische direkte Gates: shared build, Frontend- und Backend-spec-inklusive erzwungene TypeScript-Builds, Frontend lint, kompletter Frontend-Testlauf (93 Dateien/667 Tests, keine Skips) und Frontend build; alle Exit 0. Keine Backend-Laufzeitdatei geändert und keine Backend-Suite ausgeführt. Korrekturbericht: `.workmux/sc-WP-UI-1b-correction-report-20261110.md`. Kandidat und Akzeptanz sind vollständig, die unabhängige enge Re-Review steht noch aus; nicht integriert.

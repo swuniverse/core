@@ -12,6 +12,7 @@ vi.mock('../services/api', () => ({ api: apiMocks }));
 vi.mock('../lib/assets', () => ({
   shipImage: () => '/ship.png',
   alertStateImage: (state: string) => `/alert-${state}.png`,
+  commodityImage: (id: number) => `/assets/commodities/${id}.png`,
 }));
 
 const ship = {
@@ -53,6 +54,121 @@ const ship = {
 };
 
 describe('SpacecraftPage', () => {
+  it('loads each ship cargo on first hover and reuses the cached hold', async () => {
+    apiMocks.get.mockReset();
+    apiMocks.get.mockImplementation((path: string) => {
+      if (path === '/spacecraft') {
+        return Promise.resolve([
+          { ...ship, id: 251, name: 'Falke', cargoMax: 20 },
+          { ...ship, id: 252, name: 'Adler', cargoMax: 30 },
+        ]);
+      }
+      if (path === '/spacecraft/251/cargo') {
+        return Promise.resolve([
+          { id: 1, commodityId: 42424242, commodityName: 'Tibanna', amount: 4 },
+        ]);
+      }
+      if (path === '/spacecraft/252/cargo') {
+        return Promise.resolve([
+          { id: 2, commodityId: 42424243, commodityName: 'Duranium', amount: 7 },
+        ]);
+      }
+      throw new Error(`Unexpected API request: ${path}`);
+    });
+
+    render(
+      <MemoryRouter>
+        <SpacecraftPage />
+      </MemoryRouter>,
+    );
+
+    const falke = await screen.findByRole('button', { name: 'Lager von Falke' });
+    const adler = screen.getByRole('button', { name: 'Lager von Adler' });
+    expect(apiMocks.get).toHaveBeenCalledTimes(1);
+
+    fireEvent.mouseEnter(falke, { clientX: 40, clientY: 30 });
+    const falkeTooltip = await screen.findByRole('tooltip');
+    expect(await screen.findByText('Tibanna')).toBeTruthy();
+    expect(falkeTooltip.textContent).toContain('Lagerraum 4/20');
+    expect(falkeTooltip.querySelector('img')?.getAttribute('src')).toBe(
+      '/assets/commodities/42424242.png',
+    );
+    expect(apiMocks.get).toHaveBeenNthCalledWith(2, '/spacecraft/251/cargo');
+
+    fireEvent.mouseLeave(falke);
+    fireEvent.mouseEnter(falke, { clientX: 40, clientY: 30 });
+    expect(apiMocks.get).toHaveBeenCalledTimes(2);
+
+    fireEvent.mouseEnter(adler, { clientX: 60, clientY: 30 });
+    const adlerTooltip = await screen.findByRole('tooltip');
+    expect(await screen.findByText('Duranium')).toBeTruthy();
+    expect(adlerTooltip.textContent).toContain('7/30');
+    expect(adlerTooltip.textContent).not.toContain('Tibanna');
+    expect(apiMocks.get).toHaveBeenNthCalledWith(3, '/spacecraft/252/cargo');
+  });
+
+  it('formats cargo amounts and capacity with German thousands separators', async () => {
+    apiMocks.get.mockReset();
+    apiMocks.get.mockImplementation((path: string) => {
+      if (path === '/spacecraft') {
+        return Promise.resolve([
+          { ...ship, id: 261, name: 'Frachtfalke', cargoMax: 10_000 },
+        ]);
+      }
+      if (path === '/spacecraft/261/cargo') {
+        return Promise.resolve([
+          { id: 3, commodityId: 42424244, commodityName: 'Duranium', amount: 1_234 },
+        ]);
+      }
+      throw new Error(`Unexpected API request: ${path}`);
+    });
+
+    render(
+      <MemoryRouter>
+        <SpacecraftPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.mouseEnter(
+      await screen.findByRole('button', { name: 'Lager von Frachtfalke' }),
+      { clientX: 40, clientY: 30 },
+    );
+
+    const tooltip = await screen.findByRole('tooltip');
+    expect(await screen.findByRole('cell', { name: '1.234' })).toBeTruthy();
+    expect(tooltip.textContent).toContain('Lagerraum 1.234/10.000');
+  });
+
+  it('shows an empty hold when touched without loading cargo before the tap', async () => {
+    apiMocks.get.mockReset();
+    apiMocks.get.mockImplementation((path: string) => {
+      if (path === '/spacecraft') {
+        return Promise.resolve([
+          { ...ship, id: 260, name: 'Leerer Falke', cargoMax: 20 },
+        ]);
+      }
+      if (path === '/spacecraft/260/cargo') return Promise.resolve([]);
+      throw new Error(`Unexpected API request: ${path}`);
+    });
+
+    render(
+      <MemoryRouter>
+        <SpacecraftPage />
+      </MemoryRouter>,
+    );
+
+    const image = await screen.findByRole('button', { name: 'Lager von Leerer Falke' });
+    expect(apiMocks.get).toHaveBeenCalledTimes(1);
+
+    fireEvent.touchStart(image, { touches: [{ clientX: 40, clientY: 30 }] });
+    fireEvent.click(image);
+
+    const tooltip = await screen.findByRole('tooltip');
+    expect(await screen.findByRole('cell', { name: 'Leer' })).toBeTruthy();
+    expect(tooltip.textContent).toContain('Lagerraum 0/20');
+    expect(apiMocks.get).toHaveBeenNthCalledWith(2, '/spacecraft/260/cargo');
+  });
+
   it('renders canonical galaxy and system location coordinates', async () => {
     apiMocks.get.mockResolvedValue([
       {

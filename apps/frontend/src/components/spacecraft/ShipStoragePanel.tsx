@@ -1,12 +1,139 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { commodityImage } from '../../lib/assets';
+import { Tooltip, TooltipTable } from '../Tooltip';
+import { formatNumber } from '../../lib/format';
 import { api } from '../../services/api';
 
-interface CargoItem {
+export interface CargoItem {
   id: number;
   commodityId: number;
   amount: number;
   commodityName?: string | null;
+}
+
+const cargoRequests = new Map<number, Promise<CargoItem[]>>();
+
+function loadShipCargo(shipId: number) {
+  let request = cargoRequests.get(shipId);
+  if (!request) {
+    request = api.get<CargoItem[]>(`/spacecraft/${shipId}/cargo`);
+    cargoRequests.set(shipId, request);
+    void request.catch(() => {
+      if (cargoRequests.get(shipId) === request) cargoRequests.delete(shipId);
+    });
+  }
+  return request;
+}
+
+export function ShipStorageTooltip({
+  shipId,
+  shipName,
+  imageSrc,
+  cargoMax,
+}: {
+  shipId: number;
+  shipName: string;
+  imageSrc: string;
+  cargoMax: number;
+}) {
+  const [cargoState, setCargoState] = useState<{
+    shipId: number;
+    items: CargoItem[];
+  } | null>(null);
+  const [errorState, setErrorState] = useState<{
+    shipId: number;
+    message: string;
+  } | null>(null);
+  const loadedShip = useRef<number | null>(null);
+  const mounted = useRef(false);
+  const activeShip = useRef(shipId);
+  activeShip.current = shipId;
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const cargo = cargoState?.shipId === shipId ? cargoState.items : null;
+  const error = errorState?.shipId === shipId ? errorState.message : null;
+  const visibleCargo = (cargo ?? []).filter((item) => item.amount > 0);
+  const used = visibleCargo.reduce((sum, item) => sum + item.amount, 0);
+
+  function loadCargo() {
+    if (loadedShip.current === shipId) return;
+    loadedShip.current = shipId;
+    setErrorState(null);
+    void loadShipCargo(shipId)
+      .then((items) => {
+        if (mounted.current && activeShip.current === shipId) {
+          setCargoState({ shipId, items });
+        }
+      })
+      .catch((err: unknown) => {
+        loadedShip.current = null;
+        if (mounted.current && activeShip.current === shipId) {
+          setErrorState({
+            shipId,
+            message:
+              err instanceof Error
+                ? err.message
+                : 'Lagerraum konnte nicht geladen werden',
+          });
+        }
+      });
+  }
+
+  const rows: Array<readonly [ReactNode, ReactNode]> = visibleCargo.map((item) => [
+    <span key={item.id} className="inline-flex items-center gap-1">
+      <img
+        src={commodityImage(item.commodityId, item.commodityName ?? undefined)}
+        alt=""
+        className="size-5 object-contain"
+      />
+      {item.commodityName ?? `Ware #${item.commodityId}`}
+    </span>,
+    formatNumber(item.amount),
+  ]);
+
+  return (
+    <Tooltip
+      title="Lager"
+      onOpen={loadCargo}
+      content={
+        <div aria-live="polite">
+          {cargo === null && !error && <p>Lager wird geladen...</p>}
+          {error && <p role="alert">{error}</p>}
+          {cargo !== null && !error && (
+            <>
+              {visibleCargo.length > 0 ? (
+                <TooltipTable rows={rows} />
+              ) : (
+                <table className="w-full border-collapse bg-swu-surface text-xs">
+                  <tbody>
+                    <tr>
+                      <td className="border border-swu-border px-1.5 py-1">Lager</td>
+                      <td className="border border-swu-border px-1.5 py-1 text-right font-mono">Leer</td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
+              <p className="border-t border-swu-border pt-1 text-right font-mono">
+                Lagerraum {formatNumber(used)}/{formatNumber(cargoMax)}
+              </p>
+            </>
+          )}
+        </div>
+      }
+    >
+      <button
+        type="button"
+        aria-label={`Lager von ${shipName}`}
+        className="block cursor-help"
+      >
+        <img src={imageSrc} alt={shipName} className="h-8 w-auto object-contain" />
+      </button>
+    </Tooltip>
+  );
 }
 
 export function ShipStoragePanel({
