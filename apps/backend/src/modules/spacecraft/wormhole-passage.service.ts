@@ -250,13 +250,18 @@ export class WormholePassageService {
           },
           order: { id: 'ASC' },
         });
+        const shipSnapshots = immutableSnapshot(ships);
+        const wormholeSnapshots = immutableSnapshot(wormholes);
+        const policy = this.accessPolicy.snapshot
+          ? await this.accessPolicy.snapshot(manager, shipSnapshots, wormholeSnapshots)
+          : this.accessPolicy;
         const plan = await planWormholePassage({
           userId,
-          ships: immutableSnapshot(ships),
-          wormholes: immutableSnapshot(wormholes),
+          ships: shipSnapshots,
+          wormholes: wormholeSnapshots,
           fields: immutableSnapshot(fields),
           wormholeId,
-          accessPolicy: this.accessPolicy,
+          accessPolicy: policy,
           random: this.random,
         });
         const originField = await manager.findOneOrFail(GalaxyField, {

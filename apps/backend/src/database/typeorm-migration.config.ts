@@ -21,6 +21,7 @@ import { SystemExploration } from '../modules/starmap/entities/system-exploratio
 import { PlanetField } from '../modules/starmap/entities/planet-field.entity';
 import { InfluenceArea } from '../modules/starmap/entities/influence-area.entity';
 import { Wormhole } from '../modules/starmap/entities/wormhole.entity';
+import { WormholeRestriction } from '../modules/spacecraft/entities/wormhole-restriction.entity';
 import { HyperspaceRoute } from '../modules/starmap/entities/hyperspace-route.entity';
 import { HyperspaceRouteSegment } from '../modules/starmap/entities/hyperspace-route-segment.entity';
 import { FactionEntity } from './migration-entities/faction.entity';
@@ -62,6 +63,7 @@ const appDataSource = new DataSource({
     PlanetField,
     InfluenceArea,
     Wormhole,
+    WormholeRestriction,
     HyperspaceRoute,
     HyperspaceRouteSegment,
     FactionEntity,

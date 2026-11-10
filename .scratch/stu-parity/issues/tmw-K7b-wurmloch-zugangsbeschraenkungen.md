@@ -25,11 +25,11 @@ Wurmlöcher können für Spieler, Allianzen, Fraktionen oder einzelne Schiffe fr
 
 ## Akzeptanzkriterien
 
-- [ ] Eine Entität „Wurmlochregel“ (Wurmloch, Zieltyp USER/ALLIANCE/FACTION/SHIP, Ziel-ID, Modus ALLOW/DENY) ist per Migration angelegt.
-- [ ] Die Policy-Implementierung gilt: Ohne Regeln ist alles erlaubt. Gibt es Regeln, gewinnt DENY vor ALLOW. Allianz und Fraktion werden über die zentrale Auflösung bzw. Mitgliedschaft geprüft, und Fehler führen zu einer geschlossenen Ablehnung.
-- [ ] Verwaltungs-UI und -API in der Stationsansicht (sc-WP-STAT-2): Nur der Betreiber einer Station auf dem Eingangsfeld darf Regeln listen, anlegen und löschen; andere Spieler erhalten 403.
-- [ ] Ein abgelehnter Einflug meldet „Du hast keine Berechtigung, in das Wurmloch einzufliegen“.
-- [ ] Backend-Tests für alle Zieltypen, die DENY-Priorität und die Betreiberrechte (Betreiber, Fremder, keine Station). Frontend-Test der Regelliste.
+- [x] Eine Entität „Wurmlochregel“ (Wurmloch, Zieltyp USER/ALLIANCE/FACTION/SHIP, Ziel-ID, Modus ALLOW/DENY) ist per Migration angelegt.
+- [x] Die Policy-Implementierung gilt: Ohne Regeln ist alles erlaubt. Gibt es Regeln, gewinnt DENY vor ALLOW. Allianz und Fraktion werden über die zentrale Auflösung bzw. Mitgliedschaft geprüft, und Fehler führen zu einer geschlossenen Ablehnung.
+- [x] Verwaltungs-UI und -API in der Stationsansicht (sc-WP-STAT-2): Nur der Betreiber einer Station auf dem Eingangsfeld darf Regeln listen, anlegen und löschen; andere Spieler erhalten 403.
+- [x] Ein abgelehnter Einflug meldet „Du hast keine Berechtigung, in das Wurmloch einzufliegen“.
+- [x] Backend-Tests für alle Zieltypen, die DENY-Priorität und die Betreiberrechte (Betreiber, Fremder, keine Station). Frontend-Test der Regelliste.
 
 ## Entscheidung
 
@@ -39,3 +39,20 @@ Vorgabe: Variante (b), wie STU. Der Betreiber einer Station auf dem Wurmloch-Ein
 
 - 2026-10-21 Product Owner: Option b – Wurmloch-Zugangsregeln verwaltet wie in STU der Betreiber einer Station auf dem Eingangsfeld; das Issue ist deshalb zusätzlich durch sc-WP-STAT-2 blockiert.
 - 2026-11-09: Die Access-Policy wird im Backend-Kern tmw-K7a1 eingeführt; der Tracking-Split tmw-K7a ist kein Implementierungsnachweis.
+
+### 2026-11-10 — K7b isolierter Implementierungskandidat
+
+- Kandidatenstatus: funktional vollständig, unabhängige Standards-/Security- und Spec-Reviews ausstehend. Triage bleibt `ready-for-agent`; nicht resolved und keine Human-Implementierungsblockade.
+- Basis: `4e2da9569b996d5a18cd428142a34ce8555e0853`, Branch `agent-tmw-k7b-fast`; ausschließlich K7b mit notwendigen Shared-Verträgen und Registrierungen.
+- Migration `20261110180000` persistiert WormholeRestriction mit Ziel-/Modus-Constraints, eindeutigem Wurmloch/Ziel und Cascade. App-, Integrations- und beide Migration-Metadatenpfade registrieren die neue Entity.
+- Authentifizierte GET/POST/DELETE-Endpunkte `/spacecraft/:stationId/wormhole-restrictions[/:restrictionId]` prüfen Betreiber und kanonisches Eingangsfeld serverseitig; Fremder, Schiff statt Station und Station ohne Eingang erhalten 403. POST nimmt keine Client-Betreiberidentität an; DELETE bleibt auf verwaltete Wurmlöcher begrenzt.
+- Regeln werden in der echten Passage-Transaktion vor allen Fleet-/Traktor-Teilnehmern als Snapshot gelesen. DENY gewinnt; konfigurierte Regeln benötigen passende ALLOW; keine Regeln oder keine Station erlauben. Fraktion und aktuelle Mitgliedschaft stammen aus dem zentralen AllianceStore im Transaktionsmanager, nicht aus JWT oder lokaler Haltung. Fehler verweigern geschlossen mit `Du hast keine Berechtigung, in das Wurmloch einzufliegen.`. Keine neue Rollen-/Richtungssemantik.
+- Produktions-Stationsdetail zeigt Regelliste, Anlage und Löschung mit Shared-DTOs, zugänglichen text-xs-Steuerelementen und `formatNumber`; 403 zeigt keine Verwaltungssteuerung.
+- Meaningful RED vor GREEN: fehlender HTTP-GET (404 statt 200), reale konfigurierte Passage (201 statt 400), fehlende Stations-Regelliste, erfolgreiche Eingabe nicht geleert und Resolver-Fehler ohne Domänenmeldung. Frühe fehlgeschlagene Fixture-Typchecks und ein ungültiger Vitest-CLI-Aufruf sind als Fehler erhalten, nicht als RED-Nachweis umgedeutet.
+- Finale unveränderte Inputs: Backend 215 Suites/2008 Tests/1 Snapshot; Frontend 94 Dateien/674 Tests; gezielte disposable PostgreSQL-16-Migrations-/HTTP-/Passagesuite 2 Suites/81 Tests. Alle bestanden, null übersprungene Tests. Lint, Anwendungstypen, erzwungene Spec-Typen und Build bestanden (alle tatsächlichen Prozess-Exits 0).
+- Warnungen: Lint 110 Frontend-/1438 Backend-Warnungen bei null Fehlern; ts-jest isolatedModules-/pg-query-Deprecations und Build-CSS-/Chunkgrößenwarnungen. Kein Baseline-Ausnahmelabel und kein vollständiger PG-Lauf.
+- Automatische Evidenzprüfung `verify-evidence-fast.py`: 7 finale GREEN-Receipts, tatsächliche numerische Exits 0, Loghashes/Sourcebytes/HEAD+Diff identisch, 24 Codepfade, 1.079 s am 2026-11-10T17:38:24Z. Dies ist keine unabhängige Code-/Securityprüfung.
+- Lokale Evidenz: `.workmux/gates/k7b-final-*.json`, `.workmux/tmw-K7b-fast-verification-20261110.json`, kompakter Handoff `.workmux/tmw-K7b-fast-report-20261110.md`; keine historischen Nachweise überschrieben.
+- [ ] Unabhängiger Sol-Standards-/Security-Review durch den Coordinator.
+- [ ] Unabhängiger Spec-Review durch den Coordinator und gegebenenfalls eng begrenzte Korrekturen.
+

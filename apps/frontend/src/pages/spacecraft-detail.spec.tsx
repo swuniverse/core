@@ -165,8 +165,9 @@ describe('SpacecraftDetailPage', () => {
     expect(screen.queryByText('STU-Parität')).toBeNull();
   });
 
-  it('renders station systems and storage but hides flight controls', async () => {
+  it('renders station systems, storage and wormhole rules but hides flight controls', async () => {
     apiMocks.get.mockImplementation((path: string) => {
+      if (path === '/spacecraft/2/wormhole-restrictions') return Promise.resolve({ wormholes: [{ id: 3, name: 'Passage', restrictions: [{ id: 5, targetType: 'ALLIANCE', targetId: 1234, mode: 'DENY' }] }] });
       if (path === '/spacecraft/2') {
         return Promise.resolve({
           ...ship,
@@ -196,6 +197,9 @@ describe('SpacecraftDetailPage', () => {
     expect(screen.getByText('Keine Schiffe angedockt')).toBeTruthy();
     expect(screen.getByText(/Lagerraum 0\/20/)).toBeTruthy();
     expect(screen.queryByText('Navigation')).toBeNull();
+    expect(await screen.findByRole('heading', { name: 'Wurmloch-Zugangsregeln' })).toBeTruthy();
+    expect(await screen.findByText('Verboten')).toBeTruthy();
+    expect(screen.getByText(/Allianz-ID 1.234/)).toBeTruthy();
   });
 
   it('refreshes the ship and opens its confirmed cross-layer arrival on the map', async () => {

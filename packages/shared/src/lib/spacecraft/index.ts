@@ -813,6 +813,26 @@ export interface DockingPrivilegesDto {
   autoRead: boolean;
 }
 
+export const WORMHOLE_RESTRICTION_TARGET_TYPES = ['USER', 'ALLIANCE', 'FACTION', 'SHIP'] as const;
+export const WORMHOLE_RESTRICTION_MODES = ['ALLOW', 'DENY'] as const;
+export type WormholeRestrictionTargetType = DockingPrivilegeTargetType;
+export type WormholeRestrictionMode = DockingPrivilegeMode;
+
+export interface CreateWormholeRestrictionDto {
+  wormholeId: number;
+  targetType: WormholeRestrictionTargetType;
+  targetId: number;
+  mode: WormholeRestrictionMode;
+}
+
+export interface WormholeRestrictionDto extends Omit<CreateWormholeRestrictionDto, 'wormholeId'> {
+  id: number;
+}
+
+export interface StationWormholeRestrictionsDto {
+  wormholes: Array<{ id: number; name: string | null; restrictions: WormholeRestrictionDto[] }>;
+}
+
 export interface SpacecraftWormholePassageOptionDto {
   id: number;
   name: string | null;

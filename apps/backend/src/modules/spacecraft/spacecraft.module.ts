@@ -103,7 +103,9 @@ import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue
 import { ShipbuildingModule } from '../shipbuilding/shipbuilding.module';
 import { StationShipyardService } from './station-shipyard.service';
 import { WormholePassageService, WORMHOLE_ACCESS_POLICY, WORMHOLE_RANDOM } from './wormhole-passage.service';
-import { allowAllWormholeAccess } from './wormhole-passage-planner';
+import { WormholeRestrictionAccessPolicy } from './wormhole-access-policy.service';
+import { WormholeRestrictionService } from './wormhole-restriction.service';
+import { WormholeRestriction } from './entities/wormhole-restriction.entity';
 
 @Module({
   imports: [
@@ -128,6 +130,7 @@ import { allowAllWormholeAccess } from './wormhole-passage-planner';
       SpacecraftRepairTask,
       StationShipRepair,
       DockingPrivilege,
+      WormholeRestriction,
       StarSystem,
       Layer,
       CelestialObject,
@@ -163,7 +166,9 @@ import { allowAllWormholeAccess } from './wormhole-passage-planner';
   providers: [
     SpacecraftService,
     WormholePassageService,
-    { provide: WORMHOLE_ACCESS_POLICY, useValue: allowAllWormholeAccess },
+    WormholeRestrictionService,
+    WormholeRestrictionAccessPolicy,
+    { provide: WORMHOLE_ACCESS_POLICY, useExisting: WormholeRestrictionAccessPolicy },
     { provide: WORMHOLE_RANDOM, useValue: Math.random },
     ShipClassService,
     ShipClassDiscoveryService,

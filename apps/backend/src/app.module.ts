@@ -57,6 +57,7 @@ import { CelestialClassDiscovery } from './modules/starmap/entities/celestial-cl
 import { PlanetField } from './modules/starmap/entities/planet-field.entity';
 import { InfluenceArea } from './modules/starmap/entities/influence-area.entity';
 import { Wormhole } from './modules/starmap/entities/wormhole.entity';
+import { WormholeRestriction } from './modules/spacecraft/entities/wormhole-restriction.entity';
 import { HyperspaceRoute } from './modules/starmap/entities/hyperspace-route.entity';
 import { HyperspaceRouteSegment } from './modules/starmap/entities/hyperspace-route-segment.entity';
 import { FactionEntity } from './modules/faction/entities/faction.entity';
@@ -195,6 +196,7 @@ import { IgnoreList } from './modules/contacts/entities/ignore-list.entity';
           PlanetField,
           InfluenceArea,
           Wormhole,
+          WormholeRestriction,
           HyperspaceRoute,
           HyperspaceRouteSegment,
           FactionEntity,

@@ -1232,6 +1232,11 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
 
 @Injectable()
 export class TypeOrmAllianceStore extends TypeOrmAllianceStoreSession {
+  /** Reuses central player/membership reads inside an existing game transaction. */
+  static forManager(manager: EntityManager): AllianceStore {
+    return new TypeOrmAllianceStoreSession(manager, true);
+  }
+
   constructor(@InjectDataSource() dataSource: DataSource) {
     super(dataSource.manager, false);
   }

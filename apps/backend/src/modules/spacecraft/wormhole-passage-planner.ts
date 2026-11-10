@@ -29,6 +29,11 @@ export interface WormholePassagePlan {
 }
 
 export interface WormholeAccessPolicy {
+  snapshot?(
+    manager: import('typeorm').EntityManager,
+    ships: readonly Spacecraft[],
+    wormholes: readonly WormholeDto[],
+  ): Promise<WormholeAccessPolicy>;
   allows(
     ship: Spacecraft,
     wormhole: WormholeDto,
@@ -124,9 +129,15 @@ export async function planWormholePassage(
       : 'EXIT';
   const policy = input.accessPolicy ?? allowAllWormholeAccess;
   for (const ship of input.ships) {
-    if (!(await policy.allows(ship, wormhole, direction)))
+    let allowed = false;
+    try {
+      allowed = await policy.allows(ship, wormhole, direction);
+    } catch {
+      // An unavailable authorization source never grants passage.
+    }
+    if (!allowed)
       throw new BadRequestException(
-        'Du hast keine Berechtigung, in das Wurmloch einzufliegen',
+        'Du hast keine Berechtigung, in das Wurmloch einzufliegen.',
       );
   }
   const participants = input.ships.map((ship) => {

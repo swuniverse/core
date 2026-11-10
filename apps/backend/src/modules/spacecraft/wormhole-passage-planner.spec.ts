@@ -223,7 +223,7 @@ describe('wormhole passage planner', () => {
           },
         },
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow('Du hast keine Berechtigung, in das Wurmloch einzufliegen.');
   });
 
   it('validates every participant before producing a plan', async () => {

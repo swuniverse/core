@@ -16,7 +16,7 @@ import {
   createUser,
   resetDatabase,
 } from '../../testing/integration/database';
-import { Spacecraft } from './entities/spacecraft.entity';
+import { Spacecraft, SpacecraftKind } from './entities/spacecraft.entity';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
@@ -26,6 +26,22 @@ import { Wormhole } from '../starmap/entities/wormhole.entity';
 import { Message } from '../messaging/entities/message.entity';
 import { FlightSignature } from './entities/flight-signature.entity';
 import { GameGateway } from '../websocket/game.gateway';
+import { WormholeRestriction } from './entities/wormhole-restriction.entity';
+import { Alliance } from '../alliance/entities/alliance.entity';
+import { AllianceMembership } from '../alliance/entities/alliance-membership.entity';
+import {
+  AllianceRole,
+  Faction,
+  type CreateWormholeRestrictionDto,
+  type StationWormholeRestrictionsDto,
+} from '@swuniverse/shared';
+import { User } from '../auth/user.entity';
+import { Fleet } from './entities/fleet.entity';
+import { ShipLogEntry } from './entities/ship-log-entry.entity';
+import { LayerKnowledge } from '../starmap/entities/layer-knowledge.entity';
+import { ExplorationState } from '../starmap/entities/exploration-state.entity';
+import { factionId } from '../../testing/integration/database';
+import { AddWormholeRestrictions20261110180000 } from '../../database/migrations/20261110180000-add-wormhole-restrictions';
 
 const JWT_SECRET = 'wormhole-http-integration-secret';
 
@@ -104,14 +120,12 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
     await resetDatabase(source);
     gateway.emitToUser.mockClear();
     const owner = await createUser(source);
-    const shipClass = await source
-      .getRepository(ShipClassDef)
-      .save({
-        key: 'HTTP_WORMHOLE',
-        name: 'HTTP passage',
-        category: 'SHIP',
-        role: 'SCOUT',
-      });
+    const shipClass = await source.getRepository(ShipClassDef).save({
+      key: 'HTTP_WORMHOLE',
+      name: 'HTTP passage',
+      category: 'SHIP',
+      role: 'SCOUT',
+    });
     const entryLayer = await source
       .getRepository(Layer)
       .save({ name: 'HTTP entry', width: 5, height: 5 });
@@ -130,34 +144,446 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
     destination = await source
       .getRepository(SpaceLocation)
       .findOneByOrFail({ galaxyFieldId: exit.id });
-    hole = await source
-      .getRepository(Wormhole)
-      .save({
-        entryLayerId: entryLayer.id,
-        entryCx: 1,
-        entryCy: 1,
-        exitLayerId: exitLayer.id,
-        exitCx: 3,
-        exitCy: 4,
-      });
-    ship = await source
+    hole = await source.getRepository(Wormhole).save({
+      entryLayerId: entryLayer.id,
+      entryCx: 1,
+      entryCy: 1,
+      exitLayerId: exitLayer.id,
+      exitCx: 3,
+      exitCy: 4,
+    });
+    ship = await source.getRepository(Spacecraft).save({
+      userId: owner.id,
+      name: 'Authenticated passage',
+      shipClassId: shipClass.id,
+      locationId: origin.id,
+      energy: 0,
+      warpdrive: 7,
+    });
+    await source.getRepository(SpacecraftModule).save({
+      spacecraftId: ship.id,
+      category: 'SUBLIGHT_DRIVE',
+      moduleType: 'Impulse',
+      isActive: false,
+    });
+  });
+
+  async function rules(
+    stationId: number,
+    userId: number,
+    method = 'GET',
+    suffix = '',
+    body?: unknown,
+  ) {
+    return fetch(
+      `${await app.getUrl()}/api/spacecraft/${stationId}/wormhole-restrictions${suffix}`,
+      {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${jwt.sign({ sub: userId, username: 'operator' })}`,
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      },
+    );
+  }
+
+  it('only lets the entry-field station operator list wormhole rules through authenticated HTTP', async () => {
+    const station = await source.getRepository(Spacecraft).save({
+      userId: ship.userId,
+      shipClassId: ship.shipClassId,
+      name: 'Entry station',
+      kind: SpacecraftKind.STATION,
+      locationId: ship.locationId,
+    });
+    const response = await rules(station.id, ship.userId);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      wormholes: [{ id: hole.id, name: null, restrictions: [] }],
+    });
+    const foreign = await createUser(source);
+    expect((await rules(station.id, foreign.id)).status).toBe(403);
+    expect((await rules(ship.id, ship.userId)).status).toBe(403);
+    station.locationId = destination.id;
+    await source.getRepository(Spacecraft).save(station);
+    expect((await rules(station.id, ship.userId)).status).toBe(403);
+  });
+
+  it('denies a configured real passage without changing durable ship or arrival state', async () => {
+    const station = await source.getRepository(Spacecraft).save({
+      userId: ship.userId,
+      shipClassId: ship.shipClassId,
+      name: 'Operator',
+      kind: SpacecraftKind.STATION,
+      locationId: ship.locationId,
+    });
+    expect(
+      (
+        await rules(station.id, ship.userId, 'POST', '', {
+          wormholeId: hole.id,
+          targetType: 'USER',
+          targetId: ship.userId,
+          mode: 'DENY',
+        })
+      ).status,
+    ).toBe(201);
+    const response = await enter({ wormholeId: hole.id }, ship.userId);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      message: 'Du hast keine Berechtigung, in das Wurmloch einzufliegen.',
+    });
+    expect(
+      await source.getRepository(Spacecraft).findOneByOrFail({ id: ship.id }),
+    ).toMatchObject({
+      locationId: ship.locationId,
+      energy: 0,
+      warpdrive: 7,
+      runtimeSystems: ship.runtimeSystems,
+    });
+    expect(await source.getRepository(Message).count()).toBe(0);
+    expect(await source.getRepository(FlightSignature).count()).toBe(0);
+    expect(gateway.emitToUser).not.toHaveBeenCalled();
+  });
+
+  async function entryStation() {
+    return source
       .getRepository(Spacecraft)
       .save({
-        userId: owner.id,
-        name: 'Authenticated passage',
-        shipClassId: shipClass.id,
-        locationId: origin.id,
-        energy: 0,
-        warpdrive: 7,
+        userId: ship.userId,
+        shipClassId: ship.shipClassId,
+        name: 'Entry operator',
+        kind: SpacecraftKind.STATION,
+        locationId: ship.locationId,
       });
-    await source
-      .getRepository(SpacecraftModule)
+  }
+
+  async function unchangedArrival() {
+    expect(
+      await source.getRepository(Spacecraft).findOneByOrFail({ id: ship.id }),
+    ).toMatchObject({
+      locationId: ship.locationId,
+      energy: ship.energy,
+      runtimeSystems: ship.runtimeSystems,
+    });
+    for (const entity of [
+      Message,
+      FlightSignature,
+      ShipLogEntry,
+      LayerKnowledge,
+      ExplorationState,
+    ])
+      expect(await source.getRepository(entity).count()).toBe(0);
+    expect(gateway.emitToUser).not.toHaveBeenCalled();
+  }
+
+  it('enforces owner authorization on all CRUD requests, ignores client principals, and scopes deletion to the managed wormhole', async () => {
+    const station = await entryStation();
+    const foreign = await createUser(source);
+    const dto: CreateWormholeRestrictionDto = {
+      wormholeId: hole.id,
+      targetType: 'USER',
+      targetId: ship.userId,
+      mode: 'ALLOW',
+    };
+    const created = await rules(station.id, ship.userId, 'POST', '', dto);
+    expect(created.status).toBe(201);
+    const result = (await created.json()) as StationWormholeRestrictionsDto;
+    const id = result.wormholes[0].restrictions[0].id;
+    expect(
+      (
+        await rules(station.id, foreign.id, 'POST', '', {
+          ...dto,
+          userId: ship.userId,
+        })
+      ).status,
+    ).toBe(403);
+    expect(
+      (await rules(station.id, foreign.id, 'DELETE', `/${id}`)).status,
+    ).toBe(403);
+    expect((await rules(ship.id, ship.userId, 'POST', '', dto)).status).toBe(
+      403,
+    );
+    expect((await rules(ship.id, ship.userId, 'DELETE', `/${id}`)).status).toBe(
+      403,
+    );
+    const distant = await source
+      .getRepository(Wormhole)
+      .save(
+        source
+          .getRepository(Wormhole)
+          .create({ ...hole, id: undefined, entryCx: 2 }),
+      );
+    expect(
+      (
+        await rules(station.id, ship.userId, 'POST', '', {
+          ...dto,
+          wormholeId: distant.id,
+        })
+      ).status,
+    ).toBe(403);
+    const otherRule = await source
+      .getRepository(WormholeRestriction)
+      .save({ ...dto, wormholeId: distant.id, targetType: 'USER' });
+    expect(
+      (await rules(station.id, ship.userId, 'DELETE', `/${otherRule.id}`))
+        .status,
+    ).toBe(200);
+    expect(
+      await source
+        .getRepository(WormholeRestriction)
+        .existsBy({ id: otherRule.id }),
+    ).toBe(true);
+    const updated = await rules(station.id, ship.userId, 'POST', '', {
+      ...dto,
+      mode: 'DENY',
+    });
+    expect(await updated.json()).toMatchObject({
+      wormholes: [{ restrictions: [{ id, mode: 'DENY' }] }],
+    });
+    expect(
+      (await rules(station.id, ship.userId, 'DELETE', `/${id}`)).status,
+    ).toBe(200);
+    expect(await (await rules(station.id, ship.userId)).json()).toEqual({
+      wormholes: [{ id: hole.id, name: null, restrictions: [] }],
+    });
+  });
+
+  it.each([
+    ['USER', 0],
+    ['USER', -1],
+    ['USER', 1.5],
+    ['USER', '1'],
+    ['UNKNOWN', 1],
+  ])('rejects malformed rule target %s %s', async (targetType, targetId) => {
+    const station = await entryStation();
+    expect(
+      (
+        await rules(station.id, ship.userId, 'POST', '', {
+          wormholeId: hole.id,
+          targetType,
+          targetId,
+          mode: 'ALLOW',
+        })
+      ).status,
+    ).toBe(400);
+    expect(await source.getRepository(WormholeRestriction).count()).toBe(0);
+  });
+
+  it.each(['USER', 'ALLIANCE', 'FACTION', 'SHIP'] as const)(
+    'uses real %s identity matching in passage',
+    async (targetType) => {
+      const station = await entryStation();
+      const rebel = await factionId(source, Faction.REBEL_ALLIANCE);
+      await source
+        .getRepository(User)
+        .update(ship.userId, { factionId: rebel });
+      const alliance = await source
+        .getRepository(Alliance)
+        .save({ name: 'Passage alliance', factionId: rebel });
+      await source
+        .getRepository(AllianceMembership)
+        .save({
+          userId: ship.userId,
+          allianceId: alliance.id,
+          role: AllianceRole.NONE,
+        });
+      const targetId = {
+        USER: ship.userId,
+        ALLIANCE: alliance.id,
+        FACTION: rebel,
+        SHIP: ship.id,
+      }[targetType];
+      expect(
+        (
+          await rules(station.id, ship.userId, 'POST', '', {
+            wormholeId: hole.id,
+            targetType,
+            targetId,
+            mode: 'ALLOW',
+          })
+        ).status,
+      ).toBe(201);
+      expect((await enter({ wormholeId: hole.id }, ship.userId)).status).toBe(
+        201,
+      );
+      expect(
+        (
+          await source
+            .getRepository(Spacecraft)
+            .findOneByOrFail({ id: ship.id })
+        ).locationId,
+      ).toBe(destination.id);
+    },
+  );
+
+  it('applies current membership and DENY priority instead of granting access from stance or station ownership', async () => {
+    const station = await entryStation();
+    const rebel = await factionId(source, Faction.REBEL_ALLIANCE);
+    await source.getRepository(User).update(ship.userId, { factionId: rebel });
+    const alliance = await source
+      .getRepository(Alliance)
+      .save({ name: 'Current membership', factionId: rebel });
+    const member = await source
+      .getRepository(AllianceMembership)
       .save({
-        spacecraftId: ship.id,
-        category: 'SUBLIGHT_DRIVE',
-        moduleType: 'Impulse',
-        isActive: false,
+        userId: ship.userId,
+        allianceId: alliance.id,
+        role: AllianceRole.NONE,
       });
+    await rules(station.id, ship.userId, 'POST', '', {
+      wormholeId: hole.id,
+      targetType: 'ALLIANCE',
+      targetId: alliance.id,
+      mode: 'ALLOW',
+    });
+    await rules(station.id, ship.userId, 'POST', '', {
+      wormholeId: hole.id,
+      targetType: 'SHIP',
+      targetId: ship.id,
+      mode: 'DENY',
+    });
+    expect((await enter({ wormholeId: hole.id }, ship.userId)).status).toBe(
+      400,
+    );
+    await source
+      .getRepository(WormholeRestriction)
+      .delete({ targetType: 'SHIP' });
+    await source.getRepository(AllianceMembership).remove(member);
+    expect((await enter({ wormholeId: hole.id }, ship.userId)).status).toBe(
+      400,
+    );
+    await unchangedArrival();
+  });
+
+  it('ignores stale rules when the entry has no station', async () => {
+    await source
+      .getRepository(WormholeRestriction)
+      .save({
+        wormholeId: hole.id,
+        targetType: 'USER',
+        targetId: ship.userId,
+        mode: 'DENY',
+      });
+    expect((await enter({ wormholeId: hole.id }, ship.userId)).status).toBe(
+      201,
+    );
+  });
+
+  it('fails closed when production membership resolution fails', async () => {
+    const station = await entryStation();
+    await rules(station.id, ship.userId, 'POST', '', {
+      wormholeId: hole.id,
+      targetType: 'SHIP',
+      targetId: ship.id,
+      mode: 'ALLOW',
+    });
+    await source.query(
+      'ALTER TABLE alliance_memberships RENAME TO k7b_unavailable_memberships',
+    );
+    try {
+      const response = await enter({ wormholeId: hole.id }, ship.userId);
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({
+        message: 'Du hast keine Berechtigung, in das Wurmloch einzufliegen.',
+      });
+      await unchangedArrival();
+    } finally {
+      await source.query(
+        'ALTER TABLE k7b_unavailable_memberships RENAME TO alliance_memberships',
+      );
+    }
+  });
+
+  it.each(['fleet', 'tractor'] as const)(
+    'validates every %s participant before changing durable state',
+    async (kind) => {
+      const station = await entryStation();
+      const carried = await source
+        .getRepository(Spacecraft)
+        .save({
+          userId: ship.userId,
+          shipClassId: ship.shipClassId,
+          name: 'Denied participant',
+          locationId: ship.locationId,
+        });
+      await source
+        .getRepository(SpacecraftModule)
+        .save({
+          spacecraftId: carried.id,
+          category: 'SUBLIGHT_DRIVE',
+          moduleType: 'Impulse',
+        });
+      if (kind === 'fleet') {
+        const fleet = await source
+          .getRepository(Fleet)
+          .save({
+            userId: ship.userId,
+            name: 'Policy fleet',
+            leaderId: ship.id,
+          });
+        await source
+          .getRepository(Spacecraft)
+          .update([ship.id, carried.id], { fleetId: fleet.id });
+      } else
+        await source
+          .getRepository(Spacecraft)
+          .update(ship.id, { tractoredShipId: carried.id });
+      await rules(station.id, ship.userId, 'POST', '', {
+        wormholeId: hole.id,
+        targetType: 'USER',
+        targetId: ship.userId,
+        mode: 'ALLOW',
+      });
+      await rules(station.id, ship.userId, 'POST', '', {
+        wormholeId: hole.id,
+        targetType: 'SHIP',
+        targetId: carried.id,
+        mode: 'DENY',
+      });
+      const before = await source
+        .getRepository(Spacecraft)
+        .find({ order: { id: 'ASC' } });
+      expect((await enter({ wormholeId: hole.id }, ship.userId)).status).toBe(
+        400,
+      );
+      expect(
+        await source.getRepository(Spacecraft).find({ order: { id: 'ASC' } }),
+      ).toEqual(before);
+      await unchangedArrival();
+    },
+  );
+
+  it('registers the new entity once and supports migration rollback, constraints and cascade on PostgreSQL', async () => {
+    expect(
+      source.entityMetadatas.filter(
+        (meta) => meta.tableName === 'wormhole_restrictions',
+      ),
+    ).toHaveLength(1);
+    const runner = source.createQueryRunner();
+    const migration = new AddWormholeRestrictions20261110180000();
+    try {
+      await migration.down(runner);
+      expect(await runner.hasTable('wormhole_restrictions')).toBe(false);
+      await migration.up(runner);
+      await expect(
+        source.query(
+          `INSERT INTO wormhole_restrictions ("wormholeId", "targetType", "targetId", mode) VALUES ($1, 'UNKNOWN', 1, 'ALLOW')`,
+          [hole.id],
+        ),
+      ).rejects.toThrow();
+      await source
+        .getRepository(WormholeRestriction)
+        .save({
+          wormholeId: hole.id,
+          targetType: 'SHIP',
+          targetId: ship.id,
+          mode: 'DENY',
+        });
+      await source.getRepository(Wormhole).delete(hole.id);
+      expect(await source.getRepository(WormholeRestriction).count()).toBe(0);
+    } finally {
+      await runner.release();
+    }
   });
 
   async function enter(body: unknown, userId?: number) {
@@ -242,8 +668,15 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
     expect(await response.json()).toMatchObject({
       coordinates: { x: 1, y: 1 },
       wormholePassages: [
-        { id: hole.id, name: 'Forward gate', targetLayer: { id: expect.any(Number), name: 'HTTP exit' } },
-        { name: 'Reverse gate', targetLayer: { id: originLayer.id, name: 'Reverse origin' } },
+        {
+          id: hole.id,
+          name: 'Forward gate',
+          targetLayer: { id: expect.any(Number), name: 'HTTP exit' },
+        },
+        {
+          name: 'Reverse gate',
+          targetLayer: { id: originLayer.id, name: 'Reverse origin' },
+        },
       ],
     });
     expect((await getFieldContext()).status).toBe(401);

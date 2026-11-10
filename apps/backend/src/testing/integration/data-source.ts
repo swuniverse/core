@@ -30,6 +30,7 @@ import { CelestialObject } from '../../modules/starmap/entities/celestial-object
 import { GalaxyFieldType } from '../../modules/starmap/entities/galaxy-field-type.entity';
 import { GalaxyField } from '../../modules/starmap/entities/galaxy-field.entity';
 import { Wormhole } from '../../modules/starmap/entities/wormhole.entity';
+import { WormholeRestriction } from '../../modules/spacecraft/entities/wormhole-restriction.entity';
 import { SystemField } from '../../modules/starmap/entities/system-field.entity';
 import { SpaceLocation } from '../../modules/starmap/entities/space-location.entity';
 import { MapRegion } from '../../modules/starmap/entities/map-region.entity';
@@ -94,6 +95,7 @@ export const INTEGRATION_ENTITIES = [
   GalaxyFieldType,
   GalaxyField,
   Wormhole,
+  WormholeRestriction,
   SystemField,
   SpaceLocation,
   MapRegion,

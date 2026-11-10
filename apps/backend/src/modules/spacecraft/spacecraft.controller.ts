@@ -72,6 +72,8 @@ import {
 
 import { WormholePassageService } from './wormhole-passage.service';
 import { WormholeEntryDto } from './wormhole-entry-contract';
+import { WormholeRestrictionService } from './wormhole-restriction.service';
+import { WormholeRestrictionRequest } from './wormhole-restriction.dto';
 
 class StationShipModuleSelectionDto {
   @IsString()
@@ -405,6 +407,7 @@ export class SpacecraftController {
   constructor(
     private readonly spacecraftService: SpacecraftService,
     private readonly wormholePassage: WormholePassageService,
+    private readonly wormholeRestrictions: WormholeRestrictionService,
     private readonly tractorService: SpacecraftTractorService,
     private readonly boardingService: SpacecraftBoardingService = {
       board: async () => ({ message: '' }),
@@ -489,6 +492,21 @@ export class SpacecraftController {
       deactivate: async () => undefined,
     } as unknown as SpacecraftTrackerService,
   ) {}
+
+  @Get(':id/wormhole-restrictions')
+  listWormholeRestrictions(@Param('id', ParseIntPipe) id: number, @Request() req: { user: { sub: number } }) {
+    return this.wormholeRestrictions.list(id, req.user.sub);
+  }
+
+  @Post(':id/wormhole-restrictions')
+  addWormholeRestriction(@Param('id', ParseIntPipe) id: number, @Request() req: { user: { sub: number } }, @Body() dto: WormholeRestrictionRequest) {
+    return this.wormholeRestrictions.add(id, req.user.sub, dto);
+  }
+
+  @Delete(':id/wormhole-restrictions/:restrictionId')
+  deleteWormholeRestriction(@Param('id', ParseIntPipe) id: number, @Param('restrictionId', ParseIntPipe) restrictionId: number, @Request() req: { user: { sub: number } }) {
+    return this.wormholeRestrictions.remove(id, req.user.sub, restrictionId);
+  }
 
   @Post(':id/wormhole/enter')
   enterWormhole(
