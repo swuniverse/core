@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
@@ -50,6 +51,7 @@ import { LayerKnowledgeService } from '../starmap/layer-knowledge.service';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
 import { adminRegionName } from '../starmap/admin-region';
+import { WormholeService } from '../starmap/wormhole.service';
 import { SystemField } from '../starmap/entities/system-field.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import {
@@ -240,6 +242,7 @@ export class SpacecraftService {
     private readonly trackerService: SpacecraftTrackerService = {
       processTick: async () => undefined,
     } as unknown as SpacecraftTrackerService,
+    @Optional() private readonly wormholeService?: WormholeService,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -3690,8 +3693,17 @@ export class SpacecraftService {
           (field) => field.cx === entryField.cx && field.cy === entryField.cy,
         )
       : false;
+    const wormholePassages =
+      location?.scope === 'GALAXY' && this.wormholeService
+        ? await this.wormholeService.findPassageOptionsAt(
+            location.layerId,
+            location.x,
+            location.y,
+          )
+        : [];
     return {
       coordinates: { x: location?.x ?? 0, y: location?.y ?? 0 },
+      wormholePassages,
       region:
         fieldExplored && entryField?.region
           ? {

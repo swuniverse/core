@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { SpacecraftDetailPage } from './spacecraft-detail';
 
 const apiMocks = vi.hoisted(() => ({
@@ -87,6 +87,13 @@ const map = {
   ],
   ships: [],
 };
+
+const locationProbe = vi.hoisted(() => ({ current: '' }));
+function CurrentLocation() {
+  const location = useLocation();
+  locationProbe.current = `${location.pathname}${location.search}`;
+  return <output data-testid="current-location">{locationProbe.current}</output>;
+}
 
 describe('SpacecraftDetailPage', () => {
   it('lets a tractored ship attempt to escape', async () => {
@@ -189,6 +196,164 @@ describe('SpacecraftDetailPage', () => {
     expect(screen.getByText('Keine Schiffe angedockt')).toBeTruthy();
     expect(screen.getByText(/Lagerraum 0\/20/)).toBeTruthy();
     expect(screen.queryByText('Navigation')).toBeNull();
+  });
+
+  it('refreshes the ship and opens its confirmed cross-layer arrival on the map', async () => {
+    apiMocks.get.mockClear();
+    apiMocks.post.mockClear();
+    locationProbe.current = '';
+    const arrivedShip = {
+      ...ship,
+      location: { scope: 'GALAXY' as const, layerId: 8, x: 12, y: 14 },
+    };
+    apiMocks.get.mockImplementation((path: string) => {
+      if (path === '/spacecraft/2')
+        return Promise.resolve(
+          apiMocks.get.mock.calls.filter(([requested]) => requested === '/spacecraft/2').length > 1
+            ? arrivedShip
+            : ship,
+        );
+      if (path === '/spacecraft/2/local-map') return Promise.resolve(map);
+      if (path === '/spacecraft/2/field-context') {
+        return Promise.resolve({
+          coordinates: { x: 5, y: 5 },
+          region: null,
+          adminRegion: null,
+          information: {},
+          colony: null,
+          actions: {},
+          wormholePassages: [
+            { id: 21, name: 'Tor', targetLayer: { id: 8, name: 'Outer Rim' } },
+          ],
+        });
+      }
+      if (path === '/spacecraft/2/modules' || path === '/spacecraft/2/cargo')
+        return Promise.resolve([]);
+      if (path === '/spacecraft/2/torpedoes') return Promise.resolve(null);
+      if (path === '/colonies') return Promise.resolve([]);
+      return Promise.resolve([]);
+    });
+    apiMocks.post.mockResolvedValue({
+      wormholeId: 21,
+      direction: 'EXIT',
+      shipIds: [2],
+      locationId: 900,
+    });
+    render(
+      <MemoryRouter initialEntries={['/spacecraft/2']}>
+        <CurrentLocation />
+        <Routes>
+          <Route path="/spacecraft/:id" element={<SpacecraftDetailPage />} />
+          <Route path="/starmap" element={<p>Karte geöffnet</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const enterButton = await screen.findByRole('button', {
+      name: 'Wurmloch betreten',
+    });
+    await waitFor(() => expect(enterButton.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(enterButton);
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith(
+        '/spacecraft/2/wormhole/enter',
+        { wormholeId: 21 },
+      ),
+    );
+    await waitFor(() =>
+      expect(apiMocks.get).toHaveBeenCalledWith('/spacecraft/2', {
+        cache: 'no-store',
+      }),
+    );
+    await waitFor(() =>
+      expect(locationProbe.current).toBe('/starmap?layer=8&x=12&y=14'),
+    );
+  });
+
+  it('keeps post-passage position feedback visible when destination context cannot load', async () => {
+    apiMocks.get.mockClear();
+    apiMocks.post.mockClear();
+    locationProbe.current = '';
+    let shipReads = 0;
+    let destinationContextReads = 0;
+    apiMocks.get.mockImplementation((path: string, options?: { cache?: string }) => {
+      if (path === '/spacecraft/2') {
+        shipReads += 1;
+        if (options?.cache === 'no-store') {
+          return Promise.reject(new Error('canonical ship read unavailable'));
+        }
+        return Promise.resolve(
+          shipReads === 1
+            ? { ...ship, tractor: null }
+            : {
+                ...ship,
+                tractor: null,
+                location: { scope: 'GALAXY', layerId: 8, x: 12, y: 14 },
+              },
+        );
+      }
+      if (path === '/spacecraft/2/field-context') {
+        destinationContextReads += 1;
+        if (shipReads <= 1) {
+          return Promise.resolve({
+            coordinates: { x: 5, y: 5 },
+            region: null,
+            adminRegion: null,
+            information: {},
+            colony: null,
+            actions: {},
+            wormholePassages: [
+              { id: 21, name: 'Tor', targetLayer: { id: 8, name: 'Outer Rim' } },
+            ],
+          });
+        }
+        return Promise.reject(new Error('destination context unavailable'));
+      }
+      if (path === '/spacecraft/2/modules' || path === '/spacecraft/2/cargo')
+        return Promise.resolve([]);
+      if (path === '/spacecraft/2/torpedoes') return Promise.resolve(null);
+      if (path === '/colonies') return Promise.resolve([]);
+      return Promise.resolve([]);
+    });
+    apiMocks.post.mockResolvedValue({
+      wormholeId: 21,
+      direction: 'EXIT',
+      shipIds: [2],
+      locationId: 900,
+    });
+    render(
+      <MemoryRouter initialEntries={['/spacecraft/2']}>
+        <CurrentLocation />
+        <Routes>
+          <Route path="/spacecraft/:id" element={<SpacecraftDetailPage />} />
+          <Route path="/starmap" element={<p>Karte geöffnet</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const enterButton = await screen.findByRole('button', {
+      name: 'Wurmloch betreten',
+    });
+    await waitFor(() => expect(enterButton.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(enterButton);
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith(
+      '/spacecraft/2/wormhole/enter',
+      { wormholeId: 21 },
+    ));
+    await waitFor(() => expect(shipReads).toBeGreaterThanOrEqual(3));
+    await waitFor(() => expect(destinationContextReads).toBeGreaterThanOrEqual(2));
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain(
+      'Passage abgeschlossen, aber die bestätigte Schiffsposition konnte nicht geladen werden',
+    );
+    expect(alert.textContent).not.toContain('Passage fehlgeschlagen');
+    await waitFor(() => expect(shipReads).toBeGreaterThanOrEqual(3));
+    expect(destinationContextReads).toBeGreaterThanOrEqual(2);
+    expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/wormhole/enter', {
+      wormholeId: 21,
+    });
+    expect(locationProbe.current).toBe('/spacecraft/2');
   });
 
   it('uses canonical galaxy location coordinates in the ship header', async () => {

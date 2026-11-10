@@ -34,6 +34,7 @@ vi.mock('../components/starmap/StarmapCanvas', async () => {
         showImpassable?: boolean;
         showFieldEffects?: boolean;
         showSensorCoverage?: boolean;
+        focusField?: { cx: number; cy: number } | null;
       }
     >(function StarmapCanvasMock(
       { worldOverlay, onInlineSystemsVisibleChange, ...props },
@@ -52,6 +53,7 @@ vi.mock('../components/starmap/StarmapCanvas', async () => {
           data-impassable={String(props.showImpassable)}
           data-effects={String(props.showFieldEffects)}
           data-sensor-coverage={String(props.showSensorCoverage)}
+          data-focus-field={props.focusField ? `${props.focusField.cx},${props.focusField.cy}` : ''}
         >
           <button
             type="button"
@@ -146,8 +148,24 @@ const layerThreeFields = [
     borderTypeId: null,
     effects: null,
     passableOverride: null,
-    fieldType: { key: 'EMPTY_SPACE' },
+    fieldType: { key: 'EMPTY_SPACE', name: 'Weltraum' },
     starSystem: kessel,
+  },
+  {
+    id: 501,
+    cx: 12,
+    cy: 14,
+    fieldTypeId: 1,
+    systemTypeId: null,
+    factionZone: 'NEUTRAL',
+    adminRegionKey: null,
+    starSystemId: null,
+    regionId: null,
+    borderTypeId: null,
+    effects: null,
+    passableOverride: null,
+    fieldType: { key: 'EMPTY_SPACE', name: 'Weltraum' },
+    starSystem: null,
   },
 ];
 
@@ -312,6 +330,16 @@ describe('StarmapPage URL target', () => {
     await screen.findByTestId('starmap-canvas');
 
     expect(screen.queryByRole('button', { name: 'Systemfelder laden' })).toBeNull();
+  });
+
+  it('selects a confirmed destination field without requiring a star system', async () => {
+    renderPage('/starmap?layer=3&x=12&y=14');
+
+    await screen.findByTestId('starmap-canvas');
+
+    expect(screen.getByText('Feld 12 | 14')).toBeTruthy();
+    expect(screen.getByTestId('starmap-canvas').getAttribute('data-focus-field')).toBe('12,14');
+    expect(screen.queryByText('System:')).toBeNull();
   });
 });
 

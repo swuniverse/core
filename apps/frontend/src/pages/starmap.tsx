@@ -124,12 +124,10 @@ export function StarmapPage() {
           urlTarget?.layerId === layer.id
             ? loadedFields.find(
                 (field) => field.cx === urlTarget.x && field.cy === urlTarget.y,
-              )
-            : undefined;
-        if (targetField?.starSystem) {
-          setSelectedField(targetField);
-          setSelectedSystem(targetField.starSystem);
-        }
+              ) ?? null
+            : null;
+        setSelectedField(targetField);
+        setSelectedSystem(targetField?.starSystem ?? null);
       }
       setLoading(false);
     });
@@ -420,6 +418,7 @@ export function StarmapPage() {
               wormholes={wormholes}
               onFieldClick={setSelectedField}
               selectedField={selectedField}
+              focusField={urlTarget ? { cx: urlTarget.x, cy: urlTarget.y } : null}
               selectedSector={selectedSector}
               showGrid={showGrid}
               showTerritory={overlays.territory}

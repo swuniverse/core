@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { FieldContextPanel } from './FieldContextPanel';
 
@@ -20,6 +20,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={7}
           context={{
+            wormholePassages: [],
             coordinates: { x: 1, y: 2 },
             starSystem: null,
             colony: null,
@@ -52,6 +53,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={7}
           context={{
+            wormholePassages: [],
             coordinates: { x: 1, y: 2 },
             starSystem: null,
             colony: null,
@@ -97,6 +99,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={1}
           context={{
+            wormholePassages: [],
             coordinates: { x: 5, y: 23 },
             starSystem: {
               id: 8,
@@ -139,6 +142,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={1}
           context={{
+            wormholePassages: [],
             coordinates: { x: 5, y: 23 },
             starSystem: {
               id: 8,
@@ -182,6 +186,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={2}
           context={{
+            wormholePassages: [],
             coordinates: { x: 5, y: 23 },
             starSystem: {
               id: 8,
@@ -226,6 +231,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={1}
           context={{
+            wormholePassages: [],
             coordinates: { x: 5, y: 23 },
             starSystem: {
               id: 8,
@@ -280,6 +286,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={1}
           context={{
+            wormholePassages: [],
             coordinates: { x: 5, y: 23 },
             starSystem: {
               id: 8,
@@ -338,6 +345,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={1}
           context={{
+            wormholePassages: [],
             coordinates: { x: 5, y: 23 },
             starSystem: {
               id: 8,
@@ -407,6 +415,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={1}
           context={{
+            wormholePassages: [],
             coordinates: { x: 5, y: 23 },
             starSystem: {
               id: 8,
@@ -464,6 +473,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={1}
           context={{
+            wormholePassages: [],
             coordinates: { x: 5, y: 23 },
             starSystem: {
               id: 8,
@@ -523,6 +533,7 @@ describe('FieldContextPanel', () => {
           <FieldContextPanel
             shipId={1}
             context={{
+            wormholePassages: [],
               coordinates: { x: 5, y: 23 },
               starSystem: {
                 id: 8,
@@ -568,6 +579,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={1}
           context={{
+            wormholePassages: [],
             coordinates: { x: 5, y: 23 },
             starSystem: {
               id: 8,
@@ -621,6 +633,7 @@ describe('FieldContextPanel', () => {
           }),
       );
     const context = {
+      wormholePassages: [],
       coordinates: { x: 5, y: 23 },
       starSystem: {
         id: 8,
@@ -668,6 +681,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={1}
           context={{
+            wormholePassages: [],
             coordinates: { x: 5, y: 23 },
             starSystem: null,
             colony: null,
@@ -694,6 +708,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={1}
           context={{
+            wormholePassages: [],
             coordinates: { x: 5, y: 23 },
             starSystem: null,
             colony: null,
@@ -737,6 +752,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={1}
           context={{
+            wormholePassages: [],
             coordinates: { x: 5, y: 23 },
             starSystem: null,
             colony: null,
@@ -791,6 +807,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={1}
           context={{
+            wormholePassages: [],
             coordinates: { x: 5, y: 23 },
             starSystem: null,
             colony: null,
@@ -836,6 +853,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={1}
           context={{
+            wormholePassages: [],
             coordinates: { x: 5, y: 23 },
             starSystem: null,
             colony: null,
@@ -872,6 +890,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={1}
           context={{
+            wormholePassages: [],
             coordinates: { x: 3, y: 4 },
             starSystem: null,
             colony: {
@@ -921,6 +940,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={1}
           context={{
+            wormholePassages: [],
             coordinates: { x: 3, y: 4 },
             starSystem: null,
             colony: {
@@ -952,6 +972,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={1}
           context={{
+            wormholePassages: [],
             coordinates: { x: 5, y: 23 },
             starSystem: {
               id: 7,
@@ -983,6 +1004,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={7}
           context={{
+            wormholePassages: [],
             coordinates: { x: 1, y: 4 },
             starSystem: null,
             colony: {
@@ -1034,6 +1056,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={7}
           context={{
+            wormholePassages: [],
             coordinates: { x: 1, y: 4 },
             starSystem: null,
             colony: {
@@ -1064,6 +1087,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={7}
           context={{
+            wormholePassages: [],
             coordinates: { x: 1, y: 4 },
             starSystem: null,
             colony: {
@@ -1091,6 +1115,104 @@ describe('FieldContextPanel', () => {
     );
   });
 
+  it('offers only authoritative local wormhole passages and submits the selected exit', async () => {
+    apiMocks.post.mockResolvedValue({
+      wormholeId: 22,
+      direction: 'ENTRY',
+      shipIds: [7],
+      locationId: 901,
+    });
+    apiMocks.get.mockResolvedValue({
+      location: { scope: 'GALAXY', layerId: 8, x: 20, y: 30 },
+    });
+    const onUpdate = vi.fn();
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={7}
+          context={{
+            coordinates: { x: 1, y: 4 },
+            starSystem: null,
+            colony: null,
+            wormholePassages: [
+              { id: 21, name: 'Nordtor', targetLayer: { id: 3, name: 'Kernraum' } },
+              { id: 22, name: 'Südtor', targetLayer: { id: 8, name: 'Outer Rim' } },
+            ],
+            information: { canSectorScan: false, cartographyKnown: true },
+          }}
+          onUpdate={onUpdate}
+        />
+      </MemoryRouter>,
+    );
+
+    const selector = screen.getByRole('combobox', { name: 'Wurmlochpassage' });
+    expect(
+      within(selector)
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual(['Nordtor — Kernraum', 'Südtor — Outer Rim']);
+    fireEvent.change(selector, { target: { value: '22' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Wurmloch betreten' }));
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/7/wormhole/enter', {
+        wormholeId: 22,
+      }),
+    );
+    expect(onUpdate).toHaveBeenCalledOnce();
+    expect(apiMocks.get).toHaveBeenCalledWith('/spacecraft/7', { cache: 'no-store' });
+  });
+
+  it('does not refresh ship or map when the authoritative passage request fails', async () => {
+    apiMocks.post.mockRejectedValue(new Error('Wurmloch ist nicht mehr aktiv'));
+    const onUpdate = vi.fn();
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={7}
+          context={{
+            coordinates: { x: 1, y: 4 },
+            starSystem: null,
+            colony: null,
+            wormholePassages: [
+              { id: 22, name: 'Südtor', targetLayer: { id: 8, name: 'Outer Rim' } },
+            ],
+            information: { canSectorScan: false, cartographyKnown: true },
+          }}
+          onUpdate={onUpdate}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Wurmloch betreten' }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'Wurmloch ist nicht mehr aktiv',
+    );
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(apiMocks.get).not.toHaveBeenCalled();
+  });
+
+  it('hides wormhole entry when the current field has no available passages', () => {
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={7}
+          context={{
+            wormholePassages: [],
+            coordinates: { x: 1, y: 4 },
+            starSystem: null,
+            colony: null,
+            information: { canSectorScan: false, cartographyKnown: true },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Wurmloch betreten' })).toBeNull();
+  });
+
   it('shows the STU-style colonization action for an uncolonized target', () => {
     render(
       <MemoryRouter>
@@ -1098,6 +1220,7 @@ describe('FieldContextPanel', () => {
           shipId={7}
           canColonize
           context={{
+            wormholePassages: [],
             coordinates: { x: 1, y: 4 },
             starSystem: null,
             colony: null,
@@ -1135,6 +1258,7 @@ describe('FieldContextPanel', () => {
       isAbandoned: false,
     };
     const ctx = (colonizationTarget: typeof target) => ({
+      wormholePassages: [],
       coordinates: { x: 1, y: 4 },
       starSystem: null,
       colony: null,
@@ -1181,6 +1305,7 @@ describe('FieldContextPanel', () => {
           shipId={7}
           canColonize
           context={{
+            wormholePassages: [],
             coordinates: { x: 1, y: 4 },
             starSystem: null,
             colony: {
@@ -1215,6 +1340,7 @@ describe('FieldContextPanel', () => {
           shipId={7}
           canColonize
           context={{
+            wormholePassages: [],
             coordinates: { x: 1, y: 4 },
             starSystem: null,
             colony: null,
@@ -1276,6 +1402,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={1}
           context={{
+            wormholePassages: [],
             coordinates: { x: 5, y: 23 },
             starSystem: { id: 8, name: 'Testsystem', canLeave: true, leaveReason: null },
             colony: {
@@ -1316,6 +1443,7 @@ describe('FieldContextPanel', () => {
         <FieldContextPanel
           shipId={1}
           context={{
+            wormholePassages: [],
             coordinates: { x: 5, y: 23 },
             starSystem: { id: 8, name: 'Testsystem', canLeave: true, leaveReason: null },
             colony: {

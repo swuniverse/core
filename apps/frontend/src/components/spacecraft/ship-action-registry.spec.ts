@@ -14,6 +14,14 @@ describe('SHIP_ACTIONS', () => {
     }
   });
 
+  it('documents wormhole passage as an existing ship and map update action', () => {
+    expect(SHIP_ACTIONS.wormhole).toMatchObject({
+      availability: 'existing',
+      destination: 'POST /spacecraft/:id/wormhole/enter',
+      refresh: ['ship', 'local-map'],
+    });
+  });
+
   it('keeps installed modules read-only on ship detail', () => {
     expect(SHIP_ACTIONS.modules.destination).toBe(
       'GET /spacecraft/:id/modules',

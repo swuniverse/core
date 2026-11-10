@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import type { SpacecraftWormholePassageOptionDto } from '@swuniverse/shared';
+import { In, Repository } from 'typeorm';
+import { Layer } from './entities/layer.entity';
 import { Wormhole } from './entities/wormhole.entity';
 
 export interface WormholeDto {
@@ -34,6 +36,8 @@ export class WormholeService {
   constructor(
     @InjectRepository(Wormhole)
     private readonly wormholeRepo: Repository<Wormhole>,
+    @InjectRepository(Layer)
+    private readonly layerRepo: Repository<Layer>,
   ) {}
 
   async listForLayer(layerId: number): Promise<WormholeDto[]> {
@@ -84,6 +88,45 @@ export class WormholeService {
       ],
     });
     return wormholes.map(w => this.toDto(w));
+  }
+
+  async findPassageOptionsAt(
+    layerId: number,
+    cx: number,
+    cy: number,
+  ): Promise<SpacecraftWormholePassageOptionDto[]> {
+    const wormholes = await this.findExitsAt(layerId, cx, cy);
+    const targetLayerIds = [
+      ...new Set(
+        wormholes.map((wormhole) =>
+          wormhole.entryLayerId === layerId &&
+          wormhole.entryCx === cx &&
+          wormhole.entryCy === cy
+            ? wormhole.exitLayerId
+            : wormhole.entryLayerId,
+        ),
+      ),
+    ];
+    const layers = targetLayerIds.length
+      ? await this.layerRepo.find({ where: { id: In(targetLayerIds) } })
+      : [];
+    const layersById = new Map(layers.map((layer) => [layer.id, layer]));
+    return wormholes.flatMap((wormhole) => {
+      const targetLayerId =
+        wormhole.entryLayerId === layerId &&
+        wormhole.entryCx === cx &&
+        wormhole.entryCy === cy
+          ? wormhole.exitLayerId
+          : wormhole.entryLayerId;
+      const targetLayer = layersById.get(targetLayerId);
+      return targetLayer
+        ? [{
+            id: wormhole.id,
+            name: wormhole.name,
+            targetLayer: { id: targetLayer.id, name: targetLayer.name },
+          }]
+        : [];
+    });
   }
 
   private toDto(w: Wormhole): WormholeDto {

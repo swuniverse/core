@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState, type ChangeEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import type {
   CartographyPlanDto,
+  SpacecraftDetailDto,
   SpacecraftFieldContextDto,
   SpacecraftRuntimeSystemsDto,
+  SpacecraftWormholePassageResultDto,
 } from '@swuniverse/shared';
 import { PlanetImg } from '../PlanetImg';
 import {
@@ -68,6 +70,7 @@ export function FieldContextPanel({
   onLanded?: (colonyId: number) => void;
   runtimeSystems?: SpacecraftRuntimeSystemsDto;
 }) {
+  const navigate = useNavigate();
   const [transfer, setTransfer] = useState<'TO_SHIP' | 'TO_COLONY' | null>(
     null,
   );
@@ -99,6 +102,10 @@ export function FieldContextPanel({
     'PLAN' | 'FINALIZE' | null
   >(null);
   const [regionOpen, setRegionOpen] = useState(false);
+  const [selectedWormholeId, setSelectedWormholeId] = useState<number | null>(
+    null,
+  );
+  const [enteringWormhole, setEnteringWormhole] = useState(false);
 
   useEffect(() => {
     setCartographyDialog(null);
@@ -136,6 +143,14 @@ export function FieldContextPanel({
       current = false;
     };
   }, [shipId, context?.starSystem?.id]);
+
+  useEffect(() => {
+    const availableIds =
+      context?.wormholePassages?.map((passage) => passage.id) ?? [];
+    if (!availableIds.includes(selectedWormholeId ?? -1)) {
+      setSelectedWormholeId(availableIds[0] ?? null);
+    }
+  }, [context?.wormholePassages, selectedWormholeId]);
 
   const localQualified =
     cartography?.status === 'MEASURED'
@@ -283,6 +298,50 @@ export function FieldContextPanel({
       setLanding(false);
     }
   }
+  async function enterWormhole() {
+    if (selectedWormholeId == null || enteringWormhole) return;
+    setEnteringWormhole(true);
+    setError(null);
+    let result: SpacecraftWormholePassageResultDto;
+    try {
+      result = await api.post<SpacecraftWormholePassageResultDto>(
+        `/spacecraft/${shipId}/wormhole/enter`,
+        { wormholeId: selectedWormholeId },
+      );
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : 'Wurmlochpassage fehlgeschlagen',
+      );
+      setEnteringWormhole(false);
+      return;
+    }
+    try {
+      await onUpdate();
+      const ship = await api.get<SpacecraftDetailDto>(`/spacecraft/${shipId}`, {
+        cache: 'no-store',
+      });
+      const location = ship.location;
+      const layerId = location.layerId;
+      const x =
+        location.scope === 'GALAXY' ? location.x : location.galaxyX;
+      const y =
+        location.scope === 'GALAXY' ? location.y : location.galaxyY;
+      if (layerId != null && x != null && y != null) {
+        navigate(`/starmap?layer=${layerId}&x=${x}&y=${y}`);
+      } else {
+        setError(
+          `Passage abgeschlossen (Position ${result.locationId}), Kartenposition konnte nicht ermittelt werden.`,
+        );
+      }
+    } catch (err: unknown) {
+      setError(
+        `Passage abgeschlossen, aber die bestätigte Schiffsposition konnte nicht geladen werden: ${err instanceof Error ? err.message : 'unbekannter Fehler'}`,
+      );
+    } finally {
+      setEnteringWormhole(false);
+    }
+  }
+
   async function enterSystem() {
     setLeaving(true);
     setError(null);
@@ -317,7 +376,14 @@ export function FieldContextPanel({
     }
   }
 
-  if (!context) return null;
+  if (!context)
+    return error ? (
+      <section className="space-y-3 text-xs">
+        <p role="alert" className="text-xs text-red-300">
+          {error}
+        </p>
+      </section>
+    ) : null;
   return (
     <section className="space-y-3 text-xs">
       <div className="border border-swu-border bg-swu-surface">
@@ -339,6 +405,36 @@ export function FieldContextPanel({
               <img src="/assets/buttons/lupe1.png" alt="" className="size-5" />
               Sektor {context.coordinates.x}|{context.coordinates.y} scannen
             </button>
+            {context.wormholePassages?.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <label htmlFor="wormhole-passage" className="text-swu-muted">
+                  Wurmlochpassage
+                </label>
+                <select
+                  id="wormhole-passage"
+                  value={selectedWormholeId ?? ''}
+                  disabled={enteringWormhole}
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                    setSelectedWormholeId(Number(event.target.value))
+                  }
+                  className="max-w-full border border-swu-border bg-swu-bg px-1 py-0.5 text-swu-primary"
+                >
+                  {context.wormholePassages.map((passage) => (
+                    <option key={passage.id} value={passage.id}>
+                      {passage.name ?? `Wurmloch ${passage.id}`} — {passage.targetLayer.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={selectedWormholeId == null || enteringWormhole}
+                  onClick={() => void enterWormhole()}
+                  className="text-swu-primary hover:text-swu-accent disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {enteringWormhole ? 'Wurmlochpassage läuft…' : 'Wurmloch betreten'}
+                </button>
+              </div>
+            )}
             {context.region && (
               <button
                 type="button"

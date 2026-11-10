@@ -178,6 +178,79 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
     );
   }
 
+  async function getFieldContext(userId?: number) {
+    return fetch(
+      `${await app.getUrl()}/api/spacecraft/${ship.id}/field-context`,
+      {
+        headers:
+          userId == null
+            ? {}
+            : {
+                Authorization: `Bearer ${jwt.sign({ sub: userId, username: 'pilot', faction: 'REBEL_ALLIANCE' })}`,
+              },
+      },
+    );
+  }
+
+  it('returns only active passages local to the owned field with reverse target layers', async () => {
+    const originLayer = await source
+      .getRepository(Layer)
+      .save({ name: 'Reverse origin', width: 5, height: 5 });
+    hole.name = 'Forward gate';
+    await source.getRepository(Wormhole).save(hole);
+    await source.getRepository(Wormhole).save([
+      {
+        entryLayerId: originLayer.id,
+        entryCx: 4,
+        entryCy: 2,
+        exitLayerId: 1,
+        exitCx: 1,
+        exitCy: 1,
+        isBidirectional: true,
+        isRandomExit: false,
+        name: 'Reverse gate',
+        isActive: true,
+      },
+      {
+        entryLayerId: 1,
+        entryCx: 1,
+        entryCy: 1,
+        exitLayerId: originLayer.id,
+        exitCx: 4,
+        exitCy: 2,
+        isBidirectional: false,
+        isRandomExit: false,
+        name: 'Inactive gate',
+        isActive: false,
+      },
+      {
+        entryLayerId: 1,
+        entryCx: 2,
+        entryCy: 1,
+        exitLayerId: originLayer.id,
+        exitCx: 4,
+        exitCy: 2,
+        isBidirectional: false,
+        isRandomExit: false,
+        name: 'Distant gate',
+        isActive: true,
+      },
+    ]);
+
+    const response = await getFieldContext(ship.userId);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      coordinates: { x: 1, y: 1 },
+      wormholePassages: [
+        { id: hole.id, name: 'Forward gate', targetLayer: { id: expect.any(Number), name: 'HTTP exit' } },
+        { name: 'Reverse gate', targetLayer: { id: originLayer.id, name: 'Reverse origin' } },
+      ],
+    });
+    expect((await getFieldContext()).status).toBe(401);
+    const other = await createUser(source, { username: 'Different owner' });
+    expect((await getFieldContext(other.id)).status).toBe(404);
+  });
+
   it('rolls back production HTTP passage and emits nothing if durable arrival messaging fails', async () => {
     await source.query(
       `CREATE FUNCTION k7a2_fail_http_message() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'HTTP arrival failure'; END $$`,

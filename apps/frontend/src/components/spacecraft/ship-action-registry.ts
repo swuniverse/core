@@ -157,6 +157,15 @@ export const SHIP_ACTIONS = {
     'System konnte nicht verlassen werden',
     ['ship', 'local-map'],
   ),
+  wormhole: action(
+    'Wurmloch betreten',
+    'existing',
+    'POST /spacecraft/:id/wormhole/enter',
+    'Wurmlochpassage läuft…',
+    'Wurmlochpassage abgeschlossen',
+    'Wurmlochpassage fehlgeschlagen',
+    ['ship', 'local-map'],
+  ),
   attack: action(
     'Angreifen',
     'existing',

@@ -68,6 +68,7 @@ interface StarmapCanvasProps {
   onFieldHover?: (field: StarmapGalaxyFieldDto | null) => void;
   onFieldClick?: (field: StarmapGalaxyFieldDto | null) => void;
   selectedField?: StarmapGalaxyFieldDto | null;
+  focusField?: { cx: number; cy: number } | null;
   selectedSector?: { x: number; y: number } | null;
   showGrid?: boolean;
   showTerritory?: boolean;
@@ -112,6 +113,7 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
       onFieldHover,
       onFieldClick,
       selectedField,
+      focusField,
       selectedSector,
       showGrid = true,
       showTerritory = false,
@@ -138,6 +140,7 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
     const mapOverlaysRef = useRef<Graphics | null>(null);
     const inlineSystemsRef = useRef<Container | null>(null);
     const [ready, setReady] = useState(false);
+    const focusFieldRef = useRef(focusField);
     const stateRef = useRef({
       viewX: 0,
       viewY: 0,
@@ -167,6 +170,7 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
     const inlineSystemsVisibleRef = useRef<boolean | null>(null);
 
     useEffect(() => { fieldsRef.current = fields; }, [fields]);
+    useEffect(() => { focusFieldRef.current = focusField; }, [focusField]);
     useEffect(() => { selectedSystemRef.current = selectedSystem; }, [selectedSystem]);
     useEffect(() => { systemGridsRef.current = systemGrids; }, [systemGrids]);
     useEffect(() => { openedSystemIdsRef.current = openedSystemIds; }, [openedSystemIds]);
@@ -573,7 +577,20 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
           drawRoutes();
           drawSelection();
           renderInlineSystems();
-          fitView();
+          const arrival = focusFieldRef.current;
+          if (arrival) {
+            const state = stateRef.current;
+            state.scale = clamp(Math.max(state.scale, 1.5), MIN_SCALE, MAX_SCALE);
+            state.viewX =
+              (arrival.cx - 0.5) * CELL_SIZE -
+              (app.screen.width - AXIS_SIZE) / (2 * state.scale);
+            state.viewY =
+              (arrival.cy - 0.5) * CELL_SIZE -
+              (app.screen.height - AXIS_SIZE) / (2 * state.scale);
+            updateView();
+          } else {
+            fitView();
+          }
         });
       });
       return () => {
@@ -584,6 +601,20 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
         void initPromise.then(() => app.destroy(true, { children: true }));
       };
     }, [drawMapOverlays, drawRoutes, drawSelection, fitView, layer, renderGalaxy]);
+
+    useEffect(() => {
+      const app = appRef.current;
+      if (!ready || !app || !focusField) return;
+      const state = stateRef.current;
+      state.scale = clamp(Math.max(state.scale, 1.5), MIN_SCALE, MAX_SCALE);
+      state.viewX =
+        (focusField.cx - 0.5) * CELL_SIZE -
+        (app.screen.width - AXIS_SIZE) / (2 * state.scale);
+      state.viewY =
+        (focusField.cy - 0.5) * CELL_SIZE -
+        (app.screen.height - AXIS_SIZE) / (2 * state.scale);
+      updateView();
+    }, [focusField?.cx, focusField?.cy, ready, updateView]);
 
     useEffect(() => { drawMapOverlays(); }, [drawMapOverlays]);
     useEffect(() => { drawRoutes(); }, [drawRoutes]);

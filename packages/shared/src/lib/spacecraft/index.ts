@@ -812,8 +812,22 @@ export interface DockingPrivilegesDto {
   autoRead: boolean;
 }
 
+export interface SpacecraftWormholePassageOptionDto {
+  id: number;
+  name: string | null;
+  targetLayer: { id: number; name: string };
+}
+
+export interface SpacecraftWormholePassageResultDto {
+  wormholeId: number;
+  direction: 'ENTRY' | 'EXIT';
+  shipIds: number[];
+  locationId: number;
+}
+
 export interface SpacecraftFieldContextDto {
   coordinates: { x: number; y: number };
+  wormholePassages: SpacecraftWormholePassageOptionDto[];
   region?: {
     id: number;
     name: string;
