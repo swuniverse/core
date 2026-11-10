@@ -6,6 +6,7 @@ import type {
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { alertStateImage, shipImage } from '../lib/assets';
+import { ShipStorageTooltip } from '../components/spacecraft/ShipStoragePanel';
 
 const ALERT_PRESENTATION = {
   GREEN: { label: 'Grüner Alarm', className: 'bg-swu-success' },
@@ -29,16 +30,18 @@ const STATUS = {
 const cell = 'border border-swu-border px-1.5 py-1';
 const numberCell = `${cell} text-right font-mono whitespace-nowrap`;
 
+type SpacecraftListWithCargo = SpacecraftListDto & { cargoMax: number };
+
 export function SpacecraftPage() {
   const navigate = useNavigate();
-  const [ships, setShips] = useState<SpacecraftListDto[]>([]);
+  const [ships, setShips] = useState<SpacecraftListWithCargo[]>([]);
   const [loading, setLoading] = useState(true);
   const [fleetName, setFleetName] = useState('');
   const [leaderId, setLeaderId] = useState('');
   const [fleetAlertFailures, setFleetAlertFailures] = useState<Record<number, string[]>>({});
 
   const loadShips = useCallback(async () => {
-    const data = await api.get<SpacecraftListDto[]>('/spacecraft');
+    const data = await api.get<SpacecraftListWithCargo[]>('/spacecraft');
     setShips(data);
     setLoading(false);
   }, []);
@@ -48,7 +51,7 @@ export function SpacecraftPage() {
   }, [loadShips]);
 
   const fleets = useMemo(() => {
-    const grouped = new Map<number, SpacecraftListDto[]>();
+    const grouped = new Map<number, SpacecraftListWithCargo[]>();
     for (const ship of ships) {
       if (ship.fleetId == null) continue;
       const members = grouped.get(ship.fleetId) ?? [];
@@ -218,7 +221,7 @@ function ShipTable({ title, ships, leaderId, actions, message, emptyLabel, onOpe
   );
 }
 
-function ShipRow({ ship, leader = false, onOpen }: { ship: SpacecraftListDto; leader?: boolean; onOpen: () => void }) {
+function ShipRow({ ship, leader = false, onOpen }: { ship: SpacecraftListDto & { cargoMax?: number }; leader?: boolean; onOpen: () => void }) {
   const alert = ALERT_PRESENTATION[ship.alertState];
   const location = ship.location.scope === 'SYSTEM'
     ? `${ship.location.galaxyX ?? 0}|${ship.location.galaxyY ?? 0} (${ship.location.x}|${ship.location.y})`
@@ -228,7 +231,14 @@ function ShipRow({ ship, leader = false, onOpen }: { ship: SpacecraftListDto; le
 
   return (
     <tr onClick={onOpen} className="cursor-pointer hover:bg-white/5">
-      <td className={cell}><img src={shipImage(ship.shipClassId, ship.shipClassKey)} alt={ship.shipClassName ?? ''} className="h-8 w-auto object-contain" /></td>
+      <td className={cell}>
+        <ShipStorageTooltip
+          shipId={ship.id}
+          shipName={ship.name}
+          imageSrc={shipImage(ship.shipClassId, ship.shipClassKey)}
+          cargoMax={ship.cargoMax ?? 0}
+        />
+      </td>
       <td className={`${cell} font-medium text-swu-primary`}>{leader ? <span aria-label={`Flottenführer ${ship.name}`} title="Flottenführer">◆ {ship.name}</span> : ship.name}{ship.dockedAtId != null && <img src="/assets/buttons/dock1.png" title={`Angedockt an ${ship.dockedAtName ?? 'Station'}`} alt={`Angedockt an ${ship.dockedAtName ?? 'Station'}`} className="ml-1 inline-block size-4 align-middle" />}</td>
       <td className={`${cell} text-center`}><span role="img" title={alert.label} aria-label={alert.label} className={`inline-block size-3 border border-swu-border ${alert.className}`} /></td>
       <td className={`${cell} text-center`}><span title={ship.layer.name} aria-label={`Ebene ${ship.layer.name}`} className="font-mono text-swu-primary">L{ship.layer.id}</span></td>

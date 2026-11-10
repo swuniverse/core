@@ -39,6 +39,29 @@ describe('Tooltip', () => {
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
 
+  it('runs the open callback once on hover, focus, and touch', () => {
+    const onOpen = vi.fn();
+    render(
+      <Tooltip content="Lager" onOpen={onOpen}>
+        <button type="button">Schiff</button>
+      </Tooltip>,
+    );
+    const trigger = screen.getByRole('button', { name: 'Schiff' });
+
+    fireEvent.mouseEnter(trigger, { clientX: 10, clientY: 10 });
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    fireEvent.mouseMove(trigger, { clientX: 20, clientY: 20 });
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    fireEvent.mouseLeave(trigger);
+    fireEvent.focus(trigger);
+    expect(onOpen).toHaveBeenCalledTimes(2);
+    fireEvent.blur(trigger);
+    fireEvent.touchStart(trigger, {
+      touches: [{ clientX: 40, clientY: 30 }],
+    });
+    expect(onOpen).toHaveBeenCalledTimes(3);
+  });
+
   it('keeps at most one tooltip open globally', () => {
     renderTooltips();
     fireEvent.mouseEnter(
