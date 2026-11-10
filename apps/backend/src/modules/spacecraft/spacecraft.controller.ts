@@ -36,6 +36,7 @@ import { SpacecraftBoardingService } from './spacecraft-boarding.service';
 import { SpacecraftTakeoverService } from './spacecraft-takeover.service';
 import { SpacecraftTrackerService } from './spacecraft-tracker.service';
 import { StarmapVisibilityService } from './starmap-visibility.service';
+import { LayerAccessGuard } from '../starmap/layer-access.guard';
 import { TransferService } from './transfer.service';
 import { EpsTransferService } from './eps-transfer.service';
 import { SpacecraftDockingService } from './spacecraft-docking.service';
@@ -664,6 +665,7 @@ export class SpacecraftController {
 
   /** Starmap contacts of the viewer on one map layer (required `layerId`). */
   @Get('starmap-contacts')
+  @UseGuards(LayerAccessGuard)
   getStarmapContacts(
     @Query('layerId', ParseIntPipe) layerId: number,
     @Request() req: { user: { sub: number } },

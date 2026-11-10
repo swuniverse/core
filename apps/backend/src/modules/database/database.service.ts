@@ -482,17 +482,19 @@ export class DatabaseService {
     };
   }
 
-  async getSystemTypes(userId: number) {
+  async getSystemTypes(userId: number, layerIds?: number[]) {
     const discoveries = await this.systemTypeDiscoveryRepo.find({
       where: { userId },
     });
     const discoveredByType = new Map(
       discoveries.map((entry) => [entry.systemTypeId, entry]),
     );
+    const systems = layerIds ? await this.systemRepo.find({ where: { layerId: In(layerIds) } }) : null;
+    const definitions = SYSTEM_TYPE_DEFINITIONS.filter((definition) => !systems || systems.some((system) => system.systemTypeId === definition.id));
     return {
-      discovered: discoveries.length,
-      total: SYSTEM_TYPE_DEFINITIONS.length,
-      entries: SYSTEM_TYPE_DEFINITIONS.map((definition) => {
+      discovered: definitions.filter((definition) => discoveredByType.has(definition.id)).length,
+      total: definitions.length,
+      entries: definitions.map((definition) => {
         const discovery = discoveredByType.get(definition.id);
         return discovery
           ? {
@@ -513,13 +515,14 @@ export class DatabaseService {
     };
   }
 
-  async getSystems(userId: number) {
+  async getSystems(userId: number, layerIds?: number[]) {
     const [layers, systems, discoveries] = await Promise.all([
       this.layerRepo.find({
-        where: { isHidden: false },
+        where: { isHidden: false, ...(layerIds ? { id: In(layerIds) } : {}) },
         order: { id: 'ASC' },
       }),
       this.systemRepo.find({
+        ...(layerIds ? { where: { layerId: In(layerIds) } } : {}),
         order: { layerId: 'ASC', cx: 'ASC', cy: 'ASC', id: 'ASC' },
       }),
       this.systemExplorationRepo.find({ where: { userId } }),
@@ -792,7 +795,7 @@ export class DatabaseService {
     }));
   }
 
-  async getPlanetTypes(userId: number) {
+  async getPlanetTypes(userId: number, layerIds?: number[]) {
     const discoveries = await this.celestialClassDiscoveryRepo.find({
       where: { userId },
     });
@@ -802,14 +805,18 @@ export class DatabaseService {
     // Nur Typen, die im Spiel tatsaechlich vorkommen. Ein Typ ist SWU-Archetyp
     // + Rotation + Ring/Mond (Schild zaehlt nicht). STU-Objekte zaehlen nur
     // ueber ihre SWU-Zuordnung (Fallback).
-    const rows = await this.celestialObjectRepo
-      .createQueryBuilder('object')
+    const query = this.celestialObjectRepo.createQueryBuilder('object');
+    if (layerIds) {
+      query.innerJoin('object.starSystem', 'system')
+        .andWhere(layerIds.length ? 'system.layerId IN (:...layerIds)' : '1 = 0', { layerIds });
+    }
+    const rows = await query
       .select('object."classId"', 'classId')
       .addSelect('object."objectType"', 'objectType')
       .addSelect('object."swuRotation"', 'swuRotation')
       .addSelect('object."swuRing"', 'swuRing')
       .addSelect(`substring(object.name from ' \\[P\\d+[GR][RMB]\\]$')`, 'code')
-      .where('object."classId" IS NOT NULL')
+      .andWhere('object."classId" IS NOT NULL')
       .groupBy('object."classId"')
       .addGroupBy('object."objectType"')
       .addGroupBy('object."swuRotation"')

@@ -209,6 +209,24 @@ function renderPage(initialEntry = '/starmap') {
   );
 }
 
+describe('StarmapPage known layer choices', () => {
+  it('does not invent a layer from an unknown URL target and offers only returned layers', async () => {
+    apiMocks.get.mockReset();
+    contactsByLayer = { 3: [] };
+    viewerAlliance = null;
+    mockApi();
+    const get = apiMocks.get.getMockImplementation();
+    if (!get) throw new Error('API fixture not initialized');
+    apiMocks.get.mockImplementation((path: string) => path === '/starmap/layers'
+      ? Promise.resolve([layers[0], { ...layers[1], id: 5, name: 'Known companion' }]) : get(path));
+    renderPage('/starmap?layer=4&x=1&y=1');
+    const select = await screen.findByRole('combobox', { name: 'Kartenebene' });
+    expect(Array.from(select.querySelectorAll('option')).map((option) => option.textContent)).toEqual(['Galaxis', 'Known companion']);
+    expect(apiMocks.get.mock.calls.some(([path]) => String(path).startsWith('/starmap/layers/4/'))).toBe(false);
+    expect(apiMocks.get).toHaveBeenCalledWith('/starmap/layers/3/fields');
+  });
+});
+
 describe('StarmapPage exports', () => {
   const exported = {
     version: 1, exportedAt: '2026-11-04T12:00:00Z', layer: layers[0],

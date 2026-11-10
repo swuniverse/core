@@ -46,6 +46,7 @@ import { SpacecraftAurodiumRankingSource } from './spacecraft-aurodium-ranking.s
 import { AURODIUM_RANKING_SOURCES } from './aurodium-ranking-source';
 import { SettingsModule } from '../settings/settings.module';
 import { RpgModule } from '../rpg/rpg.module';
+import { StarmapModule } from '../starmap/starmap.module';
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ import { RpgModule } from '../rpg/rpg.module';
     ProfileVisitorModule,
     SettingsModule,
     RpgModule,
+    StarmapModule,
   ],
   controllers: [DatabaseController],
   providers: [

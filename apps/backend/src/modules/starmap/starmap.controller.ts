@@ -23,6 +23,8 @@ import { StarmapQueryService } from './starmap-query.service';
 import { ExplorationService } from './exploration.service';
 import { InfluenceService } from './influence.service';
 import { WormholeService } from './wormhole.service';
+import { LayerAccessService, type LayerReader } from './layer-access.service';
+import { LayerAccessGuard } from './layer-access.guard';
 import type {
   ApplyStarWarsPresetOptionsDto,
   ApplyStarWarsPresetResultDto,
@@ -75,7 +77,7 @@ import type {
 
 @Controller('starmap')
 @RequiresGameAccess()
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), LayerAccessGuard)
 export class StarmapController {
   constructor(
     private readonly starmapService: StarmapService,
@@ -84,6 +86,7 @@ export class StarmapController {
     private readonly explorationService: ExplorationService,
     private readonly influenceService: InfluenceService,
     private readonly wormholeService: WormholeService,
+    private readonly layerAccess: LayerAccessService,
   ) {}
 
   private bypassFog(user: {
@@ -106,8 +109,11 @@ export class StarmapController {
   }
 
   @Get('layers')
-  getLayers(): Promise<StarmapLayerDto[]> {
-    return this.starmapService.getLayers();
+  async getLayers(@Req() req: { user: LayerReader }): Promise<StarmapLayerDto[]> {
+    const layers = await this.layerAccess.getLayers(req.user);
+    return layers.map(({ id, name, width, height, sectorSize, isDefault, isFinished, isHidden, awardKey }) => ({
+      id, name, width, height, sectorSize, isDefault, isFinished, isHidden, awardKey,
+    }));
   }
 
   @Get('layers/:layerId/systems')

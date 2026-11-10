@@ -41,6 +41,7 @@ describe('StarmapController influence visibility', () => {
       {} as any,
       { getInfluenceInSector: jest.fn().mockResolvedValue(influences) } as any,
       {} as any,
+      {} as never,
     );
 
     await expect(
@@ -69,6 +70,7 @@ describe('StarmapController system-entry access', () => {
         explorationService as any,
         {} as any,
         {} as any,
+        {} as never,
       ),
     };
   }

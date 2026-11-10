@@ -36,6 +36,7 @@ describe('DatabaseController system detail', () => {
       databaseService as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     if (result instanceof Error) {

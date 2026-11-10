@@ -17,6 +17,8 @@ import { DatabaseService } from './database.service';
 import { STATISTIC_UNITS, type StatisticUnit } from '@swuniverse/shared';
 import { StatisticsService } from '../statistics/statistics.service';
 import { CommodityOverviewService } from './commodity-overview.service';
+import { LayerAccessGuard } from '../starmap/layer-access.guard';
+import { LayerAccessService, type LayerReader } from '../starmap/layer-access.service';
 
 @Controller('database')
 export class DatabaseController {
@@ -24,7 +26,19 @@ export class DatabaseController {
     private readonly databaseService: DatabaseService,
     private readonly statisticsService: StatisticsService,
     private readonly commodityOverviewService: CommodityOverviewService,
+    private readonly layerAccess: LayerAccessService,
   ) {}
+
+  private async catalogLayers(user: LayerReader, layerId?: number) {
+    if (layerId !== undefined) await this.layerAccess.assertAccess(user, layerId);
+    const layers = await this.layerAccess.getLayers(user);
+    return {
+      layers,
+      layerIds: layers
+        .filter((layer) => layerId === undefined || layer.id === layerId)
+        .map((layer) => layer.id),
+    };
+  }
 
   @Get('overview')
   getOverview() {
@@ -70,13 +84,20 @@ export class DatabaseController {
   @Get('system-types')
   @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
-  getSystemTypes(@Request() req: { user: { sub: number } }) {
-    return this.databaseService.getSystemTypes(req.user.sub);
+  async getSystemTypes(
+    @Request() req: { user: LayerReader },
+    @Query('layerId', new ParseIntPipe({ optional: true })) layerId?: number,
+  ) {
+    const { layers, layerIds } = await this.catalogLayers(req.user, layerId);
+    return {
+      ...await this.databaseService.getSystemTypes(req.user.sub, layerIds),
+      layers: layers.map(({ id, name }) => ({ id, name })),
+    };
   }
 
   @Get('systems/:id')
   @RequiresGameAccess()
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), LayerAccessGuard)
   getSystemDetail(
     @Request() req: { user: { sub: number } },
     @Param('id', ParseIntPipe) id: number,
@@ -87,8 +108,12 @@ export class DatabaseController {
   @Get('systems')
   @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
-  getSystems(@Request() req: { user: { sub: number } }) {
-    return this.databaseService.getSystems(req.user.sub);
+  async getSystems(
+    @Request() req: { user: LayerReader },
+    @Query('layerId', new ParseIntPipe({ optional: true })) layerId?: number,
+  ) {
+    const { layerIds } = await this.catalogLayers(req.user, layerId);
+    return this.databaseService.getSystems(req.user.sub, layerIds);
   }
 
   @Get('ship-classes')
@@ -118,8 +143,15 @@ export class DatabaseController {
   @Get('planet-types')
   @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
-  getPlanetTypes(@Request() req: { user: { sub: number } }) {
-    return this.databaseService.getPlanetTypes(req.user.sub);
+  async getPlanetTypes(
+    @Request() req: { user: LayerReader },
+    @Query('layerId', new ParseIntPipe({ optional: true })) layerId?: number,
+  ) {
+    const { layers, layerIds } = await this.catalogLayers(req.user, layerId);
+    return {
+      ...await this.databaseService.getPlanetTypes(req.user.sub, layerIds),
+      layers: layers.map(({ id, name }) => ({ id, name })),
+    };
   }
 
   @Get('ship-classes/:key')

@@ -9,6 +9,7 @@ import { StarmapQueryService } from './starmap-query.service';
 import { ExplorationService } from './exploration.service';
 import { InfluenceService } from './influence.service';
 import { WormholeService } from './wormhole.service';
+import { LayerAccessService } from './layer-access.service';
 import { DataSource } from 'typeorm';
 import { AddStarmapExportLimits20261104120000 } from '../../database/migrations/20261104120000-add-starmap-export-limits';
 
@@ -80,6 +81,7 @@ describe('Personal starmap export HTTP API', () => {
         { provide: ExplorationService, useValue: exploration },
         { provide: InfluenceService, useValue: {} },
         { provide: WormholeService, useValue: {} },
+        { provide: LayerAccessService, useValue: new LayerAccessService({} as never, {} as never, {} as never, {} as never) },
       ],
     }).overrideGuard(AuthGuard('jwt')).useValue({
       canActivate: (context: ExecutionContext) => {

@@ -52,6 +52,23 @@ describe('DatabasePage', () => {
     });
   });
 
+  it.each(['system-types', 'planet-types'])('uses only backend layer choices and sends the selected filter: %s', async (view) => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === `/database/${view}` || url === `/database/${view}?layerId=8`) {
+        return Promise.resolve({
+          layers: [{ id: 7, name: 'Known core' }, { id: 8, name: 'Known rim' }],
+          discovered: 0, total: 0, entries: [],
+        });
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    render(<MemoryRouter initialEntries={[`/database?view=${view}`]}><DatabasePage /></MemoryRouter>);
+    const select = await screen.findByRole('combobox', { name: 'Kartenebene' });
+    expect(Array.from(select.querySelectorAll('option')).map((option) => option.textContent)).toEqual(['Alle bekannten Ebenen', 'Known core', 'Known rim']);
+    fireEvent.change(select, { target: { value: '8' } });
+    await waitFor(() => expect(apiMocks.get).toHaveBeenCalledWith(`/database/${view}?layerId=8`));
+  });
+
   it('groups all available highscores and opens the RPG and Aurodium rankings', async () => {
     render(
       <MemoryRouter>
@@ -627,6 +644,8 @@ describe('DatabasePage', () => {
     );
 
     expect(await screen.findByText('Kern')).toBeTruthy();
+    const layers = screen.getByRole('combobox', { name: 'Kartenebene' });
+    expect(Array.from(layers.querySelectorAll('option')).map((option) => option.textContent)).toEqual(['Kern']);
     expect(screen.getByText('Bespin')).toBeTruthy();
     expect(screen.getAllByText('???')).toHaveLength(3);
     expect(screen.queryByRole('link', { name: '???' })).toBeNull();

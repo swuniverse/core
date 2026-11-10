@@ -18,6 +18,7 @@ describe('DatabaseController commodities', () => {
       {} as never,
       {} as never,
       commodityOverview as never,
+      {} as never,
     );
 
     await controller.getCommodityOverview({ user: { sub: 42 } });

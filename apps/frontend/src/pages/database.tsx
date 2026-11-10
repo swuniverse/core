@@ -298,6 +298,8 @@ export function DatabasePage() {
   const [params, setParams] = useSearchParams();
   const view = params.get('view') as View | null;
   const ranking = params.get('ranking') as RankingKey | null;
+  const layerId = params.get('layerId');
+  const isLayerCatalog = view === 'system-types' || view === 'planet-types';
   const [data, setData] = useState<unknown>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -309,7 +311,7 @@ export function DatabasePage() {
       .get(
         view === 'commodity-overview'
           ? '/database/commodities/overview'
-          : `/database/${view}${view === 'rankings' && ranking ? `/${ranking}` : ''}`,
+          : `/database/${view}${view === 'rankings' && ranking ? `/${ranking}` : ''}${isLayerCatalog && layerId ? `?layerId=${encodeURIComponent(layerId)}` : ''}`,
       )
       .then(setData)
       .catch((err: unknown) =>
@@ -319,7 +321,7 @@ export function DatabasePage() {
             : 'Daten konnten nicht geladen werden',
         ),
       );
-  }, [view, ranking]);
+  }, [view, ranking, isLayerCatalog, layerId]);
 
   const select = (next: View, nextRanking?: RankingKey) =>
     setParams(
@@ -350,7 +352,25 @@ export function DatabasePage() {
       ) : !data ? (
         <p className="text-swu-muted">Datenbank wird geladen...</p>
       ) : (
-        <Detail view={view} data={data} />
+        <>
+          {isLayerCatalog && (
+            <label className="block text-sm text-swu-muted">
+              Kartenebene
+              <select
+                aria-label="Kartenebene"
+                value={layerId ?? ''}
+                onChange={(event) => setParams({ view, ...(event.target.value ? { layerId: event.target.value } : {}) })}
+                className="ml-2 border border-swu-border bg-swu-bg px-2 py-1 text-swu-text"
+              >
+                <option value="">Alle bekannten Ebenen</option>
+                {(data as { layers: Array<{ id: number; name: string }> }).layers.map((layer) => (
+                  <option key={layer.id} value={layer.id}>{layer.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          <Detail view={view} data={data} />
+        </>
       )}
     </section>
   );
