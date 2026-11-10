@@ -29,7 +29,7 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [x] Das Lager wird erst beim ersten Hover geladen (lazy) und je Schiff gecacht; leeres Lager zeigt „Leer“.
 - [x] Frontend-Test: Hover löst genau einen Ladevorgang aus und rendert Ware und Menge.
 - [x] Frontend-Test: Mengen 1234 und Kapazität 10000 werden im produktiven Tooltip als „1.234“ bzw. „10.000“ gerendert.
-- [ ] `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Comments
 
