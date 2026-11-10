@@ -1,6 +1,6 @@
 # Wurmloch-Zugangsbeschränkungen
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K7a1, sc-WP-STAT-2
@@ -68,4 +68,13 @@ Vorgabe: Variante (b), wie STU. Der Betreiber einer Station auf dem Wurmloch-Ein
 - Korrekturevidenz: `.workmux/gates/k7b-correction-final-*.json`, `.workmux/tmw-K7b-fast-correction-verification-20261110.json`, `.workmux/tmw-K7b-fast-correction-report-20261110.md`. Originalcommit, Berichte und fehlgeschlagene Logs erhalten; neuer lokaler Follow-up, kein Amend/Merge/Push.
 - Status bleibt `ready-for-agent`: technisch grüner korrigierter Kandidat, unabhängige Korrekturannahme/Integration durch den Coordinator ausstehend; nicht resolved.
 - [ ] Unabhängige Annahme der Lifecycle-Korrektur durch Standards/Security und Spec beziehungsweise Coordinator.
+
+### 2026-11-10 — Unabhängig angenommener K7b-Kandidat (Bookkeeping)
+
+- Technisch angenommen und Status jetzt `resolved`, gemäß ausdrücklichem Coordinator-Auftrag. Beide ursprünglichen unabhängigen Korrekturachsen akzeptieren exakt `84b9e257aa7561d9e0d6999bf704b2bbfcb48774`, Tree `54488f25520e7f60f04ce5a77c83aa13257991e4`: Standards/Security PASS0 und Spec PASS0. Das ursprüngliche gemeinsame P2 ist geschlossen; keine verbleibenden Findings.
+- [x] Unabhängiger Standards-/Security-Review einschließlich Lifecycle-Korrektur angenommen (PASS0): `.workmux/local-inputs/k7b-fast-correction-standards-review-20261110.md`.
+- [x] Unabhängiger Spec-Review einschließlich Lifecycle-Korrektur angenommen (PASS0): `.workmux/local-inputs/k7b-fast-correction-spec-review-20261110.md`.
+- [x] Alle fünf Akzeptanzkriterien und die transaktionale Auflösungs-/Reset-Korrektur technisch angenommen. Die vorstehenden offenen Review-Checkboxen bleiben als historische Momentaufnahmen unverändert; diese aktuelle Annahme ersetzt ihren damaligen ausstehenden Zustand, nicht die dokumentierten initialen HOLD-/BLOCKED-Ergebnisse.
+- Originale HOLD-/BLOCKED-Berichte, Fehler-/RED-Belege und sämtliche Gate-/Transfer-Evidenz bleiben erhalten. Diese separate Phase ändert ausschließlich dieses Issue; kein Sourcechange und kein Gate-Rerun. Ein begrenzter Git-Scope-Check bestätigt unveränderte Codebytes zum akzeptierten Korrekturkandidaten.
+- Keine MAIN-Integration erfolgt: MAIN bleibt `4e2da9569b996d5a18cd428142a34ce8555e0853`. Die separat zugewiesene serielle Integration durch den ursprünglichen Sol-Reviewer steht noch aus; `resolved` dokumentiert technische Annahme, nicht Merge oder Deployment.
 
