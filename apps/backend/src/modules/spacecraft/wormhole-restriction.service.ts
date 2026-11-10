@@ -1,7 +1,10 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
+  OnModuleInit,
+  Optional,
 } from '@nestjs/common';
 import type {
   CreateWormholeRestrictionDto,
@@ -9,6 +12,10 @@ import type {
 } from '@swuniverse/shared';
 import { DataSource, EntityManager, In } from 'typeorm';
 import { Alliance } from '../alliance/entities/alliance.entity';
+import {
+  ALLIANCE_CONTEXT_CLEANUP,
+  AllianceContextCleanup,
+} from '../alliance/alliance-context-cleanup';
 import { User } from '../auth/user.entity';
 import { FactionEntity } from '../faction/entities/faction.entity';
 import { Wormhole } from '../starmap/entities/wormhole.entity';
@@ -17,8 +24,30 @@ import { WormholeRestriction } from './entities/wormhole-restriction.entity';
 import { resolveSpacecraftLocation } from './spacecraft-field';
 
 @Injectable()
-export class WormholeRestrictionService {
-  constructor(private readonly dataSource: DataSource) {}
+export class WormholeRestrictionService implements OnModuleInit {
+  constructor(
+    private readonly dataSource: DataSource,
+    @Optional()
+    @Inject(ALLIANCE_CONTEXT_CLEANUP)
+    private readonly contextCleanup?: AllianceContextCleanup,
+  ) {}
+
+  onModuleInit(): void {
+    // Alliance rules are removed atomically with their target's lifecycle.
+    this.contextCleanup?.register({
+      allianceDissolved: async ({ allianceId }, { transaction }) => {
+        await (transaction as EntityManager).delete(WormholeRestriction, {
+          targetType: 'ALLIANCE',
+          targetId: allianceId,
+        });
+      },
+      reset: async ({ transaction }) => {
+        await (transaction as EntityManager).delete(WormholeRestriction, {
+          targetType: 'ALLIANCE',
+        });
+      },
+    });
+  }
 
   async list(
     stationId: number,

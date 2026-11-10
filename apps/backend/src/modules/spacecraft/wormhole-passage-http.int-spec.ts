@@ -8,7 +8,11 @@ import { MODULE_METADATA } from '@nestjs/common/constants';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
-import { DataSource, type DataSourceOptions } from 'typeorm';
+import {
+  DataSource,
+  type DataSourceOptions,
+  type EntityManager,
+} from 'typeorm';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppModule } from '../../app.module';
 import {
@@ -29,6 +33,14 @@ import { GameGateway } from '../websocket/game.gateway';
 import { WormholeRestriction } from './entities/wormhole-restriction.entity';
 import { Alliance } from '../alliance/entities/alliance.entity';
 import { AllianceMembership } from '../alliance/entities/alliance-membership.entity';
+import { AllianceService } from '../alliance/alliance.service';
+import { AllianceResetService } from '../alliance/alliance-reset.service';
+import {
+  ALLIANCE_CONTEXT_CLEANUP,
+  AllianceContextCleanup,
+} from '../alliance/alliance-context-cleanup';
+import { ALLIANCE_ASSET_STORAGE } from '../alliance/alliance-asset.port';
+import { InMemoryAssetStorage } from '../alliance/testing/in-memory-asset-storage';
 import {
   AllianceRole,
   Faction,
@@ -53,6 +65,7 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
   let destination: SpaceLocation;
   const gateway = { emitToUser: jest.fn(), emitToAll: jest.fn() };
   const jwt = new JwtService({ secret: JWT_SECRET });
+  let failLifecycle: 'dissolution' | 'reset' | null = null;
 
   beforeAll(async () => {
     const migrations = await connectIntegrationDatabase();
@@ -102,6 +115,8 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
       .useValue(source)
       .overrideProvider(GameGateway)
       .useValue(gateway)
+      .overrideProvider(ALLIANCE_ASSET_STORAGE)
+      .useValue(new InMemoryAssetStorage())
       .compile();
     app = module.createNestApplication({ logger: ['error'] });
     app.setGlobalPrefix('api');
@@ -109,6 +124,24 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
       new ValidationPipe({ whitelist: true, transform: true }),
     );
     await app.listen(0, '127.0.0.1');
+    const abortLifecycle = async (
+      lifecycle: 'dissolution' | 'reset',
+      transaction: unknown,
+    ) => {
+      if (failLifecycle !== lifecycle) return;
+      // This later consumer observes the deletion in the caller's transaction.
+      expect(
+        await (transaction as EntityManager).count(WormholeRestriction, {
+          where: { targetType: 'ALLIANCE' },
+        }),
+      ).toBe(0);
+      throw new Error('later lifecycle consumer failed');
+    };
+    app.get<AllianceContextCleanup>(ALLIANCE_CONTEXT_CLEANUP).register({
+      allianceDissolved: async (_, { transaction }) =>
+        abortLifecycle('dissolution', transaction),
+      reset: async ({ transaction }) => abortLifecycle('reset', transaction),
+    });
   });
 
   afterAll(async () => {
@@ -117,6 +150,7 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
   });
 
   beforeEach(async () => {
+    failLifecycle = null;
     await resetDatabase(source);
     gateway.emitToUser.mockClear();
     const owner = await createUser(source);
@@ -246,15 +280,13 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
   });
 
   async function entryStation() {
-    return source
-      .getRepository(Spacecraft)
-      .save({
-        userId: ship.userId,
-        shipClassId: ship.shipClassId,
-        name: 'Entry operator',
-        kind: SpacecraftKind.STATION,
-        locationId: ship.locationId,
-      });
+    return source.getRepository(Spacecraft).save({
+      userId: ship.userId,
+      shipClassId: ship.shipClassId,
+      name: 'Entry operator',
+      kind: SpacecraftKind.STATION,
+      locationId: ship.locationId,
+    });
   }
 
   async function unchangedArrival() {
@@ -380,13 +412,11 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
       const alliance = await source
         .getRepository(Alliance)
         .save({ name: 'Passage alliance', factionId: rebel });
-      await source
-        .getRepository(AllianceMembership)
-        .save({
-          userId: ship.userId,
-          allianceId: alliance.id,
-          role: AllianceRole.NONE,
-        });
+      await source.getRepository(AllianceMembership).save({
+        userId: ship.userId,
+        allianceId: alliance.id,
+        role: AllianceRole.NONE,
+      });
       const targetId = {
         USER: ship.userId,
         ALLIANCE: alliance.id,
@@ -416,6 +446,200 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
     },
   );
 
+  async function lifecycleAlliance(name: string) {
+    const rebel = await factionId(source, Faction.REBEL_ALLIANCE);
+    const president = await createUser(source, {
+      faction: Faction.REBEL_ALLIANCE,
+      factionId: rebel,
+    });
+    const alliance = await source.getRepository(Alliance).save({
+      name,
+      factionId: rebel,
+    });
+    await source.getRepository(AllianceMembership).save({
+      userId: president.id,
+      allianceId: alliance.id,
+      role: AllianceRole.PRESIDENT,
+    });
+    return { alliance, president };
+  }
+
+  async function endAlliance(
+    lifecycle: 'dissolution' | 'reset',
+    allianceId: number,
+    presidentId: number,
+  ) {
+    if (lifecycle === 'dissolution')
+      await app.get(AllianceService).dissolve(presidentId, allianceId);
+    else await app.get(AllianceResetService).resetAllianceData();
+  }
+
+  it.each(['dissolution', 'reset'] as const)(
+    'alliance %s removes the sole rule from the station list and restores unrestricted real passage',
+    async (lifecycle) => {
+      const station = await entryStation();
+      const { alliance, president } = await lifecycleAlliance('Sole target');
+      expect(
+        (
+          await rules(station.id, ship.userId, 'POST', '', {
+            wormholeId: hole.id,
+            targetType: 'ALLIANCE',
+            targetId: alliance.id,
+            mode: 'ALLOW',
+          })
+        ).status,
+      ).toBe(201);
+      expect((await enter({ wormholeId: hole.id }, ship.userId)).status).toBe(
+        400,
+      );
+      await unchangedArrival();
+
+      await endAlliance(lifecycle, alliance.id, president.id);
+
+      expect(
+        await source.getRepository(Alliance).existsBy({ id: alliance.id }),
+      ).toBe(false);
+      expect(await (await rules(station.id, ship.userId)).json()).toEqual({
+        wormholes: [{ id: hole.id, name: null, restrictions: [] }],
+      });
+      expect(await source.getRepository(WormholeRestriction).count()).toBe(0);
+      expect((await enter({ wormholeId: hole.id }, ship.userId)).status).toBe(
+        201,
+      );
+      expect(
+        (
+          await source
+            .getRepository(Spacecraft)
+            .findOneByOrFail({ id: ship.id })
+        ).locationId,
+      ).toBe(destination.id);
+    },
+  );
+
+  it.each(['dissolution', 'reset'] as const)(
+    'alliance %s preserves other target types and only removes the applicable alliance rules',
+    async (lifecycle) => {
+      const station = await entryStation();
+      const { alliance, president } = await lifecycleAlliance('Removed target');
+      const { alliance: other } = await lifecycleAlliance('Other target');
+      const rebel = await factionId(source, Faction.REBEL_ALLIANCE);
+      const configured = await source.getRepository(WormholeRestriction).save([
+        {
+          wormholeId: hole.id,
+          targetType: 'ALLIANCE',
+          targetId: alliance.id,
+          mode: 'ALLOW',
+        },
+        {
+          wormholeId: hole.id,
+          targetType: 'ALLIANCE',
+          targetId: other.id,
+          mode: 'DENY',
+        },
+        {
+          wormholeId: hole.id,
+          targetType: 'USER',
+          targetId: ship.userId,
+          mode: 'ALLOW',
+        },
+        {
+          wormholeId: hole.id,
+          targetType: 'FACTION',
+          targetId: rebel,
+          mode: 'DENY',
+        },
+        {
+          wormholeId: hole.id,
+          targetType: 'SHIP',
+          targetId: ship.id,
+          mode: 'ALLOW',
+        },
+      ]);
+
+      await endAlliance(lifecycle, alliance.id, president.id);
+
+      const retained = configured.filter(
+        (rule) =>
+          rule.targetType !== 'ALLIANCE' ||
+          (lifecycle === 'dissolution' && rule.targetId === other.id),
+      );
+      expect(
+        await source
+          .getRepository(WormholeRestriction)
+          .find({ order: { id: 'ASC' } }),
+      ).toEqual(retained);
+      expect(await (await rules(station.id, ship.userId)).json()).toEqual({
+        wormholes: [
+          {
+            id: hole.id,
+            name: null,
+            restrictions: retained.map(
+              ({ id, targetType, targetId, mode }) => ({
+                id,
+                targetType,
+                targetId,
+                mode,
+              }),
+            ),
+          },
+        ],
+      });
+    },
+  );
+
+  it.each(['dissolution', 'reset'] as const)(
+    'alliance %s rolls back rule deletion when a later lifecycle consumer fails',
+    async (lifecycle) => {
+      const station = await entryStation();
+      const { alliance, president } =
+        await lifecycleAlliance('Rollback target');
+      const configured = await source.getRepository(WormholeRestriction).save([
+        {
+          wormholeId: hole.id,
+          targetType: 'ALLIANCE',
+          targetId: alliance.id,
+          mode: 'ALLOW',
+        },
+        {
+          wormholeId: hole.id,
+          targetType: 'SHIP',
+          targetId: ship.id,
+          mode: 'DENY',
+        },
+      ]);
+      const before = await (await rules(station.id, ship.userId)).json();
+      failLifecycle = lifecycle;
+      try {
+        await expect(
+          endAlliance(lifecycle, alliance.id, president.id),
+        ).rejects.toThrow('later lifecycle consumer failed');
+      } finally {
+        failLifecycle = null;
+      }
+
+      expect(
+        await source.getRepository(Alliance).existsBy({ id: alliance.id }),
+      ).toBe(true);
+      expect(
+        await source
+          .getRepository(AllianceMembership)
+          .existsBy({ userId: president.id, allianceId: alliance.id }),
+      ).toBe(true);
+      expect(
+        await source
+          .getRepository(WormholeRestriction)
+          .find({ order: { id: 'ASC' } }),
+      ).toEqual(configured);
+      expect(await (await rules(station.id, ship.userId)).json()).toEqual(
+        before,
+      );
+      expect((await enter({ wormholeId: hole.id }, ship.userId)).status).toBe(
+        400,
+      );
+      await unchangedArrival();
+    },
+  );
+
   it('applies current membership and DENY priority instead of granting access from stance or station ownership', async () => {
     const station = await entryStation();
     const rebel = await factionId(source, Faction.REBEL_ALLIANCE);
@@ -423,13 +647,11 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
     const alliance = await source
       .getRepository(Alliance)
       .save({ name: 'Current membership', factionId: rebel });
-    const member = await source
-      .getRepository(AllianceMembership)
-      .save({
-        userId: ship.userId,
-        allianceId: alliance.id,
-        role: AllianceRole.NONE,
-      });
+    const member = await source.getRepository(AllianceMembership).save({
+      userId: ship.userId,
+      allianceId: alliance.id,
+      role: AllianceRole.NONE,
+    });
     await rules(station.id, ship.userId, 'POST', '', {
       wormholeId: hole.id,
       targetType: 'ALLIANCE',
@@ -456,14 +678,12 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
   });
 
   it('ignores stale rules when the entry has no station', async () => {
-    await source
-      .getRepository(WormholeRestriction)
-      .save({
-        wormholeId: hole.id,
-        targetType: 'USER',
-        targetId: ship.userId,
-        mode: 'DENY',
-      });
+    await source.getRepository(WormholeRestriction).save({
+      wormholeId: hole.id,
+      targetType: 'USER',
+      targetId: ship.userId,
+      mode: 'DENY',
+    });
     expect((await enter({ wormholeId: hole.id }, ship.userId)).status).toBe(
       201,
     );
@@ -498,29 +718,23 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
     'validates every %s participant before changing durable state',
     async (kind) => {
       const station = await entryStation();
-      const carried = await source
-        .getRepository(Spacecraft)
-        .save({
-          userId: ship.userId,
-          shipClassId: ship.shipClassId,
-          name: 'Denied participant',
-          locationId: ship.locationId,
-        });
-      await source
-        .getRepository(SpacecraftModule)
-        .save({
-          spacecraftId: carried.id,
-          category: 'SUBLIGHT_DRIVE',
-          moduleType: 'Impulse',
-        });
+      const carried = await source.getRepository(Spacecraft).save({
+        userId: ship.userId,
+        shipClassId: ship.shipClassId,
+        name: 'Denied participant',
+        locationId: ship.locationId,
+      });
+      await source.getRepository(SpacecraftModule).save({
+        spacecraftId: carried.id,
+        category: 'SUBLIGHT_DRIVE',
+        moduleType: 'Impulse',
+      });
       if (kind === 'fleet') {
-        const fleet = await source
-          .getRepository(Fleet)
-          .save({
-            userId: ship.userId,
-            name: 'Policy fleet',
-            leaderId: ship.id,
-          });
+        const fleet = await source.getRepository(Fleet).save({
+          userId: ship.userId,
+          name: 'Policy fleet',
+          leaderId: ship.id,
+        });
         await source
           .getRepository(Spacecraft)
           .update([ship.id, carried.id], { fleetId: fleet.id });
@@ -571,14 +785,12 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
           [hole.id],
         ),
       ).rejects.toThrow();
-      await source
-        .getRepository(WormholeRestriction)
-        .save({
-          wormholeId: hole.id,
-          targetType: 'SHIP',
-          targetId: ship.id,
-          mode: 'DENY',
-        });
+      await source.getRepository(WormholeRestriction).save({
+        wormholeId: hole.id,
+        targetType: 'SHIP',
+        targetId: ship.id,
+        mode: 'DENY',
+      });
       await source.getRepository(Wormhole).delete(hole.id);
       expect(await source.getRepository(WormholeRestriction).count()).toBe(0);
     } finally {
