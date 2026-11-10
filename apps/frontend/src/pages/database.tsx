@@ -21,6 +21,9 @@ import { api } from '../services/api';
 import type {
   CommodityLocationsOverviewDto,
   CommodityOverviewEntryDto,
+  DatabaseLayerChoiceDto,
+  DatabaseSystemTypesDto,
+  DatabasePlanetTypesDto,
   Faction,
 } from '@swuniverse/shared';
 
@@ -102,18 +105,7 @@ type RankingDetail = {
   entries: Array<Ranking & { rank: number; colonyName?: string }>;
   currentUser: (Ranking & { rank: number; colonyName?: string }) | null;
 };
-type SystemTypeEntry = {
-  systemTypeId: number;
-  discovered: boolean;
-  name: string | null;
-  rarity: string | null;
-  discoveredAt: string | null;
-};
-type SystemTypes = {
-  discovered: number;
-  total: number;
-  entries: SystemTypeEntry[];
-};
+type SystemTypes = DatabaseSystemTypesDto;
 type SystemCatalog = {
   layers: Array<{
     id: number;
@@ -165,21 +157,7 @@ type ShipClass = {
   discoveredAt: string | null;
 };
 type ShipClasses = { discovered: number; total: number; entries: ShipClass[] };
-type PlanetTypes = {
-  discovered: number;
-  total: number;
-  entries: Array<{
-    key: string;
-    classId: number;
-    objectTypeId: number;
-    imageName: string;
-    discovered: boolean;
-    name: string | null;
-    description: string | null;
-    objectType: string | null;
-    discoveredAt: string | null;
-  }>;
-};
+type PlanetTypes = DatabasePlanetTypesDto;
 type PrestigeHistory = {
   prestige: number;
   entries: Array<{
@@ -301,18 +279,24 @@ export function DatabasePage() {
   const layerId = params.get('layerId');
   const isLayerCatalog = view === 'system-types' || view === 'planet-types';
   const [data, setData] = useState<unknown>(null);
+  const [layerChoices, setLayerChoices] = useState<DatabaseLayerChoiceDto[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!view || view === 'statistics') return void setData(null);
     setData(null);
+    setLayerChoices([]);
     setError(null);
-    api
-      .get(
-        view === 'commodity-overview'
-          ? '/database/commodities/overview'
-          : `/database/${view}${view === 'rankings' && ranking ? `/${ranking}` : ''}${isLayerCatalog && layerId ? `?layerId=${encodeURIComponent(layerId)}` : ''}`,
-      )
+    const path = view === 'commodity-overview'
+      ? '/database/commodities/overview'
+      : `/database/${view}${view === 'rankings' && ranking ? `/${ranking}` : ''}${isLayerCatalog && layerId ? `?layerId=${encodeURIComponent(layerId)}` : ''}`;
+    const response = isLayerCatalog
+      ? api.get<DatabaseSystemTypesDto | DatabasePlanetTypesDto>(path).then((catalog) => {
+          setLayerChoices(catalog.layers);
+          return catalog;
+        })
+      : api.get<unknown>(path);
+    response
       .then(setData)
       .catch((err: unknown) =>
         setError(
@@ -354,7 +338,7 @@ export function DatabasePage() {
       ) : (
         <>
           {isLayerCatalog && (
-            <label className="block text-sm text-swu-muted">
+            <label className="block text-xs text-swu-muted">
               Kartenebene
               <select
                 aria-label="Kartenebene"
@@ -363,7 +347,7 @@ export function DatabasePage() {
                 className="ml-2 border border-swu-border bg-swu-bg px-2 py-1 text-swu-text"
               >
                 <option value="">Alle bekannten Ebenen</option>
-                {(data as { layers: Array<{ id: number; name: string }> }).layers.map((layer) => (
+                {layerChoices.map((layer) => (
                   <option key={layer.id} value={layer.id}>{layer.name}</option>
                 ))}
               </select>

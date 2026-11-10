@@ -31,7 +31,7 @@ describe('TutorialPadd', () => {
     expect(screen.getByText('Willkommen').tagName).toBe('STRONG');
     expect(screen.getByText('Schritt 1/2')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Zurück' }).hasAttribute('disabled')).toBe(true);
-    expect(document.querySelector('[data-tutorial="menu"]')?.classList.contains('tutorial-target')).toBe(true);
+    await waitFor(() => expect(document.querySelector('[data-tutorial="menu"]')?.classList.contains('tutorial-target')).toBe(true));
 
     fireEvent.click(screen.getByRole('button', { name: 'Tutorial schließen' }));
     expect(screen.getByRole('menuitem', { name: 'Später' })).toBeTruthy();

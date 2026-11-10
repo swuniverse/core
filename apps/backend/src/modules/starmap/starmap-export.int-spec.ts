@@ -81,7 +81,7 @@ describe('Personal starmap export HTTP API', () => {
         { provide: ExplorationService, useValue: exploration },
         { provide: InfluenceService, useValue: {} },
         { provide: WormholeService, useValue: {} },
-        { provide: LayerAccessService, useValue: new LayerAccessService({} as never, {} as never, {} as never, {} as never) },
+        { provide: LayerAccessService, useValue: new LayerAccessService({} as never, {} as never, {} as never, {} as never, {} as never) },
       ],
     }).overrideGuard(AuthGuard('jwt')).useValue({
       canActivate: (context: ExecutionContext) => {

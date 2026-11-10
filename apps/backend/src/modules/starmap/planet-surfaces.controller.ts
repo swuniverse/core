@@ -11,6 +11,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { AdminGuard } from '../auth/admin.guard';
 import { StarmapService } from './starmap.service';
+import { LayerAccessGuard } from './layer-access.guard';
 import { PlanetGeneratorService } from './generator/planet-generator.service';
 import {
   getStuSurfaceClassConfig,
@@ -33,6 +34,7 @@ export class PlanetSurfacesController {
   ) {}
 
   @Get('planets/:id/surface')
+  @UseGuards(LayerAccessGuard)
   async getPlanetSurface(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<StarmapPlanetSurfaceDto> {

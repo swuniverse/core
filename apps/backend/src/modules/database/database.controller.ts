@@ -14,7 +14,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { DatabaseService } from './database.service';
-import { STATISTIC_UNITS, type StatisticUnit } from '@swuniverse/shared';
+import { STATISTIC_UNITS, type StatisticUnit, type DatabaseSystemTypesDto, type DatabasePlanetTypesDto } from '@swuniverse/shared';
 import { StatisticsService } from '../statistics/statistics.service';
 import { CommodityOverviewService } from './commodity-overview.service';
 import { LayerAccessGuard } from '../starmap/layer-access.guard';
@@ -87,7 +87,7 @@ export class DatabaseController {
   async getSystemTypes(
     @Request() req: { user: LayerReader },
     @Query('layerId', new ParseIntPipe({ optional: true })) layerId?: number,
-  ) {
+  ): Promise<DatabaseSystemTypesDto> {
     const { layers, layerIds } = await this.catalogLayers(req.user, layerId);
     return {
       ...await this.databaseService.getSystemTypes(req.user.sub, layerIds),
@@ -146,7 +146,7 @@ export class DatabaseController {
   async getPlanetTypes(
     @Request() req: { user: LayerReader },
     @Query('layerId', new ParseIntPipe({ optional: true })) layerId?: number,
-  ) {
+  ): Promise<DatabasePlanetTypesDto> {
     const { layers, layerIds } = await this.catalogLayers(req.user, layerId);
     return {
       ...await this.databaseService.getPlanetTypes(req.user.sub, layerIds),

@@ -5,6 +5,7 @@ import { Layer } from './entities/layer.entity';
 import { LayerKnowledge } from './entities/layer-knowledge.entity';
 import { StarSystem } from './entities/star-system.entity';
 import { MapRegion } from './entities/map-region.entity';
+import { CelestialObject } from './entities/celestial-object.entity';
 
 export type LayerReader = { sub: number; isAdmin?: boolean; permissions?: string[] };
 
@@ -15,6 +16,7 @@ export class LayerAccessService {
     @InjectRepository(LayerKnowledge) private readonly knowledgeRepo: Repository<LayerKnowledge>,
     @InjectRepository(StarSystem) private readonly systemRepo: Repository<StarSystem>,
     @InjectRepository(MapRegion) private readonly regionRepo: Repository<MapRegion>,
+    @InjectRepository(CelestialObject) private readonly objectRepo: Repository<CelestialObject>,
   ) {}
 
   bypass(user: LayerReader): boolean {
@@ -33,6 +35,12 @@ export class LayerAccessService {
     const system = await this.systemRepo.findOneBy({ id: systemId });
     if (!system) throw new NotFoundException('System not found');
     await this.assertAccess(user, system.layerId);
+  }
+
+  async assertPlanetAccess(user: LayerReader, objectId: number): Promise<void> {
+    const object = await this.objectRepo.findOneBy({ id: objectId });
+    if (!object) throw new NotFoundException('Celestial object not found');
+    await this.assertSystemAccess(user, object.systemId);
   }
 
   async assertRegionAccess(user: LayerReader, regionId: number): Promise<void> {

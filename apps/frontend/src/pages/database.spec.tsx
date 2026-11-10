@@ -64,6 +64,7 @@ describe('DatabasePage', () => {
     });
     render(<MemoryRouter initialEntries={[`/database?view=${view}`]}><DatabasePage /></MemoryRouter>);
     const select = await screen.findByRole('combobox', { name: 'Kartenebene' });
+    expect(select.closest('label')?.classList.contains('text-xs')).toBe(true);
     expect(Array.from(select.querySelectorAll('option')).map((option) => option.textContent)).toEqual(['Alle bekannten Ebenen', 'Known core', 'Known rim']);
     fireEvent.change(select, { target: { value: '8' } });
     await waitFor(() => expect(apiMocks.get).toHaveBeenCalledWith(`/database/${view}?layerId=8`));

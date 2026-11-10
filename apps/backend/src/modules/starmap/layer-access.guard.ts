@@ -24,6 +24,9 @@ export class LayerAccessGuard implements CanActivate {
     } else if (path.includes('/systems/:id')) {
       const id = await new ParseIntPipe().transform(request.params.id ?? '', { type: 'param' });
       await this.access.assertSystemAccess(request.user, id);
+    } else if (path.includes('/planets/:id')) {
+      const id = await new ParseIntPipe().transform(request.params.id ?? '', { type: 'param' });
+      await this.access.assertPlanetAccess(request.user, id);
     } else if (path.includes('/regions/:id')) {
       const id = await new ParseIntPipe().transform(request.params.id ?? '', { type: 'param' });
       await this.access.assertRegionAccess(request.user, id);

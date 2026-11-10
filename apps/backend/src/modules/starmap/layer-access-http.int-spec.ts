@@ -20,6 +20,7 @@ import { MapRegion } from './entities/map-region.entity';
 import { SystemField } from './entities/system-field.entity';
 import { CelestialObject, CelestialObjectType } from './entities/celestial-object.entity';
 import { Wormhole } from './entities/wormhole.entity';
+import { PlanetField, PlanetFieldLayer } from './entities/planet-field.entity';
 
 const JWT_SECRET = 'layer-access-http-test-secret';
 
@@ -129,6 +130,51 @@ describe('Layer access through the authenticated production application (Postgre
       expect(await response.json()).toMatchObject({ message: 'Layer not known' });
     },
   );
+
+  async function planetSurfaceFixture(layer: Layer) {
+    const system = await source.getRepository(StarSystem).save({ layerId: layer.id, name: 'Surface parent', cx: 1, cy: 1, systemTypeId: 1049 });
+    const planet = await source.getRepository(CelestialObject).save({
+      systemId: system.id, objectType: CelestialObjectType.PLANET, classId: 90010,
+      name: 'Surface planet', description: 'Populated planet details', posX: 1, posY: 1,
+      surfaceWidth: 1, surfaceHeight: 1,
+    });
+    await source.getRepository(PlanetField).save([
+      { celestialObjectId: planet.id, fieldLayer: PlanetFieldLayer.ORBIT, px: 1, py: 1, fieldType: 1, terrainTileId: 101 },
+      { celestialObjectId: planet.id, fieldLayer: PlanetFieldLayer.SURFACE, px: 1, py: 1, fieldType: 2, terrainTileId: 202 },
+      { celestialObjectId: planet.id, fieldLayer: PlanetFieldLayer.UNDERGROUND, px: 1, py: 1, fieldType: 3, terrainTileId: 303 },
+    ]);
+    return planet;
+  }
+
+  it.each(['unknown', 'hidden'] as const)('denies populated planet surface reads in a %s layer', async (visibility) => {
+    const planet = await planetSurfaceFixture(visibility === 'unknown' ? unknown : hidden);
+    const response = await request(`starmap/planets/${planet.id}/surface`);
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ message: 'Layer not known' });
+  });
+
+  it.each(['player', 'admin', 'editor'] as const)('retains populated planet surface access for %s', async (role) => {
+    for (const layer of role === 'player' ? [known] : [unknown, hidden]) {
+      const planet = await planetSurfaceFixture(layer);
+      const response = await request(`starmap/planets/${planet.id}/surface`, role);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        celestialObject: { id: planet.id, name: 'Surface planet', description: 'Populated planet details', classId: 90010 },
+        orbit: [{ celestialObjectId: planet.id, fieldLayer: 'ORBIT', px: 1, py: 1, terrainTileId: 101 }],
+        surface: [{ celestialObjectId: planet.id, fieldLayer: 'SURFACE', px: 1, py: 1, terrainTileId: 202 }],
+        underground: [{ celestialObjectId: planet.id, fieldLayer: 'UNDERGROUND', px: 1, py: 1, terrainTileId: 303 }],
+      });
+    }
+  });
+
+  it('retains planet surface authentication, invalid ID and missing object responses', async () => {
+    const planet = await planetSurfaceFixture(known);
+    expect((await fetch(`${await app.getUrl()}/api/starmap/planets/${planet.id}/surface`)).status).toBe(401);
+    expect((await request('starmap/planets/not-an-id/surface')).status).toBe(400);
+    const missing = await request('starmap/planets/2147483647/surface');
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toMatchObject({ message: 'Celestial object not found' });
+  });
 
   it('rejects the indirect starmap contacts layer query', async () => {
     const response = await request(`spacecraft/starmap-contacts?layerId=${unknown.id}`);
