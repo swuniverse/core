@@ -30,18 +30,16 @@ const STATUS = {
 const cell = 'border border-swu-border px-1.5 py-1';
 const numberCell = `${cell} text-right font-mono whitespace-nowrap`;
 
-type SpacecraftListWithCargo = SpacecraftListDto & { cargoMax: number };
-
 export function SpacecraftPage() {
   const navigate = useNavigate();
-  const [ships, setShips] = useState<SpacecraftListWithCargo[]>([]);
+  const [ships, setShips] = useState<SpacecraftListDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [fleetName, setFleetName] = useState('');
   const [leaderId, setLeaderId] = useState('');
   const [fleetAlertFailures, setFleetAlertFailures] = useState<Record<number, string[]>>({});
 
   const loadShips = useCallback(async () => {
-    const data = await api.get<SpacecraftListWithCargo[]>('/spacecraft');
+    const data = await api.get<SpacecraftListDto[]>('/spacecraft');
     setShips(data);
     setLoading(false);
   }, []);
@@ -51,7 +49,7 @@ export function SpacecraftPage() {
   }, [loadShips]);
 
   const fleets = useMemo(() => {
-    const grouped = new Map<number, SpacecraftListWithCargo[]>();
+    const grouped = new Map<number, SpacecraftListDto[]>();
     for (const ship of ships) {
       if (ship.fleetId == null) continue;
       const members = grouped.get(ship.fleetId) ?? [];
@@ -221,7 +219,7 @@ function ShipTable({ title, ships, leaderId, actions, message, emptyLabel, onOpe
   );
 }
 
-function ShipRow({ ship, leader = false, onOpen }: { ship: SpacecraftListDto & { cargoMax?: number }; leader?: boolean; onOpen: () => void }) {
+function ShipRow({ ship, leader = false, onOpen }: { ship: SpacecraftListDto; leader?: boolean; onOpen: () => void }) {
   const alert = ALERT_PRESENTATION[ship.alertState];
   const location = ship.location.scope === 'SYSTEM'
     ? `${ship.location.galaxyX ?? 0}|${ship.location.galaxyY ?? 0} (${ship.location.x}|${ship.location.y})`
@@ -236,7 +234,7 @@ function ShipRow({ ship, leader = false, onOpen }: { ship: SpacecraftListDto & {
           shipId={ship.id}
           shipName={ship.name}
           imageSrc={shipImage(ship.shipClassId, ship.shipClassKey)}
-          cargoMax={ship.cargoMax ?? 0}
+          cargoMax={ship.cargoMax}
         />
       </td>
       <td className={`${cell} font-medium text-swu-primary`}>{leader ? <span aria-label={`Flottenführer ${ship.name}`} title="Flottenführer">◆ {ship.name}</span> : ship.name}{ship.dockedAtId != null && <img src="/assets/buttons/dock1.png" title={`Angedockt an ${ship.dockedAtName ?? 'Station'}`} alt={`Angedockt an ${ship.dockedAtName ?? 'Station'}`} className="ml-1 inline-block size-4 align-middle" />}</td>

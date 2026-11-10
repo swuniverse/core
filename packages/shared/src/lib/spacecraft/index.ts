@@ -409,6 +409,7 @@ export interface SpacecraftListDto {
   crew: number;
   crewRequired: number;
   crewMax: number;
+  cargoMax: number;
   fleetId: number | null;
   fleetName: string | null;
   fleetLeaderId: number | null;

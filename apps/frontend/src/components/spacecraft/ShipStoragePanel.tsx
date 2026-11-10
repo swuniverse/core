@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { commodityImage } from '../../lib/assets';
 import { Tooltip, TooltipTable } from '../Tooltip';
+import { formatNumber } from '../../lib/format';
 import { api } from '../../services/api';
 
 export interface CargoItem {
@@ -91,7 +92,7 @@ export function ShipStorageTooltip({
       />
       {item.commodityName ?? `Ware #${item.commodityId}`}
     </span>,
-    item.amount,
+    formatNumber(item.amount),
   ]);
 
   return (
@@ -117,7 +118,7 @@ export function ShipStorageTooltip({
                 </table>
               )}
               <p className="border-t border-swu-border pt-1 text-right font-mono">
-                Lagerraum {used}/{cargoMax}
+                Lagerraum {formatNumber(used)}/{formatNumber(cargoMax)}
               </p>
             </>
           )}

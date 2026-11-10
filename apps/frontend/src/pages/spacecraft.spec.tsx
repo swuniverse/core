@@ -107,6 +107,38 @@ describe('SpacecraftPage', () => {
     expect(apiMocks.get).toHaveBeenNthCalledWith(3, '/spacecraft/252/cargo');
   });
 
+  it('formats cargo amounts and capacity with German thousands separators', async () => {
+    apiMocks.get.mockReset();
+    apiMocks.get.mockImplementation((path: string) => {
+      if (path === '/spacecraft') {
+        return Promise.resolve([
+          { ...ship, id: 261, name: 'Frachtfalke', cargoMax: 10_000 },
+        ]);
+      }
+      if (path === '/spacecraft/261/cargo') {
+        return Promise.resolve([
+          { id: 3, commodityId: 42424244, commodityName: 'Duranium', amount: 1_234 },
+        ]);
+      }
+      throw new Error(`Unexpected API request: ${path}`);
+    });
+
+    render(
+      <MemoryRouter>
+        <SpacecraftPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.mouseEnter(
+      await screen.findByRole('button', { name: 'Lager von Frachtfalke' }),
+      { clientX: 40, clientY: 30 },
+    );
+
+    const tooltip = await screen.findByRole('tooltip');
+    expect(await screen.findByRole('cell', { name: '1.234' })).toBeTruthy();
+    expect(tooltip.textContent).toContain('Lagerraum 1.234/10.000');
+  });
+
   it('shows an empty hold when touched without loading cargo before the tap', async () => {
     apiMocks.get.mockReset();
     apiMocks.get.mockImplementation((path: string) => {
