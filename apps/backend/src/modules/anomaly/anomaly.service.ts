@@ -12,6 +12,10 @@ export class AnomalyService {
 
   async processTick(tickNumber: number): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
+      // Serialize the complete anomaly phase, including creation on an empty map.
+      await manager.query(
+        "SELECT pg_advisory_xact_lock(hashtext('swu_anomaly_tick'))",
+      );
       const inserted = await manager.query(
         'INSERT INTO "anomaly_tick_runs" ("tickNumber") VALUES ($1) ON CONFLICT DO NOTHING RETURNING "tickNumber"',
         [tickNumber],
