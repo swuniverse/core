@@ -59,10 +59,10 @@ describe('anomalies in the main tick', () => {
       const registry = new AnomalyRegistry();
       registry.register({
         key: 'CONCURRENT',
-        handleTick: async (_anomaly, manager) => {
+        handleTick: async (_anomaly: Anomaly, manager: EntityManager) => {
           if (pauseAt === 'tick') await pause(manager);
         },
-        onDisappear: async (_anomaly, manager) => {
+        onDisappear: async (_anomaly: Anomaly, manager: EntityManager) => {
           if (pauseAt === 'disappear') await pause(manager);
           await manager.query(
             `INSERT INTO anomaly_types ("key") VALUES ('disappeared:' || txid_current())`,
@@ -121,7 +121,7 @@ describe('anomalies in the main tick', () => {
       handleTick: async () => undefined,
       onDisappear: async () => undefined,
       handleIncomingSpacecraft: async () => undefined,
-      checkForCreation: async (manager) => {
+      checkForCreation: async (manager: EntityManager) => {
         const repo = manager.getRepository(Anomaly);
         const count = await repo.count();
         calls += 1;
@@ -187,7 +187,7 @@ describe('anomalies in the main tick', () => {
     const registry = new AnomalyRegistry();
     registry.register({
       key: 'ROLLBACK',
-      handleTick: async (_anomaly, manager) => {
+      handleTick: async (_anomaly: Anomaly, manager: EntityManager) => {
         calls += 1;
         if (calls === 1) {
           const [{ pid }] = await manager.query(
