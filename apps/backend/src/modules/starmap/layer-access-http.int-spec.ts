@@ -14,7 +14,7 @@ import { Layer } from './entities/layer.entity';
 import { LayerKnowledge } from './entities/layer-knowledge.entity';
 import { StarSystem } from './entities/star-system.entity';
 import { SystemExploration } from './entities/system-exploration.entity';
-import { GalaxyField } from './entities/galaxy-field.entity';
+import { FactionZone, GalaxyField } from './entities/galaxy-field.entity';
 import { GalaxyFieldType } from './entities/galaxy-field-type.entity';
 import { LayerMapCycleService } from './layer-map-cycle.service';
 import { ExplorationState, ExplorationLevel } from './entities/exploration-state.entity';
@@ -307,13 +307,13 @@ describe('Layer access through the authenticated production application (Postgre
         fieldTypeId: fieldType.id,
       })),
     );
-    const fields = await source.getRepository(GalaxyField).save([
+    const fields = await source.getRepository(GalaxyField).save<Partial<GalaxyField>>([
       {
         layerId: explored.id,
         cx: 1,
         cy: 1,
         fieldTypeId: fieldType.id,
-        factionZone: 'NEUTRAL',
+        factionZone: FactionZone.NEUTRAL,
         adminRegionKey: 'north-sector',
         effects: ['nebula'],
         passableOverride: false,
@@ -323,7 +323,7 @@ describe('Layer access through the authenticated production application (Postgre
         cx: 2,
         cy: 1,
         fieldTypeId: fieldType.id,
-        factionZone: 'REBEL',
+        factionZone: FactionZone.REBEL,
         systemTypeId: 1049,
         starSystemId: system.id,
         adminRegionKey: 'core-sector',
@@ -458,9 +458,10 @@ describe('Layer access through the authenticated production application (Postgre
 
     const completeSector = await request(`starmap/layers/${explored.id}/sectors/0/0`);
     expect(completeSector.status).toBe(200);
-    expect((await completeSector.json()).map(
-      (field: { explorationLevel?: string }) => field.explorationLevel,
-    )).toEqual(Array(25).fill('FULL'));
+    const completeSectorData: unknown = await completeSector.json();
+    expect(completeSectorData).toEqual(
+      Array.from({ length: 25 }, () => expect.objectContaining({ explorationLevel: 'FULL' })),
+    );
     const exploredSector = await request(`starmap/layers/${explored.id}/explored-sector/0/0`);
     expect(exploredSector.status).toBe(200);
     const exploredSectorData = await exploredSector.json() as {

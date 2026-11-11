@@ -19,10 +19,7 @@ import { Colony } from '../colony/entities/colony.entity';
 import { MapRegion } from './entities/map-region.entity';
 import { resolveColonyLocation } from '../colony/colony-location';
 import type { ExplorationService } from './exploration.service';
-import {
-  ExplorationLevel,
-  ExplorationState,
-} from './entities/exploration-state.entity';
+import { ExplorationLevel } from './entities/exploration-state.entity';
 import { LayerKnowledge } from './entities/layer-knowledge.entity';
 import { SYSTEM_TYPE_BY_ID } from './starmap-system-types';
 import type {
