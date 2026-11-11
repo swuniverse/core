@@ -143,6 +143,8 @@ import { ContactModule } from './modules/contacts/contact.module';
 import { Contact } from './modules/contacts/entities/contact.entity';
 import { SpacecraftTakeover } from './modules/spacecraft/entities/spacecraft-takeover.entity';
 import { IgnoreList } from './modules/contacts/entities/ignore-list.entity';
+import { Anomaly } from './modules/anomaly/entities/anomaly.entity';
+import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
 
 @Module({
   imports: [
@@ -160,6 +162,8 @@ import { IgnoreList } from './modules/contacts/entities/ignore-list.entity';
         type: 'postgres',
         url: config.get('DATABASE_URL'),
         entities: [
+          Anomaly,
+          AnomalyType,
           User,
           InviteKey,
           InviteQuota,

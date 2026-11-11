@@ -62,6 +62,9 @@ import { StatisticSnapshot } from '../../modules/statistics/entities/statistic-s
 import { StatisticHourCounter } from '../../modules/statistics/entities/statistic-hour-counter.entity';
 import { News } from '../../modules/news/entities/news.entity';
 import { PrestigeHistoryEntry } from '../../modules/prestige/entities/prestige-history-entry.entity';
+import { Anomaly } from '../../modules/anomaly/entities/anomaly.entity';
+import { AnomalyType } from '../../modules/anomaly/entities/anomaly-type.entity';
+import { GameTickState } from '../../modules/tick/entities/game-tick-state.entity';
 
 /** Entities used by integration tests. Add more as suites need them. */
 export const INTEGRATION_ENTITIES = [
@@ -127,6 +130,9 @@ export const INTEGRATION_ENTITIES = [
   StatisticHourCounter,
   News,
   PrestigeHistoryEntry,
+  Anomaly,
+  AnomalyType,
+  GameTickState,
 ];
 
 export function createIntegrationDataSource(url: string): DataSource {

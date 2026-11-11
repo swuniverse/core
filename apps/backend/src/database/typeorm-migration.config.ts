@@ -30,6 +30,8 @@ import { MigrationSpacecraft } from './migration-entities/spacecraft.entity';
 import { MigrationAccountToken } from './migration-entities/account-token.entity';
 import { News } from '../modules/news/entities/news.entity';
 import { ProfileVisit } from '../modules/profile-visitor/entities/profile-visit.entity';
+import { Anomaly } from '../modules/anomaly/entities/anomaly.entity';
+import { AnomalyType } from '../modules/anomaly/entities/anomaly-type.entity';
 
 loadEnv();
 
@@ -72,6 +74,8 @@ const appDataSource = new DataSource({
     MigrationAccountToken,
     News,
     ProfileVisit,
+    Anomaly,
+    AnomalyType,
   ],
   migrations: ['apps/backend/src/database/migrations/[0-9]*-!(*.spec|*.test).ts'],
   synchronize: false,

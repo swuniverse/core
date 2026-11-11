@@ -36,6 +36,7 @@ import { ProfileVisitorModule } from '../profile-visitor/profile-visitor.module'
 import { ProfileVisitorService } from '../profile-visitor/profile-visitor.service';
 import { StarmapModule } from '../starmap/starmap.module';
 import { LayerMapCycleService } from '../starmap/layer-map-cycle.service';
+import { AnomalyModule } from '../anomaly/anomaly.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { LayerMapCycleService } from '../starmap/layer-map-cycle.service';
     PrestigeModule,
     ProfileVisitorModule,
     StarmapModule,
+    AnomalyModule,
   ],
   controllers: [TickController, TickStatusController],
   providers: [
