@@ -54,6 +54,14 @@ _Avoid_: Logo, Wappen
 
 ## Kartographie & Aufklärung
 
+**Bekannte Ebene**:
+Eine Spielebene, die ein Spieler kennt und deshalb grundsätzlich öffnen darf. `KNOWN` gewährt Ebenenzugriff, bedeutet aber nicht, dass jedes Galaxiefeld oder Sternensystem persönlich entdeckt ist; die sichtbaren Felder folgen weiter den persönlichen Felderkundungsdaten.
+_Avoid_: erkundete Ebene, vollständig entdeckte Ebene
+
+**Erkundete Ebene**:
+Eine dem Spieler bekannte Ebene, deren Felderkundung der tägliche Kartenzyklus nach vollständiger Abdeckung abschließt. `EXPLORED` zeigt danach alle Ebenenfelder vollständig auf der Karte, auch wenn der Zyklus die persönlichen Felderkundungsdaten entfernt hat. Es erzeugt keine persönliche **Systementdeckung** und öffnet keinen geschützten **Systemeintrag**.
+_Avoid_: bekannte Ebene (wenn vollständig erkundet gemeint ist), entdeckte Systeme
+
 **Systementdeckung**:
 Die persönliche, dauerhafte Kenntnis eines konkreten Sternensystems. Sie entsteht ausschließlich durch erfolgreich abgeschlossene **Astrometrie** eines eigenen Schiffs und berechtigt zum geschützten **Systemeintrag**. Sie wird nicht innerhalb einer **Allianz** geteilt.
 _Avoid_: Systemexploration, Systemfreischaltung

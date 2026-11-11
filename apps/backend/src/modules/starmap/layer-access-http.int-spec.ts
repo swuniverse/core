@@ -15,6 +15,8 @@ import { LayerKnowledge } from './entities/layer-knowledge.entity';
 import { StarSystem } from './entities/star-system.entity';
 import { SystemExploration } from './entities/system-exploration.entity';
 import { GalaxyField } from './entities/galaxy-field.entity';
+import { GalaxyFieldType } from './entities/galaxy-field-type.entity';
+import { LayerMapCycleService } from './layer-map-cycle.service';
 import { ExplorationState, ExplorationLevel } from './entities/exploration-state.entity';
 import { MapRegion } from './entities/map-region.entity';
 import { SystemField } from './entities/system-field.entity';
@@ -282,6 +284,201 @@ describe('Layer access through the authenticated production application (Postgre
     expect((await fetch(`${await app.getUrl()}/api/starmap/layers/${known.id}/fields`)).status).toBe(401);
     expect((await request('starmap/layers/not-an-id/fields')).status).toBe(400);
     expect((await request('database/systems?layerId=not-an-id')).status).toBe(400);
+  });
+
+  it('shows every field of an EXPLORED layer after the real cycle deletes fog, without granting system discovery', async () => {
+    const fieldType = await source.getRepository(GalaxyFieldType).findOneByOrFail({
+      id: 1,
+    });
+    const system = await source.getRepository(StarSystem).save({
+      layerId: explored.id,
+      name: 'Undiscovered system',
+      cx: 2,
+      cy: 1,
+      systemTypeId: 1049,
+      maxX: 1,
+      maxY: 1,
+    });
+    await source.getRepository(GalaxyField).save(
+      Array.from({ length: 25 }, (_, index) => ({
+        layerId: known.id,
+        cx: index % 5 + 1,
+        cy: Math.floor(index / 5) + 1,
+        fieldTypeId: fieldType.id,
+      })),
+    );
+    const fields = await source.getRepository(GalaxyField).save([
+      {
+        layerId: explored.id,
+        cx: 1,
+        cy: 1,
+        fieldTypeId: fieldType.id,
+        factionZone: 'NEUTRAL',
+        adminRegionKey: 'north-sector',
+        effects: ['nebula'],
+        passableOverride: false,
+      },
+      {
+        layerId: explored.id,
+        cx: 2,
+        cy: 1,
+        fieldTypeId: fieldType.id,
+        factionZone: 'REBEL',
+        systemTypeId: 1049,
+        starSystemId: system.id,
+        adminRegionKey: 'core-sector',
+      },
+    ]);
+    const remainingFields = Array.from({ length: 23 }, (_, index) => {
+      const cell = index < 3
+        ? { cx: index + 3, cy: 1 }
+        : { cx: (index - 3) % 5 + 1, cy: Math.floor((index - 3) / 5) + 2 };
+      return { layerId: explored.id, ...cell, fieldTypeId: fieldType.id };
+    });
+    await source.getRepository(GalaxyField).save(remainingFields);
+    await source.getRepository(ExplorationState).save([
+      {
+        userId,
+        layerId: known.id,
+        cx: 1,
+        cy: 1,
+        explorationLevel: ExplorationLevel.TERRAIN,
+      },
+    ]);
+    await source.getRepository(SystemField).save({
+      starSystemId: system.id,
+      sx: 1,
+      sy: 1,
+      fieldTypeId: fieldType.id,
+    });
+    await source.getRepository(LayerKnowledge).update(
+      { userId, layerId: explored.id },
+      { status: LayerKnowledgeStatus.KNOWN, exploredAt: null },
+    );
+    await source.getRepository(ExplorationState).save([
+      ...fields.map(({ cx, cy }) => ({
+        userId,
+        layerId: explored.id,
+        cx,
+        cy,
+        explorationLevel: ExplorationLevel.FULL,
+      })),
+      ...remainingFields.map(({ cx, cy }) => ({
+        userId,
+        layerId: explored.id,
+        cx,
+        cy,
+        explorationLevel: ExplorationLevel.FULL,
+      })),
+    ]);
+    const cycle = app.get(LayerMapCycleService);
+
+    await expect(cycle.run(new Date())).resolves.toBe('1 Ebene vollständig erkundet');
+    await expect(
+      source.getRepository(ExplorationState).countBy({ userId, layerId: explored.id }),
+    ).resolves.toBe(0);
+    await expect(
+      source.getRepository(LayerKnowledge).findOneByOrFail({ userId, layerId: explored.id }),
+    ).resolves.toMatchObject({ status: LayerKnowledgeStatus.EXPLORED });
+    const refreshedExplorationRows = await request(`starmap/layers/${explored.id}/exploration`);
+    expect(refreshedExplorationRows.status).toBe(200);
+    expect(await refreshedExplorationRows.json()).toEqual([]);
+
+    const completeFields = await request(`starmap/layers/${explored.id}/fields`);
+    expect(completeFields.status).toBe(200);
+    const completeFieldData = await completeFields.json() as Array<{
+      id: number;
+      cx: number;
+      cy: number;
+      factionZone: string;
+      adminRegionKey: string | null;
+      effects: string[] | null;
+      passableOverride: boolean | null;
+      systemTypeId: number | null;
+      starSystemId: number | null;
+      starSystem: { name: string } | null;
+    }>;
+    expect(completeFieldData).toHaveLength(25);
+    expect(completeFieldData).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: fields[0].id,
+          cx: 1,
+          cy: 1,
+          factionZone: 'NEUTRAL',
+          adminRegionKey: 'north-sector',
+          effects: ['nebula'],
+          passableOverride: false,
+        }),
+        expect.objectContaining({
+          id: fields[1].id,
+          cx: 2,
+          cy: 1,
+          systemTypeId: 1049,
+          starSystemId: system.id,
+          starSystem: expect.objectContaining({ name: 'Undiscovered system' }),
+        }),
+      ]),
+    );
+
+    const knownFields = await request(`starmap/layers/${known.id}/fields`);
+    expect(knownFields.status).toBe(200);
+    const knownFieldData = await knownFields.json() as Array<{ cx: number; cy: number }>;
+    expect(knownFieldData.map(({ cx, cy }) => [cx, cy])).toEqual([[1, 1]]);
+    const knownSector = await request(`starmap/layers/${known.id}/explored-sector/0/0`);
+    expect(knownSector.status).toBe(200);
+    expect(await knownSector.json()).toMatchObject({ hiddenCount: 24 });
+
+    const layerSectors = await request(`starmap/layers/${explored.id}/sectors`);
+    expect(layerSectors.status).toBe(200);
+    expect(await layerSectors.json()).toMatchObject([
+      { exploredCount: 25, totalCount: 25, explorationPercent: 100 },
+    ]);
+    const exported = await request(`starmap/layers/${explored.id}/export.json`);
+    expect(exported.status).toBe(200);
+    const exportedData = await exported.json() as {
+      fields: Array<{
+        cx: number;
+        cy: number;
+        starSystem: { id: number; name: string } | null;
+      }>;
+    };
+    const exportedFields = exportedData.fields;
+    expect(exportedFields).toHaveLength(25);
+    expect(exportedFields.find(({ cx, cy }) => cx === 1 && cy === 1)?.starSystem).toBeNull();
+    expect(
+      exportedFields.find(({ cx, cy }) => cx === 2 && cy === 1)?.starSystem,
+    ).toMatchObject({
+      id: system.id,
+      name: 'Undiscovered system',
+    });
+    const listedSystems = await request(`starmap/layers/${explored.id}/systems`);
+    expect(listedSystems.status).toBe(200);
+    expect(await listedSystems.json()).toEqual([]);
+
+    const completeSector = await request(`starmap/layers/${explored.id}/sectors/0/0`);
+    expect(completeSector.status).toBe(200);
+    expect((await completeSector.json()).map(
+      (field: { explorationLevel?: string }) => field.explorationLevel,
+    )).toEqual(Array(25).fill('FULL'));
+    const exploredSector = await request(`starmap/layers/${explored.id}/explored-sector/0/0`);
+    expect(exploredSector.status).toBe(200);
+    const exploredSectorData = await exploredSector.json() as {
+      fields: Array<{ id: number; explorationLevel: string }>;
+      hiddenCount: number;
+    };
+    expect(exploredSectorData.fields).toHaveLength(25);
+    expect(
+      exploredSectorData.fields.find(({ id }) => id === fields[0].id)?.explorationLevel,
+    ).toBe('FULL');
+    expect(
+      exploredSectorData.fields.find(({ id }) => id === fields[1].id)?.explorationLevel,
+    ).toBe('FULL');
+    expect(exploredSectorData.hiddenCount).toBe(0);
+
+    for (const path of [`starmap/systems/${system.id}`, `starmap/systems/${system.id}/grid`]) {
+      expect((await request(path)).status).toBe(404);
+    }
   });
 
   it('offers only known nonhidden layers to players, including KNOWN without EXPLORED', async () => {

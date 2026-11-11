@@ -7,6 +7,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { LayerKnowledgeStatus } from '@swuniverse/shared';
 import { Between, DataSource, In, Repository } from 'typeorm';
 import { Layer } from './entities/layer.entity';
 import { GalaxyField } from './entities/galaxy-field.entity';
@@ -18,7 +19,11 @@ import { Colony } from '../colony/entities/colony.entity';
 import { MapRegion } from './entities/map-region.entity';
 import { resolveColonyLocation } from '../colony/colony-location';
 import type { ExplorationService } from './exploration.service';
-import { ExplorationLevel } from './entities/exploration-state.entity';
+import {
+  ExplorationLevel,
+  ExplorationState,
+} from './entities/exploration-state.entity';
+import { LayerKnowledge } from './entities/layer-knowledge.entity';
 import { SYSTEM_TYPE_BY_ID } from './starmap-system-types';
 import type {
   StarmapCelestialObjectDto,
@@ -57,7 +62,18 @@ export class StarmapQueryService {
     @InjectRepository(MapRegion)
     private readonly regionRepo: Repository<MapRegion>,
     @Optional() @InjectDataSource() private readonly dataSource?: DataSource,
+    @Optional() @InjectRepository(LayerKnowledge)
+    private readonly layerKnowledgeRepo?: Repository<LayerKnowledge>,
   ) {}
+
+  private async isLayerFullyExplored(
+    userId: number,
+    layerId: number,
+  ): Promise<boolean> {
+    if (!this.layerKnowledgeRepo) return false;
+    const knowledge = await this.layerKnowledgeRepo.findOneBy({ userId, layerId });
+    return knowledge?.status === LayerKnowledgeStatus.EXPLORED;
+  }
 
   async getExploredRegion(
     userId: number,
@@ -67,14 +83,16 @@ export class StarmapQueryService {
     const region = await this.regionRepo.findOneBy({ id: regionId });
     if (!region) throw new NotFoundException('Region not found');
 
-    const [regionFields, exploredFields] = await Promise.all([
+    const [regionFields, exploredFields, fullyExplored] = await Promise.all([
       this.galaxyFieldRepo.find({ where: { regionId } }),
       explorationService.getExploredFields(userId, region.layerId),
+      this.isLayerFullyExplored(userId, region.layerId),
     ]);
     const exploredCoordinates = new Set(
       exploredFields.map((field) => `${field.cx}:${field.cy}`),
     );
     if (
+      !fullyExplored &&
       !regionFields.some((field) =>
         exploredCoordinates.has(`${field.cx}:${field.cy}`),
       )
@@ -135,23 +153,25 @@ export class StarmapQueryService {
     explorationService: ExplorationService,
   ): Promise<StarmapSectorDto[]> {
     const sectors = await this.getGalaxySectors(layerId);
-    const exploredFields = await explorationService.getExploredFields(
-      userId,
-      layerId,
-    );
+    const fullyExplored = await this.isLayerFullyExplored(userId, layerId);
+    const exploredFields = fullyExplored
+      ? []
+      : await explorationService.getExploredFields(userId, layerId);
     const explored = new Set(
       exploredFields.map((field) => `${field.cx},${field.cy}`),
     );
 
     return sectors.map((sector) => {
-      let exploredCount = 0;
-      for (let cy = sector.minY; cy <= sector.maxY; cy++) {
-        for (let cx = sector.minX; cx <= sector.maxX; cx++) {
-          if (explored.has(`${cx},${cy}`)) exploredCount++;
-        }
-      }
       const totalCount = sector.maxX - sector.minX + 1;
       const totalFields = totalCount * (sector.maxY - sector.minY + 1);
+      let exploredCount = fullyExplored ? totalFields : 0;
+      if (!fullyExplored) {
+        for (let cy = sector.minY; cy <= sector.maxY; cy++) {
+          for (let cx = sector.minX; cx <= sector.maxX; cx++) {
+            if (explored.has(`${cx},${cy}`)) exploredCount++;
+          }
+        }
+      }
       return {
         ...sector,
         systemCount: 0,
@@ -243,10 +263,10 @@ export class StarmapQueryService {
     explorationService: ExplorationService,
   ): Promise<HyperspaceRouteDto[]> {
     const routes = await this.getHyperspaceRoutes(layerId);
-    const exploredFields = await explorationService.getExploredFields(
-      userId,
-      layerId,
-    );
+    const fullyExplored = await this.isLayerFullyExplored(userId, layerId);
+    const exploredFields = fullyExplored
+      ? []
+      : await explorationService.getExploredFields(userId, layerId);
     const visible = new Set(
       exploredFields.map((field) => `${field.cx},${field.cy}`),
     );
@@ -255,8 +275,9 @@ export class StarmapQueryService {
         ...route,
         segments: route.segments.filter(
           (segment) =>
-            visible.has(`${segment.fromSystem.cx},${segment.fromSystem.cy}`) &&
-            visible.has(`${segment.toSystem.cx},${segment.toSystem.cy}`),
+            fullyExplored ||
+            (visible.has(`${segment.fromSystem.cx},${segment.fromSystem.cy}`) &&
+              visible.has(`${segment.toSystem.cx},${segment.toSystem.cy}`)),
         ),
       }))
       .filter((route) => route.segments.length > 0);
@@ -441,13 +462,14 @@ export class StarmapQueryService {
     layerId: number,
     explorationService: ExplorationService,
   ): Promise<StarmapGalaxyFieldDto[]> {
-    const [allFields, exploredStates] = await Promise.all([
+    const [allFields, exploredStates, fullyExplored] = await Promise.all([
       this.galaxyFieldRepo.find({
         where: { layerId },
         relations: ['fieldType', 'starSystem'],
         order: { cy: 'ASC', cx: 'ASC' },
       }),
       explorationService.getExploredFields(userId, layerId),
+      this.isLayerFullyExplored(userId, layerId),
     ]);
 
     const exploredMap = new Map(
@@ -455,9 +477,13 @@ export class StarmapQueryService {
     );
 
     return allFields
-      .filter((field) => exploredMap.has(`${field.cx},${field.cy}`))
+      .filter(
+        (field) => fullyExplored || exploredMap.has(`${field.cx},${field.cy}`),
+      )
       .map((field) => {
-        const level = exploredMap.get(`${field.cx},${field.cy}`)!;
+        const level = fullyExplored
+          ? ExplorationLevel.FULL
+          : exploredMap.get(`${field.cx},${field.cy}`)!;
         if (level === ExplorationLevel.TERRAIN) {
           return {
             id: field.id,
@@ -512,7 +538,7 @@ export class StarmapQueryService {
     const minY = sectorY * layer.sectorSize + 1;
     const maxY = Math.min((sectorY + 1) * layer.sectorSize, layer.height);
 
-    const [allFields, exploredStates] = await Promise.all([
+    const [allFields, exploredStates, fullyExplored] = await Promise.all([
       this.galaxyFieldRepo.find({
         where: { layerId, cx: Between(minX, maxX), cy: Between(minY, maxY) },
         relations: ['fieldType', 'starSystem'],
@@ -526,6 +552,7 @@ export class StarmapQueryService {
         minY,
         maxY,
       ),
+      this.isLayerFullyExplored(userId, layerId),
     ]);
 
     const exploredMap = new Map(
@@ -536,7 +563,9 @@ export class StarmapQueryService {
     let hiddenCount = 0;
 
     for (const field of allFields) {
-      const level = exploredMap.get(`${field.cx},${field.cy}`);
+      const level = fullyExplored
+        ? ExplorationLevel.FULL
+        : exploredMap.get(`${field.cx},${field.cy}`);
       if (!level) {
         hiddenCount++;
         fields.push({

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import {
@@ -35,6 +35,7 @@ vi.mock('../components/starmap/StarmapCanvas', async () => {
         showFieldEffects?: boolean;
         showSensorCoverage?: boolean;
         focusField?: { cx: number; cy: number } | null;
+        fields: { cx: number; cy: number }[];
       }
     >(function StarmapCanvasMock(
       { worldOverlay, onInlineSystemsVisibleChange, ...props },
@@ -49,6 +50,9 @@ vi.mock('../components/starmap/StarmapCanvas', async () => {
       return (
         <div
           data-testid="starmap-canvas"
+          data-fields={props.fields
+            .map(({ cx, cy }) => `${cx},${cy}`)
+            .join(';')}
           data-territory={String(props.showTerritory)}
           data-impassable={String(props.showImpassable)}
           data-effects={String(props.showFieldEffects)}
@@ -454,6 +458,37 @@ describe('StarmapPage ship layer', () => {
     expect(refreshed).toContain('/starmap/layers/3/fields');
     expect(refreshed).toContain('/spacecraft/starmap-contacts?layerId=3');
     expect(refreshed.some((path) => String(path).includes('/influence/'))).toBe(true);
+  });
+
+  it('renders every field returned by the refreshed explored map response', async () => {
+    const canvas = renderPage();
+    const map = await screen.findByTestId('starmap-canvas');
+    await waitFor(() => expect(map.getAttribute('data-fields')).toBe('40,41;12,14'));
+
+    const completeFields = [
+      ...layerThreeFields,
+      {
+        ...layerThreeFields[0],
+        id: 502,
+        cx: 13,
+        cy: 14,
+        starSystem: null,
+        starSystemId: null,
+      },
+    ];
+    const get = apiMocks.get.getMockImplementation();
+    if (!get) throw new Error('API fixture not initialized');
+    apiMocks.get.mockImplementation((path: string) =>
+      path === '/starmap/layers/3/fields'
+        ? Promise.resolve(completeFields)
+        : get(path),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Aktualisieren' }));
+
+    await waitFor(() => expect(map.getAttribute('data-fields')).toBe('40,41;12,14;13,14'));
+    expect(apiMocks.get).toHaveBeenCalledWith('/starmap/layers/3/fields');
+    canvas.unmount();
   });
 
   it('loads the contacts of the displayed layer and draws a marker per cell', async () => {
