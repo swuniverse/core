@@ -148,6 +148,9 @@ export function LoginPage() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberLogin, setRememberLogin] = useState(
+    () => localStorage.getItem('swu-remember-login') !== 'false',
+  );
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<GalaxyStats | null>(null);
@@ -198,7 +201,8 @@ export function LoginPage() {
         username,
         password,
       });
-      setAuth(res.accessToken, res.refreshToken, res.user);
+      localStorage.setItem('swu-remember-login', String(rememberLogin));
+      setAuth(res.accessToken, res.refreshToken, res.user, rememberLogin);
       const routeByDefaultView: Record<string, string> = {
         maindesk: '/',
         colonies: '/colonies',
@@ -622,6 +626,22 @@ export function LoginPage() {
               required
               tabIndex={loginOpen ? 0 : -1}
             />
+          </label>
+          <label className="swu-field">
+            <input
+              type="checkbox"
+              name="rememberLogin"
+              checked={rememberLogin}
+              onChange={(event) => {
+                setRememberLogin(event.target.checked);
+                localStorage.setItem(
+                  'swu-remember-login',
+                  String(event.target.checked),
+                );
+              }}
+              tabIndex={loginOpen ? 0 : -1}
+            />
+            <span>Angemeldet bleiben</span>
           </label>
           <button
             className="swu-btn swu-btn--primary swu-btn--wide"

@@ -17,6 +17,8 @@ describe('LoginPage', () => {
   const observer = vi.fn();
 
   beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
     vi.stubGlobal(
       'IntersectionObserver',
       class {
@@ -39,6 +41,23 @@ describe('LoginPage', () => {
   afterEach(() => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it('remembers the remember-me choice locally and defaults to enabled', () => {
+    const { unmount } = render(<MemoryRouter><LoginPage /></MemoryRouter>);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Login' })[0]);
+    const rememberMe = screen.getByRole('checkbox', { name: 'Angemeldet bleiben' });
+
+    expect((rememberMe as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(rememberMe);
+    expect(localStorage.getItem('swu-remember-login')).toBe('false');
+
+    unmount();
+    render(<MemoryRouter><LoginPage /></MemoryRouter>);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Login' })[0]);
+    expect(
+      (screen.getByRole('checkbox', { name: 'Angemeldet bleiben' }) as HTMLInputElement).checked,
+    ).toBe(false);
   });
 
   it('opens the configured start view after a successful login', async () => {
@@ -74,6 +93,40 @@ describe('LoginPage', () => {
     fireEvent.submit(screen.getByLabelText('Login Formular'));
 
     expect(await screen.findByText('Research destination')).toBeTruthy();
+    expect(localStorage.getItem('swu-auth')).toContain('"accessToken":"access"');
+    expect(sessionStorage.getItem('swu-auth')).toBeNull();
+  });
+
+  it('stores authentication for the current browser session when remember-me is disabled', async () => {
+    vi.mocked(api.post).mockResolvedValue({
+      accessToken: 'session-access',
+      refreshToken: 'session-refresh',
+      user: {
+        id: 8,
+        username: 'han',
+        email: 'han@example.test',
+        prestige: 0,
+        onboardingCompleted: true,
+      },
+      defaultView: 'maindesk',
+    });
+
+    render(<MemoryRouter><LoginPage /></MemoryRouter>);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Login' })[0]);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Angemeldet bleiben' }));
+    fireEvent.change(screen.getByLabelText('Username'), {
+      target: { value: 'han' },
+    });
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'secret' },
+    });
+    fireEvent.submit(screen.getByLabelText('Login Formular'));
+
+    await waitFor(() =>
+      expect(sessionStorage.getItem('swu-auth')).toContain('"accessToken":"session-access"'),
+    );
+    expect(localStorage.getItem('swu-auth')).toBeNull();
+    expect(localStorage.getItem('swu-remember-login')).toBe('false');
   });
 
   it('shows a lost-password link only when password reset is active', async () => {
