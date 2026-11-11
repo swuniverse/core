@@ -1,6 +1,6 @@
 # Anomalien: Datenmodell, Registry und Lebenszyklus
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K1a, tmw-K3c
