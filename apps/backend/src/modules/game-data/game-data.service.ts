@@ -420,6 +420,7 @@ export interface ShipClassYamlDef {
   factionKey?: string | null;
   allowedBuildingFunctionIds?: number[];
   unlockTechId: number | null;
+  /** Build duration in seconds (despite the name). */
   buildTimeTicks: number;
   cargoCapacity: number;
   crewMin: number;

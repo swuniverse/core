@@ -4624,6 +4624,7 @@ describe('ship building compatibility', () => {
       crewMax: 2,
       cargoCapacity: 20,
       batteryBase: 5,
+      buildTimeTicks: 60,
     });
 
     const beforeBuild = Date.now();
@@ -4657,7 +4658,7 @@ describe('ship building compatibility', () => {
     );
   });
 
-  it('scales ship build queue finish time with the configured alpha multiplier', async () => {
+  it('scales ship build queue finish time with the configured alpha multiplier (build time is in seconds)', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-07-03T10:00:00.000Z'));
     try {
       const {
@@ -4709,14 +4710,75 @@ describe('ship building compatibility', () => {
         crewMax: 2,
         cargoCapacity: 20,
         batteryBase: 5,
-        buildTimeTicks: 4,
+        buildTimeTicks: 9600,
       });
 
       await service.buildShip(1, 1, 1, 'Red One', [], undefined);
 
       expect(shipBuildQueueRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          finishesAt: new Date('2026-07-03T10:02:00.000Z'),
+          finishesAt: new Date('2026-07-03T11:20:00.000Z'),
+        }),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('uses ship class buildTimeTicks as seconds without a multiplier', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-03T10:00:00.000Z'));
+    try {
+      const {
+        service,
+        colonyRepo,
+        storageRepo,
+        shipClassRepo,
+        shipBuildQueueRepo,
+      } = createColonyService();
+      colonyRepo.findOne.mockResolvedValue({
+        id: 1,
+        userId: 1,
+        starSystemId: 10,
+        celestialObjectId: 20,
+        currentLayerId: 1,
+        posX: 3,
+        posY: 4,
+        colonyClassId: 999,
+        fields: [
+          {
+            id: 1,
+            fieldIndex: 1,
+            buildingId: 85110100,
+            isBuilding: false,
+            isActive: true,
+          },
+        ],
+        storage: [],
+        starSystem: { layerId: 1 },
+      });
+      storageRepo.findOne.mockResolvedValue({ amount: 999 });
+      shipClassRepo.findOneBy.mockResolvedValue({
+        id: 1,
+        key: 'TEST_FIGHTER',
+        category: 'CORVETTE',
+        isNpc: false,
+        name: 'Test Fighter',
+        hullBase: 10,
+        shieldBase: 5,
+        epsBase: 20,
+        warpBase: 2,
+        crewMin: 1,
+        crewMax: 2,
+        cargoCapacity: 20,
+        batteryBase: 5,
+        buildTimeTicks: 9600,
+      });
+
+      await service.buildShip(1, 1, 1, 'Red One', [], undefined);
+
+      expect(shipBuildQueueRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          finishesAt: new Date('2026-07-03T12:40:00.000Z'),
         }),
       );
     } finally {
