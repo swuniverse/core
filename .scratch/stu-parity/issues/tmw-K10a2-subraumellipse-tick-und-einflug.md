@@ -1,9 +1,9 @@
 # Anomalien: Subraumellipse, Tick- und Einflugwirkung
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
-**Blocked by:** tmw-K10a1
+**Blocked by:** —
 
 ## Ziel
 
@@ -41,3 +41,5 @@ Implementiert die Subraumellipse als ersten konkreten Anomalietyp auf Basis des 
 ## Comments
 
 - 2026-11-06: Zweites geordnetes Child aus `tmw-K10a`; setzt `tmw-K10a1` voraus.
+- 2026-11-11: Vorgänger `tmw-K10a1` ist nach Integration in `stu-parity` auf `resolved` gesetzt; dessen ursprüngliche Abhängigkeit ist damit erfüllt. Ticket wieder im `ready-for-agent`-Frontier.
+- 2026-11-11: Von der Koordination für die Implementierung beansprucht (`claimed`).
