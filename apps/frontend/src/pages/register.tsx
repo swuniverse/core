@@ -1,9 +1,8 @@
 import { useEffect, useState, type SyntheticEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { api, ApiError } from '../services/api';
-import { useAuthStore } from '../stores/auth.store';
 import { StarField } from '../components/auth/StarField';
-import type { AuthResponse } from '@swuniverse/shared';
+import type { RegisterResponse } from '@swuniverse/shared';
 
 interface FactionModifiers {
   hullMultiplier: number;
@@ -67,13 +66,14 @@ export function RegisterPage() {
     if (hasDigit || hasSpecial) return 3;
     return 2;
   }
-  const [inviteKey, setInviteKey] = useState('');
   const [factionId, setFactionId] = useState<number | null>(null);
   const [factions, setFactions] = useState<FactionOption[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
-  const setAuth = useAuthStore((s) => s.setAuth);
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
+  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent'>(
+    'idle',
+  );
 
   useEffect(() => {
     api.get<FactionOption[]>('/factions').then(setFactions);
@@ -92,15 +92,13 @@ export function RegisterPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await api.post<AuthResponse>('/auth/register', {
+      const res = await api.post<RegisterResponse>('/auth/register', {
         username,
         email,
         password,
         factionId,
-        inviteKey: inviteKey.trim() || undefined,
       });
-      setAuth(res.accessToken, res.refreshToken, res.user);
-      navigate('/');
+      setRegisteredEmail(res.email);
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : 'Registrierung fehlgeschlagen',
@@ -108,6 +106,56 @@ export function RegisterPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleResend() {
+    if (!registeredEmail) return;
+    setResendState('sending');
+    try {
+      await api.post('/auth/resend-verification', { email: registeredEmail });
+    } finally {
+      setResendState('sent');
+    }
+  }
+
+  if (registeredEmail) {
+    return (
+      <main className="swu-page swu-page--register">
+        <StarField />
+        <CinematicBg />
+        <section
+          className="swu-register-shell"
+          aria-labelledby="register-confirm-title"
+        >
+          <div className="swu-register-card">
+            <div className="swu-register-card__header">
+              <p className="swu-eyebrow">SUBSPACE // BESTÄTIGUNG AUSSTEHEND</p>
+              <h1 id="register-confirm-title">Prüfe dein Postfach.</h1>
+              <p>
+                Wir haben einen Bestätigungslink an <strong>{registeredEmail}</strong>{' '}
+                geschickt. Sobald du ihn geöffnet hast, ist dein Konto aktiv und
+                du kannst dich anmelden. Der Link ist 24 Stunden gültig.
+              </p>
+            </div>
+            <button
+              className="swu-btn swu-btn--ghost swu-btn--wide"
+              type="button"
+              onClick={handleResend}
+              disabled={resendState !== 'idle'}
+            >
+              {resendState === 'sending'
+                ? 'Wird gesendet...'
+                : resendState === 'sent'
+                  ? 'Mail wurde erneut gesendet'
+                  : 'Mail erneut senden'}
+            </button>
+            <Link className="swu-register-card__back" to="/login">
+              Zurück zum Login
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -150,8 +198,8 @@ export function RegisterPage() {
             <p className="swu-eyebrow">NEW COMMANDER // SECTOR ACCESS</p>
             <h1 id="register-title">Dein Befehl beginnt hier.</h1>
             <p>
-              Sichere dein Rufzeichen, wähle eine Doktrin und erhalte Zugang zur
-              persistenten Galaxis. Plane deine Entwicklung per Tick und greife
+              Sichere dein Rufzeichen, wähle eine Doktrin und bestätige deine
+              E-Mail-Adresse, um Zugang zur persistenten Galaxis zu erhalten. Plane deine Entwicklung per Tick und greife
               live ein, sobald deine Flotte den Raum betritt.
             </p>
           </div>
@@ -177,7 +225,7 @@ export function RegisterPage() {
               />
             </label>
             <label className="swu-field">
-              <span>E-Mail <small className="swu-field__hint">für Zugangshinweise</small></span>
+              <span>E-Mail <small className="swu-field__hint">zur Kontobestätigung</small></span>
               <input
                 name="email"
                 type="email"
@@ -237,16 +285,6 @@ export function RegisterPage() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 minLength={8}
-              />
-            </label>
-            <label className="swu-field">
-              <span>Invite Key <small className="swu-field__hint">optional</small></span>
-              <input
-                name="invite"
-                inputMode="text"
-                placeholder="SWU-ABCDE-23456-FGHIJ"
-                value={inviteKey}
-                onChange={(e) => setInviteKey(e.target.value)}
               />
             </label>
           </div>

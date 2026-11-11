@@ -43,12 +43,12 @@ const features = [
 
 const steps = [
   {
-    title: 'Invite Key holen',
-    copy: 'Tritt dem Discord bei und sichere dir deinen persönlichen Alpha-Zugangsschlüssel.',
+    title: 'Commander anlegen',
+    copy: 'Registriere dich, wähle eine Fraktion und bestätige deine E-Mail-Adresse.',
   },
   {
-    title: 'Commander anlegen',
-    copy: 'Registriere dich, wähle eine Fraktion und richte deine erste Kolonie ein.',
+    title: 'Kolonie gründen',
+    copy: 'Melde dich an und richte deine erste Kolonie ein.',
   },
   {
     title: 'Befehl geben',
@@ -135,6 +135,11 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [unverified, setUnverified] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent'>(
+    'idle',
+  );
   const [stats, setStats] = useState<GalaxyStats | null>(null);
   const [gameStatus, setGameStatus] = useState<GameStatus>({
     status: 'ONLINE',
@@ -169,6 +174,8 @@ export function LoginPage() {
   async function handleLogin(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
+    setUnverified(false);
+    setResendState('idle');
     setLoading(true);
     try {
       const res = await api.post<AuthResponse>('/auth/login', {
@@ -178,11 +185,23 @@ export function LoginPage() {
       setAuth(res.accessToken, res.refreshToken, res.user);
       navigate('/onboarding');
     } catch (err) {
+      setUnverified(
+        err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED',
+      );
       setError(
         err instanceof ApiError ? err.message : 'Anmeldung fehlgeschlagen',
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResendVerification() {
+    setResendState('sending');
+    try {
+      await api.post('/auth/resend-verification', { email: loginEmail });
+    } finally {
+      setResendState('sent');
     }
   }
 
@@ -437,7 +456,7 @@ export function LoginPage() {
         aria-labelledby="cta-title"
       >
         <div className="swu-cta">
-          <p className="swu-eyebrow">CLOSED ALPHA // INVITE ONLY</p>
+          <p className="swu-eyebrow">OPEN ALPHA // JETZT REGISTRIEREN</p>
           <h2 id="cta-title">Setze den ersten Befehl.</h2>
           <p>Kein Pay-to-win. Keine permanente Echtzeit-Hektik. Eine Galaxis, die auf deine Planung und deine Live-Entscheidungen reagiert.</p>
           <div className="swu-cta__actions">
@@ -459,7 +478,7 @@ export function LoginPage() {
             </a>
             {gameStatus.status !== 'MAINTENANCE' && (
               <Link className="swu-btn swu-btn--ghost" to="/register">
-                Key eingeben
+                Registrieren
               </Link>
             )}
           </div>
@@ -537,6 +556,33 @@ export function LoginPage() {
           {error && (
             <div className="auth-error" role="alert">
               {error}
+            </div>
+          )}
+          {unverified && (
+            <div className="swu-field">
+              <span>E-Mail-Adresse deines Kontos</span>
+              <input
+                name="verification-email"
+                type="email"
+                autoComplete="email"
+                placeholder="commander@galaxy.net"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                tabIndex={loginOpen ? 0 : -1}
+              />
+              <button
+                className="swu-btn swu-btn--ghost swu-btn--wide"
+                type="button"
+                onClick={handleResendVerification}
+                disabled={!loginEmail || resendState !== 'idle'}
+                tabIndex={loginOpen ? 0 : -1}
+              >
+                {resendState === 'sending'
+                  ? 'Wird gesendet...'
+                  : resendState === 'sent'
+                    ? 'Falls ein Konto existiert, wurde eine Mail gesendet'
+                    : 'Bestätigungsmail erneut senden'}
+              </button>
             </div>
           )}
           <label className="swu-field">

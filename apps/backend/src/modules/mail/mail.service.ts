@@ -72,12 +72,51 @@ export class MailService {
     }
   }
 
+  sendVerificationMail(
+    to: string,
+    username: string,
+    token: string,
+  ): Promise<boolean> {
+    const baseUrl = (
+      this.config.get<string>('PUBLIC_URL') ??
+      this.config.get<string>('CORS_ORIGIN') ??
+      'http://localhost:5173'
+    ).replace(/\/+$/, '');
+    const link = `${baseUrl}/verify-email?token=${encodeURIComponent(token)}`;
+
+    if (!this.transporter) {
+      this.logger.warn(`Verification link for ${to}: ${link}`);
+    }
+
+    const subject = 'Bestaetige deine E-Mail-Adresse - Star Wars Universe';
+    const text = [
+      `Hallo ${username},`,
+      '',
+      'bitte bestaetige deine E-Mail-Adresse, um deinen Account zu aktivieren:',
+      link,
+      '',
+      'Der Link ist 24 Stunden gueltig.',
+      'Falls du dich nicht registriert hast, kannst du diese Mail ignorieren.',
+      '',
+      'Star Wars Universe',
+    ].join('\n');
+    const html = `
+      <p>Hallo ${this.escapeHtml(username)},</p>
+      <p>bitte bestaetige deine E-Mail-Adresse, um deinen Account bei <strong>Star Wars Universe</strong> zu aktivieren:</p>
+      <p><a href="${this.escapeHtml(link)}">E-Mail-Adresse bestaetigen</a></p>
+      <p>Der Link ist 24 Stunden gueltig. Falls du dich nicht registriert hast, kannst du diese Mail ignorieren.</p>
+      <p>Star Wars Universe</p>
+    `;
+
+    return this.sendMail({ to, subject, text, html });
+  }
+
   sendWelcomeMail(to: string, username: string): Promise<boolean> {
     const subject = 'Willkommen bei Star Wars Universe';
     const text = [
       `Hallo ${username},`,
       '',
-      'dein Account bei Star Wars Universe wurde erstellt.',
+      'deine E-Mail-Adresse ist bestaetigt, dein Account bei Star Wars Universe ist aktiv.',
       'Waehle im Spiel deine Fraktion und gruende deine erste Kolonie.',
       '',
       'Viel Erfolg im Outer Rim!',
@@ -85,7 +124,7 @@ export class MailService {
     ].join('\n');
     const html = `
       <p>Hallo ${this.escapeHtml(username)},</p>
-      <p>dein Account bei <strong>Star Wars Universe</strong> wurde erstellt.</p>
+      <p>deine E-Mail-Adresse ist bestaetigt, dein Account bei <strong>Star Wars Universe</strong> ist aktiv.</p>
       <p>Waehle im Spiel deine Fraktion und gruende deine erste Kolonie.</p>
       <p>Viel Erfolg im Outer Rim!<br />Star Wars Universe</p>
     `;

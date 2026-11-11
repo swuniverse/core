@@ -3,45 +3,20 @@ import { useAuthStore } from '../stores/auth.store';
 import { api } from '../services/api';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { getErrorMessage } from '../lib/errors';
-import { formatDate, formatInviteStatus, type InviteStatus } from '../lib/format';
+import { formatDate } from '../lib/format';
 
 type Tab =
   | 'profile'
   | 'security'
   | 'notifications'
   | 'gameplay'
-  | 'invites'
   | 'danger';
-
-interface InviteKeyView {
-  id: number;
-  keyPreview: string;
-  status: InviteStatus;
-  usedAt: string | null;
-  createdAt: string;
-}
-
-interface InviteQuotaView {
-  available: number;
-}
-
-interface MyInvitesResponse {
-  quota: InviteQuotaView;
-  keys: InviteKeyView[];
-}
-
-interface CreateInviteResponse {
-  quota: InviteQuotaView;
-  inviteKey: InviteKeyView;
-  plainKey: string;
-}
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'profile', label: 'Profil' },
   { key: 'security', label: 'Sicherheit' },
   { key: 'notifications', label: 'Benachrichtigungen' },
   { key: 'gameplay', label: 'Gameplay' },
-  { key: 'invites', label: 'Einladungen' },
   { key: 'danger', label: 'Gefahrenzone' },
 ];
 
@@ -73,7 +48,6 @@ export function SettingsPage() {
         {activeTab === 'security' && <SecurityTab />}
         {activeTab === 'notifications' && <NotificationsTab />}
         {activeTab === 'gameplay' && <GameplayTab />}
-        {activeTab === 'invites' && <InvitesTab />}
         {activeTab === 'danger' && <DangerTab />}
       </div>
     </div>
@@ -439,155 +413,6 @@ function GameplayTab() {
           <option value="starmap">Sternenkarte</option>
           <option value="messages">Nachrichten</option>
         </select>
-      </Section>
-    </div>
-  );
-}
-
-function InvitesTab() {
-  const [data, setData] = useState<MyInvitesResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState('');
-  const [newKey, setNewKey] = useState('');
-  const [copyMsg, setCopyMsg] = useState('');
-
-  const loadInvites = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      setData(await api.get<MyInvitesResponse>('/auth/invites'));
-    } catch (error: unknown) {
-      setError(getErrorMessage(error, 'Einladungen konnten nicht geladen werden.'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadInvites();
-  }, []);
-
-  const createInvite = async () => {
-    setCreating(true);
-    setError('');
-    setNewKey('');
-    setCopyMsg('');
-    try {
-      const created = await api.post<CreateInviteResponse>('/auth/invites', {});
-      setNewKey(created.plainKey);
-      setData((current) => ({
-        quota: created.quota,
-        keys: [created.inviteKey, ...(current?.keys ?? [])],
-      }));
-    } catch (error: unknown) {
-      setError(getErrorMessage(error, 'Invite Key konnte nicht erstellt werden.'));
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const copyNewKey = async () => {
-    if (!newKey) return;
-    await navigator.clipboard.writeText(newKey);
-    setCopyMsg('Key kopiert');
-  };
-
-  if (loading) return <p className="text-swu-muted text-sm">Laden...</p>;
-
-  return (
-    <div className="space-y-4 max-w-3xl">
-      <Section title="Alpha-Einladungen">
-        <p className="text-sm text-swu-muted">
-          Jeder Commander kann bis zu zwei Invite Keys aus seinem persönlichen
-          Kontingent erzeugen und direkt an Freunde weitergeben. Keys werden aus
-          Sicherheitsgruenden nur direkt nach Erstellung voll angezeigt.
-        </p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <InfoRow
-            label="Freies Kontingent"
-            value={String(data?.quota.available ?? 0)}
-          />
-          <InfoRow
-            label="Erzeugte Keys"
-            value={String(data?.keys.length ?? 0)}
-          />
-          <InfoRow
-            label="Aktive Keys"
-            value={String(
-              data?.keys.filter((key) => key.status === 'available').length ??
-                0,
-            )}
-          />
-        </div>
-        <button
-          onClick={createInvite}
-          disabled={creating || (data?.quota.available ?? 0) <= 0}
-          className="mt-4 px-4 py-2 bg-swu-accent/20 border border-swu-accent text-swu-accent text-sm font-semibold rounded hover:bg-swu-accent/30 transition-colors disabled:opacity-50"
-        >
-          {creating ? 'Key wird erzeugt...' : 'Invite Key erzeugen'}
-        </button>
-        {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
-      </Section>
-
-      {newKey && (
-        <Section title="Neuer Invite Key">
-          <p className="text-xs text-swu-warning mb-2">
-            Dies ist die einzige vollstaendige Anzeige. Kopiere den Key jetzt.
-          </p>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <code className="flex-1 rounded border border-swu-accent/40 bg-swu-bg px-3 py-2 text-sm text-swu-accent">
-              {newKey}
-            </code>
-            <button
-              onClick={copyNewKey}
-              className="px-4 py-2 bg-swu-bg border border-swu-border text-swu-primary text-sm rounded hover:text-swu-accent transition-colors"
-            >
-              Kopieren
-            </button>
-          </div>
-          {copyMsg && <p className="text-xs text-swu-muted mt-2">{copyMsg}</p>}
-        </Section>
-      )}
-
-      <Section title="Meine Keys">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="text-xs uppercase text-swu-muted">
-              <tr>
-                <th className="py-2 pr-3">Vorschau</th>
-                <th className="py-2 pr-3">Status</th>
-                <th className="py-2 pr-3">Erstellt</th>
-                <th className="py-2 pr-3">Genutzt</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data?.keys ?? []).map((key) => (
-                <tr key={key.id} className="border-t border-swu-border/40">
-                  <td className="py-2 pr-3 font-mono text-swu-primary">
-                    {key.keyPreview}
-                  </td>
-                  <td className="py-2 pr-3 text-swu-muted">
-                    {formatInviteStatus(key.status)}
-                  </td>
-                  <td className="py-2 pr-3 text-swu-muted">
-                    {formatDate(key.createdAt)}
-                  </td>
-                  <td className="py-2 pr-3 text-swu-muted">
-                    {key.usedAt ? formatDate(key.usedAt) : '—'}
-                  </td>
-                </tr>
-              ))}
-              {(!data?.keys || data.keys.length === 0) && (
-                <tr>
-                  <td className="py-4 text-swu-muted" colSpan={4}>
-                    Noch keine Invite Keys erzeugt.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
       </Section>
     </div>
   );

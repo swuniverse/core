@@ -12,8 +12,6 @@ import { LastActivityService } from './last-activity.service';
 import { AdminGuard } from './admin.guard';
 import { AdminBootstrapService } from './admin-bootstrap.service';
 import { User } from './user.entity';
-import { InviteKey } from './invite-key.entity';
-import { InviteQuota } from './invite-quota.entity';
 import { FactionEntity } from '../faction/entities/faction.entity';
 import { ColonyModule } from '../colony/colony.module';
 import { FactionModule } from '../faction/faction.module';
@@ -22,7 +20,7 @@ import { GameStatusModule } from '../game-status/game-status.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, FactionEntity, InviteKey, InviteQuota]),
+    TypeOrmModule.forFeature([User, FactionEntity]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

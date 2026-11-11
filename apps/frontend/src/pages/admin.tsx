@@ -29,13 +29,6 @@ const adminCards = [
     badge: 'Starmap',
   },
   {
-    title: 'Einladungen',
-    path: '/admin/invites',
-    description:
-      'Closed-Alpha Invite Keys, Spieler-Kontingente und neu ausgestellte Keys verwalten.',
-    badge: 'Alpha',
-  },
-  {
     title: 'Benutzerrechte',
     path: '/admin/users',
     description:

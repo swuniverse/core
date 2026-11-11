@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/auth.store';
 import { AppShell } from '../components/layout/app-shell';
 import { LoginPage } from '../pages/login';
 import { RegisterPage } from '../pages/register';
+import { VerifyEmailPage } from '../pages/verify-email';
 import { DashboardPage } from '../pages/dashboard';
 import { ColoniesPage } from '../pages/colonies';
 import { SpacecraftPage } from '../pages/spacecraft';
@@ -22,7 +23,6 @@ import { AllianceMemberOverviewPage } from '../pages/alliance-member-overview';
 import { StarmapAdminFullmapPage } from '../pages/starmap-admin-fullmap';
 import { AdminPage } from '../pages/admin';
 import { AdminShipsPage } from '../pages/admin-ships';
-import { AdminInvitesPage } from '../pages/admin-invites';
 import { AdminUsersPage } from '../pages/admin-users';
 import { NotesPage } from '../pages/notes';
 import { ColonyScansPage } from '../pages/colony-scans';
@@ -89,6 +89,7 @@ export function App() {
               </PublicOnlyRoute>
             }
           />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route
             element={
               <ProtectedRoute>
@@ -124,14 +125,6 @@ export function App() {
                 <MapEditorRoute>
                   <StarmapAdminFullmapPage />
                 </MapEditorRoute>
-              }
-            />
-            <Route
-              path="/admin/invites"
-              element={
-                <AdminRoute>
-                  <AdminInvitesPage />
-                </AdminRoute>
               }
             />
             <Route

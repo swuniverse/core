@@ -73,7 +73,7 @@ async function request<T>(
         window.location.assign(`/login?${params}`);
       }
     }
-    throw new ApiError(res.status, body.message || res.statusText);
+    throw new ApiError(res.status, body.message || res.statusText, body.code);
   }
 
   const text = await res.text();
@@ -84,6 +84,7 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public code?: string,
   ) {
     super(message);
     this.name = 'ApiError';

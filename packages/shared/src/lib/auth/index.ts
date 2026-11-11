@@ -3,7 +3,11 @@ export interface RegisterDto {
   email: string;
   password: string;
   factionId: number;
-  inviteKey?: string;
+}
+
+export interface RegisterResponse {
+  message: string;
+  email: string;
 }
 
 export interface LoginDto {

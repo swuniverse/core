@@ -4,7 +4,6 @@ import {
   MinLength,
   MaxLength,
   IsInt,
-  IsOptional,
 } from 'class-validator';
 
 export class RegisterRequestDto {
@@ -23,10 +22,4 @@ export class RegisterRequestDto {
 
   @IsInt()
   factionId: number;
-
-  @IsOptional()
-  @IsString()
-  @MinLength(8)
-  @MaxLength(128)
-  inviteKey?: string;
 }

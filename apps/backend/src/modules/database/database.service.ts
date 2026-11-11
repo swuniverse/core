@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, Not, IsNull } from 'typeorm';
 import { User } from '../auth/user.entity';
 import { Colony } from '../colony/entities/colony.entity';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
@@ -114,7 +114,7 @@ export class DatabaseService {
 
   async getOverview() {
     const [settlers, colonies, ships] = await Promise.all([
-      this.userRepo.count(),
+      this.userRepo.count({ where: { emailVerifiedAt: Not(IsNull()) } }),
       this.colonyRepo.count(),
       this.shipRepo.count(),
     ]);

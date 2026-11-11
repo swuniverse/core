@@ -24,8 +24,6 @@ import { OrderBroadcast } from './modules/order-broadcast/entities/order-broadca
 import { OrderBroadcastAck } from './modules/order-broadcast/entities/order-broadcast-ack.entity';
 import { GameStatusModule } from './modules/game-status/game-status.module';
 import { User } from './modules/auth/user.entity';
-import { InviteKey } from './modules/auth/invite-key.entity';
-import { InviteQuota } from './modules/auth/invite-quota.entity';
 import { Colony } from './modules/colony/entities/colony.entity';
 import { ColonyField } from './modules/colony/entities/colony-field.entity';
 import { ColonyStorage } from './modules/colony/entities/colony-storage.entity';
@@ -118,8 +116,6 @@ import { ForumPost } from './modules/alliance/entities/forum-post.entity';
         url: config.get('DATABASE_URL'),
         entities: [
           User,
-          InviteKey,
-          InviteQuota,
           Colony,
           ColonyField,
           ColonyStorage,
