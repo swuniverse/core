@@ -188,3 +188,39 @@ export interface TradeOfferOptionsDto {
   /** Commodities that may be wanted in return. */
   tradeableCommodities: Array<{ id: number; name: string }>;
 }
+
+export type TradeOfferSearchMode = 'offer' | 'demand' | 'both';
+
+/** An offer at a licensed post as seen by the searching player. */
+export interface TradeOfferListItemDto extends TradeOfferDto {
+  networkId: number;
+  ownerName: string;
+  isOwn: boolean;
+  /** How often the player can take it now (stock, space, remaining count). */
+  maxTake: number;
+}
+
+/** `GET trade/offers?commodityId=&mode=&postId=&page=` */
+export interface TradeOfferSearchDto {
+  items: TradeOfferListItemDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+  /** Posts with a valid own license, for the post filter. */
+  licensedPosts: Array<{ id: number; name: string }>;
+  /** Tradeable commodities, for the commodity filter. */
+  commodities: Array<{ id: number; name: string }>;
+}
+
+/** `GET trade/offers/by-commodity/:id`: offers giving or wanting one commodity. */
+export interface TradeOfferCommodityOverviewDto {
+  commodityId: number;
+  commodityName: string;
+  offered: TradeOfferListItemDto[];
+  wanted: TradeOfferListItemDto[];
+}
+
+export interface TakeTradeOfferResultDto {
+  taken: number;
+  message: string;
+}

@@ -24,12 +24,14 @@ describe('TradeController', () => {
   const purchases = { purchase: jest.fn(), renew: jest.fn() };
   const menus = { getMenu: jest.fn(), getPostAtSpacecraft: jest.fn() };
   const offers = { listMine: jest.fn(), getOptions: jest.fn(), create: jest.fn(), cancel: jest.fn() };
+  const market = { search: jest.fn(), byCommodity: jest.fn(), take: jest.fn() };
   const controller = new TradeController(
     query as never,
     licenses as never,
     purchases as never,
     menus as never,
     offers as never,
+    market as never,
   );
 
   beforeEach(() => jest.clearAllMocks());
@@ -100,5 +102,17 @@ describe('TradeController', () => {
     expect(offers.getOptions).toHaveBeenCalledWith(7, 42);
     expect(offers.create).toHaveBeenCalledWith(7, 42, input);
     expect(offers.cancel).toHaveBeenCalledWith(3, 42);
+  });
+
+  it('searches, summarizes and takes offers for the authenticated player', async () => {
+    await controller.searchOffers({ user: { sub: 42 } }, 5, 'demand', 7, 2);
+    await controller.searchOffers({ user: { sub: 42 } }, undefined, 'bogus');
+    await controller.getOffersByCommodity(5, { user: { sub: 42 } });
+    await controller.takeOffer(3, { user: { sub: 42 } }, 4);
+
+    expect(market.search).toHaveBeenNthCalledWith(1, 42, { commodityId: 5, mode: 'demand', postId: 7, page: 2 });
+    expect(market.search).toHaveBeenNthCalledWith(2, 42, { commodityId: undefined, mode: 'both', postId: undefined, page: undefined });
+    expect(market.byCommodity).toHaveBeenCalledWith(42, 5);
+    expect(market.take).toHaveBeenCalledWith(3, 42, 4);
   });
 });

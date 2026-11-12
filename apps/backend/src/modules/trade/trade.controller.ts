@@ -23,8 +23,9 @@ import {
 } from './trade-license-purchase.service';
 import { TradeLicenseMenuService } from './trade-license-menu.service';
 import { TradeOfferService } from './trade-offer.service';
+import { TradeOfferMarketService } from './trade-offer-market.service';
 import { TradeQueryService } from './trade-query.service';
-import type { CreateTradeOfferDto } from '@swuniverse/shared';
+import type { CreateTradeOfferDto, TradeOfferSearchMode } from '@swuniverse/shared';
 
 @Controller('trade')
 @RequiresGameAccess()
@@ -36,6 +37,7 @@ export class TradeController {
     private readonly purchases: TradeLicensePurchaseService,
     private readonly menus: TradeLicenseMenuService,
     private readonly offers: TradeOfferService,
+    private readonly market: TradeOfferMarketService,
   ) {}
 
   @Get('posts')
@@ -59,6 +61,35 @@ export class TradeController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.licenses.listIssued(id, req.user.sub);
+  }
+
+  @Get('offers')
+  searchOffers(
+    @Request() req: { user: { sub: number } },
+    @Query('commodityId', new ParseIntPipe({ optional: true })) commodityId?: number,
+    @Query('mode') mode?: string,
+    @Query('postId', new ParseIntPipe({ optional: true })) postId?: number,
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+  ) {
+    const searchMode: TradeOfferSearchMode = mode === 'offer' || mode === 'demand' ? mode : 'both';
+    return this.market.search(req.user.sub, { commodityId, mode: searchMode, postId, page });
+  }
+
+  @Get('offers/by-commodity/:id')
+  getOffersByCommodity(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.market.byCommodity(req.user.sub, id);
+  }
+
+  @Post('offers/:id/take')
+  takeOffer(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('amount') amount: number,
+  ) {
+    return this.market.take(id, req.user.sub, amount);
   }
 
   @Get('offers/mine')

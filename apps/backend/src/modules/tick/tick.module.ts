@@ -39,6 +39,7 @@ import { LayerMapCycleService } from '../starmap/layer-map-cycle.service';
 import { AnomalyModule } from '../anomaly/anomaly.module';
 import { TradeModule } from '../trade/trade.module';
 import { TradeLicenseMaintenanceService } from '../trade/trade-license-maintenance.service';
+import { TradeOfferMaintenanceService } from '../trade/trade-offer-maintenance.service';
 
 @Module({
   imports: [
@@ -87,12 +88,14 @@ import { TradeLicenseMaintenanceService } from '../trade/trade-license-maintenan
         profileVisitors: ProfileVisitorService,
         layerMapCycle: LayerMapCycleService,
         tradeLicenses: TradeLicenseMaintenanceService,
-      ) => [topFlightsReward, profileVisitors, layerMapCycle, tradeLicenses],
+        tradeOffers: TradeOfferMaintenanceService,
+      ) => [topFlightsReward, profileVisitors, layerMapCycle, tradeLicenses, tradeOffers],
       inject: [
         TopFlightsRewardService,
         ProfileVisitorService,
         LayerMapCycleService,
         TradeLicenseMaintenanceService,
+        TradeOfferMaintenanceService,
       ],
     },
   ],

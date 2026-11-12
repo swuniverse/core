@@ -9,12 +9,13 @@ import type {
 } from '@swuniverse/shared';
 import { PageHeader, type PageHeaderSegment } from '../components/PageHeader';
 import { TradeLicensePanel } from '../components/trade/TradeLicensePanel';
+import { TradeMarketTab } from '../components/trade/TradeMarketTab';
 import { TradeOffersTab } from '../components/trade/TradeOffersTab';
 import { commodityImage } from '../lib/assets';
 import { formatDateTime, formatNumber } from '../lib/format';
 import { api } from '../services/api';
 
-type TradeTab = 'accounts' | 'posts' | 'licenses' | 'offers';
+type TradeTab = 'accounts' | 'posts' | 'licenses' | 'market' | 'offers';
 
 type CommodityName = { id: number; name: string };
 
@@ -22,6 +23,7 @@ const TABS: { key: TradeTab; label: string }[] = [
   { key: 'accounts', label: 'Warenkonten' },
   { key: 'posts', label: 'Handelsposten' },
   { key: 'licenses', label: 'Lizenzen' },
+  { key: 'market', label: 'Angebote' },
   { key: 'offers', label: 'Meine Angebote' },
 ];
 
@@ -58,7 +60,9 @@ export function TradePage() {
 
   const tabParam = searchParams.get('tab');
   const tab: TradeTab =
-    tabParam === 'posts' || tabParam === 'licenses' || tabParam === 'offers' ? tabParam : 'accounts';
+    tabParam === 'posts' || tabParam === 'licenses' || tabParam === 'market' || tabParam === 'offers'
+      ? tabParam
+      : 'accounts';
   const selectedPostId = Number(searchParams.get('post')) || null;
   const shipId = Number(searchParams.get('ship')) || null;
 
@@ -107,6 +111,8 @@ export function TradePage() {
   const segments: PageHeaderSegment[] = [{ label: 'Handel', to: '/trade' }];
   if (tab === 'licenses') {
     segments.push({ label: 'Lizenzen' });
+  } else if (tab === 'market') {
+    segments.push({ label: 'Angebote' });
   } else if (tab === 'offers') {
     segments.push({ label: 'Meine Angebote' });
   } else if (tab === 'posts' || selectedPost) {
@@ -144,6 +150,8 @@ export function TradePage() {
           commodityName={commodityName}
           onSelect={(id) => select({ tab: 'posts', post: id })}
         />
+      ) : tab === 'market' ? (
+        <TradeMarketTab />
       ) : tab === 'offers' ? (
         <TradeOffersTab />
       ) : tab === 'licenses' ? (
