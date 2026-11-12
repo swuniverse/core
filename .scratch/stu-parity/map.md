@@ -168,6 +168,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-K10b1 – Ionensturm nach STU: Erzeugung je Ebenendichte (konfigurierbar), Bewegung, Ausbreitung über Restticks, Intensität in LSS/Feldkontext/Umgebungsscan, Navigationswarnung – a12d7025
 - tmw-K10a3 – Aktive Anomalien mit Typ, Name und Restdauer in LSS (Galaxie/System), Feldkontext und Kolonie-Umgebungsscan; LSS-/Scan-Icon mit Fallback, fehlende Anomalie-Assets dokumentiert – 0c8b2ee4
 - tmw-K10a2 – Subraumellipse: explizite `anomalyMass` je Schiffsklasse, STU-Score je Ort mit Schwelle und Prozentprobe, Ein-Tick-Wirkung (Schilde entladen, Emitterschaden 1–50) mit gebündelten Berichten; Einflug-Dispatch über die Flugfolgen-Pipeline – 0f3ddac6
 - soc-F3c – Login-Option „Angemeldet bleiben“: ohne Häkchen nur Sitzungsspeicher, Logout leert beide Speicher, Wahl bleibt beim Token-Refresh erhalten – a6ca67e0
