@@ -168,6 +168,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- soc-F3c – Login-Option „Angemeldet bleiben“: ohne Häkchen nur Sitzungsspeicher, Logout leert beide Speicher, Wahl bleibt beim Token-Refresh erhalten – a6ca67e0
 - sc-WP-SENS-2b – Peilsender markieren fremde Schiffe am Feld, melden Position und Restlaufzeit und erlauben den Angriff auf das getrackte Ziel – siehe Feature-Commit
 - sc-WP-SENS-2a – Hyperraumfeldscanner zeigt fremde Subraumspuren im LSS; Matrixsensoren ermöglichen die gezielte 100-EPS-Analyse – siehe Feature-Commit
 - sc-WP-ENG-5 – Hypermaterie-Transferkoppler überträgt Reaktorladung transaktional an mehrere gleich positionierte, ungetarnte Schiffe und informiert fremde Eigentümer – siehe Feature-Commit
