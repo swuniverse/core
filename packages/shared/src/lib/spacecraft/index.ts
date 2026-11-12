@@ -1,5 +1,5 @@
 import type { Stance } from '../alliance/index.js';
-import type { SpaceLocationDto } from '../starmap/index.js';
+import type { AnomalyViewDto, SpaceLocationDto } from '../starmap/index.js';
 import type { ShipModuleSelection } from '../colony/index.js';
 
 export interface StationShipBuildRequestDto {
@@ -878,6 +878,7 @@ export interface SpacecraftFieldContextDto {
     canBuild: boolean;
   };
   buoys?: SpacecraftBuoyDto[];
+  anomalies?: AnomalyViewDto[];
   information: {
     canSectorScan: boolean;
     cartographyKnown: boolean;

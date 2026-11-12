@@ -6,6 +6,8 @@ import type { Anomaly } from './entities/anomaly.entity';
 
 export interface AnomalyHandler {
   readonly key: string;
+  /** Player-facing name; the type key is shown when omitted. */
+  readonly name?: string;
   checkForCreation(manager: EntityManager, transaction?: TransactionalNotifications): Promise<void>;
   handleTick(anomaly: Anomaly, manager: EntityManager, transaction?: TransactionalNotifications): Promise<void>;
   handleIncomingSpacecraft(
@@ -32,6 +34,10 @@ export class AnomalyRegistry {
     const handler = this.handlers.get(key);
     if (!handler) throw new Error(`No anomaly handler registered: ${key}`);
     return handler;
+  }
+
+  find(key: string): AnomalyHandler | undefined {
+    return this.handlers.get(key);
   }
 
   all(): readonly AnomalyHandler[] {

@@ -14,6 +14,9 @@ jest.mock('./colony-ownership.service', () => ({
 jest.mock('../spacecraft/flight-signature.service', () => ({
   FlightSignatureService: class FlightSignatureService {},
 }));
+jest.mock('../anomaly/anomaly-query.service', () => ({
+  AnomalyQueryService: class AnomalyQueryService {},
+}));
 
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { FindOperator } from 'typeorm';
@@ -114,14 +117,32 @@ describe('ColonyEnvironmentScanService', () => {
         fadedSignatures: { uncloaked: 2, cloaked: 1 },
       })),
     };
+    const anomalyQuery = {
+      findAtSystemFields: jest.fn(
+        async () =>
+          new Map([
+            [
+              11,
+              [
+                {
+                  type: 'SUBSPACE_ELLIPSE',
+                  name: 'Subraumellipse',
+                  remainingTicks: 1,
+                },
+              ],
+            ],
+          ]),
+      ),
+    };
     const service = new ColonyEnvironmentScanService(
       ownership as never,
       starmap as never,
       shipRepo as never,
       flightSignatures as never,
+      anomalyQuery as never,
     );
 
-    return { ownership, starmap, shipRepo, flightSignatures, service };
+    return { ownership, starmap, shipRepo, flightSignatures, anomalyQuery, service };
   }
 
   it('validates ownership before querying scan data', async () => {
@@ -152,7 +173,8 @@ describe('ColonyEnvironmentScanService', () => {
   });
 
   it('clips a 5x5 scan and reuses sector-scan signature visibility', async () => {
-    const { ownership, starmap, shipRepo, flightSignatures, service } = setup();
+    const { ownership, starmap, shipRepo, flightSignatures, anomalyQuery, service } =
+      setup();
 
     const result = await service.getScan(7, 99);
 
@@ -169,6 +191,7 @@ describe('ColonyEnvironmentScanService', () => {
     expect(findOptions.where.status.type).toBe('not');
     expect(findOptions.where.status.value).toBe(SpacecraftStatus.DESTROYED);
     expect(flightSignatures.getVisibleAt).toHaveBeenCalledWith(10, 99);
+    expect(anomalyQuery.findAtSystemFields).toHaveBeenCalledWith([10, 11]);
     expect(result).toEqual({
       bounds: { minX: 1, maxX: 3, minY: 1, maxY: 4 },
       fields: [
@@ -210,7 +233,15 @@ describe('ColonyEnvironmentScanService', () => {
       ],
       fadedSignatures: { uncloaked: 2, cloaked: 1 },
       colonyShields: [{ colonyId: 7, x: 2, y: 2, shielded: true }],
-      anomalies: [],
+      anomalies: [
+        {
+          x: 3,
+          y: 4,
+          type: 'SUBSPACE_ELLIPSE',
+          name: 'Subraumellipse',
+          remainingTicks: 1,
+        },
+      ],
     });
     for (const signature of result.signatures) {
       expect(Object.keys(signature).sort()).toEqual(['visibleCount', 'x', 'y']);

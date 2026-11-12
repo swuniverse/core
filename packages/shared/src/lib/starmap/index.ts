@@ -1,6 +1,7 @@
 export * from './planet-classes.js';
 export * from './colonization-rules.js';
 export * from './swu-planet-assets.js';
+export * from './anomalies.js';
 
 export type SpaceLocationDto =
   | {

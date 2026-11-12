@@ -12,6 +12,7 @@ import { FlightSignatureService } from '../spacecraft/flight-signature.service';
 import { isHiddenFromViewer } from '../spacecraft/spacecraft-cloak';
 import { resolveColonyLocation } from './colony-location';
 import { ColonyOwnershipService } from './colony-ownership.service';
+import { AnomalyQueryService } from '../anomaly/anomaly-query.service';
 
 @Injectable()
 export class ColonyEnvironmentScanService {
@@ -21,6 +22,7 @@ export class ColonyEnvironmentScanService {
     @InjectRepository(Spacecraft)
     private readonly shipRepo: Repository<Spacecraft>,
     private readonly flightSignatureService: FlightSignatureService,
+    private readonly anomalyQuery: AnomalyQueryService,
   ) {}
 
   async getScan(
@@ -88,10 +90,16 @@ export class ColonyEnvironmentScanService {
       }
     }
 
+    const scannedFields = grid.fields.filter((field) =>
+      inBounds(field.sx, field.sy),
+    );
+    const anomaliesByField = await this.anomalyQuery.findAtSystemFields(
+      scannedFields.map((field) => field.id),
+    );
+
     return {
       bounds,
-      fields: grid.fields
-        .filter((field) => inBounds(field.sx, field.sy))
+      fields: scannedFields
         .map((field) => ({
           x: field.sx,
           y: field.sy,
@@ -117,7 +125,13 @@ export class ColonyEnvironmentScanService {
           y: shield.posY,
           shielded: shield.shielded,
         })),
-      anomalies: [],
+      anomalies: scannedFields.flatMap((field) =>
+        (anomaliesByField.get(field.id) ?? []).map((anomaly) => ({
+          ...anomaly,
+          x: field.sx,
+          y: field.sy,
+        })),
+      ),
     };
   }
 }

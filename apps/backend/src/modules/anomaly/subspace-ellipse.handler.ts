@@ -19,6 +19,7 @@ type SystemState = { active?: boolean; integrity?: number; current?: number };
 
 export class SubspaceEllipseHandler implements AnomalyHandler {
   readonly key = 'SUBSPACE_ELLIPSE';
+  readonly name = 'Subraumellipse';
 
   constructor(
     private readonly messaging: MessagingService,

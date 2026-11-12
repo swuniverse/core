@@ -1,3 +1,4 @@
+import { AnomalyModule } from '../anomaly/anomaly.module';
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ShipbuildingModule } from '../shipbuilding/shipbuilding.module';
@@ -97,6 +98,7 @@ import { Layer } from '../starmap/entities/layer.entity';
     ResearchModule,
     FactionModule,
     StarmapModule,
+    AnomalyModule,
     forwardRef(() => SpacecraftFeatureModule),
   ],
   controllers: [ColonyController],

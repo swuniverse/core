@@ -2,6 +2,7 @@ import { Fragment } from 'react';
 import {
   fieldEffectDefinition,
   knownFieldEffects,
+  type AnomalyViewDto,
   type FieldEffect,
 } from '@swuniverse/shared';
 import {
@@ -10,6 +11,7 @@ import {
   getSystemFieldStyle,
 } from './field-styles';
 import { PlanetImg } from '../PlanetImg';
+import { AnomalyMarkers, formatAnomaly } from '../starmap/AnomalyMarker';
 import {
   planetThumbnail,
   spaceBackgroundTile,
@@ -40,6 +42,7 @@ interface GalaxyLocalField {
   regionName?: string | null;
   isPassable?: boolean;
   effects?: string[] | null;
+  anomalies?: AnomalyViewDto[];
   energyCost?: number;
   damage?: number;
 }
@@ -64,6 +67,7 @@ interface SystemLocalField {
     colonyName?: string | null;
   } | null;
   effects?: string[] | null;
+  anomalies?: AnomalyViewDto[];
   energyCost?: number;
   damage?: number;
 }
@@ -174,6 +178,12 @@ function fieldEffects(field: {
   fieldType?: FieldType;
 }): FieldEffect[] {
   return knownFieldEffects(field.effects ?? field.fieldType?.effects);
+}
+
+function anomalyText(field: { anomalies?: AnomalyViewDto[] }): string {
+  return field.anomalies?.length
+    ? `, Anomalie: ${field.anomalies.map(formatAnomaly).join(', ')}`
+    : '';
 }
 
 function fieldEffectText(field: {
@@ -341,7 +351,7 @@ export function LssMap({
                       type="button"
                       onClick={() => onFieldClick(x, y)}
                       style={{ width: cellSize, height: cellSize }}
-                      aria-label={`Feld ${x},${y}: ${field.fieldType.name}${field.starSystem ? `, ${field.starSystem.name}` : ''}${field.regionName ? `, Region: ${field.regionName}` : ''}${isShip ? ', aktuelles Schiff' : ''}${isTarget ? ', Ziel' : ''}${signatureLabel}${fieldEffectText(field)}`}
+                      aria-label={`Feld ${x},${y}: ${field.fieldType.name}${field.starSystem ? `, ${field.starSystem.name}` : ''}${field.regionName ? `, Region: ${field.regionName}` : ''}${isShip ? ', aktuelles Schiff' : ''}${isTarget ? ', Ziel' : ''}${signatureLabel}${anomalyText(field)}${fieldEffectText(field)}`}
                       className={[
                         'relative border text-[10px] flex items-center justify-center transition-all',
                         getGalaxyFieldStyle(field.fieldType.key),
@@ -351,7 +361,7 @@ export function LssMap({
                           ? 'shadow-[0_0_8px_rgba(255,220,120,0.3)]'
                           : '',
                       ].join(' ')}
-                      title={`[${x},${y}] ${field.fieldType.name}${field.starSystem ? ` · ${field.starSystem.name}` : ''}${field.regionName ? ` · Region: ${field.regionName}` : ''}${signatureLabel}`}
+                      title={`[${x},${y}] ${field.fieldType.name}${field.starSystem ? ` · ${field.starSystem.name}` : ''}${field.regionName ? ` · Region: ${field.regionName}` : ''}${signatureLabel}${anomalyText(field)}`}
                     >
                       {systemAsset ? (
                         <img
@@ -375,6 +385,7 @@ export function LssMap({
                       {field.starSystemId
                         ? '✦'
                         : getGalaxyFieldMarker(field.fieldType.key)}
+                      <AnomalyMarkers anomalies={field.anomalies} />
                       <SubspaceTraces traces={subspaceTraces} />
                       {signatureCount != null && (
                         <span className="absolute inset-0 z-20 grid place-items-center font-bold text-white drop-shadow-[0_1px_1px_black]">
@@ -470,7 +481,7 @@ export function LssMap({
                     type="button"
                     onClick={() => onFieldClick(x, y)}
                     style={{ width: cellSize, height: cellSize }}
-                    aria-label={`Feld ${x},${y}: ${field.celestialObject?.name ?? field.fieldType.name}${isShip ? ', aktuelles Schiff' : ''}${isTarget ? ', Ziel' : ''}${isCartographyPoint ? ', verbleibender Messpunkt' : ''}${signatureLabel}${fieldEffectText(field)}`}
+                    aria-label={`Feld ${x},${y}: ${field.celestialObject?.name ?? field.fieldType.name}${isShip ? ', aktuelles Schiff' : ''}${isTarget ? ', Ziel' : ''}${isCartographyPoint ? ', verbleibender Messpunkt' : ''}${signatureLabel}${anomalyText(field)}${fieldEffectText(field)}`}
                     className={[
                       showStarTile
                         ? 'relative flex items-center justify-center overflow-hidden border-0 rounded-none'
@@ -521,6 +532,7 @@ export function LssMap({
                     ) : (
                       fallbackLabel
                     )}
+                    <AnomalyMarkers anomalies={field.anomalies} />
                     <SubspaceTraces traces={subspaceTraces} />
                     {signatureCount != null && (
                       <span className="absolute inset-0 z-20 grid place-items-center font-bold text-white drop-shadow-[0_1px_1px_black]">

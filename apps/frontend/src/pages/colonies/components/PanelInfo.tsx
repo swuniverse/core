@@ -1,7 +1,11 @@
-import type { ColonyEnvironmentScanDto } from '@swuniverse/shared';
+import type { AnomalyViewDto, ColonyEnvironmentScanDto } from '@swuniverse/shared';
 
 import { BbCodeText } from '../../../components/BbCodeText';
 import { PlanetImg } from '../../../components/PlanetImg';
+import {
+  AnomalyMarkers,
+  formatAnomaly,
+} from '../../../components/starmap/AnomalyMarker';
 import { SettlementBadge } from '../../../lib/settlement-rating';
 import {
   planetThumbnail,
@@ -341,6 +345,11 @@ function SystemScan({
       signature.visibleCount,
     ]) ?? [],
   );
+  const anomalies = new Map<string, AnomalyViewDto[]>();
+  for (const anomaly of environmentScan?.anomalies ?? []) {
+    const coordinate = `${anomaly.x}|${anomaly.y}`;
+    anomalies.set(coordinate, [...(anomalies.get(coordinate) ?? []), anomaly]);
+  }
   const shields = new Set(
     environmentScan?.colonyShields
       .filter((shield) => shield.shielded)
@@ -386,11 +395,21 @@ function SystemScan({
                   field={fields.get(coordinate)}
                   signatureCount={signatures.get(coordinate) ?? 0}
                   shielded={shields.has(coordinate)}
+                  anomalies={anomalies.get(coordinate)}
                 />
               );
             }),
           ])}
           </div>
+          {environmentScan.anomalies.length > 0 && (
+            <ul className="space-y-0.5 text-xs text-fuchsia-300">
+              {environmentScan.anomalies.map((anomaly, index) => (
+                <li key={`${anomaly.x}|${anomaly.y}-${anomaly.type}-${index}`}>
+                  {anomaly.x}|{anomaly.y}: {formatAnomaly(anomaly)}
+                </li>
+              ))}
+            </ul>
+          )}
           <SectorSignatures scan={environmentScan} />
         </div>
       ) : (
@@ -470,12 +489,14 @@ function ScanCell({
   field,
   signatureCount,
   shielded,
+  anomalies,
 }: {
   x: number;
   y: number;
   field?: ColonyEnvironmentScanDto['fields'][number];
   signatureCount: number;
   shielded: boolean;
+  anomalies?: AnomalyViewDto[];
 }) {
   const object = field?.celestialObject;
   const image = object?.classId
@@ -490,6 +511,7 @@ function ScanCell({
       ? `${signatureCount} ${signatureCount === 1 ? 'Signatur' : 'Signaturen'}`
       : null,
     shielded ? 'Kolonieschild' : null,
+    ...(anomalies ?? []).map((anomaly) => `Anomalie: ${formatAnomaly(anomaly)}`),
   ].filter(Boolean);
   const label = `${x}|${y}: ${details.join(', ')}`;
 
@@ -510,6 +532,7 @@ function ScanCell({
           className="pointer-events-none absolute inset-0 border border-swu-accent/80"
         />
       )}
+      <AnomalyMarkers anomalies={anomalies} />
       {signatureCount > 0 && (
         <span className="absolute inset-0 z-20 grid place-items-center font-bold text-white drop-shadow-[0_1px_1px_black]">
           {signatureCount}

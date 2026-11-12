@@ -340,6 +340,39 @@ describe('PanelInfo', () => {
     expect(screen.getByText('Fremdes Schiff').closest('a')).toBeNull();
   });
 
+  it('shows anomalies from the environment scan with name and remaining duration', () => {
+    render(
+      <MemoryRouter>
+        <PanelInfo
+          colony={colony}
+          detail={detail}
+          environmentScan={{
+            ...environmentScan,
+            anomalies: [
+              {
+                x: 2,
+                y: 2,
+                type: 'SUBSPACE_ELLIPSE',
+                name: 'Subraumellipse',
+                remainingTicks: 1,
+              },
+            ],
+          }}
+          environmentScanError={null}
+          onOpenOrbitManagement={vi.fn()}
+          orbitProps={orbitProps}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('2|2: Subraumellipse (noch 1 Tick)')).toBeTruthy();
+    expect(
+      screen
+        .getByLabelText(/^2\|2:/)
+        .getAttribute('aria-label'),
+    ).toContain('Anomalie: Subraumellipse (noch 1 Tick)');
+  });
+
   it('closes the ship selector when the colony changes', () => {
     const { rerender } = render(
       <MemoryRouter>

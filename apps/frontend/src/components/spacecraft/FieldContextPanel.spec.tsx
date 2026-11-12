@@ -47,6 +47,31 @@ describe('FieldContextPanel', () => {
     apiMocks.get.mockResolvedValue(null);
   });
 
+  it('shows active anomalies with name and remaining duration', () => {
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={7}
+          context={{
+            wormholePassages: [],
+            coordinates: { x: 1, y: 2 },
+            starSystem: null,
+            colony: null,
+            anomalies: [
+              { type: 'SUBSPACE_ELLIPSE', name: 'Subraumellipse', remainingTicks: 2 },
+            ],
+            information: { canSectorScan: false, cartographyKnown: false },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByText('Anomalie: Subraumellipse (noch 2 Ticks)'),
+    ).toBeTruthy();
+  });
+
   it('shows region information in a dialog', async () => {
     render(
       <MemoryRouter>

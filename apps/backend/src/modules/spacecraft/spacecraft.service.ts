@@ -52,6 +52,7 @@ import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
 import { adminRegionName } from '../starmap/admin-region';
 import { WormholeService } from '../starmap/wormhole.service';
+import { AnomalyQueryService } from '../anomaly/anomaly-query.service';
 import { SystemField } from '../starmap/entities/system-field.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import {
@@ -78,6 +79,7 @@ import {
 } from './spacecraft-runtime-state.service';
 import { GameGateway } from '../websocket/game.gateway';
 import {
+  type AnomalyViewDto,
   type SpacecraftAlertMutationResultDto,
   type SpacecraftDetailDto,
   type SpacecraftEnergyFlowDto,
@@ -243,6 +245,7 @@ export class SpacecraftService {
       processTick: async () => undefined,
     } as unknown as SpacecraftTrackerService,
     @Optional() private readonly wormholeService?: WormholeService,
+    @Optional() private readonly anomalyQuery?: AnomalyQueryService,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -3731,6 +3734,7 @@ export class SpacecraftService {
             }
           : null,
       buoys: await this.buoyRepo.find({ where: { locationId: ship.locationId }, order: { createdAt: 'ASC' } }),
+      anomalies: (await this.anomalyQuery?.findAtLocation(ship.locationId)) ?? [],
       colony: colony
         ? {
             id: colony.id,
@@ -4138,6 +4142,10 @@ export class SpacecraftService {
           'redacted' in field ? [] : [`${field.sx},${field.sy}`],
         ),
       );
+      const anomaliesByField =
+        (await this.anomalyQuery?.findAtSystemFields(
+          sensorView.fields.flatMap((field) => ('redacted' in field ? [] : [field.id])),
+        )) ?? new Map<number, AnomalyViewDto[]>();
 
       return {
         mode: 'system' as const,
@@ -4163,6 +4171,7 @@ export class SpacecraftService {
             sx: f.sx,
             sy: f.sy,
             effects: f.effects,
+            anomalies: anomaliesByField.get(f.id) ?? [],
             fieldType: {
               id: f.fieldType.id,
               key: f.fieldType.key,
@@ -4334,6 +4343,10 @@ export class SpacecraftService {
         'redacted' in field ? [] : [`${field.cx},${field.cy}`],
       ),
     );
+    const anomaliesByField =
+      (await this.anomalyQuery?.findAtGalaxyFields(
+        sensorView.fields.flatMap((field) => ('redacted' in field ? [] : [field.id])),
+      )) ?? new Map<number, AnomalyViewDto[]>();
 
     return {
       mode: 'galaxy' as const,
@@ -4349,6 +4362,7 @@ export class SpacecraftService {
           cx: f.cx,
           cy: f.cy,
           effects: f.effects,
+          anomalies: anomaliesByField.get(f.id) ?? [],
           fieldType: {
             id: f.fieldType.id,
             key: f.fieldType.key,

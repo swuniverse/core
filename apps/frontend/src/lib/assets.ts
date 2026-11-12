@@ -493,6 +493,14 @@ export function researchImage(techId: number): string {
   return `${ASSET_BASE}/research/${techId}.png`;
 }
 
+/**
+ * Map icon of an anomaly type, e.g. `map/anomalies/subspace_ellipse.png`.
+ * SWU has no anomaly assets yet; callers must fall back when loading fails.
+ */
+export function anomalyImage(type: string): string {
+  return `${ASSET_BASE}/map/anomalies/${type.toLowerCase()}.png`;
+}
+
 export function spaceBackgroundTile(cx: number, cy: number): string {
   const row = String((Math.abs(cy) % 40) + 1).padStart(2, '0');
   const col = String((Math.abs(cx) % 40) + 1).padStart(2, '0');

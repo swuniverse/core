@@ -8,6 +8,7 @@ import type {
   SpacecraftWormholePassageResultDto,
 } from '@swuniverse/shared';
 import { PlanetImg } from '../PlanetImg';
+import { formatAnomaly } from '../starmap/AnomalyMarker';
 import {
   planetThumbnail,
   starTileImage,
@@ -449,6 +450,14 @@ export function FieldContextPanel({
                 Verwaltungsregion: {context.adminRegion.name}
               </span>
             )}
+            {context.anomalies?.map((anomaly, index) => (
+              <span
+                key={`${anomaly.type}-${index}`}
+                className="block text-fuchsia-300"
+              >
+                Anomalie: {formatAnomaly(anomaly)}
+              </span>
+            ))}
             {context.starSystem && (
               <CartographyStatus
                 plan={cartography}

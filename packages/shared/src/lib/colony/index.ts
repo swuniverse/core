@@ -1,3 +1,4 @@
+import type { AnomalyViewDto } from '../starmap/anomalies.js';
 export * from './asteroid.js';
 export * from './solar-buildings.js';
 export * from './telescope.js';
@@ -77,7 +78,7 @@ export interface ColonyEnvironmentScanDto {
     y: number;
     shielded: boolean;
   }>;
-  anomalies: Array<{ x: number; y: number; type: string }>;
+  anomalies: Array<AnomalyViewDto & { x: number; y: number }>;
 }
 
 export interface CommodityLocationsDto {

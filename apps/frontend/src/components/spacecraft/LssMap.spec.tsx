@@ -1,7 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { LssMap, type LocalMapSystem } from './LssMap';
 
 vi.mock('../../lib/assets', () => ({
+  anomalyImage: (type: string) => `/anomaly-${type.toLowerCase()}.png`,
   planetThumbnail: (classId: number) => `/planet-${classId}.png`,
   spaceBackgroundTile: () => '/space.png',
   starTileImage: (tileId: number) => `/star-${tileId}.png`,
@@ -218,5 +219,43 @@ describe('LssMap', () => {
     const field = screen.getByRole('button', { name: /Feld 1,14/ });
     expect(field.className).not.toContain('ring-red-400/70');
     expect(field.getAttribute('aria-label')).not.toContain('Messpunkt');
+  });
+
+  it('renders field anomalies with their icon, name and remaining duration', () => {
+    const localMap = systemMap(201);
+    localMap.fields[0].anomalies = [
+      { type: 'SUBSPACE_ELLIPSE', name: 'Subraumellipse', remainingTicks: 1 },
+    ];
+
+    const { container } = render(
+      <LssMap localMap={localMap} navTarget={null} onFieldClick={vi.fn()} />,
+    );
+
+    const field = screen.getByRole('button', { name: /Feld 1,14/ });
+    expect(field.getAttribute('aria-label')).toContain(
+      'Anomalie: Subraumellipse (noch 1 Tick)',
+    );
+    const icon = container.querySelector('img[src="/anomaly-subspace_ellipse.png"]');
+    expect(icon).toBeTruthy();
+    expect(icon?.getAttribute('title')).toBe('Subraumellipse (noch 1 Tick)');
+  });
+
+  it('falls back to a marker when the anomaly asset is missing', () => {
+    const localMap = systemMap(201);
+    localMap.fields[0].anomalies = [
+      { type: 'SUBSPACE_ELLIPSE', name: 'Subraumellipse', remainingTicks: 2 },
+    ];
+    const { container } = render(
+      <LssMap localMap={localMap} navTarget={null} onFieldClick={vi.fn()} />,
+    );
+
+    const icon = container.querySelector('img[src="/anomaly-subspace_ellipse.png"]');
+    if (!icon) throw new Error('anomaly icon missing');
+    fireEvent.error(icon);
+
+    expect(container.querySelector('img[src="/anomaly-subspace_ellipse.png"]')).toBeNull();
+    expect(screen.getByTestId('anomaly-fallback').getAttribute('title')).toBe(
+      'Subraumellipse (noch 2 Ticks)',
+    );
   });
 });
