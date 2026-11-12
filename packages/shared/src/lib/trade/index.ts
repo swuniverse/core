@@ -117,12 +117,11 @@ export interface TradeAccountTransferLineDto {
   amount: number;
 }
 
-/** Outcome like STU's transfer info: what moved and why lines were cut. */
+/** Outcome like STU's transfer info: what moved and why lines were cut. Costs no energy. */
 export interface TradeAccountTransferResultDto {
   direction: TradeAccountTransferDirection;
   transferred: Array<{ commodityId: number; commodityName: string; amount: number }>;
   messages: string[];
-  energyCost: number;
 }
 
 export interface TradeMenuGoodDto {
@@ -140,9 +139,6 @@ export interface TradeMenuDto {
   /** Why the ship cannot trade here now; `null` when it can. */
   reason: string | null;
   hasLicense: boolean;
-  energy: number;
-  /** Goods moved per EPS (`transfer-cost.ts`). */
-  capacityPerEnergy: number;
   cargo: TradeMenuGoodDto[];
   cargoUsed: number;
   cargoMax: number;

@@ -11,7 +11,6 @@ import type {
 import { GameDataService } from '../game-data/game-data.service';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
-import { TRANSFER_CAPACITY_PER_EPS, calculateTransferEnergyCost } from '../spacecraft/transfer-cost';
 import { TradeAccountStorage } from './entities/trade-account-storage.entity';
 import { TradeLicense } from './entities/trade-license.entity';
 import { TradePost } from './entities/trade-post.entity';
@@ -20,8 +19,8 @@ import { TradeStorageService } from './trade-storage.service';
 
 /**
  * STU `TransferToAccount`/`TransferFromAccount` at a trade post: field
- * co-presence, a valid license and per-line truncation to stock, space and
- * the ship's transfer energy. Everything is booked in one transaction.
+ * co-presence, a valid license and per-line truncation to stock and space.
+ * Like STU it costs no energy. Everything is booked in one transaction.
  */
 @Injectable()
 export class TradeAccountTransferService {
@@ -47,8 +46,6 @@ export class TradeAccountTransferService {
       tradePostName: post.name,
       reason,
       hasLicense,
-      energy: ship.energy,
-      capacityPerEnergy: TRANSFER_CAPACITY_PER_EPS,
       cargo: cargo.map((item) => ({
         commodityId: item.commodityId,
         commodityName: this.commodityName(item.commodityId),
@@ -89,12 +86,9 @@ export class TradeAccountTransferService {
       const result = direction === 'TO_ACCOUNT'
         ? await this.toAccount(manager, ship, post, lines)
         : await this.fromAccount(manager, ship, post, lines);
-      const total = result.transferred.reduce((sum, line) => sum + line.amount, 0);
-      const energyCost = total ? calculateTransferEnergyCost(total) : 0;
-      ship.energy -= energyCost;
       ship.cargoUsed = await this.cargoUsed(manager, ship.id);
-      await manager.update(Spacecraft, ship.id, { energy: ship.energy, cargoUsed: ship.cargoUsed });
-      return { direction, ...result, energyCost };
+      await manager.update(Spacecraft, ship.id, { cargoUsed: ship.cargoUsed });
+      return { direction, ...result };
     });
   }
 
@@ -105,7 +99,6 @@ export class TradeAccountTransferService {
     if (!(await this.cargoUsed(manager, ship.id))) {
       throw new BadRequestException('Keine Waren zum Transferieren vorhanden');
     }
-    let energyUnits = ship.energy * TRANSFER_CAPACITY_PER_EPS;
     const transferred: TradeAccountTransferResultDto['transferred'] = [];
     const messages: string[] = [];
     for (const line of lines) {
@@ -122,14 +115,13 @@ export class TradeAccountTransferService {
         messages.push(`${name} ist nicht im Frachtraum`);
         continue;
       }
-      const amount = this.truncate(line.amount, cargo.amount, free, energyUnits, name, messages, 'Warenkonto');
+      const amount = this.truncate(line.amount, cargo.amount, free, name, messages, 'Warenkonto');
       if (amount <= 0) continue;
       cargo.amount -= amount;
       if (cargo.amount === 0) await manager.remove(cargo);
       else await manager.save(cargo);
       await this.addToAccount(manager, post.id, ship.userId, line.commodityId, amount);
       free -= amount;
-      energyUnits -= amount;
       transferred.push({ commodityId: line.commodityId, commodityName: name, amount });
     }
     return { transferred, messages };
@@ -138,7 +130,6 @@ export class TradeAccountTransferService {
   private async fromAccount(manager: EntityManager, ship: Spacecraft, post: TradePost, lines: TradeAccountTransferLineDto[]) {
     let free = Math.max(0, ship.cargoMax - (await this.cargoUsed(manager, ship.id)));
     if (free <= 0) throw new BadRequestException('Der Frachtraum ist voll');
-    let energyUnits = ship.energy * TRANSFER_CAPACITY_PER_EPS;
     const transferred: TradeAccountTransferResultDto['transferred'] = [];
     const messages: string[] = [];
     for (const line of lines) {
@@ -155,36 +146,30 @@ export class TradeAccountTransferService {
         messages.push(`${name} ist nicht im Warenkonto`);
         continue;
       }
-      const amount = this.truncate(line.amount, stock.amount, free, energyUnits, name, messages, 'Frachtraum');
+      const amount = this.truncate(line.amount, stock.amount, free, name, messages, 'Frachtraum');
       if (amount <= 0) continue;
       stock.amount -= amount;
       if (stock.amount === 0) await manager.remove(stock);
       else await manager.save(stock);
       await this.addToCargo(manager, ship.id, line.commodityId, amount);
       free -= amount;
-      energyUnits -= amount;
       transferred.push({ commodityId: line.commodityId, commodityName: name, amount });
     }
     return { transferred, messages };
   }
 
-  /** min(wish, stock, space, energy) with a note when a limit cut the line. */
+  /** STU: min(wish, stock, free space) with a note when space cut the line. */
   private truncate(
     wanted: number,
     stock: number,
     free: number,
-    energyUnits: number,
     name: string,
     messages: string[],
     target: string,
   ): number {
-    const amount = Math.min(wanted, stock, free, energyUnits);
+    const amount = Math.min(wanted, stock, free);
     if (amount === wanted || amount === stock) return amount;
-    if (amount === energyUnits && energyUnits < free) {
-      messages.push(amount > 0 ? `${name}: gekürzt auf ${amount}, nicht genügend Energie` : `${name}: nicht genügend Energie`);
-    } else {
-      messages.push(amount > 0 ? `${name}: gekürzt auf ${amount}, ${target} ist voll` : `${name}: ${target} ist voll`);
-    }
+    messages.push(amount > 0 ? `${name}: gekürzt auf ${amount}, ${target} ist voll` : `${name}: ${target} ist voll`);
     return amount;
   }
 

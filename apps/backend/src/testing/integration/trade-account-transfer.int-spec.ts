@@ -64,7 +64,7 @@ describe('trade account transfer at a post (PostgreSQL)', () => {
   const accountOf = async (commodityId: number) =>
     (await source.getRepository('TradeAccountStorage').findOneBy({ tradePostId: postId, userId, commodityId }))?.amount ?? 0;
 
-  it('moves cargo into the account and charges one EPS per five goods', async () => {
+  it('moves cargo into the account without energy cost', async () => {
     const barke = await ship({ [AURODIUM]: 30, [DURASTAHL]: 20 });
 
     const result = await service.transfer(barke.id, userId, postId, 'TO_ACCOUNT', [
@@ -79,13 +79,12 @@ describe('trade account transfer at a post (PostgreSQL)', () => {
         { commodityId: DURASTAHL, commodityName: 'Durastahl', amount: 5 },
       ],
       messages: [],
-      energyCost: 5,
     });
     expect(await cargoOf(barke.id, AURODIUM)).toBe(10);
     expect(await cargoOf(barke.id, DURASTAHL)).toBe(15);
     expect(await accountOf(AURODIUM)).toBe(20);
     expect(await accountOf(DURASTAHL)).toBe(5);
-    expect(await source.getRepository('Spacecraft').findOneByOrFail({ id: barke.id })).toMatchObject({ energy: 5, cargoUsed: 25 });
+    expect(await source.getRepository('Spacecraft').findOneByOrFail({ id: barke.id })).toMatchObject({ energy: 10, cargoUsed: 25 });
   });
 
   it('truncates to free account space and skips untradeable or missing goods with a note', async () => {
@@ -107,16 +106,15 @@ describe('trade account transfer at a post (PostgreSQL)', () => {
     ]);
     expect(await cargoOf(barke.id, PRISONERS)).toBe(5);
     expect(await accountOf(AURODIUM)).toBe(10);
-    expect(result.energyCost).toBe(2);
   });
 
-  it('truncates to the ship energy', async () => {
-    const barke = await ship({ [AURODIUM]: 30 }, { energy: 2 });
+  it('needs no ship energy, like STU', async () => {
+    const barke = await ship({ [AURODIUM]: 30 }, { energy: 0 });
 
     const result = await service.transfer(barke.id, userId, postId, 'TO_ACCOUNT', [{ commodityId: AURODIUM, amount: 30 }]);
 
-    expect(result.transferred).toEqual([{ commodityId: AURODIUM, commodityName: 'Aurodium', amount: 10 }]);
-    expect(result.messages).toEqual(['Aurodium: gekürzt auf 10, nicht genügend Energie']);
+    expect(result.transferred).toEqual([{ commodityId: AURODIUM, commodityName: 'Aurodium', amount: 30 }]);
+    expect(result.messages).toEqual([]);
     expect(await source.getRepository('Spacecraft').findOneByOrFail({ id: barke.id })).toMatchObject({ energy: 0 });
   });
 
@@ -140,7 +138,7 @@ describe('trade account transfer at a post (PostgreSQL)', () => {
     expect(await accountOf(AURODIUM)).toBe(35);
     expect(await accountOf(BEAM_ONLY)).toBe(0);
     expect(await cargoOf(barke.id, AURODIUM)).toBe(5);
-    expect(await source.getRepository('Spacecraft').findOneByOrFail({ id: barke.id })).toMatchObject({ energy: 8, cargoUsed: 50 });
+    expect(await source.getRepository('Spacecraft').findOneByOrFail({ id: barke.id })).toMatchObject({ energy: 10, cargoUsed: 50 });
   });
 
   it('rejects transfers without presence, license, space or goods and changes nothing', async () => {
@@ -190,7 +188,7 @@ describe('trade account transfer at a post (PostgreSQL)', () => {
     expect((await cargoOf(first.id, AURODIUM)) + (await cargoOf(second.id, AURODIUM))).toBe(10);
   });
 
-  it('describes the trade menu with cargo, account, space and energy', async () => {
+  it('describes the trade menu with cargo, account and space', async () => {
     await account(AURODIUM, 7);
     const barke = await ship({ [DURASTAHL]: 12, [PRISONERS]: 1 });
 
@@ -199,8 +197,6 @@ describe('trade account transfer at a post (PostgreSQL)', () => {
       tradePostName: 'Mos Eisley',
       reason: null,
       hasLicense: true,
-      energy: 10,
-      capacityPerEnergy: 5,
       cargo: [
         { commodityId: DURASTAHL, commodityName: 'Durastahl', amount: 12, transferable: true },
         { commodityId: PRISONERS, commodityName: 'Gefangene', amount: 1, transferable: false },

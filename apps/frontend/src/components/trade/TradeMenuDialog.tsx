@@ -86,7 +86,7 @@ export function TradeMenuDialog({
         ) : (
           <>
             <div className="border-b border-swu-border px-3 py-2 text-swu-muted">
-              Energie: {formatNumber(menu.energy)} · {menu.capacityPerEnergy} Waren pro Energie
+              Kein Energieverbrauch
             </div>
             <div className="grid divide-swu-border sm:grid-cols-2 sm:divide-x">
               <GoodsColumn
@@ -118,7 +118,7 @@ export function TradeMenuDialog({
           <div role="status" className="border-t border-swu-border p-2">
             {result.transferred.length === 0
               ? 'Es wurden keine Waren transferiert.'
-              : `Transferiert: ${result.transferred.map((line) => `${formatNumber(line.amount)} ${line.commodityName}`).join(', ')} · Energie ${result.energyCost}`}
+              : `Transferiert: ${result.transferred.map((line) => `${formatNumber(line.amount)} ${line.commodityName}`).join(', ')}`}
             {result.messages.map((message) => (
               <div key={message} className="text-amber-200">{message}</div>
             ))}

@@ -10,8 +10,6 @@ const menu = {
   tradePostName: 'Mos Eisley',
   reason: null,
   hasLicense: true,
-  energy: 10,
-  capacityPerEnergy: 5,
   cargo: [
     { commodityId: 6, commodityName: 'Durastahl', amount: 12, transferable: true },
     { commodityId: 9, commodityName: 'Gefangene', amount: 1, transferable: false },
@@ -40,7 +38,6 @@ describe('TradeMenuDialog', () => {
       direction: 'TO_ACCOUNT',
       transferred: [{ commodityId: 6, commodityName: 'Durastahl', amount: 4 }],
       messages: [],
-      energyCost: 1,
     });
     const onTransfer = renderDialog();
 
@@ -54,7 +51,8 @@ describe('TradeMenuDialog', () => {
     await waitFor(() =>
       expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/77/trade/1/to-account', [{ commodityId: 6, amount: 4 }]),
     );
-    expect((await screen.findByRole('status')).textContent).toContain('Transferiert: 4 Durastahl · Energie 1');
+    expect((await screen.findByRole('status')).textContent).toBe('Transferiert: 4 Durastahl');
+    expect(screen.getByText('Kein Energieverbrauch')).toBeTruthy();
     expect(onTransfer).toHaveBeenCalled();
     expect(apiMocks.get).toHaveBeenCalledTimes(2);
   });
@@ -64,7 +62,6 @@ describe('TradeMenuDialog', () => {
       direction: 'FROM_ACCOUNT',
       transferred: [{ commodityId: 5, commodityName: 'Aurodium', amount: 5 }],
       messages: ['Aurodium: gekürzt auf 5, Frachtraum ist voll'],
-      energyCost: 1,
     });
     renderDialog();
 
