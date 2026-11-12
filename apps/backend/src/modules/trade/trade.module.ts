@@ -16,6 +16,8 @@ import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { User } from '../auth/user.entity';
 import { TradeController } from './trade.controller';
 import { TradeLicenseService } from './trade-license.service';
+import { TradeLicensePurchaseService } from './trade-license-purchase.service';
+import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import { TradePostPresencePolicy } from './trade-post-presence.policy';
 import { TradeQueryService } from './trade-query.service';
 
@@ -34,6 +36,7 @@ import { TradeQueryService } from './trade-query.service';
       TradeOffer,
       TradeTransfer,
       TradeTransaction,
+      CargoItem,
     ]),
   ],
   controllers: [TradeController],
@@ -42,6 +45,7 @@ import { TradeQueryService } from './trade-query.service';
     TradePostSeedService,
     TradeQueryService,
     TradeLicenseService,
+    TradeLicensePurchaseService,
     TradePostPresencePolicy,
   ],
   exports: [

@@ -65,6 +65,13 @@ import { PrestigeHistoryEntry } from '../../modules/prestige/entities/prestige-h
 import { Anomaly } from '../../modules/anomaly/entities/anomaly.entity';
 import { AnomalyType } from '../../modules/anomaly/entities/anomaly-type.entity';
 import { GameTickState } from '../../modules/tick/entities/game-tick-state.entity';
+import { TradePost } from '../../modules/trade/entities/trade-post.entity';
+import { TradeLicenseCondition } from '../../modules/trade/entities/trade-license-condition.entity';
+import { TradeLicense } from '../../modules/trade/entities/trade-license.entity';
+import { TradeAccountStorage } from '../../modules/trade/entities/trade-account-storage.entity';
+import { TradeOffer } from '../../modules/trade/entities/trade-offer.entity';
+import { TradeTransfer } from '../../modules/trade/entities/trade-transfer.entity';
+import { TradeTransaction } from '../../modules/trade/entities/trade-transaction.entity';
 
 /** Entities used by integration tests. Add more as suites need them. */
 export const INTEGRATION_ENTITIES = [
@@ -133,6 +140,13 @@ export const INTEGRATION_ENTITIES = [
   Anomaly,
   AnomalyType,
   GameTickState,
+  TradePost,
+  TradeLicenseCondition,
+  TradeLicense,
+  TradeAccountStorage,
+  TradeOffer,
+  TradeTransfer,
+  TradeTransaction,
 ];
 
 export function createIntegrationDataSource(url: string): DataSource {

@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Post,
   Put,
   Request,
   UseGuards,
@@ -14,6 +15,10 @@ import {
   TradeLicenseService,
   type TradeLicenseConditionInput,
 } from './trade-license.service';
+import {
+  TradeLicensePurchaseService,
+  type TradeLicensePurchaseInput,
+} from './trade-license-purchase.service';
 import { TradeQueryService } from './trade-query.service';
 
 @Controller('trade')
@@ -23,6 +28,7 @@ export class TradeController {
   constructor(
     private readonly query: TradeQueryService,
     private readonly licenses: TradeLicenseService,
+    private readonly purchases: TradeLicensePurchaseService,
   ) {}
 
   @Get('posts')
@@ -50,5 +56,14 @@ export class TradeController {
     @Body() input: TradeLicenseConditionInput,
   ) {
     return this.licenses.setCondition(id, req.user.sub, input);
+  }
+
+  @Post('posts/:id/licenses')
+  buyLicense(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body() input: TradeLicensePurchaseInput,
+  ) {
+    return this.purchases.purchase(id, req.user.sub, input);
   }
 }

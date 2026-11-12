@@ -19,7 +19,12 @@ describe('TradeController', () => {
     getCondition: jest.fn(),
     setCondition: jest.fn(),
   };
-  const controller = new TradeController(query as never, licenses as never);
+  const purchases = { purchase: jest.fn() };
+  const controller = new TradeController(
+    query as never,
+    licenses as never,
+    purchases as never,
+  );
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -47,5 +52,13 @@ describe('TradeController', () => {
 
     expect(licenses.getCondition).toHaveBeenCalledWith(7, 42);
     expect(licenses.setCondition).toHaveBeenCalledWith(7, 42, input);
+  });
+
+  it('buys a license for the authenticated player, ignoring client principals', async () => {
+    const input = { method: 'ship' as const, shipId: 3, payShipId: 4 };
+
+    await controller.buyLicense(7, { user: { sub: 42 } }, input);
+
+    expect(purchases.purchase).toHaveBeenCalledWith(7, 42, input);
   });
 });
