@@ -168,6 +168,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-T4a – Tauschangebote nach STU erstellen (Reserve aus dem Warenkonto, Vergleichsregel, Kürzung), auflisten und zurückziehen; Angebotsreserven als Lagerort; Tab „Meine Angebote“ und Dialog „Neues Angebot“ – 60b5c41b
 - tmw-T3 – Handelsmenü am Posten: Waren zwischen Frachtraum und Warenkonto per Feld-Kopräsenz und Lizenz, gekürzt auf Bestand, Platz und Transferenergie, transaktional; Dialog im Schiffsdetail – 8555909a
 - tmw-T2d – Lizenzen im Frontend: Lizenzliste, Kauf aus Fracht oder Warenkonto, Verlängerung, Eigentümerverwaltung, Handelsmenü im Schiffsdetail über serverseitiges Lizenzmenü – b5b0100e
 - tmw-T2c – Handelslizenzen verlängern ohne Zeitverlust, tägliche Wartung mit einmaliger Warnung und Löschung, eigene und ausgestellte Lizenzen abfragen – 1286723b
