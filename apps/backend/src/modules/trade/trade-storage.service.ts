@@ -83,6 +83,16 @@ export class TradeStorageService {
     });
   }
 
+  /** Account capacity inside the caller's transaction; offers count as reserved. */
+  capacityIn(
+    manager: EntityManager,
+    tradePostId: number,
+    userId: number,
+    lockedPost?: TradePost,
+  ): Promise<TradeStorageCapacity> {
+    return this.capacity(manager, tradePostId, userId, lockedPost);
+  }
+
   private async capacity(
     manager: EntityManager,
     tradePostId: number,

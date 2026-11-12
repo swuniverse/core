@@ -108,3 +108,45 @@ export interface TradePostAtSpacecraftDto {
   /** Why the ship cannot use the post now; `null` when it can. */
   reason: string | null;
 }
+
+export type TradeAccountTransferDirection = 'TO_ACCOUNT' | 'FROM_ACCOUNT';
+
+/** One requested line of an account transfer. */
+export interface TradeAccountTransferLineDto {
+  commodityId: number;
+  amount: number;
+}
+
+/** Outcome like STU's transfer info: what moved and why lines were cut. */
+export interface TradeAccountTransferResultDto {
+  direction: TradeAccountTransferDirection;
+  transferred: Array<{ commodityId: number; commodityName: string; amount: number }>;
+  messages: string[];
+  energyCost: number;
+}
+
+export interface TradeMenuGoodDto {
+  commodityId: number;
+  commodityName: string;
+  amount: number;
+  /** Whether this direction accepts the commodity at all. */
+  transferable: boolean;
+}
+
+/** Ship trade menu at a post (`GET spacecraft/:id/trade/:postId`). */
+export interface TradeMenuDto {
+  tradePostId: number;
+  tradePostName: string;
+  /** Why the ship cannot trade here now; `null` when it can. */
+  reason: string | null;
+  hasLicense: boolean;
+  energy: number;
+  /** Goods moved per EPS (`transfer-cost.ts`). */
+  capacityPerEnergy: number;
+  cargo: TradeMenuGoodDto[];
+  cargoUsed: number;
+  cargoMax: number;
+  account: TradeMenuGoodDto[];
+  accountUsed: number;
+  accountCapacity: number;
+}

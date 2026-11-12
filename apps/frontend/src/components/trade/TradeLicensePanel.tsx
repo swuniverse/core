@@ -30,9 +30,12 @@ function errorText(err: unknown, fallback: string): string {
 export function TradeLicensePanel({
   tradePostId,
   shipId,
+  onChanged,
 }: {
   tradePostId: number;
   shipId: number | null;
+  /** Called after a successful purchase or renewal. */
+  onChanged?: () => void;
 }) {
   const [menu, setMenu] = useState<TradeLicenseMenuDto | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +61,7 @@ export function TradeLicensePanel({
   const done = async (message: string) => {
     setNotice(message);
     await load();
+    onChanged?.();
   };
 
   if (error && !menu) {

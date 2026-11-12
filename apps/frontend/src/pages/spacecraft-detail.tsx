@@ -245,6 +245,7 @@ export function SpacecraftDetailPage() {
               ship.runtimeSystems?.CLOAK?.active,
             ].join(':')}
             shipId={ship.id}
+            onTransfer={refreshShipAndStorage}
           />
         </div>
         <div>
