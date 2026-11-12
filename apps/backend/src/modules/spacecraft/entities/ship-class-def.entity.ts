@@ -27,6 +27,9 @@ export class ShipClassDef {
   @Column({ default: 0 })
   buildTimeTicks: number;
 
+  @Column({ type: 'int', nullable: true })
+  anomalyMass: number | null;
+
   @Column({ default: 0 })
   cargoCapacity: number;
 

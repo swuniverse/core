@@ -11,6 +11,7 @@ export class AnomalyService {
   ) {}
 
   async processTick(tickNumber: number): Promise<void> {
+    const afterCommit: Array<() => void> = [];
     await this.dataSource.transaction(async (manager) => {
       // Serialize the complete anomaly phase, including creation on an empty map.
       await manager.query(
@@ -34,7 +35,7 @@ export class AnomalyService {
         });
         if (!anomaly) continue;
         const handler = this.registry.get(anomaly.type.key);
-        await handler.handleTick(anomaly, manager);
+        await handler.handleTick(anomaly, manager, { manager, afterCommit });
         anomaly.remainingTicks -= 1;
         if (anomaly.remainingTicks <= 0) {
           await handler.onDisappear(anomaly, manager);
@@ -44,8 +45,9 @@ export class AnomalyService {
         }
       }
       for (const handler of this.registry.all()) {
-        await handler.checkForCreation(manager);
+        await handler.checkForCreation(manager, { manager, afterCommit });
       }
     });
+    for (const notify of afterCommit) notify();
   }
 }

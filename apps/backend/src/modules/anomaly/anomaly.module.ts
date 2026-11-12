@@ -1,9 +1,23 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
+import { MessagingModule } from '../messaging/messaging.module';
+import { MessagingService } from '../messaging/messaging.service';
+import { SubspaceEllipseHandler } from './subspace-ellipse.handler';
+import { AnomalyFlightConsequence } from './anomaly-flight-consequence';
 import { AnomalyRegistry } from './anomaly-registry';
 import { AnomalyService } from './anomaly.service';
 
 @Module({
-  providers: [AnomalyRegistry, AnomalyService],
-  exports: [AnomalyRegistry, AnomalyService],
+  imports: [MessagingModule],
+  providers: [AnomalyRegistry, AnomalyService, AnomalyFlightConsequence, {
+    provide: SubspaceEllipseHandler,
+    useFactory: (messaging: MessagingService) => new SubspaceEllipseHandler(messaging, {
+      integer: (min: number, max: number) => min + Math.floor(Math.random() * (max - min + 1)),
+    }),
+    inject: [MessagingService],
+  }],
+  exports: [AnomalyRegistry, AnomalyService, AnomalyFlightConsequence],
 })
-export class AnomalyModule {}
+export class AnomalyModule implements OnModuleInit {
+  constructor(private readonly registry: AnomalyRegistry, private readonly ellipse: SubspaceEllipseHandler) {}
+  onModuleInit(): void { this.registry.register(this.ellipse); }
+}

@@ -106,6 +106,8 @@ import { WormholePassageService, WORMHOLE_ACCESS_POLICY, WORMHOLE_RANDOM } from 
 import { WormholeRestrictionAccessPolicy } from './wormhole-access-policy.service';
 import { WormholeRestrictionService } from './wormhole-restriction.service';
 import { WormholeRestriction } from './entities/wormhole-restriction.entity';
+import { AnomalyModule } from '../anomaly/anomaly.module';
+import { AnomalyFlightConsequence } from '../anomaly/anomaly-flight-consequence';
 
 @Module({
   imports: [
@@ -161,6 +163,7 @@ import { WormholeRestriction } from './entities/wormhole-restriction.entity';
     AllianceModule,
     DatabaseModule,
     StatisticsModule,
+    AnomalyModule,
   ],
   controllers: [SpacecraftController],
   providers: [
@@ -221,8 +224,8 @@ import { WormholeRestriction } from './entities/wormhole-restriction.entity';
     FlightConsequencePipeline,
     {
       provide: FLIGHT_CONSEQUENCES,
-      useFactory: (fieldEffects: FieldEffectConsequence) => [fieldEffects],
-      inject: [FieldEffectConsequence],
+      useFactory: (fieldEffects: FieldEffectConsequence, anomalies: AnomalyFlightConsequence) => [fieldEffects, anomalies],
+      inject: [FieldEffectConsequence, AnomalyFlightConsequence],
     },
   ],
   exports: [

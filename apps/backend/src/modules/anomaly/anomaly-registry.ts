@@ -1,16 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
 import type { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
+import type { TransactionalNotifications } from '../messaging/messaging.service';
 import type { Anomaly } from './entities/anomaly.entity';
 
 export interface AnomalyHandler {
   readonly key: string;
-  checkForCreation(manager: EntityManager): Promise<void>;
-  handleTick(anomaly: Anomaly, manager: EntityManager): Promise<void>;
+  checkForCreation(manager: EntityManager, transaction?: TransactionalNotifications): Promise<void>;
+  handleTick(anomaly: Anomaly, manager: EntityManager, transaction?: TransactionalNotifications): Promise<void>;
   handleIncomingSpacecraft(
     anomaly: Anomaly,
     spacecraft: Spacecraft,
     manager: EntityManager,
+    transaction?: TransactionalNotifications,
   ): Promise<void>;
   onDisappear(anomaly: Anomaly, manager: EntityManager): Promise<void>;
 }

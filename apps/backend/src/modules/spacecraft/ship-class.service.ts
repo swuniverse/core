@@ -4,6 +4,7 @@ import { In, Not, Repository } from 'typeorm';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { FactionEntity } from '../faction/entities/faction.entity';
 import { GameDataService } from '../game-data/game-data.service';
+import { ANOMALY_MASS_BY_CLASS } from './anomaly-mass';
 
 @Injectable()
 export class ShipClassService {
@@ -19,6 +20,9 @@ export class ShipClassService {
     const factions = await this.factionRepo.find();
     const factionMap = new Map(factions.map((f) => [f.key, f.id]));
 
+    for (const [key, anomalyMass] of Object.entries(ANOMALY_MASS_BY_CLASS)) {
+      await this.shipClassRepo.update({ key }, { anomalyMass });
+    }
     const yamlDefs = this.gameData.getShipClassDefs();
     const activeKeys = yamlDefs.map((def) => def.key);
     if (activeKeys.length > 0) {
@@ -36,6 +40,7 @@ export class ShipClassService {
         factionId: def.factionKey ? (factionMap.get(def.factionKey) ?? null) : null,
         unlockTechId: def.unlockTechId,
         buildTimeTicks: def.buildTimeTicks,
+        anomalyMass: ANOMALY_MASS_BY_CLASS[def.key] ?? null,
         cargoCapacity: def.cargoCapacity,
         crewMin: def.crewMin,
         crewMax: def.crewMax,
