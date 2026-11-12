@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { vi } from 'vitest';
 import { EventsPage } from './events';
@@ -40,7 +46,15 @@ function renderPage(initialEntry = '/events') {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
-        <Route path="/events" element={<EventsPage />} />
+        <Route
+          path="/events"
+          element={
+            <>
+              <EventsPage />
+              <Location />
+            </>
+          }
+        />
         <Route path="/starmap" element={<Location />} />
       </Routes>
     </MemoryRouter>,
@@ -99,6 +113,56 @@ describe('EventsPage', () => {
         '/events/recent?type=SHIP&search=scout&limit=50',
       ),
     );
+  });
+
+  it('filters diplomacy events by ALLIANCE and preserves the other filters', async () => {
+    const allianceResponse = {
+      events: [
+        {
+          id: 8,
+          type: 'ALLIANCE',
+          text: 'Alderaan und Naboo schließen Frieden',
+          scope: null,
+          layerId: null,
+          systemId: null,
+          x: null,
+          y: null,
+          locationId: null,
+          location: null,
+          createdAt: '2026-10-13T11:00:00.000Z',
+        },
+      ],
+      counts: { ...eventResponse.counts, ALLIANCE: 1 },
+    };
+    apiMocks.get
+      .mockResolvedValueOnce(eventResponse)
+      .mockResolvedValueOnce(allianceResponse);
+    renderPage('/events?q=Frieden&limit=50');
+
+    expect(await screen.findByText('Imperial corvette destroyed')).toBeTruthy();
+    const filter = screen.getByLabelText('Ereignistyp');
+    expect(
+      within(filter).getByRole('option', { name: 'Diplomatie' }),
+    ).toHaveProperty('value', 'ALLIANCE');
+    fireEvent.change(filter, { target: { value: 'ALLIANCE' } });
+
+    await waitFor(() =>
+      expect(apiMocks.get).toHaveBeenLastCalledWith(
+        '/events/recent?type=ALLIANCE&search=Frieden&limit=50',
+      ),
+    );
+    expect(screen.getByTestId('location').textContent).toBe(
+      '?type=ALLIANCE&q=Frieden&limit=50',
+    );
+    expect(filter).toHaveProperty('value', 'ALLIANCE');
+    const event = await screen.findByText(
+      'Alderaan und Naboo schließen Frieden',
+    );
+    expect(screen.getByText('Diplomatie: 1')).toBeTruthy();
+    expect(screen.queryByText('Imperial corvette destroyed')).toBeNull();
+    const result = event.closest('li');
+    expect(result).not.toBeNull();
+    expect(within(result as HTMLElement).getByText('Diplomatie')).toBeTruthy();
   });
 
   it('renders a clear empty state', async () => {

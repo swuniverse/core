@@ -45,6 +45,8 @@ import {
 } from '@swuniverse/shared';
 import { chooseSuccessor } from './presidential-succession';
 import { MessagingService } from '../messaging/messaging.service';
+import { GameEventService } from '../events/game-event.service';
+import type { EntityManager } from 'typeorm';
 import {
   ALLIANCE_CHRONICLE_PAGE_DEFAULT,
   ALLIANCE_CHRONICLE_PAGE_MAX,
@@ -228,6 +230,8 @@ export class AllianceService {
     private readonly contextCleanup?: AllianceContextCleanup,
     @Optional()
     private readonly banners?: AllianceBannerService,
+    @Optional()
+    private readonly gameEvents?: GameEventService,
   ) {}
 
   // --- Queries ---
@@ -407,9 +411,9 @@ export class AllianceService {
           avatar: player?.avatar ?? null,
           faction: this.playerFaction(player, factions),
           role: m.role,
-        roleTitle: this.roleTitle(titles, m.role),
-        joinedAt: m.joinedAt.toISOString(),
-        actions: this.memberActions(ownRole, viewerId, m),
+          roleTitle: this.roleTitle(titles, m.role),
+          joinedAt: m.joinedAt.toISOString(),
+          actions: this.memberActions(ownRole, viewerId, m),
           ...(onlineIds ? { online: onlineIds.has(m.userId) } : {}),
         };
       });
@@ -1179,6 +1183,16 @@ export class AllianceService {
         throw new NotFoundException(ERR.relationshipChangeProposalNotFound);
       }
       const other = await this.loadParty(tx, proposal.senderParty);
+      if (relationship.contractChanged) {
+        await this.appendPartyChronicleEntry(
+          tx,
+          AllianceDiplomacyChronicleEventType.RELATIONSHIP_CHANGED,
+          actorId,
+          relationship,
+          this.partyOf(relationship.firstParty, [actingFor, other]),
+          this.partyOf(relationship.secondParty, [actingFor, other]),
+        );
+      }
       return this.partyMessages(
         tx,
         actorId,
@@ -2857,6 +2871,20 @@ export class AllianceService {
       lordParty: relationship.lordParty,
       vassalParty: relationship.vassalParty,
     });
+    const action = {
+      [AllianceDiplomacyChronicleEventType.WAR_DECLARED]: 'erklärt',
+      [AllianceDiplomacyChronicleEventType.RELATIONSHIP_STARTED]: 'begonnen',
+      [AllianceDiplomacyChronicleEventType.RELATIONSHIP_CHANGED]: 'geändert',
+      [AllianceDiplomacyChronicleEventType.RELATIONSHIP_ENDED]: 'beendet',
+    }[eventType];
+    const text = `${first.name} und ${second.name}: ${RELATIONSHIP_TYPE_LABEL[relationship.type]} ${action}`;
+    // The production module provides the writer; isolated in-memory tests omit it.
+    if (this.gameEvents) {
+      await this.gameEvents.recordAlliance(
+        text,
+        tx.transactionHandle() as EntityManager,
+      );
+    }
   }
 
   private isSentBy(sender: PartyRef, allianceId: number): boolean {

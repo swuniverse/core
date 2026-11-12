@@ -340,9 +340,12 @@ export interface AllianceStore {
     },
   ): Promise<AllianceRelationshipChangeProposalRecord>;
   deleteRelationshipChangeProposal(id: number): Promise<boolean>;
+  /** Returns the updated relationship and whether its contract changed. */
   acceptRelationshipChangeProposal(
     id: number,
-  ): Promise<AllianceRelationshipRecord | null>;
+  ): Promise<
+    (AllianceRelationshipRecord & { contractChanged: boolean }) | null
+  >;
   /** Ends an active non-war relationship and removes pending proposals for its pair. */
   endNonWarRelationship(id: number): Promise<AllianceRelationshipRecord | null>;
 

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ILike, In, Repository } from 'typeorm';
+import type { EntityManager } from 'typeorm';
 import { ExplorationService } from '../starmap/exploration.service';
 import { GameEvent, GameEventType } from './entities/game-event.entity';
 import {
@@ -15,6 +16,23 @@ export class GameEventService {
     @InjectRepository(GameEvent) private readonly events: Repository<GameEvent>,
     private readonly exploration: ExplorationService,
   ) {}
+
+  async recordAlliance(text: string, manager: EntityManager) {
+    const events = manager.getRepository(GameEvent);
+    return events.save(
+      events.create({
+        type: GameEventType.ALLIANCE,
+        text,
+        scope: null,
+        layerId: null,
+        systemId: null,
+        x: null,
+        y: null,
+        locationId: null,
+        location: null,
+      }),
+    );
+  }
 
   async recordSpacecraft(type: GameEventType, text: string, ship: Spacecraft) {
     const field = resolveSpacecraftField(ship);
@@ -116,7 +134,9 @@ export class GameEventService {
             event.layerId != null &&
             event.x != null &&
             event.y != null &&
-            exploredGalaxyFields.has(`${event.layerId}:${event.x}:${event.y}`)) ||
+            exploredGalaxyFields.has(
+              `${event.layerId}:${event.x}:${event.y}`,
+            )) ||
           (event.scope === 'SYSTEM' &&
             event.systemId != null &&
             exploredSystems.has(event.systemId));

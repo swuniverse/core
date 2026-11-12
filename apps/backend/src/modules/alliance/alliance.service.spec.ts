@@ -350,7 +350,7 @@ describe('AllianceService', () => {
       expect(JSON.stringify(entry)).not.toContain('secret');
     });
 
-    it('does not write chronicle entries for proposals, declines, withdrawals, or accepted contract-only changes', async () => {
+    it('records an accepted contract change, but not proposals or withdrawals', async () => {
       const { store, service } = setup();
       store.addPlayer(1, 'Leia');
       store.addPlayer(2, 'Mon');
@@ -367,6 +367,9 @@ describe('AllianceService', () => {
         contract: 'confidential draft',
       });
       await service.withdrawRelationshipProposal(1, proposal.id);
+      expect((await service.listDiplomacyChronicle(2, red.id)).entries).toEqual(
+        [],
+      );
       const relationship = store.seedActiveAllianceRelationship({
         firstAllianceId: rogue.id,
         secondAllianceId: red.id,
@@ -380,8 +383,56 @@ describe('AllianceService', () => {
           contract: 'replacement secret',
         },
       );
+      expect((await service.listDiplomacyChronicle(2, red.id)).entries).toEqual(
+        [],
+      );
       await service.acceptRelationshipChange(2, change.id);
 
+      const entries = (await service.listDiplomacyChronicle(2, red.id)).entries;
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatchObject({
+        type: 'RELATIONSHIP_CHANGED',
+        relationship: { type: AllianceRelationshipType.FRIENDSHIP },
+        firstAlliance: { name: 'Rogue Squadron' },
+        secondAlliance: { name: 'Red Squadron' },
+      });
+      expect(JSON.stringify(entries)).not.toContain('secret');
+    });
+
+    it('keeps accepted permission-only changes out of the public diplomacy chronicle', async () => {
+      const { store, service } = setup();
+      store.addPlayer(1, 'Leia');
+      store.addPlayer(2, 'Mon');
+      const rogue = store.seedAlliance({ name: 'Rogue Squadron' }, [
+        [1, PRESIDENT],
+      ]);
+      const red = store.seedAlliance({ name: 'Red Squadron' }, [
+        [2, PRESIDENT],
+      ]);
+      const relationship = store.seedActiveAllianceRelationship({
+        firstAllianceId: rogue.id,
+        secondAllianceId: red.id,
+        type: AllianceRelationshipType.FRIENDSHIP,
+        contract: 'existing secret',
+        treatAsFriend: false,
+        shareLivePositions: false,
+      });
+      const change = await service.proposeRelationshipChange(
+        1,
+        relationship.id,
+        {
+          contract: 'existing secret',
+          permissions: { treatAsFriend: true, shareLivePositions: false },
+        },
+      );
+
+      await service.acceptRelationshipChange(2, change.id);
+
+      expect(
+        (await service.getDetail(1, rogue.id)).relationships[0],
+      ).toMatchObject({
+        permissions: { treatAsFriend: true, shareLivePositions: false },
+      });
       expect((await service.listDiplomacyChronicle(2, red.id)).entries).toEqual(
         [],
       );

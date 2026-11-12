@@ -784,6 +784,7 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     });
     if (!relationship) return null;
 
+    const contractChanged = relationship.contract !== proposal.contract;
     const result = await this.manager
       .createQueryBuilder()
       .update(AllianceRelationship)
@@ -803,7 +804,7 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     if (!updatedRelationship) {
       throw new Error('Alliance relationship change proposal was not accepted');
     }
-    return updatedRelationship;
+    return { ...updatedRelationship, contractChanged };
   }
 
   async appendDiplomacyChronicleEntry(data: NewDiplomacyChronicleEntry) {

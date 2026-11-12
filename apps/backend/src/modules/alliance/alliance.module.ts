@@ -4,6 +4,7 @@ import { WebsocketModule } from '../websocket/websocket.module';
 import { GameGateway } from '../websocket/game.gateway';
 import { ONLINE_PLAYERS } from './online-players.port';
 import { MessagingModule } from '../messaging/messaging.module';
+import { EventsModule } from '../events/events.module';
 import { AllianceController } from './alliance.controller';
 import { AllianceBannerController } from './alliance-banner.controller';
 import { AllianceBannerService } from './alliance-banner.service';
@@ -69,6 +70,7 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
       ForumPost,
     ]),
     MessagingModule,
+    EventsModule,
     WebsocketModule,
     forwardRef(() => ColonyModule),
     ContactModule,

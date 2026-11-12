@@ -94,8 +94,9 @@ export class InMemoryAllianceStore implements AllianceStore {
     name: string,
     factionId: number | null = REBELS.id,
     avatar: string | null = null,
-    faction: Faction | null =
-      this.state.factions.find((item) => item.id === factionId)?.key ?? null,
+    faction: Faction | null = this.state.factions.find(
+      (item) => item.id === factionId,
+    )?.key ?? null,
   ) {
     this.state.players.push({
       id,
@@ -693,12 +694,13 @@ export class InMemoryAllianceStore implements AllianceStore {
       (entry) => entry.id === proposal.relationshipId && entry.endedAt === null,
     );
     if (!relationship) return null;
+    const contractChanged = relationship.contract !== proposal.contract;
     relationship.contract = proposal.contract;
     relationship.treatAsFriend = proposal.treatAsFriend;
     relationship.shareLivePositions = proposal.shareLivePositions;
     this.state.relationshipChangeProposals =
       this.state.relationshipChangeProposals.filter((entry) => entry.id !== id);
-    return { ...relationship };
+    return { ...relationship, contractChanged };
   }
 
   async endNonWarRelationship(id: number) {
