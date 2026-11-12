@@ -18,8 +18,10 @@ describe('TradeController', () => {
   const licenses = {
     getCondition: jest.fn(),
     setCondition: jest.fn(),
+    listOwn: jest.fn(),
+    listIssued: jest.fn(),
   };
-  const purchases = { purchase: jest.fn() };
+  const purchases = { purchase: jest.fn(), renew: jest.fn() };
   const controller = new TradeController(
     query as never,
     licenses as never,
@@ -60,5 +62,15 @@ describe('TradeController', () => {
     await controller.buyLicense(7, { user: { sub: 42 } }, input);
 
     expect(purchases.purchase).toHaveBeenCalledWith(7, 42, input);
+  });
+
+  it('scopes license lists and renewals to the authenticated player', async () => {
+    await controller.listOwnLicenses({ user: { sub: 42 } });
+    await controller.listIssuedLicenses(7, { user: { sub: 42 } });
+    await controller.renewLicense(7, { user: { sub: 42 } }, { accountPostId: 9 });
+
+    expect(licenses.listOwn).toHaveBeenCalledWith(42);
+    expect(licenses.listIssued).toHaveBeenCalledWith(7, 42);
+    expect(purchases.renew).toHaveBeenCalledWith(7, 42, { accountPostId: 9 });
   });
 });

@@ -41,6 +41,19 @@ export class TradeController {
     return this.query.getOverview(req.user.sub);
   }
 
+  @Get('licenses')
+  listOwnLicenses(@Request() req: { user: { sub: number } }) {
+    return this.licenses.listOwn(req.user.sub);
+  }
+
+  @Get('posts/:id/licenses')
+  listIssuedLicenses(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.licenses.listIssued(id, req.user.sub);
+  }
+
   @Get('posts/:id/license-info')
   getLicenseCondition(
     @Param('id', ParseIntPipe) id: number,
@@ -65,5 +78,14 @@ export class TradeController {
     @Body() input: TradeLicensePurchaseInput,
   ) {
     return this.purchases.purchase(id, req.user.sub, input);
+  }
+
+  @Post('posts/:id/licenses/renewal')
+  renewLicense(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body() input: { accountPostId: number },
+  ) {
+    return this.purchases.renew(id, req.user.sub, input);
   }
 }

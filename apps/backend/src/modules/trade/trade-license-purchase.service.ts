@@ -107,6 +107,63 @@ export class TradeLicensePurchaseService {
     };
   }
 
+  /**
+   * STU `RenewTradeLicense` without lost time: pays the current condition from
+   * an own account in the post's network and extends from max(now, expiry).
+   */
+  async renew(tradePostId: number, userId: number, input: { accountPostId: number }): Promise<TradeLicensePurchaseResult> {
+    if (!Number.isSafeInteger(input?.accountPostId) || input.accountPostId < 1) {
+      throw new BadRequestException('Warenkonto muss eine gültige ID haben');
+    }
+    const afterCommit: Array<() => void> = [];
+    const license = await this.dataSource.transaction(async (manager) => {
+      const post = await manager.findOne(TradePost, {
+        where: { id: tradePostId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!post) throw new NotFoundException('Handelsposten nicht gefunden');
+      const condition = await manager.findOneBy(TradeLicenseCondition, { tradePostId });
+      if (!condition) {
+        throw new BadRequestException('Dieser Handelsposten vergibt keine Lizenzen');
+      }
+      const license = await manager.findOne(TradeLicense, {
+        where: { tradePostId, userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!license) {
+        throw new BadRequestException('Du besitzt keine Lizenz für diesen Handelsposten');
+      }
+      await this.payFromAccount(manager, input.accountPostId, post, userId, condition);
+      await this.creditOwner(manager, post, condition);
+      const base = Math.max(Date.now(), license.expiresAt.getTime());
+      license.expiresAt = new Date(base + condition.durationDays * DAY_MS);
+      license.warningSentAt = null;
+      const saved = await manager.save(license);
+      const buyer = await manager.findOneBy(User, { id: userId });
+      await this.messaging.sendSystem(
+        post.ownerId,
+        'Handelslizenz verlängert',
+        `${buyer?.username ?? 'Ein Siedler'} hat am ${post.name} eine Handelslizenz verlängert.`,
+        undefined,
+        MessageFolder.TRADE,
+        undefined,
+        false,
+        { manager, afterCommit },
+      );
+      return saved;
+    });
+    for (const notify of afterCommit) notify();
+    return {
+      license: {
+        id: license.id,
+        tradePostId: license.tradePostId,
+        startsAt: license.startsAt,
+        expiresAt: license.expiresAt,
+      },
+      message: 'Handelslizenz wurde verlängert',
+    };
+  }
+
   private async payFromShip(
     manager: EntityManager,
     payShip: Spacecraft | undefined,

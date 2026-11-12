@@ -21,7 +21,7 @@ describe('TradeLicenseService', () => {
     getCommodity: jest.fn(),
     getAllCommodities: jest.fn(),
   } as unknown as jest.Mocked<GameDataService>;
-  const service = new TradeLicenseService(posts, conditions, gameData);
+  const service = new TradeLicenseService(posts, conditions, gameData, {} as never);
 
   beforeEach(() => jest.clearAllMocks());
 

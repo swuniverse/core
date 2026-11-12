@@ -4,7 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThan, Repository } from 'typeorm';
+import type { IssuedTradeLicenseDto, TradeLicenseDto } from '@swuniverse/shared';
+import { TradeLicense } from './entities/trade-license.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import { TradeLicenseCondition } from './entities/trade-license-condition.entity';
 import { TradePost } from './entities/trade-post.entity';
@@ -23,6 +25,8 @@ export class TradeLicenseService {
     @InjectRepository(TradeLicenseCondition)
     private readonly conditions: Repository<TradeLicenseCondition>,
     private readonly gameData: GameDataService,
+    @InjectRepository(TradeLicense)
+    private readonly licenses: Repository<TradeLicense>,
   ) {}
 
   async getCondition(
@@ -51,6 +55,39 @@ export class TradeLicenseService {
       this.conditions.create({ tradePostId });
     Object.assign(condition, input);
     return this.conditions.save(condition);
+  }
+
+  /** Valid licenses only: a license grants nothing from its expiry on. */
+  async listOwn(userId: number, now = new Date()): Promise<TradeLicenseDto[]> {
+    const licenses = await this.licenses.find({
+      where: { userId, expiresAt: MoreThan(now) },
+      relations: ['tradePost'],
+      order: { expiresAt: 'ASC', id: 'ASC' },
+    });
+    return licenses.map((license) => ({
+      id: license.id,
+      tradePostId: license.tradePostId,
+      tradePostName: license.tradePost.name,
+      networkId: license.tradePost.networkId,
+      startsAt: license.startsAt.toISOString(),
+      expiresAt: license.expiresAt.toISOString(),
+    }));
+  }
+
+  async listIssued(tradePostId: number, userId: number, now = new Date()): Promise<IssuedTradeLicenseDto[]> {
+    await this.ownedPost(tradePostId, userId);
+    const licenses = await this.licenses.find({
+      where: { tradePostId, expiresAt: MoreThan(now) },
+      relations: ['user'],
+      order: { expiresAt: 'ASC', id: 'ASC' },
+    });
+    return licenses.map((license) => ({
+      id: license.id,
+      userId: license.userId,
+      username: license.user.username,
+      startsAt: license.startsAt.toISOString(),
+      expiresAt: license.expiresAt.toISOString(),
+    }));
   }
 
   private async ownedPost(tradePostId: number, userId: number) {
