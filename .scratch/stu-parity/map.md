@@ -168,6 +168,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-T2b – Handelslizenz atomar kaufen aus Frachtraum oder Warenkonto desselben Netzes, Gutschrift an den Posteneigentümer, Handelsmeldung nach Commit – 95e349c9
 - tmw-K10b2 – Ionensturm-Wirkung: gemeinsamer STU-Schadensdienst (Schilde, Hülle, Krit, Systemschaden), Tickschaden, Stationsschilde, Einflugschaden, zeitbasierter Antriebsausfall, Zerstörung über den Zerstörungsdienst – d627567d
 - soc-H1 – Öffentliche Diplomatie-Wechsel erzeugen locationlose ALLIANCE-Events atomar mit der Diplomatie-Chronik; `/events` filtert sie – siehe Feature-Commit
 - tmw-K10b1 – Ionensturm nach STU: Erzeugung je Ebenendichte (konfigurierbar), Bewegung, Ausbreitung über Restticks, Intensität in LSS/Feldkontext/Umgebungsscan, Navigationswarnung – a12d7025
