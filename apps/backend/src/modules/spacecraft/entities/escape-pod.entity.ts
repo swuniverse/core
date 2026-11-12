@@ -12,6 +12,7 @@ import { SpaceLocation } from '../../starmap/entities/space-location.entity';
 export enum EscapePodLaunchReason {
   COMBAT_DESTRUCTION = 'COMBAT_DESTRUCTION',
   SELF_DESTRUCTION = 'SELF_DESTRUCTION',
+  ANOMALY_DESTRUCTION = 'ANOMALY_DESTRUCTION',
   LIFE_SUPPORT_FAILURE = 'LIFE_SUPPORT_FAILURE',
 }
 

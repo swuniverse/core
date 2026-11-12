@@ -4,6 +4,8 @@ export interface AnomalyRandom {
   integer(min: number, max: number): number;
   /** STU `rand(min, max, true, mean)`: rejection-sampled normal distribution. */
   normal(min: number, max: number, mean?: number): number;
+  /** STU `rand(min, max, true, mean, skewness)`: skewed normal distribution. */
+  skewed(min: number, max: number, mean: number, skewness: number): number;
 }
 
 export function createAnomalyRandom(uniform: () => number = Math.random): AnomalyRandom {
@@ -15,6 +17,14 @@ export function createAnomalyRandom(uniform: () => number = Math.random): Anomal
       for (;;) {
         const value = integer(min, max);
         if (uniform() <= Math.exp(-0.5 * ((value - mean) / deviation) ** 2)) return value;
+      }
+    },
+    skewed(min, max, mean, skewness) {
+      const deviation = (max - min) / 6;
+      for (;;) {
+        const value = integer(min, max);
+        const skew = Math.max(0, 1 + skewness * ((value - mean) / (max - min)));
+        if (uniform() <= Math.exp(-0.5 * ((value - mean) / deviation) ** 2) * skew) return value;
       }
     },
   };

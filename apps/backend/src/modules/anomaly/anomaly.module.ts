@@ -25,7 +25,7 @@ import { AnomalyService } from './anomaly.service';
     }),
     inject: [ConfigService],
   }],
-  exports: [AnomalyRegistry, AnomalyService, AnomalyFlightConsequence, AnomalyQueryService],
+  exports: [AnomalyRegistry, AnomalyService, AnomalyFlightConsequence, AnomalyQueryService, IonStormHandler],
 })
 export class AnomalyModule implements OnModuleInit {
   constructor(

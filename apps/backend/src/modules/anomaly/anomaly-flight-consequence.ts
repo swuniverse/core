@@ -11,9 +11,9 @@ import type { TransactionalNotifications } from '../messaging/messaging.service'
 export class AnomalyFlightConsequence implements FlightConsequence {
   constructor(private readonly dataSource: DataSource, private readonly registry: AnomalyRegistry) {}
 
-  async onEnterField(ship: Spacecraft, _field: FlightConsequenceField, _messages: string[], transaction?: TransactionalNotifications): Promise<void> {
+  async onEnterField(ship: Spacecraft, _field: FlightConsequenceField, messages: string[], transaction?: TransactionalNotifications): Promise<void> {
     if (transaction) {
-      await this.apply(ship, transaction.manager, transaction);
+      await this.apply(ship, transaction.manager, transaction, messages);
       return;
     }
     if (!(await this.dataSource.getRepository(Anomaly).exists({ where: { locationId: ship.locationId } }))) return;
@@ -23,9 +23,11 @@ export class AnomalyFlightConsequence implements FlightConsequence {
         where: { id: ship.id }, lock: { mode: 'pessimistic_write' },
       });
       if (stored.locationId !== ship.locationId) return;
-      await this.apply(stored, manager, { manager, afterCommit });
+      await this.apply(stored, manager, { manager, afterCommit }, messages);
+      ship.hull = stored.hull;
       ship.shields = stored.shields;
       ship.runtimeSystems = stored.runtimeSystems;
+      ship.status = stored.status;
     });
     for (const notify of afterCommit) notify();
   }
@@ -34,12 +36,13 @@ export class AnomalyFlightConsequence implements FlightConsequence {
     // Ellipse tick effects are processed by the anomaly lifecycle.
   }
 
-  private async apply(ship: Spacecraft, manager: EntityManager, transaction: TransactionalNotifications): Promise<void> {
+  private async apply(ship: Spacecraft, manager: EntityManager, transaction: TransactionalNotifications, messages: string[]): Promise<void> {
     const anomalies = await manager.getRepository(Anomaly).find({
-      where: { locationId: ship.locationId }, relations: ['type'], order: { id: 'ASC' },
+      where: { locationId: ship.locationId }, relations: ['type', 'parent'], order: { id: 'ASC' },
     });
     for (const anomaly of anomalies) {
-      await this.registry.get(anomaly.type.key).handleIncomingSpacecraft(anomaly, ship, manager, transaction);
+      if (ship.status === 'DESTROYED') break;
+      await this.registry.get(anomaly.type.key).handleIncomingSpacecraft(anomaly, ship, manager, transaction, messages);
     }
   }
 }

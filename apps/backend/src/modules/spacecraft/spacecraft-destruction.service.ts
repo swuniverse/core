@@ -8,7 +8,10 @@ import { WsEventType } from '@swuniverse/shared';
 import { DataSource, EntityManager } from 'typeorm';
 import { ColonyFabricationQueueType } from '../colony/entities/colony-fabrication-queue.entity';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
-import { MessagingService } from '../messaging/messaging.service';
+import {
+  MessagingService,
+  type TransactionalNotifications,
+} from '../messaging/messaging.service';
 import { GameGateway } from '../websocket/game.gateway';
 import { ShipDistressSignal } from './entities/ship-distress-signal.entity';
 import { CargoItem } from './entities/cargo-item.entity';
@@ -224,6 +227,30 @@ export class SpacecraftDestructionService {
     }
   }
 
+  /**
+   * Destroys a spacecraft inside the caller's transaction, e.g. through an
+   * anomaly. Notifications follow the commit when a transaction is given.
+   */
+  async destroyInManager(
+    manager: EntityManager,
+    shipId: number,
+    reason: 'ANOMALY',
+    transaction?: TransactionalNotifications,
+  ): Promise<{ evacuatedCrew: number } | null> {
+    const ship = await manager.findOne(Spacecraft, {
+      where: { id: shipId },
+      relations: ['shipClass'],
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!ship || ship.status === SpacecraftStatus.DESTROYED) return null;
+    const ownerId = ship.userId;
+    const result = await this.finalizeInManager(manager, ship, reason);
+    const notify = () => this.emitDestroyed(ownerId, shipId, 'Durch eine Anomalie zerstört');
+    if (transaction) transaction.afterCommit.push(notify);
+    else notify();
+    return result;
+  }
+
   private evacuationNote(evacuatedCrew: number): string {
     return evacuatedCrew > 0
       ? ` ${evacuatedCrew} Crewmitglieder konnten sich in Rettungskapseln retten.`
@@ -245,7 +272,7 @@ export class SpacecraftDestructionService {
   async finalizeInManager(
     manager: EntityManager,
     ship: Spacecraft,
-    reason: 'COMBAT' | 'SELF_DESTRUCT',
+    reason: 'COMBAT' | 'SELF_DESTRUCT' | 'ANOMALY',
   ): Promise<{ evacuatedCrew: number }> {
     await this.takeoverService.cancelForShip(
       ship.id,
@@ -286,7 +313,9 @@ export class SpacecraftDestructionService {
       ship,
       reason === 'COMBAT'
         ? EscapePodLaunchReason.COMBAT_DESTRUCTION
-        : EscapePodLaunchReason.SELF_DESTRUCTION,
+        : reason === 'ANOMALY'
+          ? EscapePodLaunchReason.ANOMALY_DESTRUCTION
+          : EscapePodLaunchReason.SELF_DESTRUCTION,
     );
     await manager.save(
       manager.create(SpacecraftWreck, {

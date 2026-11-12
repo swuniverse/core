@@ -52,6 +52,24 @@ export function getRuntimeSystemsForModule(
   return [];
 }
 
+/** Cooldowns from 2001-09-09 on are epoch-ms deadlines (STU style); smaller ones count ticks. */
+const EPOCH_MS_COOLDOWN = 1_000_000_000_000;
+
+/** Runtime cooldowns are either remaining ticks or, like STU, an epoch-ms deadline. */
+export function isCoolingDown(
+  state: { cooldown?: number | null } | undefined,
+  now = Date.now(),
+): boolean {
+  const cooldown = state?.cooldown ?? 0;
+  return cooldown >= EPOCH_MS_COOLDOWN ? cooldown > now : cooldown > 0;
+}
+
+function cooldownReason(cooldown: number, now = Date.now()): string {
+  return cooldown >= EPOCH_MS_COOLDOWN
+    ? `Cooldown noch ${Math.ceil((cooldown - now) / 60_000)} Min.`
+    : `Cooldown ${cooldown}`;
+}
+
 @Injectable()
 export class SpacecraftRuntimeStateService {
   initialize(ship: Spacecraft): SpacecraftRuntimeSystems {
@@ -64,7 +82,7 @@ export class SpacecraftRuntimeStateService {
   ): string | null {
     const system = systems[key];
     if (!system) return 'System nicht verfügbar';
-    if (system.cooldown > 0) return `Cooldown ${system.cooldown}`;
+    if (isCoolingDown(system)) return cooldownReason(system.cooldown);
     if (system.integrity <= 0) return 'System zerstört';
     return null;
   }

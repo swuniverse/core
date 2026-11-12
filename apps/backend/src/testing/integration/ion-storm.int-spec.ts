@@ -18,6 +18,7 @@ function scripted(values: number[]) {
   const random: AnomalyRandom = {
     integer: (min, max) => next(`${min}-${max}`),
     normal: (min, max, mean) => next(`normal ${min}-${max}~${mean}`),
+    skewed: (min, max, mean, skewness) => next(`skewed ${min}-${max}~${mean}/${skewness}`),
   };
   return { random, draws, remaining: values };
 }

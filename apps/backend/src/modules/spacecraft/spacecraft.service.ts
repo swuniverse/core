@@ -36,6 +36,7 @@ import {
   SpacecraftLssMode,
   SpacecraftStatus,
 } from './entities/spacecraft.entity';
+import { isSpacecraftDestroyed } from './spacecraft-status.util';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
 import { SpacecraftTakeover } from './entities/spacecraft-takeover.entity';
@@ -74,6 +75,7 @@ import { SpacecraftTorpedoService } from './spacecraft-torpedo.service';
 import { SpacecraftResourceFlowService } from './spacecraft-resource-flow.service';
 import {
   getRuntimeSystemsForModule,
+  isCoolingDown,
   SpacecraftRuntimeStateService,
   SpacecraftRuntimeSystemKey,
 } from './spacecraft-runtime-state.service';
@@ -2128,6 +2130,8 @@ export class SpacecraftService {
     if (result.completedSteps === 0 && result.stopped === 'INSUFFICIENT_COST') {
       throw new BadRequestException('Not enough EPS for navigation');
     }
+    // A flight consequence may have destroyed and removed the ship.
+    if (isSpacecraftDestroyed(ship)) return ship;
     await this.emitOrbitUpdates(currentLocation, resolveSpacecraftField(ship));
     await this.repairService.cancelForFlight(
       participants.map((member) => member.id),
@@ -2297,6 +2301,8 @@ export class SpacecraftService {
     if (result.completedSteps === 0 && result.stopped === 'INSUFFICIENT_COST') {
       throw new BadRequestException('Not enough EPS for galaxy flight');
     }
+    // A flight consequence may have destroyed and removed the ship.
+    if (isSpacecraftDestroyed(ship)) return ship;
     await this.repairService.cancelForFlight(
       participants.map((member) => member.id),
     );
@@ -2463,7 +2469,7 @@ export class SpacecraftService {
           : 'Impulsantrieb zerstört',
       );
     }
-    if (drive.cooldown > 0) {
+    if (isCoolingDown(drive)) {
       throw new BadRequestException(
         systemKey === 'WARPDRIVE'
           ? 'Hyperantrieb kühlt noch ab'
@@ -3371,7 +3377,8 @@ export class SpacecraftService {
       if (arrivedField) {
         await this.flightConsequencePipeline.onEnterField(ship, arrivedField);
       }
-      await this.shipRepo.save(ship);
+      // A destroyed ship is already removed; saving would recreate it.
+      if (!isSpacecraftDestroyed(ship)) await this.shipRepo.save(ship);
     }
   }
 
@@ -3799,7 +3806,7 @@ export class SpacecraftService {
     const drive = systems.WARPDRIVE;
     if (!drive) return 'Kein Hyperantrieb installiert';
     if (drive.integrity <= 0) return 'Hyperantrieb zerstört';
-    if (drive.cooldown > 0) return 'Hyperantrieb kühlt noch ab';
+    if (isCoolingDown(drive)) return 'Hyperantrieb kühlt noch ab';
     return null;
   }
 
@@ -4234,7 +4241,7 @@ export class SpacecraftService {
           ship.status === SpacecraftStatus.IDLE &&
           systems.WARPDRIVE != null &&
           systems.WARPDRIVE.integrity > 0 &&
-          systems.WARPDRIVE.cooldown === 0,
+          !isCoolingDown(systems.WARPDRIVE),
         context: await this.buildLocalMapContext({
           ship,
           layerId: starSystem?.layerId ?? null,

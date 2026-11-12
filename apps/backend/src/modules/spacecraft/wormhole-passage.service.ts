@@ -25,6 +25,7 @@ import { ShipLogEntry } from './entities/ship-log-entry.entity';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { Spacecraft } from './entities/spacecraft.entity';
+import { isSpacecraftDestroyed } from './spacecraft-status.util';
 import { Fleet } from './entities/fleet.entity';
 import { CartographyPlanService } from './cartography-plan.service';
 import { SpacecraftTakeoverService } from './spacecraft-takeover.service';
@@ -331,6 +332,8 @@ export class WormholePassageService {
               await this.consequences.onEnterField(ship, field, transaction);
             },
           );
+          // A destroyed ship is already removed; saving would recreate it.
+          if (isSpacecraftDestroyed(ship)) continue;
           await manager.save(ship);
           await this.exploration.discoverArea(
             {

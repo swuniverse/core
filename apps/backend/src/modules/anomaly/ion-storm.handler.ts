@@ -1,6 +1,8 @@
 import { In, IsNull, Not, type EntityManager } from 'typeorm';
 import { FieldEffect, type AnomalyViewDto } from '@swuniverse/shared';
 import type { AnomalyHandler } from './anomaly-registry';
+import type { TransactionalNotifications } from '../messaging/messaging.service';
+import type { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { Anomaly } from './entities/anomaly.entity';
 import { AnomalyType } from './entities/anomaly-type.entity';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
@@ -24,6 +26,24 @@ export interface IonStormOptions {
   locationsPerStorm: number;
 }
 
+/** Storm effects on spacecraft; provided by the spacecraft module. */
+export interface IonStormEffects {
+  /** Main tick: spacecraft on these storm fields (STU `damageSpacecrafts`). */
+  affectStormFields(
+    manager: EntityManager,
+    fields: Array<{ locationId: number; intensity: number }>,
+    transaction?: TransactionalNotifications,
+  ): Promise<void>;
+  /** A spacecraft entered a storm field (STU `handleIncomingSpacecraft`). */
+  affectEntering(
+    manager: EntityManager,
+    ship: Spacecraft,
+    intensity: number,
+    messages: string[],
+    transaction?: TransactionalNotifications,
+  ): Promise<void>;
+}
+
 interface PoolField {
   locationId: number;
   cx: number;
@@ -40,11 +60,16 @@ interface PoolField {
 export class IonStormHandler implements AnomalyHandler {
   readonly key = 'ION_STORM';
   readonly name = 'Ionensturm';
+  private effects: IonStormEffects | null = null;
 
   constructor(
     private readonly random: AnomalyRandom,
     private readonly options: IonStormOptions = { locationsPerStorm: DEFAULT_LOCATIONS_PER_ION_STORM },
   ) {}
+
+  registerEffects(effects: IonStormEffects): void {
+    this.effects = effects;
+  }
 
   present(anomaly: Anomaly): Partial<AnomalyViewDto> {
     const data = (anomaly.parent?.data ?? anomaly.data) as Partial<IonStormData> | null;
@@ -81,7 +106,7 @@ export class IonStormHandler implements AnomalyHandler {
     }
   }
 
-  async handleTick(root: Anomaly, manager: EntityManager): Promise<void> {
+  async handleTick(root: Anomaly, manager: EntityManager, transaction?: TransactionalNotifications): Promise<void> {
     if (root.parentId != null || root.locationId != null) return;
     const repository = manager.getRepository(Anomaly);
     let data = root.data as IonStormData;
@@ -126,10 +151,28 @@ export class IonStormHandler implements AnomalyHandler {
     }
     if (root.remainingTicks <= 1) root.remainingTicks += 1;
     await repository.save([...changed]);
+
+    // STU damageSpacecrafts: fields about to expire leave spacecraft alone.
+    const active = [...changed].filter((field) => field.remainingTicks > 1 && field.locationId != null);
+    if (this.effects && active.length) {
+      await this.effects.affectStormFields(
+        manager,
+        active.map((field) => ({ locationId: field.locationId as number, intensity: data.intensity })),
+        transaction,
+      );
+    }
   }
 
-  async handleIncomingSpacecraft(): Promise<void> {
-    // Storm effects on spacecraft follow in tmw-K10b2.
+  async handleIncomingSpacecraft(
+    anomaly: Anomaly,
+    ship: Spacecraft,
+    manager: EntityManager,
+    transaction?: TransactionalNotifications,
+    messages: string[] = [],
+  ): Promise<void> {
+    const intensity = this.present(anomaly).intensity;
+    if (!this.effects || intensity == null) return;
+    await this.effects.affectEntering(manager, ship, intensity, messages, transaction);
   }
 
   async onDisappear(): Promise<void> {

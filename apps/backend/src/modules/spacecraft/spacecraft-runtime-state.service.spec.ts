@@ -2,7 +2,10 @@ jest.mock('./entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
 }));
 
-import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
+import {
+  isCoolingDown,
+  SpacecraftRuntimeStateService,
+} from './spacecraft-runtime-state.service';
 
 describe('SpacecraftRuntimeStateService', () => {
   it('initializes life support and preserves existing runtime state', () => {
@@ -230,5 +233,30 @@ describe('SpacecraftRuntimeStateService', () => {
     expect(systems.REACTOR?.integrity).toBe(80);
     expect(systems.EPS?.integrity).toBe(90);
     expect(systems.SPECIAL).toBeUndefined();
+  });
+
+  it('treats small cooldowns as ticks and large ones as STU epoch-ms deadlines', () => {
+    const now = 1_800_000_000_000;
+    expect(isCoolingDown({ cooldown: 0 }, now)).toBe(false);
+    expect(isCoolingDown({ cooldown: 2 }, now)).toBe(true);
+    expect(isCoolingDown({ cooldown: now + 60_000 }, now)).toBe(true);
+    expect(isCoolingDown({ cooldown: now - 1 }, now)).toBe(false);
+    expect(isCoolingDown(undefined, now)).toBe(false);
+  });
+
+  it('rejects activation until an ion storm drive deadline has passed', () => {
+    const service = new SpacecraftRuntimeStateService();
+    const deadline = Date.now() + 10 * 60_000;
+    const blocked = service.validateActivation(
+      { WARPDRIVE: { active: false, cooldown: deadline, integrity: 100 } },
+      'WARPDRIVE',
+    );
+    expect(blocked).toMatch(/^Cooldown noch (9|10) Min\.$/);
+    expect(
+      service.validateActivation(
+        { WARPDRIVE: { active: false, cooldown: Date.now() - 1, integrity: 100 } },
+        'WARPDRIVE',
+      ),
+    ).toBeNull();
   });
 });

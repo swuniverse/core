@@ -7,7 +7,10 @@ import {
   sameSpaceLocation,
 } from './spacecraft-field';
 import { assertSpacecraftNotInStandby } from './spacecraft-mode.util';
-import { initializeSpacecraftRuntimeSystems } from './spacecraft-runtime-state.service';
+import {
+  initializeSpacecraftRuntimeSystems,
+  isCoolingDown,
+} from './spacecraft-runtime-state.service';
 
 export type WormholeDirection = 'ENTRY' | 'EXIT';
 
@@ -147,7 +150,7 @@ export async function planWormholePassage(
     if (!drive) throw new BadRequestException('Kein Impulsantrieb installiert');
     if (drive.integrity <= 0)
       throw new BadRequestException('Impulsantrieb zerstört');
-    if (drive.cooldown > 0)
+    if (isCoolingDown(drive))
       throw new BadRequestException('Impulsantrieb kühlt noch ab');
     const activationEps = drive.active ? 0 : (input.activationEps?.(ship) ?? 0);
     if (!Number.isFinite(activationEps) || activationEps < 0)

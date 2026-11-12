@@ -18,6 +18,8 @@ export interface AnomalyHandler {
     spacecraft: Spacecraft,
     manager: EntityManager,
     transaction?: TransactionalNotifications,
+    /** Flight messages shown with the movement result. */
+    messages?: string[],
   ): Promise<void>;
   onDisappear(anomaly: Anomaly, manager: EntityManager): Promise<void>;
 }

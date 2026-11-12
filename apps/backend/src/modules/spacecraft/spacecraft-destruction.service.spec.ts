@@ -134,6 +134,30 @@ function setup(
 }
 
 describe('SpacecraftDestructionService', () => {
+  it('destroys through an anomaly inside the caller transaction and notifies after commit', async () => {
+    const { service, manager, escapePods, gateway, ship } = setup();
+    const afterCommit: Array<() => void> = [];
+
+    await service.destroyInManager(manager as never, ship.id, 'ANOMALY', {
+      manager: manager as never,
+      afterCommit,
+    });
+
+    expect(escapePods.launchForShip).toHaveBeenCalledWith(
+      manager,
+      ship,
+      'ANOMALY_DESTRUCTION',
+    );
+    expect(manager.remove).toHaveBeenCalledWith(ship);
+    expect(gateway.emitToUser).not.toHaveBeenCalled();
+    afterCommit.forEach((notify) => notify());
+    expect(gateway.emitToUser).toHaveBeenCalledWith(1, expect.anything(), {
+      shipId: 2,
+      type: 'DESTROYED',
+      detail: 'Durch eine Anomalie zerstört',
+    });
+  });
+
   it('replaces a crewed ship with a wreck at its current field', async () => {
     const { service, ship, distress, manager, escapePods, messaging } =
       setup();

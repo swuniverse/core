@@ -108,6 +108,11 @@ import { WormholeRestrictionService } from './wormhole-restriction.service';
 import { WormholeRestriction } from './entities/wormhole-restriction.entity';
 import { AnomalyModule } from '../anomaly/anomaly.module';
 import { AnomalyFlightConsequence } from '../anomaly/anomaly-flight-consequence';
+import { IonStormHandler } from '../anomaly/ion-storm.handler';
+import { createAnomalyRandom } from '../anomaly/stu-random';
+import { SpacecraftIonStormEffects } from './ion-storm-effects';
+import { GameDataService } from '../game-data/game-data.service';
+import { MessagingService } from '../messaging/messaging.service';
 
 @Module({
   imports: [
@@ -223,6 +228,25 @@ import { AnomalyFlightConsequence } from '../anomaly/anomaly-flight-consequence'
     { provide: STU_CLOCK_TOKEN, useValue: () => new Date() },
     FlightConsequencePipeline,
     {
+      provide: SpacecraftIonStormEffects,
+      useFactory: (
+        messaging: MessagingService,
+        destruction: SpacecraftDestructionService,
+        crewEnhancement: CrewEnhancementService,
+        gameData: GameDataService,
+      ) =>
+        new SpacecraftIonStormEffects({
+          random: createAnomalyRandom(),
+          messaging,
+          destruction,
+          crewEnhancement,
+          hasIonStormReduction: (moduleType) =>
+            gameData.getAllModules().find((module) => module.name === moduleType)
+              ?.secret.ionStormDamageReduction === true,
+        }),
+      inject: [MessagingService, SpacecraftDestructionService, CrewEnhancementService, GameDataService],
+    },
+    {
       provide: FLIGHT_CONSEQUENCES,
       useFactory: (fieldEffects: FieldEffectConsequence, anomalies: AnomalyFlightConsequence) => [fieldEffects, anomalies],
       inject: [FieldEffectConsequence, AnomalyFlightConsequence],
@@ -257,9 +281,13 @@ export class SpacecraftModule implements OnModuleInit {
     private readonly shipClassService: ShipClassService,
     private readonly researchService: ResearchService,
     private readonly researchRewardShipService: ResearchRewardShipService,
+    private readonly ionStorm: IonStormHandler,
+    private readonly ionStormEffects: SpacecraftIonStormEffects,
   ) {}
 
   async onModuleInit() {
+    // The storm lives in the anomaly module; its spacecraft effects live here.
+    this.ionStorm.registerEffects(this.ionStormEffects);
     this.researchService.registerShipRewardGranter((userId, techId) =>
       this.researchRewardShipService.grantShipReward(userId, techId),
     );
