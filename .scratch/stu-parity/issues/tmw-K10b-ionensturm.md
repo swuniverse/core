@@ -1,6 +1,6 @@
 # Ionensturm
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** tmw-K10a3
@@ -32,3 +32,4 @@ Ionenstürme als zweiter Anomalietyp: Ein Wurzelobjekt mit Richtung, Geschwindig
 
 ## Comments
 - 2026-11-09: Registry und geforderte Anomalieanzeige in LSS/Feldkontext benötigen die geordnete K10a-Kette bis tmw-K10a3; der Parent ist nur Tracking-Split.
+- 2026-11-12 Product Owner: Tracking-Split in `tmw-K10b1` (Erzeugung, Bewegung, Ausbreitung, Anzeige, Navigationswarnung) und `tmw-K10b2` (Wirkung über einen gemeinsamen STU-Schadensdienst, zeitbasierter Antriebsausfall). Kind 2 hängt von Kind 1 ab. Dieses Parent-Ticket bleibt `resolved` als Tracking-Split.
