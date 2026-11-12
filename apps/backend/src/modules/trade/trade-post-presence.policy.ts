@@ -17,12 +17,24 @@ export class TradePostPresencePolicy {
     post: Pick<TradePost, 'locationId'>,
     userId: number,
   ): boolean {
-    return (
-      ship.userId === userId &&
-      ship.locationId === post.locationId &&
-      ship.status !== 'IN_FLIGHT' &&
-      ship.runtimeSystems?.WARPDRIVE?.active !== true &&
-      ship.runtimeSystems?.CLOAK?.active !== true
-    );
+    return this.reason(ship, post, userId) === null;
+  }
+
+  /** Why the ship cannot act at the post, or `null` when it can. */
+  reason(
+    ship: TradePostPresenceShip,
+    post: Pick<TradePost, 'locationId'>,
+    userId: number,
+  ): string | null {
+    if (ship.userId !== userId) return 'Das Schiff gehört nicht dir';
+    if (ship.locationId !== post.locationId) {
+      return 'Das Schiff befindet sich nicht am Handelsposten';
+    }
+    if (ship.status === 'IN_FLIGHT') return 'Das Schiff befindet sich im Flug';
+    if (ship.runtimeSystems?.WARPDRIVE?.active === true) {
+      return 'Der Hyperantrieb ist aktiv';
+    }
+    if (ship.runtimeSystems?.CLOAK?.active === true) return 'Die Tarnung ist aktiv';
+    return null;
   }
 }

@@ -6,6 +6,7 @@ import {
   ParseIntPipe,
   Post,
   Put,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -19,6 +20,7 @@ import {
   TradeLicensePurchaseService,
   type TradeLicensePurchaseInput,
 } from './trade-license-purchase.service';
+import { TradeLicenseMenuService } from './trade-license-menu.service';
 import { TradeQueryService } from './trade-query.service';
 
 @Controller('trade')
@@ -29,6 +31,7 @@ export class TradeController {
     private readonly query: TradeQueryService,
     private readonly licenses: TradeLicenseService,
     private readonly purchases: TradeLicensePurchaseService,
+    private readonly menus: TradeLicenseMenuService,
   ) {}
 
   @Get('posts')
@@ -52,6 +55,23 @@ export class TradeController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.licenses.listIssued(id, req.user.sub);
+  }
+
+  @Get('posts/:id/license-menu')
+  getLicenseMenu(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Query('shipId', new ParseIntPipe({ optional: true })) shipId?: number,
+  ) {
+    return this.menus.getMenu(id, req.user.sub, shipId ?? null);
+  }
+
+  @Get('spacecraft/:id/post')
+  getPostAtSpacecraft(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.menus.getPostAtSpacecraft(id, req.user.sub);
   }
 
   @Get('posts/:id/license-info')

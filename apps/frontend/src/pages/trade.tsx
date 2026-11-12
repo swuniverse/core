@@ -3,21 +3,24 @@ import { Link, useSearchParams } from 'react-router-dom';
 import type {
   SpaceLocationDto,
   TradeAccountStorageDto,
+  TradeLicenseDto,
   TradeOverviewDto,
   TradePostListItemDto,
 } from '@swuniverse/shared';
 import { PageHeader, type PageHeaderSegment } from '../components/PageHeader';
+import { TradeLicensePanel } from '../components/trade/TradeLicensePanel';
 import { commodityImage } from '../lib/assets';
-import { formatNumber } from '../lib/format';
+import { formatDateTime, formatNumber } from '../lib/format';
 import { api } from '../services/api';
 
-type TradeTab = 'accounts' | 'posts';
+type TradeTab = 'accounts' | 'posts' | 'licenses';
 
 type CommodityName = { id: number; name: string };
 
 const TABS: { key: TradeTab; label: string }[] = [
   { key: 'accounts', label: 'Warenkonten' },
   { key: 'posts', label: 'Handelsposten' },
+  { key: 'licenses', label: 'Lizenzen' },
 ];
 
 function locationLink(location: SpaceLocationDto) {
@@ -51,8 +54,10 @@ export function TradePage() {
   const [commodities, setCommodities] = useState<CommodityName[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const tab: TradeTab = searchParams.get('tab') === 'posts' ? 'posts' : 'accounts';
+  const tabParam = searchParams.get('tab');
+  const tab: TradeTab = tabParam === 'posts' || tabParam === 'licenses' ? tabParam : 'accounts';
   const selectedPostId = Number(searchParams.get('post')) || null;
+  const shipId = Number(searchParams.get('ship')) || null;
 
   useEffect(() => {
     let cancelled = false;
@@ -88,13 +93,18 @@ export function TradePage() {
   const select = (next: { tab?: TradeTab; post?: number | null }) => {
     const params = new URLSearchParams(searchParams);
     if (next.tab) params.set('tab', next.tab);
-    if (next.post === null) params.delete('post');
+    if (next.post === null) {
+      params.delete('post');
+      params.delete('ship');
+    }
     else if (next.post !== undefined) params.set('post', String(next.post));
     setSearchParams(params);
   };
 
   const segments: PageHeaderSegment[] = [{ label: 'Handel', to: '/trade' }];
-  if (tab === 'posts' || selectedPost) {
+  if (tab === 'licenses') {
+    segments.push({ label: 'Lizenzen' });
+  } else if (tab === 'posts' || selectedPost) {
     segments.push({ label: selectedPost?.name ?? 'Handelsposten' });
   }
 
@@ -129,11 +139,14 @@ export function TradePage() {
           commodityName={commodityName}
           onSelect={(id) => select({ tab: 'posts', post: id })}
         />
+      ) : tab === 'licenses' ? (
+        <LicensesTab onSelect={(id) => select({ tab: 'posts', post: id })} />
       ) : selectedPost ? (
         <PostInfo
           post={selectedPost}
           overview={overview}
           commodityName={commodityName}
+          shipId={shipId}
           onBack={() => select({ post: null })}
         />
       ) : (
@@ -222,6 +235,58 @@ function AccountsTab({
   );
 }
 
+function LicensesTab({ onSelect }: { onSelect: (postId: number) => void }) {
+  const [licenses, setLicenses] = useState<TradeLicenseDto[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    api
+      .get<TradeLicenseDto[]>('/trade/licenses')
+      .then(setLicenses)
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : 'Lizenzen konnten nicht geladen werden'),
+      );
+  }, []);
+  if (error) return <p role="alert" className="text-red-300">{error}</p>;
+  if (!licenses) return <p className="text-swu-muted">Lizenzen werden geladen...</p>;
+  if (licenses.length === 0) {
+    return (
+      <p className="border border-swu-border bg-black/30 p-2 text-swu-muted">
+        Du besitzt keine gültigen Handelslizenzen.
+      </p>
+    );
+  }
+  return (
+    <div className="max-w-3xl overflow-hidden border border-swu-border bg-black/30">
+      <table className="w-full">
+        <thead className="bg-swu-bg/60 text-left text-swu-muted">
+          <tr>
+            <th className="px-2 py-1">Handelsposten</th>
+            <th className="px-2 py-1">Handelsnetz</th>
+            <th className="px-2 py-1">Gültig bis</th>
+          </tr>
+        </thead>
+        <tbody>
+          {licenses.map((license) => (
+            <tr key={license.id} className="border-t border-swu-border/60">
+              <td className="px-2 py-1">
+                <button
+                  type="button"
+                  onClick={() => onSelect(license.tradePostId)}
+                  className="text-swu-accent hover:underline"
+                >
+                  {license.tradePostName}
+                </button>
+              </td>
+              <td className="px-2 py-1">Netz {license.networkId}</td>
+              <td className="px-2 py-1 font-mono">{formatDateTime(license.expiresAt)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function PostsTab({
   posts,
   onSelect,
@@ -273,11 +338,13 @@ function PostInfo({
   post,
   overview,
   commodityName,
+  shipId,
   onBack,
 }: {
   post: TradePostListItemDto;
   overview: TradeOverviewDto;
   commodityName: (id: number) => string;
+  shipId: number | null;
   onBack: () => void;
 }) {
   const ships = overview.spacecraft.filter((ship) => ship.tradePostId === post.id);
@@ -339,6 +406,7 @@ function PostInfo({
           )}
         </dd>
       </dl>
+      <TradeLicensePanel tradePostId={post.id} shipId={shipId} />
     </section>
   );
 }

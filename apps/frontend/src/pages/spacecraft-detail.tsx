@@ -13,6 +13,7 @@ import { SpacecraftMessageBar } from '../components/spacecraft/SpacecraftMessage
 import { ShipStoragePanel } from '../components/spacecraft/ShipStoragePanel';
 import { NearbySensorPanel } from '../components/spacecraft/NearbySensorPanel';
 import { FieldContextPanel } from '../components/spacecraft/FieldContextPanel';
+import { TradePostEntry } from '../components/trade/TradePostEntry';
 import { ShipModulesPanel } from '../components/spacecraft/ShipModulesPanel';
 import { ShipOperationsPanel } from '../components/spacecraft/ShipOperationsPanel';
 import { SelfDestructPanel } from '../components/spacecraft/SelfDestructPanel';
@@ -234,6 +235,16 @@ export function SpacecraftDetailPage() {
             }
             onLanded={(colonyId) => navigate(`/colonies?selected=${colonyId}`)}
             runtimeSystems={ship.runtimeSystems}
+          />
+          <TradePostEntry
+            key={[
+              ship.id,
+              JSON.stringify(ship.location),
+              ship.status,
+              ship.runtimeSystems?.WARPDRIVE?.active,
+              ship.runtimeSystems?.CLOAK?.active,
+            ].join(':')}
+            shipId={ship.id}
           />
         </div>
         <div>

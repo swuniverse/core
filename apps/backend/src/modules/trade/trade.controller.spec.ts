@@ -22,10 +22,12 @@ describe('TradeController', () => {
     listIssued: jest.fn(),
   };
   const purchases = { purchase: jest.fn(), renew: jest.fn() };
+  const menus = { getMenu: jest.fn(), getPostAtSpacecraft: jest.fn() };
   const controller = new TradeController(
     query as never,
     licenses as never,
     purchases as never,
+    menus as never,
   );
 
   beforeEach(() => jest.clearAllMocks());
@@ -72,5 +74,15 @@ describe('TradeController', () => {
     expect(licenses.listOwn).toHaveBeenCalledWith(42);
     expect(licenses.listIssued).toHaveBeenCalledWith(7, 42);
     expect(purchases.renew).toHaveBeenCalledWith(7, 42, { accountPostId: 9 });
+  });
+
+  it('reads license menus and the post at a ship for the authenticated player', async () => {
+    await controller.getLicenseMenu(7, { user: { sub: 42 } }, 3);
+    await controller.getLicenseMenu(7, { user: { sub: 42 } });
+    await controller.getPostAtSpacecraft(3, { user: { sub: 42 } });
+
+    expect(menus.getMenu).toHaveBeenNthCalledWith(1, 7, 42, 3);
+    expect(menus.getMenu).toHaveBeenNthCalledWith(2, 7, 42, null);
+    expect(menus.getPostAtSpacecraft).toHaveBeenCalledWith(3, 42);
   });
 });

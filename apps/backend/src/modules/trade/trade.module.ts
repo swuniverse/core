@@ -18,6 +18,7 @@ import { TradeController } from './trade.controller';
 import { TradeLicenseService } from './trade-license.service';
 import { TradeLicensePurchaseService } from './trade-license-purchase.service';
 import { TradeLicenseMaintenanceService } from './trade-license-maintenance.service';
+import { TradeLicenseMenuService } from './trade-license-menu.service';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import { TradePostPresencePolicy } from './trade-post-presence.policy';
 import { TradeQueryService } from './trade-query.service';
@@ -48,6 +49,7 @@ import { TradeQueryService } from './trade-query.service';
     TradeLicenseService,
     TradeLicensePurchaseService,
     TradeLicenseMaintenanceService,
+    TradeLicenseMenuService,
     TradePostPresencePolicy,
   ],
   exports: [

@@ -29,4 +29,18 @@ describe('TradePostPresencePolicy', () => {
   ])('rejects a %s', (candidate) => {
     expect(policy.isAt(candidate, post, 7)).toBe(false);
   });
+
+  it.each<[Parameters<TradePostPresencePolicy['reason']>[0], string]>([
+    [{ ...ship, userId: 8 }, 'Das Schiff gehört nicht dir'],
+    [{ ...ship, locationId: 13 }, 'Das Schiff befindet sich nicht am Handelsposten'],
+    [{ ...ship, status: IN_FLIGHT }, 'Das Schiff befindet sich im Flug'],
+    [
+      { ...ship, runtimeSystems: { WARPDRIVE: { active: true, cooldown: 0, integrity: 100 } } },
+      'Der Hyperantrieb ist aktiv',
+    ],
+    [{ ...ship, runtimeSystems: { CLOAK: { active: true, cooldown: 0, integrity: 100 } } }, 'Die Tarnung ist aktiv'],
+  ])('explains the rejection of %#', (candidate, reason) => {
+    expect(policy.reason(candidate, post, 7)).toBe(reason);
+    expect(policy.reason(ship, post, 7)).toBeNull();
+  });
 });
