@@ -168,6 +168,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-T2d – Lizenzen im Frontend: Lizenzliste, Kauf aus Fracht oder Warenkonto, Verlängerung, Eigentümerverwaltung, Handelsmenü im Schiffsdetail über serverseitiges Lizenzmenü – b5b0100e
 - tmw-T2c – Handelslizenzen verlängern ohne Zeitverlust, tägliche Wartung mit einmaliger Warnung und Löschung, eigene und ausgestellte Lizenzen abfragen – 1286723b
 - tmw-T2b – Handelslizenz atomar kaufen aus Frachtraum oder Warenkonto desselben Netzes, Gutschrift an den Posteneigentümer, Handelsmeldung nach Commit – 95e349c9
 - tmw-K10b2 – Ionensturm-Wirkung: gemeinsamer STU-Schadensdienst (Schilde, Hülle, Krit, Systemschaden), Tickschaden, Stationsschilde, Einflugschaden, zeitbasierter Antriebsausfall, Zerstörung über den Zerstörungsdienst – d627567d
