@@ -12,6 +12,7 @@ interface AuthState {
     user: UserProfile,
     rememberLogin?: boolean,
   ) => void;
+  getRememberLogin: () => boolean;
   setUser: (user: UserProfile) => void;
   logout: () => void;
   isAuthenticated: () => boolean;
@@ -96,6 +97,7 @@ export const useAuthStore = create<AuthState>()(
         clearPersistedAuth();
         set({ accessToken, refreshToken, user });
       },
+      getRememberLogin: () => rememberAuth,
       setUser: (user) => set({ user }),
       logout: () => {
         rememberAuth = true;

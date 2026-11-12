@@ -3,6 +3,7 @@ import { afterEach, beforeEach, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { LoginPage } from './login';
 import { api, ApiError } from '../services/api';
+import { useAuthStore } from '../stores/auth.store';
 
 vi.mock('../services/api', () => ({
   api: { get: vi.fn(), post: vi.fn() },
@@ -15,8 +16,12 @@ vi.mock('../services/api', () => ({
 
 describe('LoginPage', () => {
   const observer = vi.fn();
+  const localStorageDescriptor = Object.getOwnPropertyDescriptor(window, 'localStorage');
 
   beforeEach(() => {
+    if (localStorageDescriptor) {
+      Object.defineProperty(window, 'localStorage', localStorageDescriptor);
+    }
     localStorage.clear();
     sessionStorage.clear();
     vi.stubGlobal(
@@ -41,6 +46,10 @@ describe('LoginPage', () => {
   afterEach(() => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
+    if (localStorageDescriptor) {
+      Object.defineProperty(window, 'localStorage', localStorageDescriptor);
+    }
+    useAuthStore.getState().logout();
   });
 
   it('remembers the remember-me choice locally and defaults to enabled', () => {
@@ -58,6 +67,49 @@ describe('LoginPage', () => {
     expect(
       (screen.getByRole('checkbox', { name: 'Angemeldet bleiben' }) as HTMLInputElement).checked,
     ).toBe(false);
+  });
+
+  it('still logs in when local storage is denied', async () => {
+    vi.mocked(api.post).mockResolvedValue({
+      accessToken: 'memory-access',
+      refreshToken: 'memory-refresh',
+      user: {
+        id: 9,
+        username: 'lando',
+        email: 'lando@example.test',
+        prestige: 0,
+        onboardingCompleted: true,
+      },
+      defaultView: 'maindesk',
+    });
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      get: () => {
+        throw new DOMException('Storage denied', 'SecurityError');
+      },
+    });
+
+    render(<MemoryRouter><LoginPage /></MemoryRouter>);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Login' })[0]);
+    const rememberMe = screen.getByRole('checkbox', { name: 'Angemeldet bleiben' }) as HTMLInputElement;
+    expect(rememberMe.checked).toBe(true);
+    fireEvent.click(rememberMe);
+    expect(rememberMe.checked).toBe(false);
+    fireEvent.click(rememberMe);
+    expect(rememberMe.checked).toBe(true);
+    fireEvent.change(screen.getByLabelText('Username'), {
+      target: { value: 'lando' },
+    });
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'secret' },
+    });
+    fireEvent.submit(screen.getByLabelText('Login Formular'));
+
+    await waitFor(() =>
+      expect(useAuthStore.getState().accessToken).toBe('memory-access'),
+    );
+    expect(sessionStorage.getItem('swu-auth')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('opens the configured start view after a successful login', async () => {

@@ -26,6 +26,22 @@ interface AuthFeatures {
   passwordReset: boolean;
 }
 
+function getRememberLoginPreference(): boolean {
+  try {
+    return localStorage.getItem('swu-remember-login') !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+function saveRememberLoginPreference(rememberLogin: boolean): void {
+  try {
+    localStorage.setItem('swu-remember-login', String(rememberLogin));
+  } catch {
+    // Remember-me is optional when browser storage is unavailable.
+  }
+}
+
 interface PublicNews {
   id: number;
   title: string;
@@ -148,9 +164,7 @@ export function LoginPage() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberLogin, setRememberLogin] = useState(
-    () => localStorage.getItem('swu-remember-login') !== 'false',
-  );
+  const [rememberLogin, setRememberLogin] = useState(getRememberLoginPreference);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<GalaxyStats | null>(null);
@@ -201,7 +215,7 @@ export function LoginPage() {
         username,
         password,
       });
-      localStorage.setItem('swu-remember-login', String(rememberLogin));
+      saveRememberLoginPreference(rememberLogin);
       setAuth(res.accessToken, res.refreshToken, res.user, rememberLogin);
       const routeByDefaultView: Record<string, string> = {
         maindesk: '/',
@@ -634,10 +648,7 @@ export function LoginPage() {
               checked={rememberLogin}
               onChange={(event) => {
                 setRememberLogin(event.target.checked);
-                localStorage.setItem(
-                  'swu-remember-login',
-                  String(event.target.checked),
-                );
+                saveRememberLoginPreference(event.target.checked);
               }}
               tabIndex={loginOpen ? 0 : -1}
             />

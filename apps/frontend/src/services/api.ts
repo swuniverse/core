@@ -5,7 +5,8 @@ const API_BASE = '/api';
 let refreshPromise: Promise<string | null> | null = null;
 
 async function refreshAccessToken(): Promise<string | null> {
-  const { refreshToken, setAuth, logout } = useAuthStore.getState();
+  const { refreshToken, setAuth, logout, getRememberLogin } = useAuthStore.getState();
+  const rememberLogin = getRememberLogin();
   if (!refreshToken) return null;
 
   try {
@@ -20,7 +21,7 @@ async function refreshAccessToken(): Promise<string | null> {
       return null;
     }
     const data = await res.json();
-    setAuth(data.accessToken, data.refreshToken, data.user);
+    setAuth(data.accessToken, data.refreshToken, data.user, rememberLogin);
     return data.accessToken;
   } catch {
     logout();
