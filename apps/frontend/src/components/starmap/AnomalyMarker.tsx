@@ -3,7 +3,10 @@ import type { AnomalyViewDto } from '@swuniverse/shared';
 import { anomalyImage } from '../../lib/assets';
 
 export function formatAnomaly(anomaly: AnomalyViewDto): string {
-  return `${anomaly.name} (noch ${anomaly.remainingTicks} ${anomaly.remainingTicks === 1 ? 'Tick' : 'Ticks'})`;
+  const duration = `noch ${anomaly.remainingTicks} ${anomaly.remainingTicks === 1 ? 'Tick' : 'Ticks'}`;
+  return anomaly.intensity == null
+    ? `${anomaly.name} (${duration})`
+    : `${anomaly.name} (Intensität ${anomaly.intensity}, ${duration})`;
 }
 
 /** Map overlay for the anomalies of one field, layered like STU's anomaly layer. */

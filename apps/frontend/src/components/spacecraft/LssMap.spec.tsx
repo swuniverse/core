@@ -240,6 +240,22 @@ describe('LssMap', () => {
     expect(icon?.getAttribute('title')).toBe('Subraumellipse (noch 1 Tick)');
   });
 
+  it('renders ion storm fields with their icon and intensity', () => {
+    const localMap = systemMap(201);
+    localMap.fields[0].anomalies = [
+      { type: 'ION_STORM', name: 'Ionensturm', remainingTicks: 12, intensity: 175 },
+    ];
+
+    const { container } = render(
+      <LssMap localMap={localMap} navTarget={null} onFieldClick={vi.fn()} />,
+    );
+
+    expect(container.querySelector('img[src="/anomaly-ion_storm.png"]')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: /Feld 1,14/ }).getAttribute('aria-label'),
+    ).toContain('Anomalie: Ionensturm (Intensität 175, noch 12 Ticks)');
+  });
+
   it('falls back to a marker when the anomaly asset is missing', () => {
     const localMap = systemMap(201);
     localMap.fields[0].anomalies = [

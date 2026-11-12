@@ -8,6 +8,7 @@ const apiMocks = vi.hoisted(() => ({
 }));
 vi.mock('../../services/api', () => ({ api: apiMocks }));
 vi.mock('../../lib/assets', () => ({
+  anomalyImage: (type: string) => `/anomaly-${type.toLowerCase()}.png`,
   planetThumbnail: () => '/planet.png',
   spaceBackgroundTile: () => '/space.png',
   starTileImage: () => '/star.png',
@@ -74,6 +75,32 @@ describe('NavigationPanel', () => {
     apiMocks.get.mockReset();
     apiMocks.post.mockReset();
     apiMocks.patch.mockReset();
+  });
+
+  it('warns when the destination lies in an ion storm', async () => {
+    apiMocks.get.mockResolvedValueOnce({
+      ...map,
+      fields: map.fields.map((field) =>
+        field.cx === 6 && field.cy === 5
+          ? {
+              ...field,
+              anomalies: [
+                { type: 'ION_STORM', name: 'Ionensturm', remainingTicks: 40, intensity: 130 },
+              ],
+            }
+          : field,
+      ),
+    });
+    render(<NavigationPanel ship={ship} onShipUpdate={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Feld 6,5/ }));
+
+    expect(
+      screen.getByText(
+        'Das Ziel liegt in einem gefährlichen Ionensturm: Ionensturm (Intensität 130, noch 40 Ticks)',
+      ),
+    ).toBeTruthy();
+    expect(apiMocks.post).not.toHaveBeenCalled();
   });
 
   it('confirms an accessible field before flying', async () => {

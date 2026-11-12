@@ -9,6 +9,7 @@ import { api } from '../../services/api';
 import { tutorialEvent } from '../tutorial/useTutorial';
 import { DirectionalControls } from './DirectionalControls';
 import { LssMap } from './LssMap';
+import { formatAnomaly } from '../starmap/AnomalyMarker';
 import type { LocalMapResponse } from './LssMap';
 
 interface Ship {
@@ -158,6 +159,8 @@ export function NavigationPanel({
     : [];
   const targetEnergy = targetField?.energyCost ?? targetField?.fieldType?.energyCost ?? 0;
   const targetDamage = targetField?.damage ?? targetField?.fieldType?.damage ?? 0;
+  const targetStorms =
+    targetField?.anomalies?.filter((anomaly) => anomaly.type === 'ION_STORM') ?? [];
 
   const handleEnterSystem = async () => {
     setChangingSystem(true);
@@ -334,6 +337,11 @@ export function NavigationPanel({
                 <div>Energie: {targetEnergy} · Schaden: {targetDamage}</div>
                 {targetEffects.map((effect) => (
                   <div key={effect}>{fieldEffectDefinition(effect).destinationInfo}</div>
+                ))}
+                {targetStorms.map((storm, index) => (
+                  <div key={`storm-${index}`} className="font-bold text-red-200">
+                    Das Ziel liegt in einem gefährlichen Ionensturm: {formatAnomaly(storm)}
+                  </div>
                 ))}
                 <button
                   type="button"

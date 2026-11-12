@@ -4,4 +4,6 @@ export interface AnomalyViewDto {
   type: string;
   name: string;
   remainingTicks: number;
+  /** Ion storm intensity (STU 50–200). */
+  intensity?: number;
 }

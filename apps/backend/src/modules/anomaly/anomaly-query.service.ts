@@ -18,7 +18,7 @@ export class AnomalyQueryService {
     if (locationId == null) return [];
     const anomalies = await this.dataSource.getRepository(Anomaly).find({
       where: { locationId, remainingTicks: MoreThan(0) },
-      relations: ['type'],
+      relations: ['type', 'parent'],
       order: { id: 'ASC' },
     });
     return anomalies.map((anomaly) => this.toView(anomaly));
@@ -37,7 +37,7 @@ export class AnomalyQueryService {
     if (!fieldIds.length) return byField;
     const anomalies = await this.dataSource.getRepository(Anomaly).find({
       where: { location: { [scope]: In(fieldIds) }, remainingTicks: MoreThan(0) },
-      relations: ['type', 'location'],
+      relations: ['type', 'location', 'parent'],
       order: { id: 'ASC' },
     });
     for (const anomaly of anomalies) {
@@ -51,10 +51,12 @@ export class AnomalyQueryService {
   }
 
   private toView(anomaly: Anomaly): AnomalyViewDto {
+    const handler = this.registry.find(anomaly.type.key);
     return {
       type: anomaly.type.key,
-      name: this.registry.find(anomaly.type.key)?.name ?? anomaly.type.key,
+      name: handler?.name ?? anomaly.type.key,
       remainingTicks: anomaly.remainingTicks,
+      ...handler?.present?.(anomaly),
     };
   }
 }

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
+import type { AnomalyViewDto } from '@swuniverse/shared';
 import type { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import type { TransactionalNotifications } from '../messaging/messaging.service';
 import type { Anomaly } from './entities/anomaly.entity';
@@ -8,6 +9,8 @@ export interface AnomalyHandler {
   readonly key: string;
   /** Player-facing name; the type key is shown when omitted. */
   readonly name?: string;
+  /** Type-specific display details, e.g. a storm's intensity from its root. */
+  present?(anomaly: Anomaly): Partial<AnomalyViewDto>;
   checkForCreation(manager: EntityManager, transaction?: TransactionalNotifications): Promise<void>;
   handleTick(anomaly: Anomaly, manager: EntityManager, transaction?: TransactionalNotifications): Promise<void>;
   handleIncomingSpacecraft(
