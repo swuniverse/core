@@ -270,7 +270,7 @@ Benutzerwählbare Farbschemata: STU tauscht `--color-N`-Variablen per CSS-Datei.
   - Hover über das Bildpaar `…0.png` / `…1.png` mit `group-hover`.
   - Status als kleiner Punkt (`size-1.5 rounded-full bg-…`, wie bei den Header-Kolonien) oder als Asset-Icon. **Keine Emoji.**
   - Fehlende Navigations-Icons gehören nach `swuniverse/assets` (AP-14, NEEDS-DECISION zur Herkunft bzw. Lizenz).
-  - Anomalie-Icons fehlen in `swuniverse/assets`. Erwartet wird `map/anomalies/<typ>.png` mit dem Typschlüssel in Kleinbuchstaben, z. B. `subspace_ellipse.png` (STU: `map/anomalies/1.png`). Bis dahin zeigen LSS und Kolonie-Sektorscan einen CSS-Ring als Fallback (tmw-K10a3); Herkunft und Lizenz wie AP-14.
+  - Anomalie-Icons liegen unter `map/anomalies/<typ>.png` mit dem Typschlüssel in Kleinbuchstaben: `subspace_ellipse.png` und `ion_storm.png`, übernommen aus STU `anomalies/1.png` bzw. `2.png` (Freigabe Product Owner, 2026-11-12). Typen ohne Grafik zeigen in LSS und Kolonie-Sektorscan einen CSS-Ring als Fallback (tmw-K10a3).
 - Größen:
   - Header-Navicons 40 px (STU) bzw. 24–32 px (SWU).
   - Warenicons 15–20 px.

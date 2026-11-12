@@ -495,7 +495,7 @@ export function researchImage(techId: number): string {
 
 /**
  * Map icon of an anomaly type, e.g. `map/anomalies/subspace_ellipse.png`.
- * SWU has no anomaly assets yet; callers must fall back when loading fails.
+ * Images are taken from STU `anomalies/<id>.png`; callers fall back when one is missing.
  */
 export function anomalyImage(type: string): string {
   return `${ASSET_BASE}/map/anomalies/${type.toLowerCase()}.png`;

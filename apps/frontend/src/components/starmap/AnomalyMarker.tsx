@@ -22,7 +22,7 @@ function AnomalyMarker({ anomaly }: { anomaly: AnomalyViewDto }) {
   const [missing, setMissing] = useState(false);
   if (missing) {
     return (
-      // Asset gap: swuniverse/assets has no map/anomalies yet (see tmw-K10a3).
+      // Fallback for anomaly types without an image in swuniverse/assets.
       <span
         data-testid="anomaly-fallback"
         title={formatAnomaly(anomaly)}
@@ -37,7 +37,7 @@ function AnomalyMarker({ anomaly }: { anomaly: AnomalyViewDto }) {
       title={formatAnomaly(anomaly)}
       draggable={false}
       onError={() => setMissing(true)}
-      className="pointer-events-none absolute inset-0 z-[15] h-full w-full object-cover opacity-80"
+      className="pointer-events-none absolute inset-0 z-[15] h-full w-full object-contain opacity-80"
     />
   );
 }
