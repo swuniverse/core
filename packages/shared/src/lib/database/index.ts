@@ -42,7 +42,8 @@ export type CommodityLocationType =
   | 'COLONY'
   | 'SPACECRAFT'
   | 'TORPEDO_STORAGE'
-  | 'TRADE_ACCOUNT';
+  | 'TRADE_ACCOUNT'
+  | 'TRADE_OFFER';
 
 export interface CommodityLocationDto {
   type: CommodityLocationType;

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -21,7 +22,9 @@ import {
   type TradeLicensePurchaseInput,
 } from './trade-license-purchase.service';
 import { TradeLicenseMenuService } from './trade-license-menu.service';
+import { TradeOfferService } from './trade-offer.service';
 import { TradeQueryService } from './trade-query.service';
+import type { CreateTradeOfferDto } from '@swuniverse/shared';
 
 @Controller('trade')
 @RequiresGameAccess()
@@ -32,6 +35,7 @@ export class TradeController {
     private readonly licenses: TradeLicenseService,
     private readonly purchases: TradeLicensePurchaseService,
     private readonly menus: TradeLicenseMenuService,
+    private readonly offers: TradeOfferService,
   ) {}
 
   @Get('posts')
@@ -55,6 +59,36 @@ export class TradeController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.licenses.listIssued(id, req.user.sub);
+  }
+
+  @Get('offers/mine')
+  listOwnOffers(@Request() req: { user: { sub: number } }) {
+    return this.offers.listMine(req.user.sub);
+  }
+
+  @Get('posts/:id/offer-options')
+  getOfferOptions(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.offers.getOptions(id, req.user.sub);
+  }
+
+  @Post('posts/:id/offers')
+  createOffer(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body() input: CreateTradeOfferDto,
+  ) {
+    return this.offers.create(id, req.user.sub, input);
+  }
+
+  @Delete('offers/:id')
+  cancelOffer(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.offers.cancel(id, req.user.sub);
   }
 
   @Get('posts/:id/license-menu')

@@ -23,11 +23,13 @@ describe('TradeController', () => {
   };
   const purchases = { purchase: jest.fn(), renew: jest.fn() };
   const menus = { getMenu: jest.fn(), getPostAtSpacecraft: jest.fn() };
+  const offers = { listMine: jest.fn(), getOptions: jest.fn(), create: jest.fn(), cancel: jest.fn() };
   const controller = new TradeController(
     query as never,
     licenses as never,
     purchases as never,
     menus as never,
+    offers as never,
   );
 
   beforeEach(() => jest.clearAllMocks());
@@ -84,5 +86,19 @@ describe('TradeController', () => {
     expect(menus.getMenu).toHaveBeenNthCalledWith(1, 7, 42, 3);
     expect(menus.getMenu).toHaveBeenNthCalledWith(2, 7, 42, null);
     expect(menus.getPostAtSpacecraft).toHaveBeenCalledWith(3, 42);
+  });
+
+  it('scopes offers to the authenticated player', async () => {
+    const input = { offeredCommodityId: 5, offeredAmount: 10, wantedCommodityId: 6, wantedAmount: 5, offerCount: 2 };
+
+    await controller.listOwnOffers({ user: { sub: 42 } });
+    await controller.getOfferOptions(7, { user: { sub: 42 } });
+    await controller.createOffer(7, { user: { sub: 42 } }, input);
+    await controller.cancelOffer(3, { user: { sub: 42 } });
+
+    expect(offers.listMine).toHaveBeenCalledWith(42);
+    expect(offers.getOptions).toHaveBeenCalledWith(7, 42);
+    expect(offers.create).toHaveBeenCalledWith(7, 42, input);
+    expect(offers.cancel).toHaveBeenCalledWith(3, 42);
   });
 });

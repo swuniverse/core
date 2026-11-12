@@ -9,11 +9,12 @@ import type {
 } from '@swuniverse/shared';
 import { PageHeader, type PageHeaderSegment } from '../components/PageHeader';
 import { TradeLicensePanel } from '../components/trade/TradeLicensePanel';
+import { TradeOffersTab } from '../components/trade/TradeOffersTab';
 import { commodityImage } from '../lib/assets';
 import { formatDateTime, formatNumber } from '../lib/format';
 import { api } from '../services/api';
 
-type TradeTab = 'accounts' | 'posts' | 'licenses';
+type TradeTab = 'accounts' | 'posts' | 'licenses' | 'offers';
 
 type CommodityName = { id: number; name: string };
 
@@ -21,6 +22,7 @@ const TABS: { key: TradeTab; label: string }[] = [
   { key: 'accounts', label: 'Warenkonten' },
   { key: 'posts', label: 'Handelsposten' },
   { key: 'licenses', label: 'Lizenzen' },
+  { key: 'offers', label: 'Meine Angebote' },
 ];
 
 function locationLink(location: SpaceLocationDto) {
@@ -55,7 +57,8 @@ export function TradePage() {
   const [error, setError] = useState<string | null>(null);
 
   const tabParam = searchParams.get('tab');
-  const tab: TradeTab = tabParam === 'posts' || tabParam === 'licenses' ? tabParam : 'accounts';
+  const tab: TradeTab =
+    tabParam === 'posts' || tabParam === 'licenses' || tabParam === 'offers' ? tabParam : 'accounts';
   const selectedPostId = Number(searchParams.get('post')) || null;
   const shipId = Number(searchParams.get('ship')) || null;
 
@@ -104,6 +107,8 @@ export function TradePage() {
   const segments: PageHeaderSegment[] = [{ label: 'Handel', to: '/trade' }];
   if (tab === 'licenses') {
     segments.push({ label: 'Lizenzen' });
+  } else if (tab === 'offers') {
+    segments.push({ label: 'Meine Angebote' });
   } else if (tab === 'posts' || selectedPost) {
     segments.push({ label: selectedPost?.name ?? 'Handelsposten' });
   }
@@ -139,6 +144,8 @@ export function TradePage() {
           commodityName={commodityName}
           onSelect={(id) => select({ tab: 'posts', post: id })}
         />
+      ) : tab === 'offers' ? (
+        <TradeOffersTab />
       ) : tab === 'licenses' ? (
         <LicensesTab onSelect={(id) => select({ tab: 'posts', post: id })} />
       ) : selectedPost ? (

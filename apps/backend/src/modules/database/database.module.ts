@@ -34,6 +34,8 @@ import { CommodityOverviewService } from './commodity-overview.service';
 import { OwnedStorageCommodityLocationSource } from './owned-storage-commodity-location.source';
 import { TradeAccountStorage } from '../trade/entities/trade-account-storage.entity';
 import { TradeAccountCommodityLocationSource } from './trade-account-commodity-location.source';
+import { TradeOfferCommodityLocationSource } from './trade-offer-commodity-location.source';
+import { TradeOffer } from '../trade/entities/trade-offer.entity';
 import { COMMODITY_LOCATION_SOURCES } from './commodity-location-source';
 import { UserAward } from '../awards/entities/user-award.entity';
 import { FlightSignature } from '../spacecraft/entities/flight-signature.entity';
@@ -76,6 +78,7 @@ import { StarmapModule } from '../starmap/starmap.module';
       FlightSignature,
       TradePost,
       TradeAccountStorage,
+      TradeOffer,
       ExplorationState,
       HolonetRating,
     ]),
@@ -97,6 +100,7 @@ import { StarmapModule } from '../starmap/starmap.module';
     CommodityOverviewService,
     OwnedStorageCommodityLocationSource,
     TradeAccountCommodityLocationSource,
+    TradeOfferCommodityLocationSource,
     ColonyAurodiumRankingSource,
     SpacecraftAurodiumRankingSource,
     {
@@ -112,10 +116,12 @@ import { StarmapModule } from '../starmap/starmap.module';
       useFactory: (
         ownedStorage: OwnedStorageCommodityLocationSource,
         tradeAccounts: TradeAccountCommodityLocationSource,
-      ) => [ownedStorage, tradeAccounts],
+        tradeOffers: TradeOfferCommodityLocationSource,
+      ) => [ownedStorage, tradeAccounts, tradeOffers],
       inject: [
         OwnedStorageCommodityLocationSource,
         TradeAccountCommodityLocationSource,
+        TradeOfferCommodityLocationSource,
       ],
     },
   ],

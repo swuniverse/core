@@ -146,3 +146,45 @@ export interface TradeMenuDto {
   accountUsed: number;
   accountCapacity: number;
 }
+
+/** An own offer at a post (`GET trade/offers/mine`). */
+export interface TradeOfferDto {
+  id: number;
+  tradePostId: number;
+  tradePostName: string;
+  offeredCommodityId: number;
+  offeredCommodityName: string;
+  /** Goods given per offer. */
+  offeredAmount: number;
+  wantedCommodityId: number;
+  wantedCommodityName: string;
+  /** Goods wanted per offer. */
+  wantedAmount: number;
+  /** Remaining number of offers. */
+  offerCount: number;
+  /** Goods held back from the account for the remaining offers. */
+  reservedAmount: number;
+  createdAt: string;
+}
+
+/** Body of `POST trade/posts/:id/offers`. */
+export interface CreateTradeOfferDto {
+  offeredCommodityId: number;
+  offeredAmount: number;
+  wantedCommodityId: number;
+  wantedAmount: number;
+  offerCount: number;
+}
+
+/** Server-authorized choices for a new offer (`GET trade/posts/:id/offer-options`). */
+export interface TradeOfferOptionsDto {
+  tradePostId: number;
+  tradePostName: string;
+  hasLicense: boolean;
+  /** Free account space; a new offer needs some, like STU. */
+  accountFree: number;
+  /** Tradeable goods in the own account at this post. */
+  accountGoods: Array<{ commodityId: number; commodityName: string; amount: number }>;
+  /** Commodities that may be wanted in return. */
+  tradeableCommodities: Array<{ id: number; name: string }>;
+}
