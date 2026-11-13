@@ -174,6 +174,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- sh-AP-05d – Kontolöschung: alle Kolonien inkl. Startkolonie werden über den Abgabe-Kern zu besitzerlosen Ruinen mit Gebäuden und Lager, Queues ohne Rückerstattung beendet, Blockaden aufgehoben – 403b969c
 - sh-AP-05c – Kontolöschung: Schiffe ohne Wrack, Crew, Kapseln, Flotten, Blockaden, Traktorstrahlen, geteilte Baupläne ohne Besitzer, Entdeckungen und Forschungsbelohnungen – 04779aa5
 - sh-AP-05b – Kontolöschung: Allianzaustritt vor der Transaktion (`prepare`), Nachrichten/HoloNet/News bleiben als „Gelöschter Siedler“, persönliche Daten, Invite-Keys und Prestige-Historie gelöscht – 04779aa5
 - tmw-T12c – Zerstörte Station: STU-Bergungsregel (50 % je Zeile verloren, sonst 0–50 % ins Wrack), Posten samt Konten/Angeboten/Lizenzen entfernt, Inhaber benachrichtigt; Kontolöschung des Eigentümers verlässt den Posten (ohne Eigentümer, STU-Name), Handel und Einzahlungen gesperrt, Auszahlen bleibt – 59197c48
