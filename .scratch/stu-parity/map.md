@@ -168,10 +168,12 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-28 – sc-WP-CLEAN-2 – Der Singularitätsreaktor wird zum **Hypermaterie-Reservekern**: alternativer Hochkapazitätsreaktor ohne Star-Trek-Singularitätsterminologie.
 - 2026-10-29 – soc-A8 – Fraktionswillkommen wird als idempotente Systemnachricht vom **Oberkommando der Rebellenallianz** beziehungsweise **Imperialen Oberkommando** versandt.
 - 2026-11-13 – tmw-T12a – Spieler-IDs beginnen wie in STU bei 100; Spielerhandelsnetze tragen die Eigentümer-ID und kollidieren nie mit den NPC-Netzen 1–3
+- 2026-11-13 – tmw-T12c – Statt STU `USER_NOONE` hat ein verlassener Handelsposten keinen Eigentümer (`trade_posts.ownerId` nullable); SWU legt keinen Platzhalter-Spieler an
 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-T12c – Zerstörte Station: STU-Bergungsregel (50 % je Zeile verloren, sonst 0–50 % ins Wrack), Posten samt Konten/Angeboten/Lizenzen entfernt, Inhaber benachrichtigt; Kontolöschung des Eigentümers verlässt den Posten (ohne Eigentümer, STU-Name), Handel und Einzahlungen gesperrt, Auszahlen bleibt – 59197c48
 - tmw-T12b – Postenverwaltung in der Stationsansicht: Box „Handelsposten“ mit Netz, Lager, Lizenzbedingung und Lizenznehmern, Umbenennen per `PATCH trade/posts/:id` nur durch den Eigentümer (Name 3–40, Beschreibung ≤ 1000, bereinigt), Link zum Handel – d0c91470
 - tmw-T12a – Fertiggestellter Außenposten erzeugt in derselben Transaktion einen Spielerhandelsposten (eigenes Netz = Eigentümer-ID, STU-Werte, unbefristete Eigentümerlizenz); Spieler-IDs ab 100, ein Posten je Feld, Stationen nicht traktorierbar – e5e4a545
 - tmw-T8b – Deal-Auktionen: Maximalgebot nach STU in Prestige oder Ware, Überbotene erhalten den Einsatz zurück, Gewinner holt nach dem Ende einmal ab und erhält den Rest über dem Preis zurück; Bereiche „Auktionen“ und „Gewonnene Auktionen“, Admin-Schalter „Auktion“ – 44c4bcea
