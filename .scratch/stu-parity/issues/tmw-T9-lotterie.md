@@ -1,6 +1,6 @@
 # Lotterie des Hutten-Kartells
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-T3
@@ -27,11 +27,22 @@ Spieler mit Lizenz am Hutten-Posten kaufen Lose für je 1 Aurodium aus ihrem Kon
 
 ## Akzeptanzkriterien
 
-- [ ] Die Entitäten `LotteryTicket` (Spieler, Periode `YYYY.MM`, Gewinner-Flag) und `LotteryWinnerBuildplan` (Fraktion, Bauplan, Chance) sind angelegt. Admins pflegen die Gewinnbaupläne.
-- [ ] `POST trade/lottery/tickets { amount }` setzt die STU-Prüfungen um, bucht das Aurodium vom Konto am Hutten-Posten ab und legt die Lose an.
-- [ ] `GET trade/lottery` liefert die Lose der aktuellen Periode (gesamt und eigene), den möglichen Jackpot und Gewinner und Lose der Vorperiode.
-- [ ] Ein täglicher Job zieht nur am Monatsersten und nur einmal je Periode. Er setzt alle STU-Regeln um: Jackpot, Prestige, Schiff am Postenort, Nachrichten, Freilose. Danach löst er ein internes Ereignis „Lotterie gezogen“ (Periode, Gewinner) aus, an das soc-G2c den Award hängt.
-- [ ] Der Tab „Lotterie“ zeigt Statistik, Kaufformular und letzte Ziehung.
-- [ ] Backend-Tests mit festgesetzter Uhr und deterministischem Zufall: Kaufprüfungen, Ziehung nur am Ersten, Idempotenz, Jackpotberechnung, Schiffsvergabe nach Fraktion, Nachrichten. Frontend-Test: Kauf und Anzeige.
+- [x] Die Entitäten `LotteryTicket` (Spieler, Periode `YYYY.MM`, Gewinner-Flag) und `LotteryWinnerBuildplan` (Fraktion, Bauplan, Chance) sind angelegt. Admins pflegen die Gewinnbaupläne.
+- [x] `POST trade/lottery/tickets { amount }` setzt die STU-Prüfungen um, bucht das Aurodium vom Konto am Hutten-Posten ab und legt die Lose an.
+- [x] `GET trade/lottery` liefert die Lose der aktuellen Periode (gesamt und eigene), den möglichen Jackpot und Gewinner und Lose der Vorperiode.
+- [x] Ein täglicher Job zieht nur am Monatsersten und nur einmal je Periode. Er setzt alle STU-Regeln um: Jackpot, Prestige, Schiff am Postenort, Nachrichten, Freilose. Danach löst er ein internes Ereignis „Lotterie gezogen“ (Periode, Gewinner) aus, an das soc-G2c den Award hängt.
+- [x] Der Tab „Lotterie“ zeigt Statistik, Kaufformular und letzte Ziehung.
+- [x] Backend-Tests mit festgesetzter Uhr und deterministischem Zufall: Kaufprüfungen, Ziehung nur am Ersten, Idempotenz, Jackpotberechnung, Schiffsvergabe nach Fraktion, Nachrichten. Frontend-Test: Kauf und Anzeige.
 
 ## Comments
+
+- 2026-11-13: Umgesetzt.
+  - Entitäten `LotteryTicket` (Spieler, Periode `YYYY.MM`, `isWinner` – leer bis zur Ziehung) und `LotteryWinnerBuildplan` (Fraktion, Admin-Bauplan, Chance > 0), Migration `20261113140000-add-trade-lottery`. Admins pflegen die Gewinnbaupläne über `admin/trade/lottery-buildplans` und auf der Seite `/admin/trade-deals` („Hutten-Deals und Lotterie“).
+  - `POST trade/lottery/tickets { amount }` nach STU `BuyLotteryTickets`: Lizenz am Hutten-Posten, NPCs ausgeschlossen, 1 Aurodium je Los vom Konto dort, Lose der aktuellen Periode. Anzahl < 1 wird abgewiesen (STU kehrt still zurück).
+  - `GET trade/lottery`: Periode, Lose gesamt und eigene, möglicher Jackpot, eigenes Aurodium, letzte Ziehung (Periode, Lose, Jackpot, Gewinner, eigene Lose).
+  - Ziehung (`TradeLotteryService.draw`) als täglicher Wartungs-Handler `trade-lottery` (03:00 Europe/Berlin): nur am Monatsersten in der Spielzeitzone, zieht die Periode des Vortags und nur einmal (Advisory-Sperre je Periode, eine bereits markierte Periode wird übersprungen). STU-Regeln: Jackpot `ceil(n×80/100)` aufs Konto am Hutten-Posten ohne Platzprüfung, Prestige = eigene Lose mit Prestigelog, Schiff aus den Gewinnbauplänen der Gewinnerfraktion nach Chance am Postenort („Lotteriegewinn (TT.MM.JJJJ)“, über den Schiffs-Port aus tmw-T8a), Nachrichten an Gewinner und jeden anderen Teilnehmer, Freilose für die neue Periode mit Nachricht.
+  - Freilose: STU rechnet `10 × (ID − erste Spieler-ID) / Spielerzahl` Prozent; SWU-IDs sind nicht lückenlos, daher steht der Rang nach ID für die ID (neuere Spieler höhere Chance, höchstens knapp 10 %).
+  - Ereignis „Lotterie gezogen“: `TradeLotteryService.onDrawn(listener)` meldet nach dem Commit `{ period, winnerUserId }`; Fehler eines Listeners brechen die Ziehung nicht ab. soc-G2c hängt dort den Award an.
+  - Kontolöschung: `TradeDeletionHandler` entfernt auch die Lose des Spielers; offen bleibt dort nur tmw-T8b.
+  - Frontend: Tab „Lotterie“ mit Statistik, Kaufformular (nur mit Lizenz) und letzter Ziehung.
+  - Tests mit fester Uhr und festgelegtem Zufall: `trade-lottery.int-spec.ts` (Kauf und STU-Prüfungen, Ziehung nur am Ersten, Jackpot/Prestige/Schiff/Nachrichten/Ereignis, Idempotenz, Schiff nach Fraktion bzw. keines ohne Gewinnbauplan, Freilose, keine Lose, Admin-Pflege), `trade-deletion.int-spec.ts` erweitert, `TradeLotteryTab.spec.tsx`, `admin-trade-deals.spec.tsx`. Mutationsproben (Idempotenzprüfung, Tagesprüfung entfernt) lassen Tests scheitern.
