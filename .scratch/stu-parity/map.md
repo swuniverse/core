@@ -51,6 +51,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Entscheidungen
 
+- 2026-11-13 – tmw-T7a – Basishandel: Ein Kauf geht mit dem Kauf-Modifier −10 in die Kursformel ein; der STU-Code (`$summand = 1`) wird als Fehler nicht übernommen.
 <!-- Ralph und der Product Owner ergänzen hier: Datum – Issue-ID – Entscheidung -->
 
 - 2026-10-30 – tmw-K2 – Sieben aktive Feldeffekte laufen über die zentrale Einflug-/Tick-Pipeline; NBS-Ausfall nutzt einen eigenen persistenten Wall-Clock-Cooldown, Meldungen gehen in Schiffsordner und Live-Meldungsleiste.
@@ -168,6 +169,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-T7a – Basishandel nach STU: Aurodium gegen Waren an lizenzierten NPC-Posten zum Netzkurs (Kauf −10, Verkauf +10, Mittelung, Kurs-ID, Sperre je Netz und Ware), Startkurse aus `game-data`, Tab „Basishandel“ mit Kursdiagramm – 1c73c928
 - tmw-T4b – Angebote nach STU annehmen (Kürzung auf Bestand, Platz und Restanzahl, Transaktion, Nachricht an den Anbieter), suchen nach Ware, Modus und Posten, Übersicht je Ware, Verfall nach 14 Tagen; Tab „Angebote“ mit Annehmen-Dialog – 2251fbc9
 - tmw-T4a – Tauschangebote nach STU erstellen (Reserve aus dem Warenkonto, Vergleichsregel, Kürzung), auflisten und zurückziehen; Angebotsreserven als Lagerort; Tab „Meine Angebote“ und Dialog „Neues Angebot“ – 60b5c41b
 - tmw-T3 – Handelsmenü am Posten: Waren zwischen Frachtraum und Warenkonto per Feld-Kopräsenz und Lizenz, gekürzt auf Bestand, Platz und Transferenergie, transaktional; Dialog im Schiffsdetail – 8555909a
