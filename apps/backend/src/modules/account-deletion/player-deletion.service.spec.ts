@@ -7,7 +7,10 @@ function setup(user: { id: number } | null, handlers: PlayerDeletionHandler[] = 
     delete: jest.fn(async () => undefined),
   };
   const manager = { getRepository: jest.fn(() => userRepo) };
-  const dataSource = { transaction: jest.fn(async (work) => work(manager)) };
+  const dataSource = {
+    transaction: jest.fn(async (work) => work(manager)),
+    getRepository: jest.fn(() => ({ existsBy: jest.fn(async () => user !== null) })),
+  };
   return { service: new PlayerDeletionService(dataSource as never, handlers), userRepo, manager };
 }
 
@@ -29,12 +32,31 @@ describe('PlayerDeletionService', () => {
     expect(userRepo.delete).toHaveBeenCalledWith(7);
   });
 
+  it('prepares every handler in order before the deletion transaction', async () => {
+    const calls: string[] = [];
+    const handlers = [20, 10].map((order) => ({
+      order,
+      prepare: jest.fn(async () => {
+        calls.push(`prepare ${order}`);
+      }),
+      delete: jest.fn(async () => {
+        calls.push(`delete ${order}`);
+      }),
+    }));
+    const { service } = setup({ id: 7 }, handlers);
+
+    await service.delete(7);
+
+    expect(calls).toEqual(['prepare 10', 'prepare 20', 'delete 10', 'delete 20']);
+  });
+
   it('is a no-op for an unknown user', async () => {
-    const handler = { order: 1, delete: jest.fn() };
+    const handler = { order: 1, prepare: jest.fn(), delete: jest.fn() };
     const { service, userRepo } = setup(null, [handler]);
 
     await service.delete(404);
 
+    expect(handler.prepare).not.toHaveBeenCalled();
     expect(handler.delete).not.toHaveBeenCalled();
     expect(userRepo.delete).not.toHaveBeenCalled();
   });

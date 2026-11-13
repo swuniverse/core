@@ -17,8 +17,9 @@ export class ColonyShipBuildplan {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
-  userId!: number;
+  /** `null` for a plan of a deleted player still used by others (sh-AP-05c). */
+  @Column({ type: 'int', nullable: true })
+  userId!: number | null;
 
   @Column()
   shipClassId!: number;

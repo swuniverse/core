@@ -77,7 +77,8 @@ interface HolonetPost {
   positiveCount: number;
   totalCount: number;
   createdAt: string;
-  authorId: number;
+  /** `null` once the author deleted the account ("Gelöschter Siedler"). */
+  authorId: number | null;
   author: { username: string };
   plotId?: number | null;
   plot?: { id: number; title: string } | null;
@@ -88,7 +89,8 @@ interface Comment {
   id: number;
   body: string;
   createdAt: string;
-  authorId: number;
+  /** `null` once the author deleted the account ("Gelöschter Siedler"). */
+  authorId: number | null;
   author: { username: string };
 }
 
@@ -787,21 +789,27 @@ export function HolonetPage() {
                             {post.author.username.slice(0, 2).toUpperCase()}
                           </div>
                           <p className="text-xs text-swu-primary">{post.author.username}</p>
-                          <p className="text-[10px] text-swu-muted">Siedler #{post.authorId}</p>
+                          {post.authorId !== null && (
+                            <p className="text-[10px] text-swu-muted">Siedler #{post.authorId}</p>
+                          )}
                           <div className="mt-3 flex justify-center gap-1">
-                            <PmLink
-                              playerId={post.authorId}
-                              playerName={post.author.username}
-                              className="border border-swu-border p-1 text-swu-primary hover:border-swu-accent"
-                            />
-                            <Link
-                              to={`/players/${post.authorId}`}
-                              className="border border-swu-border p-1 text-swu-primary hover:border-swu-accent"
-                              title={`Profil von ${post.author.username} öffnen`}
-                              aria-label={`Profil von ${post.author.username} öffnen`}
-                            >
-                              <img src="/assets/buttons/info1.png" alt="" className="size-4" />
-                            </Link>
+                            {post.authorId !== null && (
+                              <>
+                                <PmLink
+                                  playerId={post.authorId}
+                                  playerName={post.author.username}
+                                  className="border border-swu-border p-1 text-swu-primary hover:border-swu-accent"
+                                />
+                                <Link
+                                  to={`/players/${post.authorId}`}
+                                  className="border border-swu-border p-1 text-swu-primary hover:border-swu-accent"
+                                  title={`Profil von ${post.author.username} öffnen`}
+                                  aria-label={`Profil von ${post.author.username} öffnen`}
+                                >
+                                  <img src="/assets/buttons/info1.png" alt="" className="size-4" />
+                                </Link>
+                              </>
+                            )}
                             <button
                               onClick={() => setBookmark(post)}
                               className="border border-swu-accent/60 px-1.5 py-0.5 text-[10px] text-swu-accent hover:bg-swu-accent/10"

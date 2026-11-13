@@ -8,6 +8,8 @@ import { ColonyEventService } from './colony-event.service';
 import { User } from '../auth/user.entity';
 import { SettingsModule } from '../settings/settings.module';
 import { WebsocketModule } from '../websocket/websocket.module';
+import { AccountDeletionModule } from '../account-deletion/account-deletion.module';
+import { MessagingDeletionHandler } from './messaging-deletion.handler';
 
 @Global()
 @Module({
@@ -16,9 +18,10 @@ import { WebsocketModule } from '../websocket/websocket.module';
     StatisticsModule,
     SettingsModule,
     WebsocketModule,
+    AccountDeletionModule,
   ],
   controllers: [MessagingController],
-  providers: [MessagingService, ColonyEventService],
+  providers: [MessagingService, ColonyEventService, MessagingDeletionHandler],
   exports: [MessagingService, ColonyEventService],
 })
 export class MessagingModule {}

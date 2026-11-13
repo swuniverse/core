@@ -26,6 +26,11 @@ export class PlayerDeletionService {
   }
 
   async delete(userId: number): Promise<void> {
+    const exists = await this.dataSource.getRepository(User).existsBy({ id: userId });
+    if (!exists) return;
+    for (const handler of this.sortedHandlers()) {
+      await handler.prepare?.(userId);
+    }
     await this.dataSource.transaction(async (tx) => {
       const users = tx.getRepository(User);
       const user = await users.findOne({
@@ -33,11 +38,14 @@ export class PlayerDeletionService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!user) return;
-      const handlers = [...this.handlers, ...this.registered];
-      for (const handler of handlers.sort((a, b) => a.order - b.order)) {
+      for (const handler of this.sortedHandlers()) {
         await handler.delete(tx, userId);
       }
       await users.delete(userId);
     });
+  }
+
+  private sortedHandlers(): PlayerDeletionHandler[] {
+    return [...this.handlers, ...this.registered].sort((a, b) => a.order - b.order);
   }
 }

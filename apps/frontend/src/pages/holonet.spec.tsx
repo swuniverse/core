@@ -280,6 +280,32 @@ describe('HolonetPage routing', () => {
     ).toBeNull();
   });
 
+  it('shows a post of a deleted author without message or profile links (sh-AP-05b)', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/holonet?page=1') {
+        return Promise.resolve(
+          listResponse([{ ...postFixture, authorId: null as unknown as number, author: { username: 'Gelöschter Siedler' } }]),
+        );
+      }
+      if (url === '/holonet/1/comments') return Promise.resolve(emptyCommentsResponse);
+      if (url === '/holonet/1/my-rating') return Promise.resolve(0);
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/holonet/1']}>
+        <Routes>
+          <Route path="/holonet/:id" element={<HolonetPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Route-selected body');
+    expect(screen.getAllByText('Gelöschter Siedler').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('link', { name: /Nachricht an Gelöschter Siedler/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Profil von Gelöschter Siedler öffnen' })).toBeNull();
+  });
+
   it('keeps a stale route id usable when the list is empty and direct fetch fails', async () => {
     apiMocks.get.mockImplementation((url: string) => {
       if (url === '/holonet?page=1') {

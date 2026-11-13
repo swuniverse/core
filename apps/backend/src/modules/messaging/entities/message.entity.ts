@@ -22,12 +22,13 @@ export class Message {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
-  senderId: number;
+  /** `null` once the sender's account was deleted (sh-AP-05b). */
+  @Column({ type: 'int', nullable: true })
+  senderId: number | null;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'senderId' })
-  sender: User;
+  sender: User | null;
 
   @Column()
   recipientId: number;

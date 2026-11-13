@@ -18,12 +18,13 @@ export class News {
   @Column({ default: false })
   isChangelog: boolean;
 
-  @Column()
-  authorId: number;
+  /** `null` once the author's account was deleted (sh-AP-05b). */
+  @Column({ type: 'int', nullable: true })
+  authorId: number | null;
 
-  @ManyToOne(() => User, { onDelete: 'RESTRICT' })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'authorId' })
-  author: User;
+  author: User | null;
 
   @CreateDateColumn()
   createdAt: Date;

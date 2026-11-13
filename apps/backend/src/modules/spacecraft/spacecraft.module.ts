@@ -115,6 +115,8 @@ import { GameDataService } from '../game-data/game-data.service';
 import { MessagingService } from '../messaging/messaging.service';
 
 import { TradeModule } from '../trade/trade.module';
+import { AccountDeletionModule } from '../account-deletion/account-deletion.module';
+import { SpacecraftDeletionHandler } from './spacecraft-deletion.handler';
 import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
 @Module({
   imports: [
@@ -172,9 +174,11 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     StatisticsModule,
     AnomalyModule,
     forwardRef(() => TradeModule),
+    AccountDeletionModule,
   ],
   controllers: [SpacecraftController],
   providers: [
+    SpacecraftDeletionHandler,
     TradeDealFulfillmentAdapter,
     SpacecraftService,
     WormholePassageService,

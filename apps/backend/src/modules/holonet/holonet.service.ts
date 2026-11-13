@@ -13,6 +13,7 @@ import { HolonetRating } from './entities/holonet-rating.entity';
 import { HolonetCheckpoint } from './entities/holonet-checkpoint.entity';
 import { PlotPostRequest, PlotPostRequestStatus } from './entities/plot-post-request.entity';
 import { User } from '../auth/user.entity';
+import { withDeletedAuthor } from '../account-deletion/deleted-player';
 import { MessagingService } from '../messaging/messaging.service';
 import { STU_PRESTIGE } from '../prestige/prestige.constants';
 import { PrestigeService } from '../prestige/prestige.service';
@@ -208,6 +209,10 @@ export class HolonetService {
     if (post.category !== PostCategory.ROLEPLAY) {
       throw new BadRequestException('Nur ROLEPLAY-Beiträge können einem Plot zugeordnet werden.');
     }
+    const authorId = post.authorId;
+    if (authorId === null) {
+      throw new BadRequestException('Der Autor dieses Beitrags existiert nicht mehr.');
+    }
 
     const existingRequest = await this.plotPostRequestRepo.findOne({
       where: {
@@ -231,11 +236,11 @@ export class HolonetService {
         postId,
         plotId,
         requesterId,
-        authorId: post.authorId,
+        authorId,
         status: PlotPostRequestStatus.PENDING,
       }),
     );
-    await this.notifyPlotPostRequestAuthor(request.id, requesterId, post, plot);
+    await this.notifyPlotPostRequestAuthor(request.id, requesterId, { ...post, authorId }, plot);
     return request;
   }
 
@@ -245,6 +250,7 @@ export class HolonetService {
     post: HolonetPost,
     plot: RpgPlot,
   ): Promise<void> {
+    if (post.authorId === null) return;
     await this.messagingService.sendSystem(
       post.authorId,
       'Antrag auf RPG-Plot-Zuordnung',
@@ -409,6 +415,7 @@ export class HolonetService {
     if (!admin) throw new NotFoundException('Admin not found');
 
     await this.postRepo.softRemove(post);
+    if (post.authorId === null) return;
     await this.messagingService.sendSystem(
       post.authorId,
       'HoloNet-Beitrag gelöscht',
@@ -428,12 +435,12 @@ export class HolonetService {
   async getComments(postId: number, page = 1, limit = 20) {
     const [data, total] = await this.commentRepo.findAndCount({
       where: { postId, deletedAt: IsNull() },
-      relations: ['author', 'plot'],
+      relations: ['author'],
       order: { createdAt: 'ASC' },
       skip: (page - 1) * limit,
       take: limit,
     });
-    return { data, total, page, limit };
+    return { data: withDeletedAuthor(data, 'author', 'authorId'), total, page, limit };
   }
 
   async addComment(
@@ -465,10 +472,11 @@ export class HolonetService {
     await this.postRepo.save(post);
 
     const commenter = await this.userRepo.findOneBy({ id: authorId });
-    const recipients = new Set([
-      post.authorId,
-      ...priorComments.map((item) => item.authorId),
-    ]);
+    const recipients = new Set(
+      [post.authorId, ...priorComments.map((item) => item.authorId)].filter(
+        (id): id is number => id !== null,
+      ),
+    );
     recipients.delete(authorId);
     for (const recipientId of recipients) {
       const isAuthor = recipientId === post.authorId;
@@ -533,7 +541,7 @@ export class HolonetService {
     await this.ratingRepo.save(rating);
     post.rating += value;
     await this.postRepo.save(post);
-    if (value === 1) {
+    if (value === 1 && post.authorId !== null) {
       await this.prestigeService.change(
         post.authorId,
         STU_PRESTIGE.HOLONET_POSITIVE_RATING,
@@ -576,6 +584,7 @@ export class HolonetService {
   }
 
   private publicCharacters(post: HolonetPost): PublicHolonetPost {
+    withDeletedAuthor([post], 'author', 'authorId');
     return {
       ...post,
       characters: (post.characters ?? []).map((character) => ({

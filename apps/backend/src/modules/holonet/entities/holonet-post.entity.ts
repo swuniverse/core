@@ -27,12 +27,13 @@ export class HolonetPost {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
-  authorId: number;
+  /** `null` once the author's account was deleted (sh-AP-05b). */
+  @Column({ type: 'int', nullable: true })
+  authorId: number | null;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'authorId' })
-  author: User;
+  author: User | null;
 
   @Column({ length: 255 })
   title: string;

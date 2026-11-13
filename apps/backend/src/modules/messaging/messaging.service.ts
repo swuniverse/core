@@ -9,6 +9,7 @@ import { type MessageTarget, WsEventType } from '@swuniverse/shared';
 import { EntityManager, Repository } from 'typeorm';
 
 import { User } from '../auth/user.entity';
+import { withDeletedAuthor } from '../account-deletion/deleted-player';
 import { PRIVATE_MESSAGES_EVENT } from '../statistics/statistic-events';
 import { StatisticsService } from '../statistics/statistics.service';
 import { GameGateway } from '../websocket/game.gateway';
@@ -57,7 +58,7 @@ export class MessagingService {
       take: limit,
     });
 
-    return { data, total, page, limit };
+    return { data: withDeletedAuthor(data, 'sender', 'senderId'), total, page, limit };
   }
 
   async getFolder(userId: number, folder: MessageFolder, page = 1, limit = 20) {
@@ -78,7 +79,7 @@ export class MessagingService {
       take: limit,
     });
 
-    return { data, total, page: normalizedPage, limit };
+    return { data: withDeletedAuthor(data, 'sender', 'senderId'), total, page: normalizedPage, limit };
   }
 
   async getFolderSummary(userId: number) {
@@ -155,7 +156,7 @@ export class MessagingService {
       await this.messageRepo.save(message);
     }
 
-    return message;
+    return withDeletedAuthor([message], 'sender', 'senderId')[0];
   }
 
   async getCorrespondence(userId: number, partnerId: number, limit = 10) {

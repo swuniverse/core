@@ -149,16 +149,13 @@ export class AuthService {
     if (user.deletionMark === AccountDeletionMark.Forbidden) {
       throw new ForbiddenException('Account deletion has been forbidden by admin');
     }
-    const [colonies, ships] = await Promise.all([
-      this.dataSource.query('SELECT COUNT(*)::int AS count FROM "colonies" WHERE "userId" = $1', [userId]),
-      this.dataSource.query('SELECT COUNT(*)::int AS count FROM "spacecraft" WHERE "userId" = $1', [userId]),
-    ]);
-    const colonyCount = Number(colonies[0]?.count ?? 0);
-    const shipCount = Number(ships[0]?.count ?? 0);
-    if (colonyCount > 0 || shipCount > 0) {
-      throw new ConflictException(
-        'Konten mit Kolonien oder Schiffen können noch nicht gelöscht werden',
-      );
+    // Ships are handled since sh-AP-05c; colonies follow with sh-AP-05d.
+    const colonies = await this.dataSource.query(
+      'SELECT COUNT(*)::int AS count FROM "colonies" WHERE "userId" = $1',
+      [userId],
+    );
+    if (Number(colonies[0]?.count ?? 0) > 0) {
+      throw new ConflictException('Konten mit Kolonien können noch nicht gelöscht werden');
     }
     await this.playerDeletionService!.delete(userId);
   }

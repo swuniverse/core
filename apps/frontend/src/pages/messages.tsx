@@ -33,7 +33,8 @@ interface MessageSummary {
 
 interface MessageDetail extends MessageSummary {
   body: string;
-  senderId: number;
+  /** `null` once the sender deleted the account. */
+  senderId: number | null;
   recipientId: number;
   targetKind?: MessageTargetKind | null;
   targetId?: number | null;
@@ -649,7 +650,7 @@ export function MessagesPage() {
   };
 
   const replyTo = () => {
-    if (!selected) return;
+    if (!selected || selected.senderId === null) return;
     void api
       .get<MessageDetail[]>(`/messages/correspondence/${selected.senderId}`)
       .then(setCorrespondence)
@@ -1205,7 +1206,7 @@ export function MessagesPage() {
                   </Link>
                 ) : null;
               })()}
-              {!selected.isSystem && folder !== 'OUTBOX' && (
+              {!selected.isSystem && folder !== 'OUTBOX' && selected.senderId !== null && (
                 <button
                   onClick={replyTo}
                   className="px-3 py-1 text-xs bg-swu-accent/20 border border-swu-accent text-swu-accent rounded hover:bg-swu-accent/30 transition-colors"

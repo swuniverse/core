@@ -37,6 +37,8 @@ import {
   DiplomacyNotificationDispatcherService,
 } from './diplomacy-notification-dispatcher.service';
 import { Alliance } from './entities/alliance.entity';
+import { AccountDeletionModule } from '../account-deletion/account-deletion.module';
+import { AllianceDeletionHandler } from './alliance-deletion.handler';
 import { ForumBoard } from './entities/forum-board.entity';
 import { ForumTopic } from './entities/forum-topic.entity';
 import { ForumPost } from './entities/forum-post.entity';
@@ -74,10 +76,12 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
     WebsocketModule,
     forwardRef(() => ColonyModule),
     ContactModule,
+    AccountDeletionModule,
   ],
   controllers: [AllianceController, AllianceBannerController],
   providers: [
     AllianceService,
+    AllianceDeletionHandler,
     AllianceBannerService,
     AllianceResetService,
     { provide: ALLIANCE_ASSET_STORAGE, useClass: FileSystemAssetStorage },
