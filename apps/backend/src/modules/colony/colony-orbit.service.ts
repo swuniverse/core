@@ -4,7 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
+import type {
+  SpacecraftOrbitOrderDto,
+  SpacecraftOrbitOrderResultDto,
+  SpacecraftOrbitOrderStopResultDto,
+} from '@swuniverse/shared';
 import { GameDataService } from '../game-data/game-data.service';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import { CrewAssignment } from './entities/crew-assignment.entity';
@@ -33,19 +38,38 @@ import {
 } from './entities/colony-orbit-assignment.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { Colony } from './entities/colony.entity';
-import { assertOwnedColony } from './colony-owner.util';
+import { isOwnedColony } from './colony-owner.util';
+import {
+  evaluateOrbitOrderStart,
+  evaluateOrbitOrderStop,
+  ORBIT_ORDER_REASONS,
+} from './colony-orbit-order.policy';
+import { Fleet } from '../spacecraft/entities/fleet.entity';
 import { reactorFuelProfile } from '../spacecraft/reactor-fuel-profile';
 import {
   ShipManagementResult,
   ShipManagementService,
   ShipManagementSource,
 } from '../spacecraft/ship-management.service';
-import { matchesColonyOrbit } from '../spacecraft/spacecraft-field';
+import {
+  matchesColonyOrbit,
+  resolveSpacecraftLocation,
+} from '../spacecraft/spacecraft-field';
 import { InteractionContextService } from '../spacecraft/interaction-context.service';
 import {
   checkInteraction,
   InteractionRule,
 } from '../spacecraft/interaction-policy';
+
+function toOrbitOrderDto(
+  assignment: ColonyOrbitAssignment,
+): SpacecraftOrbitOrderDto {
+  return {
+    colonyId: assignment.colonyId,
+    fleetId: assignment.fleetId,
+    mode: assignment.mode,
+  };
+}
 
 @Injectable()
 export class ColonyOrbitService {
@@ -282,129 +306,257 @@ export class ColonyOrbitService {
     await this.syncColonyBlockadeState(colony.id);
   }
 
-  async syncColonyBlockadeState(colonyId: number): Promise<void> {
-    const colony = await this.colonyRepo.findOne({
+  async syncColonyBlockadeState(
+    colonyId: number,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const colonyRepo = manager?.getRepository(Colony) ?? this.colonyRepo;
+    const orbitAssignmentRepo =
+      manager?.getRepository(ColonyOrbitAssignment) ?? this.orbitAssignmentRepo;
+    const colony = await colonyRepo.findOne({
       where: { id: colonyId },
       relations: ['changeable', 'stats'],
     });
     if (!colony) return;
     const changeable = colony.changeable ?? getColonyChangeable(colony);
-    const blockadeCount = await this.orbitAssignmentRepo.count({
+    const blockadeCount = await orbitAssignmentRepo.count({
       where: { colonyId, mode: ColonyOrbitAssignmentMode.BLOCKADE },
     });
     const nextBlocked = blockadeCount > 0;
     if (Boolean(changeable.isBlockaded) !== nextBlocked) {
       changeable.isBlockaded = nextBlocked;
-      await this.colonyRepo.manager.save(changeable);
+      await (manager ?? this.colonyRepo.manager).save(changeable);
       if (
         process.env.NODE_ENV === 'test' ||
         process.env.JEST_WORKER_ID ||
         'expect' in globalThis
       ) {
-        await this.changeableRepo.save(changeable);
+        await (
+          manager?.getRepository(ColonyChangeable) ?? this.changeableRepo
+        ).save(changeable);
       }
     }
   }
 
+  /**
+   * Canonical, ship-based start of a fleet-wide defense or blockade order for
+   * the occupied colony in the ship's current orbit. `expectedColonyId` is set
+   * by the colony-based compatibility routes and must match that colony.
+   */
+  async startOrbitOrder(
+    shipId: number,
+    userId: number,
+    mode: ColonyOrbitAssignmentMode,
+    expectedColonyId?: number,
+  ): Promise<SpacecraftOrbitOrderResultDto> {
+    const { assignment, message } = await this.applyOrbitOrderStart(
+      shipId,
+      userId,
+      mode,
+      expectedColonyId,
+    );
+    return { order: toOrbitOrderDto(assignment), message };
+  }
+
+  /** Canonical, ship-based end of the current orbit order of the ship's fleet. */
+  async stopOrbitOrder(
+    shipId: number,
+    userId: number,
+    expectedColonyId?: number,
+  ): Promise<SpacecraftOrbitOrderStopResultDto> {
+    const ship = await this.shipRepo.findOne({
+      where: { id: shipId, userId },
+      relations: ['fleet'],
+    });
+    if (!ship) throw new NotFoundException('Spacecraft not found');
+
+    const stopped = await this.colonyRepo.manager.transaction(
+      async (manager) => {
+        const fleet = await this.lockFleet(manager, ship.fleetId);
+        const assignments = manager.getRepository(ColonyOrbitAssignment);
+        const assignment = fleet
+          ? await assignments.findOne({ where: { fleetId: fleet.id } })
+          : null;
+        const fleetOrder =
+          assignment &&
+          (expectedColonyId == null || assignment.colonyId === expectedColonyId)
+            ? assignment
+            : null;
+        const decision = evaluateOrbitOrderStop({
+          isFleetLeader: fleet?.leaderId === ship.id,
+          fleetOrder,
+        });
+        if (decision.reason === ORBIT_ORDER_REASONS.noOrder) return null;
+        if (!decision.allowed || !fleet || !fleetOrder) {
+          throw new BadRequestException(decision.reason);
+        }
+        await assignments.remove(fleetOrder);
+        await this.syncColonyBlockadeState(fleetOrder.colonyId, manager);
+        return { assignment: fleetOrder, fleet };
+      },
+    );
+    if (!stopped) {
+      return {
+        cleared: false,
+        order: null,
+        message: ORBIT_ORDER_REASONS.noOrder,
+      };
+    }
+
+    const { assignment, fleet } = stopped;
+    const colony = await this.colonyRepo.findOne({
+      where: { id: assignment.colonyId },
+    });
+    const stoppedBlockade =
+      assignment.mode === ColonyOrbitAssignmentMode.BLOCKADE;
+    const colonyName = colony?.name ?? `#${assignment.colonyId}`;
+    const message = stoppedBlockade
+      ? `Die Flotte ${fleet.name} hat die Blockierung der Kolonie ${colonyName} aufgehoben`
+      : `Die Flotte ${fleet.name} hat die Verteidigung der Kolonie ${colonyName} beendet`;
+    if (colony && isOwnedColony(colony)) {
+      await this.colonyEventService.createActionEvent({
+        colonyId: colony.id,
+        userId: colony.userId,
+        type: stoppedBlockade
+          ? ColonyEventType.ORBIT_BLOCKADE_STOPPED
+          : ColonyEventType.ORBIT_DEFENSE_STOPPED,
+        severity: ColonyEventSeverity.INFO,
+        title: stoppedBlockade ? 'Blockade beendet' : 'Verteidigung beendet',
+        message,
+        payload: {
+          shipId: ship.id,
+          fleetId: fleet.id,
+          mode: assignment.mode,
+        },
+      });
+    }
+    return { cleared: true, order: toOrbitOrderDto(assignment), message };
+  }
+
+  /** Colony-based compatibility alias of {@link startOrbitOrder}. */
   async setOrbitAssignment(
     colonyId: number,
     userId: number,
     shipId: number,
     mode: ColonyOrbitAssignmentMode,
   ): Promise<ColonyOrbitAssignment> {
-    const colony = await this.colonyRepo.findOne({
-      where: { id: colonyId },
-      relations: ['fields', 'changeable', 'systemField'],
-    });
-    if (!colony) throw new NotFoundException('Colony not found');
-    assertOwnedColony(colony);
-    await this.cleanupInvalidOrbitAssignments(colony);
+    const { assignment } = await this.applyOrbitOrderStart(
+      shipId,
+      userId,
+      mode,
+      colonyId,
+    );
+    return assignment;
+  }
 
+  /** Colony-based compatibility alias of {@link stopOrbitOrder}. */
+  async clearOrbitAssignment(
+    colonyId: number,
+    userId: number,
+    shipId: number,
+  ): Promise<{ cleared: boolean }> {
+    const { cleared } = await this.stopOrbitOrder(shipId, userId, colonyId);
+    return { cleared };
+  }
+
+  /** True when an active energy phalanx, particle phalanx or anti-particle system protects the colony. */
+  hasActiveOrbitalDefense(colony: Colony): boolean {
+    const functionIds = this.getActiveBuildingFunctionIds(colony);
+    return (
+      this.colonyDefenseService.hasEnergyPhalanx(functionIds) ||
+      this.colonyDefenseService.hasParticlePhalanx(functionIds) ||
+      this.colonyDefenseService.hasAntiParticle(functionIds)
+    );
+  }
+
+  private async applyOrbitOrderStart(
+    shipId: number,
+    userId: number,
+    mode: ColonyOrbitAssignmentMode,
+    expectedColonyId?: number,
+  ): Promise<{ assignment: ColonyOrbitAssignment; message: string }> {
     const ship = await this.shipRepo.findOne({
       where: { id: shipId, userId },
       relations: ['fleet', 'location', 'location.systemField'],
     });
     if (!ship) throw new NotFoundException('Spacecraft not found');
-    if (!this.isShipInColonyOrbit(colony, ship)) {
-      throw new BadRequestException('Ship is not in colony orbit');
+    const colony = await this.findColonyInOrbit(ship);
+    if (
+      expectedColonyId != null &&
+      (!colony || colony.id !== expectedColonyId)
+    ) {
+      throw new BadRequestException(ORBIT_ORDER_REASONS.notInOrbit);
     }
-    if (!ship.fleetId || !ship.fleet || ship.fleet.leaderId !== ship.id) {
-      throw new BadRequestException(
-        'Only fleet leaders can manage orbit orders',
-      );
-    }
-    if (ship.status === SpacecraftStatus.DESTROYED) {
-      throw new BadRequestException(
-        'Destroyed ship cannot manage orbit orders',
-      );
+    if (colony && isOwnedColony(colony)) {
+      await this.cleanupInvalidOrbitAssignments(colony);
     }
 
-    const existingFleetAssignment = await this.orbitAssignmentRepo.findOne({
-      where: { fleetId: ship.fleetId },
-    });
-    if (existingFleetAssignment) {
-      throw new BadRequestException('Fleet already has an orbit order');
-    }
-    const existingShipAssignment = await this.orbitAssignmentRepo.findOne({
-      where: { spacecraftId: ship.id },
-    });
-    if (existingShipAssignment) {
-      throw new BadRequestException('Ship already has an orbit order');
-    }
-
-    const existingMode = await this.orbitAssignmentRepo.findOne({
-      where: {
-        colonyId: colony.id,
-        mode:
-          mode === ColonyOrbitAssignmentMode.DEFEND
-            ? ColonyOrbitAssignmentMode.BLOCKADE
-            : ColonyOrbitAssignmentMode.DEFEND,
+    const { assignment, fleet } = await this.colonyRepo.manager.transaction(
+      async (manager) => {
+        // Fleet before colony, like lockFleetParticipants; serializes all
+        // orbit-order writers of both without blocking FK key shares.
+        const fleet = await this.lockFleet(manager, ship.fleetId);
+        const lockedColony = colony
+          ? await manager.getRepository(Colony).findOne({
+              where: { id: colony.id },
+              lock: { mode: 'for_no_key_update' },
+            })
+          : null;
+        const assignments = manager.getRepository(ColonyOrbitAssignment);
+        const fleetOrder = fleet
+          ? await assignments.findOne({
+              where: [{ fleetId: fleet.id }, { spacecraftId: ship.id }],
+            })
+          : null;
+        const colonyOrders = lockedColony
+          ? (
+              await assignments.find({ where: { colonyId: lockedColony.id } })
+            ).filter((order) => order.fleetId !== fleet?.id)
+          : [];
+        const occupied = lockedColony != null && isOwnedColony(lockedColony);
+        const decision = evaluateOrbitOrderStart(mode, {
+          colonyId: lockedColony?.id ?? null,
+          shipDestroyed: ship.status === SpacecraftStatus.DESTROYED,
+          inColonyOrbit: lockedColony != null,
+          isFleetLeader: fleet != null && fleet.leaderId === ship.id,
+          shipIdle: ship.status === SpacecraftStatus.IDLE,
+          colonyOccupied: occupied,
+          fleetOrder,
+          colonyDefended: colonyOrders.some(
+            (order) => order.mode === ColonyOrbitAssignmentMode.DEFEND,
+          ),
+          colonyBlockaded: colonyOrders.some(
+            (order) => order.mode === ColonyOrbitAssignmentMode.BLOCKADE,
+          ),
+          ownerOnVacation:
+            occupied && (await this.isOnVacation(ship.id, lockedColony.userId)),
+          activeOrbitalDefense:
+            colony != null && this.hasActiveOrbitalDefense(colony),
+        });
+        if (!decision.allowed || !fleet || !lockedColony) {
+          throw new BadRequestException(decision.reason);
+        }
+        const assignment = await assignments.save(
+          assignments.create({
+            colonyId: lockedColony.id,
+            spacecraftId: ship.id,
+            fleetId: fleet.id,
+            mode,
+          }),
+        );
+        await this.syncColonyBlockadeState(lockedColony.id, manager);
+        return { assignment, fleet };
       },
-    });
-    if (existingMode) {
-      throw new BadRequestException(
-        mode === ColonyOrbitAssignmentMode.DEFEND
-          ? 'Colony is already blockaded'
-          : 'Colony is already defended',
-      );
-    }
+    );
 
-    if (mode === ColonyOrbitAssignmentMode.BLOCKADE) {
-      const vacation = checkInteraction(
-        await this.interactionContext.load(
-          ship.id,
-          ship.id,
-          ['targetOnVacation'],
-          colony.userId,
-        ),
-        [InteractionRule.TARGET_VACATION],
-      );
-      if (!vacation.allowed) {
-        throw new BadRequestException(vacation.reason);
-      }
-      const functionIds = this.getActiveBuildingFunctionIds(colony);
-      if (
-        this.colonyDefenseService.hasEnergyPhalanx(functionIds) ||
-        this.colonyDefenseService.hasParticlePhalanx(functionIds) ||
-        this.colonyDefenseService.hasAntiParticle(functionIds)
-      ) {
-        throw new BadRequestException('Colony has active orbital defense');
-      }
-    }
-
-    const assignment = this.orbitAssignmentRepo.create({
-      colonyId: colony.id,
-      spacecraftId: ship.id,
-      fleetId: ship.fleetId,
-      mode,
-    });
-    const saved = await this.orbitAssignmentRepo.save(assignment);
-    await this.syncColonyBlockadeState(colony.id);
-
+    const target = colony as Colony & { userId: number };
     const startedBlockade = mode === ColonyOrbitAssignmentMode.BLOCKADE;
+    const message = `Die Kolonie ${target.name} wird nun von der Flotte ${
+      fleet.name
+    } ${startedBlockade ? 'blockiert' : 'verteidigt'}`;
     await this.colonyEventService.createActionEvent({
-      colonyId: colony.id,
-      userId: colony.userId,
+      colonyId: target.id,
+      userId: target.userId,
       type: startedBlockade
         ? ColonyEventType.ORBIT_BLOCKADE_STARTED
         : ColonyEventType.ORBIT_DEFENSE_STARTED,
@@ -412,64 +564,51 @@ export class ColonyOrbitService {
         ? ColonyEventSeverity.WARNING
         : ColonyEventSeverity.INFO,
       title: startedBlockade ? 'Blockade begonnen' : 'Verteidigung begonnen',
-      message: `Flotte #${ship.fleetId} hat ${
-        startedBlockade ? 'die Blockade' : 'die Verteidigung'
-      } der Kolonie begonnen.`,
-      payload: { shipId: ship.id, fleetId: ship.fleetId, mode },
+      message,
+      payload: { shipId: ship.id, fleetId: fleet.id, mode },
     });
-
-    return saved;
+    return { assignment, message };
   }
 
-  async clearOrbitAssignment(
-    colonyId: number,
-    userId: number,
+  /** The colony (occupied or free) whose orbit the ship currently occupies. */
+  private async findColonyInOrbit(ship: Spacecraft): Promise<Colony | null> {
+    const location = resolveSpacecraftLocation(ship);
+    if (location?.scope !== 'SYSTEM') return null;
+    const candidates = (
+      await this.colonyRepo.find({
+        where: { starSystemId: location.systemId },
+        relations: ['fields', 'systemField'],
+        order: { id: 'ASC' },
+      })
+    ).filter((colony) => this.isShipInColonyOrbit(colony, ship));
+    return candidates.find(isOwnedColony) ?? candidates[0] ?? null;
+  }
+
+  private async lockFleet(
+    manager: EntityManager,
+    fleetId: number | null | undefined,
+  ): Promise<Fleet | null> {
+    if (fleetId == null) return null;
+    return manager.getRepository(Fleet).findOne({
+      where: { id: fleetId },
+      lock: { mode: 'for_no_key_update' },
+    });
+  }
+
+  private async isOnVacation(
     shipId: number,
-  ): Promise<{ cleared: boolean }> {
-    const colony = await this.colonyRepo.findOne({
-      where: { id: colonyId },
-      relations: ['changeable'],
-    });
-    if (!colony) throw new NotFoundException('Colony not found');
-    assertOwnedColony(colony);
-    const ship = await this.shipRepo.findOne({
-      where: { id: shipId, userId },
-      relations: ['fleet'],
-    });
-    if (!ship) throw new NotFoundException('Spacecraft not found');
-    if (!ship.fleetId || !ship.fleet || ship.fleet.leaderId !== ship.id) {
-      throw new BadRequestException(
-        'Only fleet leaders can manage orbit orders',
-      );
-    }
-    const assignment = await this.orbitAssignmentRepo.findOne({
-      where: { colonyId: colony.id, fleetId: ship.fleetId },
-    });
-    if (!assignment) return { cleared: false };
-    await this.orbitAssignmentRepo.remove(assignment);
-    await this.syncColonyBlockadeState(colony.id);
-
-    const stoppedBlockade =
-      assignment.mode === ColonyOrbitAssignmentMode.BLOCKADE;
-    await this.colonyEventService.createActionEvent({
-      colonyId: colony.id,
-      userId: colony.userId,
-      type: stoppedBlockade
-        ? ColonyEventType.ORBIT_BLOCKADE_STOPPED
-        : ColonyEventType.ORBIT_DEFENSE_STOPPED,
-      severity: ColonyEventSeverity.INFO,
-      title: stoppedBlockade ? 'Blockade beendet' : 'Verteidigung beendet',
-      message: `Flotte #${ship.fleetId} hat ${
-        stoppedBlockade ? 'die Blockade' : 'die Verteidigung'
-      } der Kolonie beendet.`,
-      payload: {
-        shipId: ship.id,
-        fleetId: ship.fleetId,
-        mode: assignment.mode,
-      },
-    });
-
-    return { cleared: true };
+    ownerId: number,
+  ): Promise<boolean> {
+    const vacation = checkInteraction(
+      await this.interactionContext.load(
+        shipId,
+        shipId,
+        ['targetOnVacation'],
+        ownerId,
+      ),
+      [InteractionRule.TARGET_VACATION],
+    );
+    return !vacation.allowed;
   }
 
   async transferShuttles(

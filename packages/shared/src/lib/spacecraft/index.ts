@@ -846,6 +846,26 @@ export interface SpacecraftWormholePassageResultDto {
   locationId: number;
 }
 
+/** Fleet-wide colony orbit order (STU defend/block colony). */
+export type SpacecraftOrbitOrderMode = 'DEFEND' | 'BLOCKADE';
+
+export interface SpacecraftOrbitOrderDto {
+  colonyId: number;
+  fleetId: number;
+  mode: SpacecraftOrbitOrderMode;
+}
+
+export interface SpacecraftOrbitOrderResultDto {
+  order: SpacecraftOrbitOrderDto;
+  message: string;
+}
+
+export interface SpacecraftOrbitOrderStopResultDto {
+  cleared: boolean;
+  order: SpacecraftOrbitOrderDto | null;
+  message: string;
+}
+
 export interface SpacecraftFieldContextDto {
   coordinates: { x: number; y: number };
   wormholePassages: SpacecraftWormholePassageOptionDto[];

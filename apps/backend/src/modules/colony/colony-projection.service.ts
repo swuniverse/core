@@ -5,7 +5,10 @@ import { In, Repository } from 'typeorm';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
-import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
+import {
+  Spacecraft,
+  SpacecraftStatus,
+} from '../spacecraft/entities/spacecraft.entity';
 import { matchesColonyOrbit } from '../spacecraft/spacecraft-field';
 import {
   GameDataService,
@@ -41,7 +44,12 @@ import {
   ColonyOrbitAssignment,
   ColonyOrbitAssignmentMode,
 } from './entities/colony-orbit-assignment.entity';
-import type { ShipModuleSelection } from '@swuniverse/shared';
+import {
+  isVacationEffective,
+  type ShipModuleSelection,
+} from '@swuniverse/shared';
+import { isOwnedColony } from './colony-owner.util';
+import { evaluateOrbitOrderStart } from './colony-orbit-order.policy';
 import { ColonyShipBuildplan } from './entities/colony-ship-buildplan.entity';
 import {
   ColonyShipBuildQueue,
@@ -316,18 +324,11 @@ export class ColonyProjectionService {
     const orbitAssignmentByFleetId = new Map(
       orbitAssignments.map((assignment) => [assignment.fleetId, assignment]),
     );
-    const defendingFleetIds = orbitAssignments
-      .filter(
-        (assignment) => assignment.mode === ColonyOrbitAssignmentMode.DEFEND,
-      )
-      .map((assignment) => assignment.fleetId);
-    const blockadingFleetIds = orbitAssignments
-      .filter(
-        (assignment) => assignment.mode === ColonyOrbitAssignmentMode.BLOCKADE,
-      )
-      .map((assignment) => assignment.fleetId);
-    const hasDefendingFleet = defendingFleetIds.length > 0;
-    const hasBlockadingFleet = blockadingFleetIds.length > 0;
+    const colonyOwner = isOwnedColony(colony)
+      ? await this.userRepo.findOne({ where: { id: colony.userId } })
+      : null;
+    const ownerOnVacation =
+      colonyOwner != null && isVacationEffective(colonyOwner);
     const colonyLocation = resolveColonyLocation(colony);
     const orbitShips = colonyLocation
       ? (
@@ -831,18 +832,39 @@ export class ColonyProjectionService {
           const orbitAssignment = ship.fleetId
             ? orbitAssignmentByFleetId.get(ship.fleetId)
             : undefined;
-          const isFleetLeader = ship.fleet?.leaderId === ship.id;
-          const canDefend =
-            isFleetLeader &&
-            ship.fleetId != null &&
-            !orbitAssignment &&
-            !hasBlockadingFleet;
-          const canBlock =
-            isFleetLeader &&
-            ship.fleetId != null &&
-            !orbitAssignment &&
-            !hasDefendingFleet &&
-            !planetaryDefense.length;
+          const otherOrders = orbitAssignments.filter(
+            (assignment) => assignment.fleetId !== ship.fleetId,
+          );
+          const orbitOrderContext = {
+            colonyId: colony.id,
+            shipDestroyed: ship.status === SpacecraftStatus.DESTROYED,
+            inColonyOrbit: true,
+            isFleetLeader:
+              ship.fleetId != null && ship.fleet?.leaderId === ship.id,
+            shipIdle: ship.status === SpacecraftStatus.IDLE,
+            colonyOccupied: isOwnedColony(colony),
+            fleetOrder: orbitAssignment ?? null,
+            colonyDefended: otherOrders.some(
+              (assignment) =>
+                assignment.mode === ColonyOrbitAssignmentMode.DEFEND,
+            ),
+            colonyBlockaded: otherOrders.some(
+              (assignment) =>
+                assignment.mode === ColonyOrbitAssignmentMode.BLOCKADE,
+            ),
+            ownerOnVacation,
+            activeOrbitalDefense: planetaryDefense.length > 0,
+          };
+          const defendDecision = evaluateOrbitOrderStart(
+            ColonyOrbitAssignmentMode.DEFEND,
+            orbitOrderContext,
+          );
+          const blockDecision = evaluateOrbitOrderStart(
+            ColonyOrbitAssignmentMode.BLOCKADE,
+            orbitOrderContext,
+          );
+          const canDefend = defendDecision.allowed;
+          const canBlock = blockDecision.allowed;
           const shuttleStored = cargo
             .filter(
               (item: CargoItem) =>
@@ -896,26 +918,8 @@ export class ColonyProjectionService {
               ship.fleetId != null ? `Flotte #${ship.fleetId}` : 'Einzelschiff',
             fleetId: ship.fleetId,
             actionBlockers: {
-              defend: canDefend
-                ? null
-                : orbitAssignment?.mode === ColonyOrbitAssignmentMode.DEFEND
-                  ? 'Diese Flotte verteidigt die Kolonie bereits.'
-                  : hasBlockadingFleet
-                    ? 'Die Kolonie wird bereits blockiert.'
-                    : !isFleetLeader
-                      ? 'Nur Flottenführer können Kolonieverteidigung übernehmen.'
-                      : null,
-              block: canBlock
-                ? null
-                : orbitAssignment?.mode === ColonyOrbitAssignmentMode.BLOCKADE
-                  ? 'Diese Flotte blockiert die Kolonie bereits.'
-                  : hasDefendingFleet
-                    ? 'Die Kolonie wird bereits verteidigt.'
-                    : planetaryDefense.length
-                      ? 'Kolonie verfügt über aktive Orbitalverteidigung.'
-                      : !isFleetLeader
-                        ? 'Nur Flottenführer können Kolonien blockieren.'
-                        : null,
+              defend: defendDecision.reason,
+              block: blockDecision.reason,
               shuttleManagement: shuttleModelAvailable
                 ? null
                 : 'Dieses Schiff hat keine Shuttle-Kapazität.',
