@@ -9,6 +9,8 @@ import { TradeTransaction } from './entities/trade-transaction.entity';
 import { TradeTransfer } from './entities/trade-transfer.entity';
 import { AuthModule } from '../auth/auth.module';
 import { AllianceModule } from '../alliance/alliance.module';
+import { AccountDeletionModule } from '../account-deletion/account-deletion.module';
+import { TradeDeletionHandler } from './trade-deletion.handler';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { TradeStorageService } from './trade-storage.service';
@@ -36,6 +38,7 @@ import { TradeQueryService } from './trade-query.service';
   imports: [
     AuthModule,
     AllianceModule,
+    AccountDeletionModule,
     TypeOrmModule.forFeature([
       TradePost,
       TradeLicenseCondition,
@@ -68,6 +71,7 @@ import { TradeQueryService } from './trade-query.service';
     BasicTradeService,
     TradePostPresencePolicy,
     TradeAgreementPolicy,
+    TradeDeletionHandler,
   ],
   exports: [
     TradeLicenseMaintenanceService,

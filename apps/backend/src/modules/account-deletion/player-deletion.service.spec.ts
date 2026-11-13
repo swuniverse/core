@@ -38,4 +38,17 @@ describe('PlayerDeletionService', () => {
     expect(handler.delete).not.toHaveBeenCalled();
     expect(userRepo.delete).not.toHaveBeenCalled();
   });
+
+  it('runs handlers registered by feature modules alongside injected ones, in order', async () => {
+    const calls: string[] = [];
+    const injected = { order: 20, delete: jest.fn(async () => { calls.push('injected'); }) };
+    const registered = { order: 10, delete: jest.fn(async () => { calls.push('registered'); }) };
+    const { service } = setup({ id: 7 }, [injected]);
+
+    service.register(registered);
+    service.register(registered);
+    await service.delete(7);
+
+    expect(calls).toEqual(['registered', 'injected']);
+  });
 });
