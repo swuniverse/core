@@ -10,6 +10,7 @@ type GiveKind = 'COMMODITY' | 'SHIP' | 'BUILDPLAN';
 type PriceKind = 'COMMODITY' | 'PRESTIGE';
 
 type FormState = {
+  auction: boolean;
   give: GiveKind;
   giveCommodityId: string;
   giveCommodityAmount: string;
@@ -37,7 +38,7 @@ function localInput(date: Date): string {
 function emptyForm(): FormState {
   const now = new Date();
   return {
-    give: 'COMMODITY', giveCommodityId: '', giveCommodityAmount: '1', buildplanId: '',
+    auction: false, give: 'COMMODITY', giveCommodityId: '', giveCommodityAmount: '1', buildplanId: '',
     price: 'COMMODITY', wantCommodityId: '50', wantCommodityAmount: '1', wantPrestige: '',
     amount: '', factionId: '',
     startsAt: localInput(now), endsAt: localInput(new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)),
@@ -46,6 +47,7 @@ function emptyForm(): FormState {
 
 function formOf(deal: AdminTradeDealDto): FormState {
   return {
+    auction: deal.auction,
     give: deal.buildplanId === null ? 'COMMODITY' : deal.ship ? 'SHIP' : 'BUILDPLAN',
     giveCommodityId: String(deal.giveCommodityId ?? ''),
     giveCommodityAmount: String(deal.giveCommodityAmount ?? '1'),
@@ -65,15 +67,18 @@ function inputOf(form: FormState): AdminTradeDealInput {
   const number = (value: string) => (value.trim() === '' ? null : Number(value));
   const commodity = form.give === 'COMMODITY';
   const prestige = form.price === 'PRESTIGE';
+  // An auction's price is its bid; the price fields only name the currency.
+  const auction = form.auction;
   return {
-    amount: number(form.amount),
+    auction,
+    amount: auction ? null : number(form.amount),
     giveCommodityId: commodity ? number(form.giveCommodityId) : null,
     giveCommodityAmount: commodity ? number(form.giveCommodityAmount) : null,
     buildplanId: commodity ? null : number(form.buildplanId),
     ship: form.give === 'SHIP',
     wantCommodityId: prestige ? null : number(form.wantCommodityId),
-    wantCommodityAmount: prestige ? null : number(form.wantCommodityAmount),
-    wantPrestige: prestige ? number(form.wantPrestige) : null,
+    wantCommodityAmount: prestige ? null : auction ? 1 : number(form.wantCommodityAmount),
+    wantPrestige: prestige ? (auction ? 1 : number(form.wantPrestige)) : null,
     factionId: number(form.factionId),
     startsAt: new Date(form.startsAt).toISOString(),
     endsAt: new Date(form.endsAt).toISOString(),
@@ -142,7 +147,9 @@ export function AdminTradeDealsPage() {
       ? `${deal.giveCommodityAmount} ${name(commodities, deal.giveCommodityId)}`
       : `${deal.ship ? 'Schiff' : 'Bauplan'}: ${name(buildplans, deal.buildplanId)}`;
   const price = (deal: AdminTradeDealDto) =>
-    deal.wantPrestige !== null ? `${deal.wantPrestige} Prestige` : `${deal.wantCommodityAmount} ${name(commodities, deal.wantCommodityId)}`;
+    deal.auction
+      ? `Auktion in ${deal.wantPrestige !== null ? 'Prestige' : name(commodities, deal.wantCommodityId)}: ${deal.auctionAmount ?? 'kein Gebot'}${deal.takenAt ? ' (abgeholt)' : ''}`
+      : deal.wantPrestige !== null ? `${deal.wantPrestige} Prestige` : `${deal.wantCommodityAmount} ${name(commodities, deal.wantCommodityId)}`;
 
   return (
     <div className="space-y-6 p-6">
@@ -159,6 +166,17 @@ export function AdminTradeDealsPage() {
       {error && <p role="alert" className="text-red-300">{error}</p>}
 
       <section aria-label={editingId === null ? 'Neuer Deal' : 'Deal bearbeiten'} className="grid max-w-3xl gap-3 rounded-lg border border-swu-border bg-swu-surface p-4 text-sm text-swu-primary sm:grid-cols-2">
+        <label className="flex items-center gap-2 sm:col-span-2">
+          <input
+            type="checkbox"
+            aria-label="Auktion"
+            checked={form.auction}
+            disabled={editingId !== null}
+            onChange={(event) => set('auction', event.target.checked)}
+          />
+          Auktion
+          <span className="text-swu-muted">(Spieler bieten mit Maximalgebot in der gewählten Währung)</span>
+        </label>
         <label>
           Angebot
           <select aria-label="Angebot" className={fieldClass} value={form.give} onChange={(event) => set('give', event.target.value as GiveKind)}>
@@ -206,21 +224,27 @@ export function AdminTradeDealsPage() {
                 {commodities.map((commodity) => <option key={commodity.id} value={commodity.id}>{commodity.name}</option>)}
               </select>
             </label>
-            <label>
-              Menge
-              <input aria-label="Verlangte Menge" type="number" min={1} className={fieldClass} value={form.wantCommodityAmount} onChange={(event) => set('wantCommodityAmount', event.target.value)} />
-            </label>
+            {!form.auction && (
+              <label>
+                Menge
+                <input aria-label="Verlangte Menge" type="number" min={1} className={fieldClass} value={form.wantCommodityAmount} onChange={(event) => set('wantCommodityAmount', event.target.value)} />
+              </label>
+            )}
           </div>
+        ) : form.auction ? (
+          <p className="self-end text-swu-muted">Geboten wird in Prestige.</p>
         ) : (
           <label>
             Prestige
             <input aria-label="Prestigepreis" type="number" min={1} className={fieldClass} value={form.wantPrestige} onChange={(event) => set('wantPrestige', event.target.value)} />
           </label>
         )}
-        <label>
-          Anzahl (leer = unbegrenzt)
-          <input aria-label="Anzahl" type="number" min={1} className={fieldClass} value={form.amount} onChange={(event) => set('amount', event.target.value)} />
-        </label>
+        {!form.auction && (
+          <label>
+            Anzahl (leer = unbegrenzt)
+            <input aria-label="Anzahl" type="number" min={1} className={fieldClass} value={form.amount} onChange={(event) => set('amount', event.target.value)} />
+          </label>
+        )}
         <label>
           Fraktion
           <select aria-label="Fraktion" className={fieldClass} value={form.factionId} onChange={(event) => set('factionId', event.target.value)}>

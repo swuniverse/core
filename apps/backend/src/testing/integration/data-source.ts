@@ -75,6 +75,7 @@ import { TradeTransaction } from '../../modules/trade/entities/trade-transaction
 import { TradeShoutboxEntry } from '../../modules/trade/entities/trade-shoutbox-entry.entity';
 import { LotteryTicket } from '../../modules/trade/entities/lottery-ticket.entity';
 import { LotteryWinnerBuildplan } from '../../modules/trade/entities/lottery-winner-buildplan.entity';
+import { TradeAuctionBid } from '../../modules/trade/entities/trade-auction-bid.entity';
 import { TradeDeal } from '../../modules/trade/entities/trade-deal.entity';
 import { AdminShipBuildplan } from '../../modules/spacecraft/entities/admin-ship-buildplan.entity';
 import { ColonyShipBuildplan } from '../../modules/colony/entities/colony-ship-buildplan.entity';
@@ -156,6 +157,7 @@ export const INTEGRATION_ENTITIES = [
   TradeTransaction,
   BasicTradeRate,
   TradeDeal,
+  TradeAuctionBid,
   LotteryTicket,
   LotteryWinnerBuildplan,
   TradeShoutboxEntry,

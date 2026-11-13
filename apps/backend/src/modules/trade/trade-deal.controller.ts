@@ -6,12 +6,16 @@ import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { TradeDealAdminService } from './trade-deal-admin.service';
 import { TradeDealService } from './trade-deal.service';
 import { TradeLotteryService } from './trade-lottery.service';
+import { TradeAuctionService } from './trade-auction.service';
 
 @Controller('trade/deals')
 @RequiresGameAccess()
 @UseGuards(AuthGuard('jwt'))
 export class TradeDealController {
-  constructor(private readonly deals: TradeDealService) {}
+  constructor(
+    private readonly deals: TradeDealService,
+    private readonly auctions: TradeAuctionService,
+  ) {}
 
   @Get()
   list(@Request() req: { user: { sub: number } }) {
@@ -25,6 +29,20 @@ export class TradeDealController {
     @Body('amount') amount: number,
   ) {
     return this.deals.take(id, req.user.sub, amount);
+  }
+
+  @Post(':id/bid')
+  bid(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('maxAmount') maxAmount: number,
+  ) {
+    return this.auctions.bid(id, req.user.sub, maxAmount);
+  }
+
+  @Post(':id/claim')
+  claim(@Param('id', ParseIntPipe) id: number, @Request() req: { user: { sub: number } }) {
+    return this.auctions.claim(id, req.user.sub);
   }
 }
 

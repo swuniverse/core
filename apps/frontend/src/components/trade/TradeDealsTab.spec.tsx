@@ -26,6 +26,24 @@ const deals = {
       want: null, wantPrestige: 50, factionName: 'Rebellenallianz', endsAt: '2026-11-21T12:00:00.000Z',
     },
   ],
+  auctions: [
+    {
+      id: 5, kind: 'COMMODITY', give: { commodityId: 2, commodityName: 'Doonium', amount: 5000 }, buildplan: null,
+      currency: null, currentAmount: 16, isHighestBidder: true, ownMaxAmount: 40, factionName: null,
+      endsAt: new Date(Date.now() + 2 * 60 * 60 * 1000 + 5 * 60 * 1000 + 30_000).toISOString(),
+    },
+    {
+      id: 6, kind: 'SHIP', give: null, buildplan: { id: 9, name: 'Kartellkreuzer', shipClassName: 'Hutten-Kreuzer' },
+      currency: { commodityId: 50, commodityName: 'Aurodium' }, currentAmount: null, isHighestBidder: false, ownMaxAmount: null, factionName: null,
+      endsAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    },
+  ],
+  wonAuctions: [
+    {
+      id: 4, kind: 'BUILDPLAN', give: null, buildplan: { id: 8, name: 'Schmugglerplan', shipClassName: 'Hutten-Frachter' },
+      currency: null, price: 21, refund: 9, endedAt: '2026-11-12T12:00:00.000Z',
+    },
+  ],
 };
 
 describe('TradeDealsTab', () => {
@@ -78,8 +96,48 @@ describe('TradeDealsTab', () => {
     expect((await within(dialog).findByRole('alert')).textContent).toBe('Du hast nicht genügend Prestige');
   });
 
+  it('shows running auctions with price, own maximum and remaining time', async () => {
+    render(<TradeDealsTab />);
+
+    const section = await screen.findByRole('region', { name: 'Auktionen' });
+    const doonium = within(section).getByText('5.000 Doonium').closest('tr') as HTMLElement;
+    expect(doonium.textContent).toContain('16 Prestige');
+    expect(doonium.textContent).toContain('Dein Maximum: 40 (Höchstbietender)');
+    expect(doonium.textContent).toContain('noch 2 h 5 min');
+    const ship = within(section).getByText('Schiff: Kartellkreuzer (Hutten-Kreuzer)').closest('tr') as HTMLElement;
+    expect(ship.textContent).toContain('Noch kein Gebot');
+    expect(ship.textContent).toContain('Aurodium');
+  });
+
+  it('places a maximum bid and reloads', async () => {
+    apiMocks.post.mockResolvedValue({ message: 'Dein Maximalgebot wurde auf 60 erhöht' });
+    render(<TradeDealsTab />);
+    const section = await screen.findByRole('region', { name: 'Auktionen' });
+    const row = within(section).getByText('5.000 Doonium').closest('tr') as HTMLElement;
+
+    fireEvent.change(within(row).getByRole('spinbutton', { name: 'Maximalgebot' }), { target: { value: '60' } });
+    fireEvent.click(within(row).getByRole('button', { name: 'Bieten' }));
+
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/trade/deals/5/bid', { maxAmount: 60 }));
+    expect((await screen.findByRole('status')).textContent).toBe('Dein Maximalgebot wurde auf 60 erhöht');
+    expect(apiMocks.get).toHaveBeenCalledTimes(2);
+  });
+
+  it('claims a won auction', async () => {
+    apiMocks.post.mockResolvedValue({ message: 'Dir wurden 9 Prestige gutgeschrieben. Du hast deinen Bauplan erhalten' });
+    render(<TradeDealsTab />);
+
+    const won = await screen.findByRole('region', { name: 'Gewonnene Auktionen' });
+    expect(won.textContent).toContain('Bauplan: Schmugglerplan (Hutten-Frachter)');
+    expect(won.textContent).toContain('Preis: 21 Prestige, Rückerstattung: 9');
+    fireEvent.click(within(won).getByRole('button', { name: 'Schmugglerplan abholen' }));
+
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/trade/deals/4/claim', {}));
+    expect((await screen.findByRole('status')).textContent).toBe('Dir wurden 9 Prestige gutgeschrieben. Du hast deinen Bauplan erhalten');
+  });
+
   it('explains that a Hutt Cartel license is required', async () => {
-    apiMocks.get.mockResolvedValue({ ...deals, hasLicense: false, notice: 'Handelslizenz beim Hutten-Kartell erforderlich', deals: [] });
+    apiMocks.get.mockResolvedValue({ ...deals, hasLicense: false, notice: 'Handelslizenz beim Hutten-Kartell erforderlich', deals: [], auctions: [], wonAuctions: [] });
     render(<TradeDealsTab />);
 
     expect(await screen.findByText('Handelslizenz beim Hutten-Kartell erforderlich')).toBeTruthy();

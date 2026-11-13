@@ -300,6 +300,45 @@ export interface TradeDealsDto {
   /** Own account at the Hutt post, for the commodities the deals want. */
   account: Array<{ commodityId: number; amount: number }>;
   deals: TradeDealDto[];
+  /** Running auctions (tmw-T8b). */
+  auctions: TradeAuctionDto[];
+  /** Ended auctions won by the player and not yet claimed. */
+  wonAuctions: TradeWonAuctionDto[];
+}
+
+/** Auction currency: a commodity, or prestige when `null`. */
+export type TradeAuctionCurrencyDto = { commodityId: number; commodityName: string } | null;
+
+export interface TradeAuctionDto {
+  id: number;
+  kind: TradeDealItemKind;
+  give: { commodityId: number; commodityName: string; amount: number } | null;
+  buildplan: { id: number; name: string; shipClassName: string } | null;
+  currency: TradeAuctionCurrencyDto;
+  /** Current price; `null` without bids. */
+  currentAmount: number | null;
+  isHighestBidder: boolean;
+  /** Own maximum bid while the player is the highest bidder. */
+  ownMaxAmount: number | null;
+  factionName: string | null;
+  endsAt: string;
+}
+
+export interface TradeWonAuctionDto {
+  id: number;
+  kind: TradeDealItemKind;
+  give: { commodityId: number; commodityName: string; amount: number } | null;
+  buildplan: { id: number; name: string; shipClassName: string } | null;
+  currency: TradeAuctionCurrencyDto;
+  price: number;
+  /** Part of the maximum bid returned when claiming. */
+  refund: number;
+  endedAt: string;
+}
+
+/** Body of `POST trade/deals/:id/bid`. */
+export interface BidTradeAuctionDto {
+  maxAmount: number;
 }
 
 /** Body of `POST trade/deals/:id/take`. */
@@ -309,6 +348,8 @@ export interface TakeTradeDealDto {
 
 /** Admin input for `admin/trade/deals`. Exactly one gift and one price. */
 export interface AdminTradeDealInput {
+  /** Auction (tmw-T8b): the price field only names the currency. */
+  auction?: boolean;
   amount: number | null;
   giveCommodityId: number | null;
   giveCommodityAmount: number | null;
@@ -324,6 +365,10 @@ export interface AdminTradeDealInput {
 
 export interface AdminTradeDealDto extends AdminTradeDealInput {
   id: number;
+  auction: boolean;
+  auctionAmount: number | null;
+  auctionUserId: number | null;
+  takenAt: string | null;
   notifiedAt: string | null;
   createdAt: string;
 }

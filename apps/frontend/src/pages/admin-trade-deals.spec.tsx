@@ -7,7 +7,7 @@ const apiMocks = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), 
 vi.mock('../services/api', () => ({ api: apiMocks }));
 
 const deal = {
-  id: 3, amount: 5, giveCommodityId: 2, giveCommodityAmount: 1000, buildplanId: null, ship: false,
+  id: 3, auction: false, auctionAmount: null, auctionUserId: null, takenAt: null, amount: 5, giveCommodityId: 2, giveCommodityAmount: 1000, buildplanId: null, ship: false,
   wantCommodityId: 50, wantCommodityAmount: 2, wantPrestige: null, factionId: 1,
   startsAt: '2026-11-13T10:00:00.000Z', endsAt: '2099-11-20T10:00:00.000Z', notifiedAt: null, createdAt: '2026-11-13T09:00:00.000Z',
 };
@@ -56,6 +56,25 @@ describe('AdminTradeDealsPage', () => {
       wantCommodityId: null, wantCommodityAmount: null, wantPrestige: 250, amount: null, factionId: null,
     })));
     expect((await screen.findByRole('status')).textContent).toBe('Deal angelegt');
+  });
+
+  it('creates an auction that only names its currency', async () => {
+    renderPage();
+    const form = await screen.findByRole('region', { name: 'Neuer Deal' });
+    await screen.findByText('1000 Doonium');
+
+    fireEvent.click(within(form).getByRole('checkbox', { name: 'Auktion' }));
+    expect(within(form).queryByRole('spinbutton', { name: 'Anzahl' })).toBeNull();
+    expect(within(form).queryByRole('spinbutton', { name: 'Verlangte Menge' })).toBeNull();
+    fireEvent.change(within(form).getByRole('combobox', { name: 'Angebotene Ware' }), { target: { value: '2' } });
+    fireEvent.change(within(form).getByRole('spinbutton', { name: 'Angebotene Menge' }), { target: { value: '5000' } });
+    fireEvent.change(within(form).getByRole('combobox', { name: 'Preis' }), { target: { value: 'PRESTIGE' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Deal anlegen' }));
+
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/admin/trade/deals', expect.objectContaining({
+      auction: true, amount: null, giveCommodityId: 2, giveCommodityAmount: 5000,
+      wantCommodityId: null, wantCommodityAmount: null, wantPrestige: 1,
+    })));
   });
 
   it('edits and ends an existing deal', async () => {

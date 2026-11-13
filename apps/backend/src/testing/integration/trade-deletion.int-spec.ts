@@ -70,6 +70,7 @@ describe('trade data on player deletion (PostgreSQL)', () => {
 
     expect(removed).toEqual([
       'TradeOffer', 'TradeTransfer', 'TradeLicense', 'TradeAccountStorage', 'TradeShoutboxEntry', 'LotteryTicket',
+      'TradeDeal:anonymized', 'TradeAuctionBid',
       'TradeTransaction:anonymized', 'TradeTransaction:anonymized', 'BasicTradeRate:anonymized',
     ]);
   });

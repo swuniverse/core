@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, In, LessThanOrEqual, MoreThan, type EntityManager } from 'typeorm';
+import { DataSource, In, IsNull, LessThanOrEqual, MoreThan, type EntityManager } from 'typeorm';
 import type { TradeDealDto, TradeDealsDto } from '@swuniverse/shared';
 import { User } from '../auth/user.entity';
 import { NpcKey } from '../auth/npc-account.service';
@@ -11,6 +11,7 @@ import { AdminShipBuildplan } from '../spacecraft/entities/admin-ship-buildplan.
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { TradeAccountStorage } from './entities/trade-account-storage.entity';
 import { TradeDeal } from './entities/trade-deal.entity';
+import { TradeAuctionBid } from './entities/trade-auction-bid.entity';
 import { TradeLicense } from './entities/trade-license.entity';
 import { TradePost } from './entities/trade-post.entity';
 import type { TradeDealFulfillment } from './trade-deal-fulfillment.port';
@@ -47,14 +48,25 @@ export class TradeDealService {
     if (!user) throw new NotFoundException('Spieler nicht gefunden');
     const licensed = post ? await hasLicense(manager, post.id, userId, now) : false;
     if (!post || !licensed) {
-      return { hasLicense: false, notice: HUTT_LICENSE_REQUIRED, tradePostId: post?.id ?? null, tradePostName: post?.name ?? null, prestige: user.prestige, account: [], deals: [] };
+      return {
+        hasLicense: false, notice: HUTT_LICENSE_REQUIRED, tradePostId: post?.id ?? null, tradePostName: post?.name ?? null,
+        prestige: user.prestige, account: [], deals: [], auctions: [], wonAuctions: [],
+      };
     }
-    const deals = (await activeDeals(manager, now)).filter((deal) => deal.factionId === null || deal.factionId === user.factionId);
-    const wanted = [...new Set(deals.flatMap((deal) => (deal.wantCommodityId === null ? [] : [deal.wantCommodityId])))];
-    const [account, plans, factions] = await Promise.all([
+    const ownFaction = (deal: TradeDeal) => deal.factionId === null || deal.factionId === user.factionId;
+    const deals = (await activeDeals(manager, now)).filter(ownFaction);
+    const auctions = (await activeDeals(manager, now, true)).filter(ownFaction);
+    const won = await manager.find(TradeDeal, {
+      where: { auction: true, auctionUserId: userId, takenAt: IsNull(), endsAt: LessThanOrEqual(now) },
+      order: { endsAt: 'ASC', id: 'ASC' },
+    });
+    const all = [...deals, ...auctions, ...won];
+    const wanted = [...new Set(all.flatMap((deal) => (deal.wantCommodityId === null ? [] : [deal.wantCommodityId])))];
+    const [account, plans, factions, ownBids] = await Promise.all([
       wanted.length ? manager.find(TradeAccountStorage, { where: { tradePostId: post.id, userId, commodityId: In(wanted) } }) : [],
-      this.buildplans(manager, deals),
-      manager.find(FactionEntity, { where: { id: In(deals.flatMap((deal) => (deal.factionId === null ? [] : [deal.factionId]))) } }),
+      this.buildplans(manager, all),
+      manager.find(FactionEntity, { where: { id: In(all.flatMap((deal) => (deal.factionId === null ? [] : [deal.factionId]))) } }),
+      highestBids(manager, [...auctions, ...won].filter((deal) => deal.auctionUserId === userId)),
     ]);
     const factionNames = new Map(factions.map((faction) => [faction.id, faction.name]));
     return {
@@ -65,6 +77,28 @@ export class TradeDealService {
       prestige: user.prestige,
       account: account.map((row) => ({ commodityId: row.commodityId, amount: row.amount })),
       deals: deals.map((deal) => this.toDto(deal, plans, factionNames)),
+      auctions: auctions.map((deal) => {
+        const { give, buildplan, kind, factionName, endsAt } = this.toDto(deal, plans, factionNames);
+        const own = deal.auctionUserId === userId;
+        return {
+          id: deal.id, kind, give, buildplan, factionName, endsAt,
+          currency: this.currency(deal),
+          currentAmount: deal.auctionAmount,
+          isHighestBidder: own,
+          ownMaxAmount: own ? (ownBids.get(deal.id)?.maxAmount ?? null) : null,
+        };
+      }),
+      wonAuctions: won.map((deal) => {
+        const { give, buildplan, kind } = this.toDto(deal, plans, factionNames);
+        const price = deal.auctionAmount ?? 0;
+        return {
+          id: deal.id, kind, give, buildplan,
+          currency: this.currency(deal),
+          price,
+          refund: Math.max(0, (ownBids.get(deal.id)?.maxAmount ?? price) - price),
+          endedAt: deal.endsAt.toISOString(),
+        };
+      }),
     };
   }
 
@@ -121,14 +155,7 @@ export class TradeDealService {
         else await manager.update(TradeDeal, { id: deal.id }, { amount: deal.amount - amount });
       }
 
-      if (deal.giveCommodityId !== null) {
-        await addToAccount(manager, post.id, userId, deal.giveCommodityId, (deal.giveCommodityAmount as number) * amount);
-      }
-      if (deal.buildplanId !== null) {
-        if (!this.fulfillment) throw new Error('Trade deal fulfillment is not registered');
-        if (deal.ship) await this.fulfillment.createShip(manager, { userId, buildplanId: deal.buildplanId, locationId: post.locationId });
-        else await this.fulfillment.grantBuildplan(manager, { userId, buildplanId: deal.buildplanId });
-      }
+      await this.deliver(manager, deal, userId, post, amount);
       if (wantStorage) {
         wantStorage.amount -= (deal.wantCommodityAmount as number) * amount;
         if (wantStorage.amount === 0) await manager.remove(wantStorage);
@@ -141,6 +168,18 @@ export class TradeDealService {
       return amount;
     });
     return { message: `Der Deal wurde ${amount} mal angenommen`, amount };
+  }
+
+  /** The deal's item, `times` over: goods to the Hutt account (no space check, like STU `upperStorage`), a ship or a buildplan. */
+  async deliver(manager: EntityManager, deal: TradeDeal, userId: number, post: TradePost, times = 1): Promise<void> {
+    if (deal.giveCommodityId !== null) {
+      await addToAccount(manager, post.id, userId, deal.giveCommodityId, (deal.giveCommodityAmount as number) * times);
+    }
+    if (deal.buildplanId !== null) {
+      if (!this.fulfillment) throw new Error('Trade deal fulfillment is not registered');
+      if (deal.ship) await this.fulfillment.createShip(manager, { userId, buildplanId: deal.buildplanId, locationId: post.locationId });
+      else await this.fulfillment.grantBuildplan(manager, { userId, buildplanId: deal.buildplanId });
+    }
   }
 
   private async buildplans(manager: EntityManager, deals: TradeDeal[]) {
@@ -174,7 +213,12 @@ export class TradeDealService {
     };
   }
 
-  private commodityName(id: number): string {
+  /** Auction currency: the wanted commodity, or prestige (`null`). */
+  currency(deal: TradeDeal) {
+    return deal.wantCommodityId === null ? null : { commodityId: deal.wantCommodityId, commodityName: this.commodityName(deal.wantCommodityId) };
+  }
+
+  commodityName(id: number): string {
     return this.gameData.getCommodity(id)?.name ?? `Ware #${id}`;
   }
 }
@@ -193,12 +237,23 @@ export async function hasLicense(manager: EntityManager, tradePostId: number, us
   return (await manager.countBy(TradeLicense, { tradePostId, userId, expiresAt: MoreThan(now) })) > 0;
 }
 
-/** Started, not ended instant deals, oldest first. */
-export function activeDeals(manager: EntityManager, now: Date): Promise<TradeDeal[]> {
+/** Started, not ended instant deals (or auctions), oldest first. */
+export function activeDeals(manager: EntityManager, now: Date, auction = false): Promise<TradeDeal[]> {
   return manager.find(TradeDeal, {
-    where: { auction: false, startsAt: LessThanOrEqual(now), endsAt: MoreThan(now) },
+    where: { auction, startsAt: LessThanOrEqual(now), endsAt: MoreThan(now) },
     order: { id: 'ASC' },
   });
+}
+
+/** STU `getHighestBid`: the newest bid of the current highest bidder, per auction. */
+export async function highestBids(manager: EntityManager, deals: TradeDeal[]): Promise<Map<number, TradeAuctionBid>> {
+  const withBidder = deals.filter((deal) => deal.auctionUserId !== null);
+  if (!withBidder.length) return new Map();
+  const bids = await manager.find(TradeAuctionBid, {
+    where: withBidder.map((deal) => ({ dealId: deal.id, userId: deal.auctionUserId as number })),
+    order: { id: 'ASC' },
+  });
+  return new Map(bids.map((bid) => [bid.dealId, bid]));
 }
 
 async function addToAccount(manager: EntityManager, tradePostId: number, userId: number, commodityId: number, amount: number) {

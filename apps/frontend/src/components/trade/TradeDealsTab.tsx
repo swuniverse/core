@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { TradeDealDto, TradeDealsDto } from '@swuniverse/shared';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import type { TradeAuctionDto, TradeDealDto, TradeDealsDto, TradeWonAuctionDto } from '@swuniverse/shared';
 import { formatDateTime, formatNumber } from '../../lib/format';
 import { api } from '../../services/api';
 
@@ -11,7 +11,19 @@ function errorText(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
 }
 
-function giftLabel(deal: TradeDealDto): string {
+type DealItem = Pick<TradeDealDto, 'kind' | 'give' | 'buildplan'>;
+
+function currencyLabel(currency: TradeAuctionDto['currency']): string {
+  return currency ? currency.commodityName : 'Prestige';
+}
+
+function remaining(endsAt: string, now = Date.now()): string {
+  const minutes = Math.max(0, Math.floor((new Date(endsAt).getTime() - now) / 60_000));
+  const hours = Math.floor(minutes / 60);
+  return hours > 0 ? `noch ${hours} h ${minutes % 60} min` : `noch ${minutes} min`;
+}
+
+function giftLabel(deal: DealItem): string {
   if (deal.give) return `${formatNumber(deal.give.amount)} ${deal.give.commodityName}`;
   const plan = deal.buildplan;
   const name = plan ? `${plan.name} (${plan.shipClassName})` : 'unbekannter Bauplan';
@@ -49,6 +61,17 @@ export function TradeDealsTab() {
     return <p className="max-w-5xl border border-swu-border bg-black/30 p-2 text-swu-muted">{data.notice}</p>;
   }
   const aurodium = data.account.find((entry) => entry.commodityId === 50)?.amount ?? 0;
+  const act = async (path: string, body: object, fallback: string) => {
+    setError(null);
+    setNotice(null);
+    try {
+      setNotice((await api.post<{ message: string }>(path, body)).message);
+    } catch (err) {
+      setError(errorText(err, fallback));
+    } finally {
+      await load();
+    }
+  };
   return (
     <div className="max-w-5xl space-y-2">
       {notice && <p role="status" className="text-emerald-300">{notice}</p>}
@@ -99,6 +122,57 @@ export function TradeDealsTab() {
           </div>
         )}
       </section>
+      {(data.auctions ?? []).length > 0 && (
+        <section aria-label="Auktionen" className="border border-swu-border bg-black/30">
+          <h2 className="border-b border-swu-border px-2 py-1 font-bold text-swu-primary">Auktionen</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="text-left text-swu-muted">
+                <tr>
+                  <th className="px-2 py-1">Angebot</th>
+                  <th className="px-2 py-1">Aktueller Preis</th>
+                  <th className="px-2 py-1">Endet</th>
+                  <th className="px-2 py-1">Maximalgebot</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.auctions.map((auction) => (
+                  <AuctionRow
+                    key={auction.id}
+                    auction={auction}
+                    onBid={(maxAmount) => act(`/trade/deals/${auction.id}/bid`, { maxAmount }, 'Gebot fehlgeschlagen')}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="px-2 py-1 text-swu-muted">
+            Dein Maximalgebot wird vollständig reserviert. Wirst du überboten, bekommst du es zurück; nach dem Ende erhältst du den Rest über dem Preis zurück.
+          </p>
+        </section>
+      )}
+      {(data.wonAuctions ?? []).length > 0 && (
+        <section aria-label="Gewonnene Auktionen" className="border border-swu-border bg-black/30">
+          <h2 className="border-b border-swu-border px-2 py-1 font-bold text-swu-primary">Gewonnene Auktionen</h2>
+          <ul>
+            {data.wonAuctions.map((won: TradeWonAuctionDto) => (
+              <li key={won.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-swu-border/60 px-2 py-1">
+                <span>
+                  {giftLabel(won)} · Preis: {formatNumber(won.price)} {currencyLabel(won.currency)}, Rückerstattung: {formatNumber(won.refund)}
+                </span>
+                <button
+                  type="button"
+                  aria-label={`${won.give?.commodityName ?? won.buildplan?.name ?? 'Gewinn'} abholen`}
+                  onClick={() => void act(`/trade/deals/${won.id}/claim`, {}, 'Abholen fehlgeschlagen')}
+                  className={buttonClass}
+                >
+                  Abholen
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {taking && (
         <TakeDealDialog
           deal={taking}
@@ -182,5 +256,56 @@ function TakeDealDialog({
         </button>
       </section>
     </div>
+  );
+}
+
+function AuctionRow({ auction, onBid }: { auction: TradeAuctionDto; onBid: (maxAmount: number) => Promise<void> }) {
+  const minimum = (auction.ownMaxAmount ?? auction.currentAmount ?? 0) + 1;
+  const [maxAmount, setMaxAmount] = useState(minimum);
+  const [pending, setPending] = useState(false);
+  const valid = Number.isInteger(maxAmount) && maxAmount >= 1;
+  const bid = async (event: FormEvent) => {
+    event.preventDefault();
+    setPending(true);
+    try {
+      await onBid(maxAmount);
+    } finally {
+      setPending(false);
+    }
+  };
+  return (
+    <tr className="border-t border-swu-border/60 align-top">
+      <td className="px-2 py-1">
+        <span>{giftLabel(auction)}</span>
+        {auction.factionName && <span className="ml-2 text-swu-muted">nur {auction.factionName}</span>}
+      </td>
+      <td className="px-2 py-1">
+        {auction.currentAmount === null ? (
+          <span>Noch kein Gebot · {currencyLabel(auction.currency)}</span>
+        ) : (
+          <span>{formatNumber(auction.currentAmount)} {currencyLabel(auction.currency)}</span>
+        )}
+        {auction.isHighestBidder && auction.ownMaxAmount !== null && (
+          <span className="block text-emerald-300">Dein Maximum: {formatNumber(auction.ownMaxAmount)} (Höchstbietender)</span>
+        )}
+      </td>
+      <td className="px-2 py-1">
+        {remaining(auction.endsAt)}
+        <span className="block text-swu-muted">{formatDateTime(auction.endsAt)}</span>
+      </td>
+      <td className="px-2 py-1">
+        <form onSubmit={(event) => void bid(event)} className="flex items-center gap-1">
+          <input
+            aria-label="Maximalgebot"
+            type="number"
+            min={1}
+            value={maxAmount}
+            onChange={(event) => setMaxAmount(Number(event.target.value))}
+            className={`${inputClass} w-20 text-center`}
+          />
+          <button type="submit" disabled={pending || !valid} className={buttonClass}>Bieten</button>
+        </form>
+      </td>
+    </tr>
   );
 }

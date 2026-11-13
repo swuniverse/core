@@ -56,6 +56,18 @@ export class TradeDeal {
   @Column({ type: 'timestamp' })
   endsAt: Date;
 
+  /** Auctions: the current highest bidder (STU `auction_user`). */
+  @Column({ type: 'int', nullable: true })
+  auctionUserId: number | null;
+
+  /** Auctions: the current price (STU `auction_amount`). */
+  @Column({ type: 'int', nullable: true })
+  auctionAmount: number | null;
+
+  /** Auctions: when the winner claimed the prize (STU `taken_time`). */
+  @Column({ type: 'timestamp', nullable: true })
+  takenAt: Date | null;
+
   /** Set once licensed players were told about the started deal. */
   @Column({ type: 'timestamp', nullable: true })
   notifiedAt: Date | null;

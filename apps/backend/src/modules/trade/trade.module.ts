@@ -16,12 +16,14 @@ import { TradeShoutboxService } from './trade-shoutbox.service';
 import { TradeShoutboxEntry } from './entities/trade-shoutbox-entry.entity';
 import { PrestigeModule } from '../prestige/prestige.module';
 import { TradeDeal } from './entities/trade-deal.entity';
+import { TradeAuctionBid } from './entities/trade-auction-bid.entity';
 import { TradeDealService } from './trade-deal.service';
 import { TradeDealAdminService } from './trade-deal-admin.service';
 import { TradeDealNotificationService } from './trade-deal-notification.service';
 import { AdminTradeDealController, AdminTradeLotteryController, TradeDealController, TradeLotteryController } from './trade-deal.controller';
 import { TradeLotteryService } from './trade-lottery.service';
 import { LotteryAwardListener } from './lottery-award.listener';
+import { TradeAuctionService } from './trade-auction.service';
 import { AwardsModule } from '../awards/awards.module';
 import { LotteryTicket } from './entities/lottery-ticket.entity';
 import { LotteryWinnerBuildplan } from './entities/lottery-winner-buildplan.entity';
@@ -71,6 +73,7 @@ import { TradeQueryService } from './trade-query.service';
       CargoItem,
       BasicTradeRate,
       TradeDeal,
+      TradeAuctionBid,
       TradeShoutboxEntry,
       LotteryTicket,
       LotteryWinnerBuildplan,
@@ -107,6 +110,7 @@ import { TradeQueryService } from './trade-query.service';
     TradeShoutboxService,
     TradeLotteryService,
     LotteryAwardListener,
+    TradeAuctionService,
   ],
   exports: [
     TradeLotteryService,
