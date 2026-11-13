@@ -174,6 +174,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- sh-AP-06 – Inaktivitätslöschung: täglicher Handler mit STU-Fristen (91,5/183/3 Tage), Warnmails 48/24 h, Abschlussmail, Ausnahmen für Admins/NPCs/Löschverbot, hinter `IDLE_DELETION_ENABLED` (sonst Trockenlauf) – 615f3274
 - sh-AP-05d – Kontolöschung: alle Kolonien inkl. Startkolonie werden über den Abgabe-Kern zu besitzerlosen Ruinen mit Gebäuden und Lager, Queues ohne Rückerstattung beendet, Blockaden aufgehoben – 403b969c
 - sh-AP-05c – Kontolöschung: Schiffe ohne Wrack, Crew, Kapseln, Flotten, Blockaden, Traktorstrahlen, geteilte Baupläne ohne Besitzer, Entdeckungen und Forschungsbelohnungen – 04779aa5
 - sh-AP-05b – Kontolöschung: Allianzaustritt vor der Transaktion (`prepare`), Nachrichten/HoloNet/News bleiben als „Gelöschter Siedler“, persönliche Daten, Invite-Keys und Prestige-Historie gelöscht – 04779aa5
