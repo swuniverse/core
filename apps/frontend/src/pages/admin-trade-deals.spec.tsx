@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import { AdminTradeDealsPage } from './admin-trade-deals';
 
-const apiMocks = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn() }));
+const apiMocks = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() }));
 vi.mock('../services/api', () => ({ api: apiMocks }));
 
 const deal = {
@@ -21,11 +21,13 @@ describe('AdminTradeDealsPage', () => {
     apiMocks.get.mockReset();
     apiMocks.post.mockReset().mockResolvedValue({});
     apiMocks.put.mockReset().mockResolvedValue({});
+    apiMocks.delete.mockReset().mockResolvedValue(undefined);
     apiMocks.get.mockImplementation(async (url: string) => {
       if (url === '/admin/trade/deals') return [deal];
       if (url === '/database/commodities') return [{ id: 2, name: 'Doonium' }, { id: 50, name: 'Aurodium' }];
       if (url === '/spacecraft/admin/buildplans') return [{ id: 9, name: 'Kartellfrachter' }];
       if (url === '/factions') return [{ id: 1, name: 'Rebellenallianz' }];
+      if (url === '/admin/trade/lottery-buildplans') return [{ id: 4, factionId: 1, buildplanId: 9, chance: 30 }];
       throw new Error(`unexpected ${url}`);
     });
   });
@@ -67,5 +69,22 @@ describe('AdminTradeDealsPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Deal 3 beenden' }));
     await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/admin/trade/deals/3/end', {}));
+  });
+
+  it('maintains the lottery prize buildplans per faction', async () => {
+    renderPage();
+    const prizes = await screen.findByRole('region', { name: 'Lotterie-Gewinnbaupläne' });
+    const row = (await within(prizes).findByText('Kartellfrachter', { selector: 'td' })).closest('tr') as HTMLElement;
+    expect(row.textContent).toContain('Rebellenallianz');
+    expect(row.textContent).toContain('30');
+
+    fireEvent.change(within(prizes).getByRole('combobox', { name: 'Gewinn-Fraktion' }), { target: { value: '1' } });
+    fireEvent.change(within(prizes).getByRole('combobox', { name: 'Gewinn-Bauplan' }), { target: { value: '9' } });
+    fireEvent.change(within(prizes).getByRole('spinbutton', { name: 'Chance' }), { target: { value: '70' } });
+    fireEvent.click(within(prizes).getByRole('button', { name: 'Gewinnbauplan hinzufügen' }));
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/admin/trade/lottery-buildplans', { factionId: 1, buildplanId: 9, chance: 70 }));
+
+    fireEvent.click(within(prizes).getByRole('button', { name: 'Gewinnbauplan 4 entfernen' }));
+    await waitFor(() => expect(apiMocks.delete).toHaveBeenCalledWith('/admin/trade/lottery-buildplans/4'));
   });
 });

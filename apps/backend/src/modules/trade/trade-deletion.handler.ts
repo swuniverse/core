@@ -7,6 +7,7 @@ import { TradeAccountStorage } from './entities/trade-account-storage.entity';
 import { TradeLicense } from './entities/trade-license.entity';
 import { TradeOffer } from './entities/trade-offer.entity';
 import { TradeShoutboxEntry } from './entities/trade-shoutbox-entry.entity';
+import { LotteryTicket } from './entities/lottery-ticket.entity';
 import { TradeTransaction } from './entities/trade-transaction.entity';
 import { TradeTransfer } from './entities/trade-transfer.entity';
 
@@ -16,8 +17,8 @@ import { TradeTransfer } from './entities/trade-transfer.entity';
  * Transactions and basic trade rates stay, anonymized, so rankings and rate
  * charts keep their history.
  *
- * Extend this handler when the matching system exists: auction bids with
- * promotion of the next valid bid (tmw-T8b) and lottery tickets (tmw-T9). Own player trade posts follow the post
+ * Extend this handler when auction bids exist: promotion of the next valid
+ * bid (tmw-T8b). Own player trade posts follow the post
  * abandonment of tmw-T12c; until then `trade_posts.ownerId` restricts.
  */
 @Injectable()
@@ -36,6 +37,7 @@ export class TradeDeletionHandler implements PlayerDeletionHandler, OnModuleInit
     await tx.delete(TradeLicense, { userId });
     await tx.delete(TradeAccountStorage, { userId });
     await tx.delete(TradeShoutboxEntry, { userId });
+    await tx.delete(LotteryTicket, { userId });
     await tx.update(TradeTransaction, { buyerId: userId }, { buyerId: null });
     await tx.update(TradeTransaction, { sellerId: userId }, { sellerId: null });
     await tx.update(BasicTradeRate, { userId }, { userId: null });

@@ -33,6 +33,7 @@ describe('trade data on player deletion (PostgreSQL)', () => {
       });
       await source.getRepository('TradeTransfer').save({ sourceTradePostId: posts[0], targetTradePostId: posts[1], userId: user.id, commodityId: 5, amount: 4 });
       await source.getRepository('TradeShoutboxEntry').save({ networkId: 1, userId: user.id, message: 'Hallo' });
+      await source.getRepository('LotteryTicket').save({ userId: user.id, period: '2026.11', isWinner: null });
     }
     const transaction = await source.getRepository('TradeTransaction').save({
       tradePostId: posts[0], buyerId: doomed.id, sellerId: other.id,
@@ -46,7 +47,7 @@ describe('trade data on player deletion (PostgreSQL)', () => {
     new TradeDeletionHandler(deletions).onModuleInit();
     await deletions.delete(doomed.id);
 
-    for (const entity of ['TradeAccountStorage', 'TradeOffer', 'TradeLicense', 'TradeTransfer', 'TradeShoutboxEntry']) {
+    for (const entity of ['TradeAccountStorage', 'TradeOffer', 'TradeLicense', 'TradeTransfer', 'TradeShoutboxEntry', 'LotteryTicket']) {
       expect(await source.getRepository(entity).countBy({ userId: doomed.id })).toBe(0);
       expect(await source.getRepository(entity).countBy({ userId: other.id })).toBe(1);
     }
@@ -68,7 +69,7 @@ describe('trade data on player deletion (PostgreSQL)', () => {
     await new TradeDeletionHandler({ register: () => undefined } as never).delete(manager as never, doomed.id);
 
     expect(removed).toEqual([
-      'TradeOffer', 'TradeTransfer', 'TradeLicense', 'TradeAccountStorage', 'TradeShoutboxEntry',
+      'TradeOffer', 'TradeTransfer', 'TradeLicense', 'TradeAccountStorage', 'TradeShoutboxEntry', 'LotteryTicket',
       'TradeTransaction:anonymized', 'TradeTransaction:anonymized', 'BasicTradeRate:anonymized',
     ]);
   });

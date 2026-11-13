@@ -134,6 +134,8 @@ import { TradeOffer } from './modules/trade/entities/trade-offer.entity';
 import { TradeTransfer } from './modules/trade/entities/trade-transfer.entity';
 import { TradeTransaction } from './modules/trade/entities/trade-transaction.entity';
 import { TradeShoutboxEntry } from './modules/trade/entities/trade-shoutbox-entry.entity';
+import { LotteryTicket } from './modules/trade/entities/lottery-ticket.entity';
+import { LotteryWinnerBuildplan } from './modules/trade/entities/lottery-winner-buildplan.entity';
 import { TradeDeal } from './modules/trade/entities/trade-deal.entity';
 import { BasicTradeRate } from './modules/trade/entities/basic-trade-rate.entity';
 import { TutorialModule } from './modules/tutorial/tutorial.module';
@@ -275,6 +277,8 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
           TradeTransaction,
           BasicTradeRate,
           TradeDeal,
+          LotteryTicket,
+          LotteryWinnerBuildplan,
           TradeShoutboxEntry,
           UserTutorialProgress,
           UserCharacter,

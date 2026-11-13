@@ -14,12 +14,13 @@ import { TradeMarketTab } from '../components/trade/TradeMarketTab';
 import { TradeOffersTab } from '../components/trade/TradeOffersTab';
 import { TradeDealsTab } from '../components/trade/TradeDealsTab';
 import { TradeShoutboxTab } from '../components/trade/TradeShoutboxTab';
+import { TradeLotteryTab } from '../components/trade/TradeLotteryTab';
 import { TradeNetworkTransferDialog } from '../components/trade/TradeNetworkTransferDialog';
 import { commodityImage } from '../lib/assets';
 import { formatDateTime, formatNumber } from '../lib/format';
 import { api } from '../services/api';
 
-type TradeTab = 'accounts' | 'posts' | 'licenses' | 'market' | 'offers' | 'basic' | 'deals' | 'shoutbox';
+type TradeTab = 'accounts' | 'posts' | 'licenses' | 'market' | 'offers' | 'basic' | 'deals' | 'lottery' | 'shoutbox';
 
 type CommodityName = { id: number; name: string };
 
@@ -31,6 +32,7 @@ const TABS: { key: TradeTab; label: string }[] = [
   { key: 'offers', label: 'Meine Angebote' },
   { key: 'basic', label: 'Basishandel' },
   { key: 'deals', label: 'Hutten-Deals' },
+  { key: 'lottery', label: 'Lotterie' },
   { key: 'shoutbox', label: 'Shoutbox' },
 ];
 
@@ -73,6 +75,7 @@ export function TradePage() {
     tabParam === 'offers' ||
     tabParam === 'basic' ||
     tabParam === 'deals' ||
+    tabParam === 'lottery' ||
     tabParam === 'shoutbox'
       ? tabParam
       : 'accounts';
@@ -132,6 +135,8 @@ export function TradePage() {
     segments.push({ label: 'Basishandel' });
   } else if (tab === 'deals') {
     segments.push({ label: 'Hutten-Deals' });
+  } else if (tab === 'lottery') {
+    segments.push({ label: 'Lotterie' });
   } else if (tab === 'shoutbox') {
     segments.push({ label: 'Shoutbox' });
   } else if (tab === 'market') {
@@ -179,6 +184,8 @@ export function TradePage() {
         <BasicTradeTab />
       ) : tab === 'deals' ? (
         <TradeDealsTab />
+      ) : tab === 'lottery' ? (
+        <TradeLotteryTab />
       ) : tab === 'shoutbox' ? (
         <TradeShoutboxTab />
       ) : tab === 'market' ? (

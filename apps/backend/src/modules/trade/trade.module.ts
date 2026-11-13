@@ -19,7 +19,10 @@ import { TradeDeal } from './entities/trade-deal.entity';
 import { TradeDealService } from './trade-deal.service';
 import { TradeDealAdminService } from './trade-deal-admin.service';
 import { TradeDealNotificationService } from './trade-deal-notification.service';
-import { AdminTradeDealController, TradeDealController } from './trade-deal.controller';
+import { AdminTradeDealController, AdminTradeLotteryController, TradeDealController, TradeLotteryController } from './trade-deal.controller';
+import { TradeLotteryService } from './trade-lottery.service';
+import { LotteryTicket } from './entities/lottery-ticket.entity';
+import { LotteryWinnerBuildplan } from './entities/lottery-winner-buildplan.entity';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { TradeStorageService } from './trade-storage.service';
@@ -66,9 +69,18 @@ import { TradeQueryService } from './trade-query.service';
       BasicTradeRate,
       TradeDeal,
       TradeShoutboxEntry,
+      LotteryTicket,
+      LotteryWinnerBuildplan,
     ]),
   ],
-  controllers: [TradeController, TradeShipController, TradeDealController, AdminTradeDealController],
+  controllers: [
+    TradeController,
+    TradeShipController,
+    TradeDealController,
+    AdminTradeDealController,
+    TradeLotteryController,
+    AdminTradeLotteryController,
+  ],
   providers: [
     TradeStorageService,
     TradePostSeedService,
@@ -90,8 +102,10 @@ import { TradeQueryService } from './trade-query.service';
     TradeDealNotificationService,
     TradeNetworkTransferService,
     TradeShoutboxService,
+    TradeLotteryService,
   ],
   exports: [
+    TradeLotteryService,
     TradeDealService,
     TradeDealNotificationService,
     TradeLicenseMaintenanceService,

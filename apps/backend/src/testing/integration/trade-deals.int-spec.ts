@@ -61,7 +61,7 @@ describe('Hutt Cartel deals (PostgreSQL)', () => {
       new PrestigeService(source.getRepository('PrestigeHistoryEntry') as never),
       gameData as never,
     );
-    new TradeDealFulfillmentAdapter(instance, spacecraft as never, new ShipbuildingCoreService({} as never, {} as never, {} as never, {} as never, {} as never), gameData as never).onModuleInit();
+    new TradeDealFulfillmentAdapter(instance, { registerShipFactory: () => undefined } as never, spacecraft as never, new ShipbuildingCoreService({} as never, {} as never, {} as never, {} as never, {} as never), gameData as never).onModuleInit();
     return instance;
   }
 

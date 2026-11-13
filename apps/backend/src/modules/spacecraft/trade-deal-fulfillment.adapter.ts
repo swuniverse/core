@@ -6,6 +6,7 @@ import { GameDataService } from '../game-data/game-data.service';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import type { TradeDealFulfillment } from '../trade/trade-deal-fulfillment.port';
 import { TradeDealService } from '../trade/trade-deal.service';
+import { TradeLotteryService } from '../trade/trade-lottery.service';
 import { AdminShipBuildplan } from './entities/admin-ship-buildplan.entity';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { Spacecraft } from './entities/spacecraft.entity';
@@ -15,11 +16,12 @@ import { SpacecraftService } from './spacecraft.service';
 /** STU `ShipCreator` loads EPS, reactor and warp drive to 25%. */
 const DEAL_SHIP_LOAD = 0.25;
 
-/** Delivers ships and buildplans of Hutt Cartel deals (tmw-T8a). */
+/** Delivers ships and buildplans of Hutt Cartel deals (tmw-T8a) and lottery prize ships (tmw-T9). */
 @Injectable()
 export class TradeDealFulfillmentAdapter implements TradeDealFulfillment, OnModuleInit {
   constructor(
     private readonly deals: TradeDealService,
+    private readonly lottery: TradeLotteryService,
     private readonly spacecraft: SpacecraftService,
     private readonly shipbuilding: ShipbuildingCoreService,
     private readonly gameData: GameDataService,
@@ -27,9 +29,10 @@ export class TradeDealFulfillmentAdapter implements TradeDealFulfillment, OnModu
 
   onModuleInit(): void {
     this.deals.registerFulfillment(this);
+    this.lottery.registerShipFactory(this);
   }
 
-  async createShip(manager: EntityManager, input: { userId: number; buildplanId: number; locationId: number }): Promise<void> {
+  async createShip(manager: EntityManager, input: { userId: number; buildplanId: number; locationId: number; name?: string }): Promise<void> {
     const { plan, shipClass } = await this.plan(manager, input.buildplanId);
     const user = await manager.findOneByOrFail(User, { id: input.userId });
     const location = await manager.findOneByOrFail(SpaceLocation, { id: input.locationId });
@@ -38,7 +41,7 @@ export class TradeDealFulfillmentAdapter implements TradeDealFulfillment, OnModu
       shipClass,
       modules: plan.moduleSelections,
       location,
-      name: shipClass.name,
+      name: input.name ?? shipClass.name,
       preset: 'operational',
     });
     ship.energy = Math.floor(ship.energyMax * DEAL_SHIP_LOAD);

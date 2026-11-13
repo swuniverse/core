@@ -40,6 +40,7 @@ import { AnomalyModule } from '../anomaly/anomaly.module';
 import { TradeModule } from '../trade/trade.module';
 import { TradeLicenseMaintenanceService } from '../trade/trade-license-maintenance.service';
 import { TradeOfferMaintenanceService } from '../trade/trade-offer-maintenance.service';
+import { TradeLotteryService } from '../trade/trade-lottery.service';
 
 @Module({
   imports: [
@@ -89,13 +90,15 @@ import { TradeOfferMaintenanceService } from '../trade/trade-offer-maintenance.s
         layerMapCycle: LayerMapCycleService,
         tradeLicenses: TradeLicenseMaintenanceService,
         tradeOffers: TradeOfferMaintenanceService,
-      ) => [topFlightsReward, profileVisitors, layerMapCycle, tradeLicenses, tradeOffers],
+        tradeLottery: TradeLotteryService,
+      ) => [topFlightsReward, profileVisitors, layerMapCycle, tradeLicenses, tradeOffers, tradeLottery],
       inject: [
         TopFlightsRewardService,
         ProfileVisitorService,
         LayerMapCycleService,
         TradeLicenseMaintenanceService,
         TradeOfferMaintenanceService,
+        TradeLotteryService,
       ],
     },
   ],

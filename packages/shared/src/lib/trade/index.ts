@@ -349,3 +349,33 @@ export interface TradeShoutboxDto {
   networkName: string;
   entries: Array<{ id: number; userId: number; username: string; message: string; createdAt: string }>;
 }
+
+/** `GET trade/lottery`: the running monthly period and the last draw. */
+export interface TradeLotteryDto {
+  hasLicense: boolean;
+  notice: string | null;
+  tradePostName: string | null;
+  /** `YYYY.MM` */
+  period: string;
+  tickets: number;
+  ownTickets: number;
+  /** 80 % of the tickets, rounded up. */
+  jackpot: number;
+  /** Own Aurodium at the Hutt post. */
+  aurodium: number;
+  lastDraw: {
+    period: string;
+    tickets: number;
+    jackpot: number;
+    ownTickets: number;
+    winner: { id: number; username: string } | null;
+  } | null;
+}
+
+/** Admin `admin/trade/lottery-buildplans`: a prize ship of a faction, weighted by chance. */
+export interface LotteryWinnerBuildplanDto {
+  id: number;
+  factionId: number;
+  buildplanId: number;
+  chance: number;
+}

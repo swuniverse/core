@@ -63,7 +63,7 @@ const adminCards = [
   {
     title: 'Hutten-Deals',
     path: '/admin/trade-deals',
-    description: 'Sofortangebote des Hutten-Kartells anlegen, bearbeiten und beenden.',
+    description: 'Sofortangebote des Hutten-Kartells und Lotterie-Gewinnbaupläne verwalten.',
     badge: 'Handel',
   },
 ];

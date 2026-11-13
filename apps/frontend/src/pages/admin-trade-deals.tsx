@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { AdminTradeDealDto, AdminTradeDealInput } from '@swuniverse/shared';
+import type { AdminTradeDealDto, AdminTradeDealInput, LotteryWinnerBuildplanDto } from '@swuniverse/shared';
 import { getErrorMessage } from '../lib/errors';
 import { formatDateTime } from '../lib/format';
 import { api } from '../services/api';
@@ -91,19 +91,25 @@ export function AdminTradeDealsPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [prizes, setPrizes] = useState<LotteryWinnerBuildplanDto[]>([]);
+  const [prize, setPrize] = useState({ factionId: '', buildplanId: '', chance: '10' });
 
   const loadDeals = useCallback(async () => {
     setDeals(await api.get<AdminTradeDealDto[]>('/admin/trade/deals'));
+  }, []);
+  const loadPrizes = useCallback(async () => {
+    setPrizes(await api.get<LotteryWinnerBuildplanDto[]>('/admin/trade/lottery-buildplans'));
   }, []);
 
   useEffect(() => {
     void Promise.all([
       loadDeals(),
+      loadPrizes(),
       api.get<Option[]>('/database/commodities').then(setCommodities),
       api.get<Option[]>('/spacecraft/admin/buildplans').then(setBuildplans),
       api.get<Option[]>('/factions').then(setFactions),
     ]).catch((err: unknown) => setError(getErrorMessage(err, 'Deals konnten nicht geladen werden.')));
-  }, [loadDeals]);
+  }, [loadDeals, loadPrizes]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((current) => ({ ...current, [key]: value }));
   const name = (options: Option[], id: number | null) => options.find((option) => option.id === id)?.name ?? `#${id}`;
@@ -114,7 +120,7 @@ export function AdminTradeDealsPage() {
     setNotice(null);
     try {
       await action();
-      await loadDeals();
+      await Promise.all([loadDeals(), loadPrizes()]);
       setNotice(message);
     } catch (err) {
       setError(getErrorMessage(err, 'Aktion fehlgeschlagen.'));
@@ -143,7 +149,7 @@ export function AdminTradeDealsPage() {
       <div>
         <Link to="/admin" className="text-sm text-swu-muted hover:text-swu-accent">Admin</Link>
         <h1 className="mt-1 text-2xl font-bold text-swu-accent" style={{ fontFamily: 'var(--font-swu-display)' }}>
-          Hutten-Deals
+          Hutten-Deals und Lotterie
         </h1>
         <p className="mt-1 text-sm text-swu-muted">
           Sofortangebote des Hutten-Kartells anlegen, bearbeiten und beenden. Lizenzierte Spieler werden beim Start benachrichtigt.
@@ -281,6 +287,61 @@ export function AdminTradeDealsPage() {
           </tbody>
         </table>
         {deals.length === 0 && <p className="p-2 text-swu-muted">Noch keine Deals angelegt.</p>}
+      </section>
+
+      <section aria-label="Lotterie-Gewinnbaupläne" className="max-w-3xl space-y-2 rounded-lg border border-swu-border bg-swu-surface p-4 text-sm">
+        <h2 className="font-bold text-swu-primary">Lotterie-Gewinnbaupläne</h2>
+        <p className="text-swu-muted">Der Lotteriegewinner erhält ein Schiff aus einem Bauplan seiner Fraktion, gewichtet nach Chance.</p>
+        <table className="w-full">
+          <thead className="text-left text-xs text-swu-muted">
+            <tr><th className="px-2 py-1">Fraktion</th><th className="px-2 py-1">Bauplan</th><th className="px-2 py-1">Chance</th><th className="px-2 py-1" /></tr>
+          </thead>
+          <tbody>
+            {prizes.map((entry) => (
+              <tr key={entry.id} className="border-t border-swu-border/60">
+                <td className="px-2 py-1">{name(factions, entry.factionId)}</td>
+                <td className="px-2 py-1">{name(buildplans, entry.buildplanId)}</td>
+                <td className="px-2 py-1">{entry.chance}</td>
+                <td className="px-2 py-1">
+                  <button type="button" aria-label={`Gewinnbauplan ${entry.id} entfernen`} disabled={busy} onClick={() => void run(() => api.delete(`/admin/trade/lottery-buildplans/${entry.id}`), 'Gewinnbauplan entfernt')} className="text-red-300">
+                    Entfernen
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="grid gap-2 text-swu-primary sm:grid-cols-[1fr_1fr_6rem_auto] sm:items-end">
+          <label>
+            Fraktion
+            <select aria-label="Gewinn-Fraktion" className={fieldClass} value={prize.factionId} onChange={(event) => setPrize({ ...prize, factionId: event.target.value })}>
+              <option value="">Fraktion wählen</option>
+              {factions.map((faction) => <option key={faction.id} value={faction.id}>{faction.name}</option>)}
+            </select>
+          </label>
+          <label>
+            Bauplan
+            <select aria-label="Gewinn-Bauplan" className={fieldClass} value={prize.buildplanId} onChange={(event) => setPrize({ ...prize, buildplanId: event.target.value })}>
+              <option value="">Bauplan wählen</option>
+              {buildplans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}
+            </select>
+          </label>
+          <label>
+            Chance
+            <input aria-label="Chance" type="number" min={1} className={fieldClass} value={prize.chance} onChange={(event) => setPrize({ ...prize, chance: event.target.value })} />
+          </label>
+          <button
+            type="button"
+            disabled={busy || !prize.factionId || !prize.buildplanId}
+            onClick={() => void run(async () => {
+              await api.post('/admin/trade/lottery-buildplans', { factionId: Number(prize.factionId), buildplanId: Number(prize.buildplanId), chance: Number(prize.chance) });
+              setPrize({ factionId: '', buildplanId: '', chance: '10' });
+            }, 'Gewinnbauplan hinzugefügt')}
+            className={buttonClass}
+          >
+            Gewinnbauplan hinzufügen
+          </button>
+        </div>
       </section>
     </div>
   );
