@@ -6,7 +6,13 @@ import { connectIntegrationDatabase, createUser, resetDatabase } from './databas
 const AURODIUM = 50;
 const DOONIUM = 2;
 const TRANSPARISTAHL = 4;
-const COMMODITIES: Record<number, string> = { [AURODIUM]: 'Aurodium', [DOONIUM]: 'Doonium', [TRANSPARISTAHL]: 'Transparistahl' };
+const DURASTAHL_LEGIERUNG = 21;
+const COMMODITIES: Record<number, string> = {
+  [AURODIUM]: 'Aurodium',
+  [DOONIUM]: 'Doonium',
+  [TRANSPARISTAHL]: 'Transparistahl',
+  [DURASTAHL_LEGIERUNG]: 'Durastahl-Legierung',
+};
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 describe('basic trade (PostgreSQL)', () => {
@@ -19,6 +25,7 @@ describe('basic trade (PostgreSQL)', () => {
   let posts: { rebelNpc: number; empireNpc: number; player: number };
   let now: number;
   let service: BasicTradeService;
+  let configured: Array<{ commodityId: number; startValue: number }>;
 
   beforeEach(async () => {
     userId = (await createUser(source)).id;
@@ -26,14 +33,12 @@ describe('basic trade (PostgreSQL)', () => {
     const empire = await createUser(source, { isNpc: true });
     const trader = await createUser(source);
     now = 1_800_000_000_000;
+    configured = [
+      { commodityId: DOONIUM, startValue: 189643 },
+      { commodityId: TRANSPARISTAHL, startValue: 94010 },
+    ];
     const gameData = {
-      getBasicTradeConfig: () => ({
-        networks: [1, 2],
-        commodities: [
-          { commodityId: DOONIUM, startValue: 189643 },
-          { commodityId: TRANSPARISTAHL, startValue: 94010 },
-        ],
-      }),
+      getBasicTradeConfig: () => ({ networks: [1, 2], commodities: configured }),
       getCommodity: (id: number) => (COMMODITIES[id] ? { name: COMMODITIES[id] } : undefined),
     };
     service = new BasicTradeService(source, new TradeStorageService(source), gameData as never, () => now++);
@@ -178,5 +183,32 @@ describe('basic trade (PostgreSQL)', () => {
     expect(chart?.points[0].dateMs).toBeLessThan(chart?.points.at(-1)?.dateMs ?? 0);
     expect((await service.getOverview(userId, 1000)).limit).toBe(100);
     expect((await service.getOverview(userId)).limit).toBe(25);
+  });
+
+  it('seeds added commodities, hides dropped ones and keeps every history', async () => {
+    await account(posts.rebelNpc, AURODIUM, 5);
+    const doonium = await newestRate(2, DOONIUM);
+    await service.buy(userId, { postId: posts.rebelNpc, rateId: doonium.rateId });
+    const dooniumAfterBuy = await newestRate(2, DOONIUM);
+    const dropped = await newestRate(2, TRANSPARISTAHL);
+
+    configured = [
+      { commodityId: DOONIUM, startValue: 1 },
+      { commodityId: DURASTAHL_LEGIERUNG, startValue: 54151 },
+    ];
+    expect(await service.seed()).toBe(2);
+
+    expect(await newestRate(1, DURASTAHL_LEGIERUNG)).toMatchObject({ value: 54151, buySell: 0 });
+    expect(await newestRate(2, DURASTAHL_LEGIERUNG)).toMatchObject({ value: 54151, buySell: 0 });
+    expect((await newestRate(2, DOONIUM)).rateId).toBe(dooniumAfterBuy.rateId);
+    expect(await source.getRepository('BasicTradeRate').countBy({ commodityId: TRANSPARISTAHL })).toBe(2);
+
+    const overview = await service.getOverview(userId);
+    const rebel = overview.accounts.find((entry) => entry.tradePostId === posts.rebelNpc);
+    expect(rebel?.items.map((item) => item.commodityId)).toEqual([DOONIUM, DURASTAHL_LEGIERUNG]);
+    expect(overview.charts.some((chart) => chart.commodityId === TRANSPARISTAHL)).toBe(false);
+    await expect(service.buy(userId, { postId: posts.rebelNpc, rateId: dropped.rateId }))
+      .rejects.toThrow('Diese Ware wird im Basishandel nicht angeboten - es konnte nicht gekauft werden');
+    expect(await service.seed()).toBe(0);
   });
 });

@@ -182,6 +182,10 @@ export class BasicTradeService implements OnApplicationBootstrap {
       if (!user || user.isNpc) throw new ForbiddenException('NPCs können dieses Angebot nicht annehmen');
       const rate = await manager.findOneBy(BasicTradeRate, { rateId: input.rateId });
       if (!rate) throw new BadRequestException(`Kurs nicht gefunden - es konnte nicht ${verb} werden`);
+      if (!this.isOffered(rate.networkId, rate.commodityId)) {
+        // Dropped from the configuration: history stays, trading stops.
+        throw new BadRequestException(`Diese Ware wird im Basishandel nicht angeboten - es konnte nicht ${verb} werden`);
+      }
       const post = await manager.findOne(TradePost, { where: { id: input.postId }, lock: { mode: 'pessimistic_write' } });
       if (!post || post.networkId !== rate.networkId || !(await this.isLicensedNpcPost(manager, post, userId))) {
         throw new BadRequestException('Du benötigst eine gültige Lizenz an einem NPC-Handelsposten dieses Netzes');
@@ -267,6 +271,11 @@ export class BasicTradeService implements OnApplicationBootstrap {
     return posts
       .filter((post) => npcOwners.has(post.ownerId))
       .sort((left, right) => left.networkId - right.networkId || left.name.localeCompare(right.name, 'de'));
+  }
+
+  private isOffered(networkId: number, commodityId: number): boolean {
+    const config = this.gameData.getBasicTradeConfig();
+    return config.networks.includes(networkId) && config.commodities.some((entry) => entry.commodityId === commodityId);
   }
 
   private commodityName(id: number): string {
