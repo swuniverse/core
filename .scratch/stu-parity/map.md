@@ -51,8 +51,9 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Entscheidungen
 
-- 2026-11-13 – tmw-T7a – Basishandel: Ein Kauf geht mit dem Kauf-Modifier −10 in die Kursformel ein; der STU-Code (`$summand = 1`) wird als Fehler nicht übernommen.
 <!-- Ralph und der Product Owner ergänzen hier: Datum – Issue-ID – Entscheidung -->
+
+- 2026-11-13 – tmw-T7a – Basishandel: Ein Kauf geht mit dem Kauf-Modifier −10 in die Kursformel ein; der STU-Code (`$summand = 1`) wird als Fehler nicht übernommen.
 
 - 2026-10-30 – tmw-K2 – Sieben aktive Feldeffekte laufen über die zentrale Einflug-/Tick-Pipeline; NBS-Ausfall nutzt einen eigenen persistenten Wall-Clock-Cooldown, Meldungen gehen in Schiffsordner und Live-Meldungsleiste.
 
