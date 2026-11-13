@@ -22,6 +22,8 @@ import { TradeLicenseMenuService } from './trade-license-menu.service';
 import { TradeAccountTransferService } from './trade-account-transfer.service';
 import { TradeShipController } from './trade-ship.controller';
 import { TradeOfferService } from './trade-offer.service';
+import { BasicTradeService } from './basic-trade.service';
+import { BasicTradeRate } from './entities/basic-trade-rate.entity';
 import { TradeOfferMarketService } from './trade-offer-market.service';
 import { TradeOfferMaintenanceService } from './trade-offer-maintenance.service';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
@@ -44,6 +46,7 @@ import { TradeQueryService } from './trade-query.service';
       TradeTransfer,
       TradeTransaction,
       CargoItem,
+      BasicTradeRate,
     ]),
   ],
   controllers: [TradeController, TradeShipController],
@@ -59,6 +62,7 @@ import { TradeQueryService } from './trade-query.service';
     TradeOfferService,
     TradeOfferMarketService,
     TradeOfferMaintenanceService,
+    BasicTradeService,
     TradePostPresencePolicy,
   ],
   exports: [

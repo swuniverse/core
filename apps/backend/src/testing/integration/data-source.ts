@@ -72,6 +72,7 @@ import { TradeAccountStorage } from '../../modules/trade/entities/trade-account-
 import { TradeOffer } from '../../modules/trade/entities/trade-offer.entity';
 import { TradeTransfer } from '../../modules/trade/entities/trade-transfer.entity';
 import { TradeTransaction } from '../../modules/trade/entities/trade-transaction.entity';
+import { BasicTradeRate } from '../../modules/trade/entities/basic-trade-rate.entity';
 
 /** Entities used by integration tests. Add more as suites need them. */
 export const INTEGRATION_ENTITIES = [
@@ -147,6 +148,7 @@ export const INTEGRATION_ENTITIES = [
   TradeOffer,
   TradeTransfer,
   TradeTransaction,
+  BasicTradeRate,
 ];
 
 export function createIntegrationDataSource(url: string): DataSource {

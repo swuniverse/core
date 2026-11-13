@@ -9,13 +9,14 @@ import type {
 } from '@swuniverse/shared';
 import { PageHeader, type PageHeaderSegment } from '../components/PageHeader';
 import { TradeLicensePanel } from '../components/trade/TradeLicensePanel';
+import { BasicTradeTab } from '../components/trade/BasicTradeTab';
 import { TradeMarketTab } from '../components/trade/TradeMarketTab';
 import { TradeOffersTab } from '../components/trade/TradeOffersTab';
 import { commodityImage } from '../lib/assets';
 import { formatDateTime, formatNumber } from '../lib/format';
 import { api } from '../services/api';
 
-type TradeTab = 'accounts' | 'posts' | 'licenses' | 'market' | 'offers';
+type TradeTab = 'accounts' | 'posts' | 'licenses' | 'market' | 'offers' | 'basic';
 
 type CommodityName = { id: number; name: string };
 
@@ -25,6 +26,7 @@ const TABS: { key: TradeTab; label: string }[] = [
   { key: 'licenses', label: 'Lizenzen' },
   { key: 'market', label: 'Angebote' },
   { key: 'offers', label: 'Meine Angebote' },
+  { key: 'basic', label: 'Basishandel' },
 ];
 
 function locationLink(location: SpaceLocationDto) {
@@ -60,7 +62,11 @@ export function TradePage() {
 
   const tabParam = searchParams.get('tab');
   const tab: TradeTab =
-    tabParam === 'posts' || tabParam === 'licenses' || tabParam === 'market' || tabParam === 'offers'
+    tabParam === 'posts' ||
+    tabParam === 'licenses' ||
+    tabParam === 'market' ||
+    tabParam === 'offers' ||
+    tabParam === 'basic'
       ? tabParam
       : 'accounts';
   const selectedPostId = Number(searchParams.get('post')) || null;
@@ -111,6 +117,8 @@ export function TradePage() {
   const segments: PageHeaderSegment[] = [{ label: 'Handel', to: '/trade' }];
   if (tab === 'licenses') {
     segments.push({ label: 'Lizenzen' });
+  } else if (tab === 'basic') {
+    segments.push({ label: 'Basishandel' });
   } else if (tab === 'market') {
     segments.push({ label: 'Angebote' });
   } else if (tab === 'offers') {
@@ -150,6 +158,8 @@ export function TradePage() {
           commodityName={commodityName}
           onSelect={(id) => select({ tab: 'posts', post: id })}
         />
+      ) : tab === 'basic' ? (
+        <BasicTradeTab />
       ) : tab === 'market' ? (
         <TradeMarketTab />
       ) : tab === 'offers' ? (

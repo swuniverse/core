@@ -224,3 +224,47 @@ export interface TakeTradeOfferResultDto {
   taken: number;
   message: string;
 }
+
+/** One commodity at a basic trade account (STU `BasicTradeItem`). */
+export interface BasicTradeItemDto {
+  commodityId: number;
+  commodityName: string;
+  /** Rate the next trade is pinned to. */
+  rateId: string;
+  /** Goods received for 1 Aurodium. */
+  buyValue: number;
+  /** Goods paid for 1 Aurodium. */
+  sellValue: number;
+  stored: number;
+}
+
+/** A licensed NPC post of a faction network with its basic trade. */
+export interface BasicTradeAccountDto {
+  tradePostId: number;
+  tradePostName: string;
+  networkId: number;
+  aurodium: number;
+  items: BasicTradeItemDto[];
+}
+
+export interface BasicTradeChartDto {
+  networkId: number;
+  commodityId: number;
+  commodityName: string;
+  totalTradeCount: number;
+  /** Oldest first; the newest `limit` rates. */
+  points: Array<{ value: number; dateMs: number }>;
+}
+
+/** `GET trade/basic?limit=` */
+export interface BasicTradeOverviewDto {
+  accounts: BasicTradeAccountDto[];
+  charts: BasicTradeChartDto[];
+  limit: number;
+}
+
+/** Body of `POST trade/basic/buy` and `/sell`. */
+export interface BasicTradeRequestDto {
+  postId: number;
+  rateId: string;
+}

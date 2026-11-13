@@ -25,6 +25,12 @@ export interface Commodity {
   sort: number;
 }
 
+/** `trade/basic-trade.yaml`: basic trade per faction network (STU `BasicTrade`). */
+export interface BasicTradeConfig {
+  networks: number[];
+  commodities: Array<{ commodityId: number; startValue: number }>;
+}
+
 export interface BuildingCosts {
   buildTime: number;
 }
@@ -564,6 +570,7 @@ export class GameDataService implements OnModuleInit {
   private hangarShipDefsByClassKey: Map<string, HangarShipDef> = new Map();
   private hangarShipDefsByCommodity: Map<number, HangarShipDef> = new Map();
   private shipClassDefs: ShipClassYamlDef[] = [];
+  private basicTrade: BasicTradeConfig = { networks: [], commodities: [] };
   private escapePodPresentations: Map<string, EscapePodPresentationDef> =
     new Map();
   private moduleStatsByOutputCommodity: Map<number, ShipyardModuleStatsDef> =
@@ -613,6 +620,20 @@ export class GameDataService implements OnModuleInit {
     this.loadColonyClasses();
     this.loadSwuLetterResources();
     this.loadWeaponShieldModifiers();
+    this.loadBasicTrade();
+  }
+
+  private loadBasicTrade() {
+    const data = this.loadYaml<Partial<BasicTradeConfig>>('trade/basic-trade.yaml');
+    this.basicTrade = {
+      networks: data?.networks ?? [],
+      commodities: data?.commodities ?? [],
+    };
+  }
+
+  /** Basic trade networks and commodities with their start rates. */
+  getBasicTradeConfig(): BasicTradeConfig {
+    return this.basicTrade;
   }
 
   private loadYaml<T>(relativePath: string): T | null {

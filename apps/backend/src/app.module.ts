@@ -133,6 +133,7 @@ import { TradeAccountStorage } from './modules/trade/entities/trade-account-stor
 import { TradeOffer } from './modules/trade/entities/trade-offer.entity';
 import { TradeTransfer } from './modules/trade/entities/trade-transfer.entity';
 import { TradeTransaction } from './modules/trade/entities/trade-transaction.entity';
+import { BasicTradeRate } from './modules/trade/entities/basic-trade-rate.entity';
 import { TutorialModule } from './modules/tutorial/tutorial.module';
 import { UserTutorialProgress } from './modules/tutorial/entities/user-tutorial-progress.entity';
 import { RpgModule } from './modules/rpg/rpg.module';
@@ -270,6 +271,7 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
           TradeOffer,
           TradeTransfer,
           TradeTransaction,
+          BasicTradeRate,
           UserTutorialProgress,
           UserCharacter,
           RpgPlot,

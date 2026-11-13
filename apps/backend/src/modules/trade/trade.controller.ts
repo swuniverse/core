@@ -23,9 +23,10 @@ import {
 } from './trade-license-purchase.service';
 import { TradeLicenseMenuService } from './trade-license-menu.service';
 import { TradeOfferService } from './trade-offer.service';
+import { BasicTradeService } from './basic-trade.service';
 import { TradeOfferMarketService } from './trade-offer-market.service';
 import { TradeQueryService } from './trade-query.service';
-import type { CreateTradeOfferDto, TradeOfferSearchMode } from '@swuniverse/shared';
+import type { BasicTradeRequestDto, CreateTradeOfferDto, TradeOfferSearchMode } from '@swuniverse/shared';
 
 @Controller('trade')
 @RequiresGameAccess()
@@ -38,6 +39,7 @@ export class TradeController {
     private readonly menus: TradeLicenseMenuService,
     private readonly offers: TradeOfferService,
     private readonly market: TradeOfferMarketService,
+    private readonly basicTrade: BasicTradeService,
   ) {}
 
   @Get('posts')
@@ -61,6 +63,24 @@ export class TradeController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.licenses.listIssued(id, req.user.sub);
+  }
+
+  @Get('basic')
+  getBasicTrade(
+    @Request() req: { user: { sub: number } },
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  ) {
+    return this.basicTrade.getOverview(req.user.sub, limit);
+  }
+
+  @Post('basic/buy')
+  basicBuy(@Request() req: { user: { sub: number } }, @Body() input: BasicTradeRequestDto) {
+    return this.basicTrade.buy(req.user.sub, input);
+  }
+
+  @Post('basic/sell')
+  basicSell(@Request() req: { user: { sub: number } }, @Body() input: BasicTradeRequestDto) {
+    return this.basicTrade.sell(req.user.sub, input);
   }
 
   @Get('offers')

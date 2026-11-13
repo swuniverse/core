@@ -25,6 +25,7 @@ describe('TradeController', () => {
   const menus = { getMenu: jest.fn(), getPostAtSpacecraft: jest.fn() };
   const offers = { listMine: jest.fn(), getOptions: jest.fn(), create: jest.fn(), cancel: jest.fn() };
   const market = { search: jest.fn(), byCommodity: jest.fn(), take: jest.fn() };
+  const basicTrade = { getOverview: jest.fn(), buy: jest.fn(), sell: jest.fn() };
   const controller = new TradeController(
     query as never,
     licenses as never,
@@ -32,6 +33,7 @@ describe('TradeController', () => {
     menus as never,
     offers as never,
     market as never,
+    basicTrade as never,
   );
 
   beforeEach(() => jest.clearAllMocks());
@@ -114,5 +116,17 @@ describe('TradeController', () => {
     expect(market.search).toHaveBeenNthCalledWith(2, 42, { commodityId: undefined, mode: 'both', postId: undefined, page: undefined });
     expect(market.byCommodity).toHaveBeenCalledWith(42, 5);
     expect(market.take).toHaveBeenCalledWith(3, 42, 4);
+  });
+
+  it('runs basic trade for the authenticated player', async () => {
+    const input = { postId: 7, rateId: 'rate' };
+
+    await controller.getBasicTrade({ user: { sub: 42 } }, 50);
+    await controller.basicBuy({ user: { sub: 42 } }, input);
+    await controller.basicSell({ user: { sub: 42 } }, input);
+
+    expect(basicTrade.getOverview).toHaveBeenCalledWith(42, 50);
+    expect(basicTrade.buy).toHaveBeenCalledWith(42, input);
+    expect(basicTrade.sell).toHaveBeenCalledWith(42, input);
   });
 });
