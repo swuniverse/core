@@ -167,10 +167,12 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-28 – sc-WP-CLEAN-2 – Die falsche Warpsignatur wird zur **Signaturmaskierung**: Flugsignaturen geben zeitweise einen bekannten fremden Rumpf vor und passen so zum feldweisen Galaxieflug.
 - 2026-10-28 – sc-WP-CLEAN-2 – Der Singularitätsreaktor wird zum **Hypermaterie-Reservekern**: alternativer Hochkapazitätsreaktor ohne Star-Trek-Singularitätsterminologie.
 - 2026-10-29 – soc-A8 – Fraktionswillkommen wird als idempotente Systemnachricht vom **Oberkommando der Rebellenallianz** beziehungsweise **Imperialen Oberkommando** versandt.
+- 2026-11-13 – tmw-T12a – Spieler-IDs beginnen wie in STU bei 100; Spielerhandelsnetze tragen die Eigentümer-ID und kollidieren nie mit den NPC-Netzen 1–3
 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-T12a – Fertiggestellter Außenposten erzeugt in derselben Transaktion einen Spielerhandelsposten (eigenes Netz = Eigentümer-ID, STU-Werte, unbefristete Eigentümerlizenz); Spieler-IDs ab 100, ein Posten je Feld, Stationen nicht traktorierbar – e5e4a545
 - tmw-T8b – Deal-Auktionen: Maximalgebot nach STU in Prestige oder Ware, Überbotene erhalten den Einsatz zurück, Gewinner holt nach dem Ende einmal ab und erhält den Rest über dem Preis zurück; Bereiche „Auktionen“ und „Gewonnene Auktionen“, Admin-Schalter „Auktion“ – 44c4bcea
 - soc-G2c – Award `LOTTERY_WINNER` für den Lotteriegewinner über das Ereignis „Lotterie gezogen“, Mehrfachgewinne zählen hoch, je Periode höchstens einmal – cfd8f198
 - tmw-T9 – Hutten-Lotterie: Lose für 1 Aurodium am Hutten-Posten, Ziehung am Monatsersten per täglicher Wartung (einmal je Periode) mit Jackpot, Prestige, Fraktionsschiff, Nachrichten und Freilosen; Ereignis „Lotterie gezogen“ für soc-G2c, Admin-Gewinnbaupläne, Tab „Lotterie“ – ecad3add
