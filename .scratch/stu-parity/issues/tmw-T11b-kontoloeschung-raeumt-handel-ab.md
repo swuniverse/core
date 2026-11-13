@@ -1,6 +1,6 @@
 # Kontolöschung räumt Handelsdaten ab
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-T4b, sh-AP-05a
@@ -22,9 +22,15 @@ Wird ein Spielerkonto gelöscht, werden seine Warenkonten, Angebote (mit Reserve
 
 ## Akzeptanzkriterien
 
-- [ ] Ein `TradeDeletionHandler` ist im Löschgerüst registriert. Er läuft in der Löschtransaktion und entfernt Konten, Angebote und Reserven, Lizenzen, Transfers, Lose, Shoutbox-Einträge und Gebote des Spielers, soweit die jeweiligen Entitäten bereits existieren. Werden tmw-T6, tmw-T8b oder tmw-T9 später umgesetzt, ergänzen sie ihren Teil in diesem Handler (das steht als Hinweis im Code am Handler).
-- [ ] War der Spieler Höchstbietender einer laufenden Auktion, wird das nächsthöhere gültige Gebot Höchstgebot, oder die Auktion ist ohne Gebot.
-- [ ] Transaktionen bleiben anonymisiert erhalten, damit die Rangliste aus tmw-T11a stabil bleibt.
-- [ ] Backend-Integrationstest: Ein Spieler mit Konto, Angebot, Lizenz, Gebot und Losen wird gelöscht. Danach ist nichts mehr von ihm vorhanden, und andere Spieler sind unbeeinträchtigt.
+- [x] Ein `TradeDeletionHandler` ist im Löschgerüst registriert. Er läuft in der Löschtransaktion und entfernt Konten, Angebote und Reserven, Lizenzen, Transfers, Lose, Shoutbox-Einträge und Gebote des Spielers, soweit die jeweiligen Entitäten bereits existieren. Werden tmw-T6, tmw-T8b oder tmw-T9 später umgesetzt, ergänzen sie ihren Teil in diesem Handler (das steht als Hinweis im Code am Handler).
+- [x] War der Spieler Höchstbietender einer laufenden Auktion, wird das nächsthöhere gültige Gebot Höchstgebot, oder die Auktion ist ohne Gebot.
+- [x] Transaktionen bleiben anonymisiert erhalten, damit die Rangliste aus tmw-T11a stabil bleibt.
+- [x] Backend-Integrationstest: Ein Spieler mit Konto, Angebot, Lizenz, Gebot und Losen wird gelöscht. Danach ist nichts mehr von ihm vorhanden, und andere Spieler sind unbeeinträchtigt.
 
 ## Comments
+
+- 2026-11-13: Umgesetzt.
+  - Befund: Im Löschgerüst aus sh-AP-05a war kein Handler registriert; `PLAYER_DELETION_HANDLERS` wurde nirgends bereitgestellt. `PlayerDeletionService.register()` nimmt jetzt Handler von Fachmodulen auf (Registrierung in `onModuleInit`), weil ein Import der Fachmodule in `AccountDeletionModule` über `AuthModule` zyklisch wäre. Injizierte und registrierte Handler laufen gemeinsam nach `order`.
+  - `TradeDeletionHandler` (Reihenfolge 100) entfernt in der Löschtransaktion Angebote samt Reserven (zuerst, damit nichts ins Konto zurückfließt), Transfers, Lizenzen und Warenkonten. Transaktionen (`buyerId`/`sellerId`) und Basishandelskurse (`userId`) bleiben anonymisiert erhalten, damit die Rangliste aus tmw-T11a und die Kursdiagramme stabil bleiben. Die Schema-Kaskaden hätten dasselbe bewirkt; der Handler macht es explizit und unabhängig vom Schema.
+  - Gebote, Lose und Shoutbox gibt es noch nicht (tmw-T8b, tmw-T9, tmw-T6). Der Hinweis zur Erweiterung steht am Handler. Die Auktionsregel (nächsthöheres gültiges Gebot) setzt tmw-T8b dort um. Eigene Spielerposten folgen tmw-T12c; bis dahin verhindert `trade_posts.ownerId` (RESTRICT) die Löschung eines Posteneigentümers.
+  - Tests: `trade-deletion.int-spec.ts` (Spieler mit Konto, Angebot mit Reserve, Lizenz, Transfer, Transaktion und Basishandelskurs gelöscht; ein anderer Spieler bleibt unverändert; Transaktion und Kurs anonymisiert; explizite Bereinigung in der Transaktion), `player-deletion.service.spec.ts` (Registrierung, Reihenfolge, keine Doppelregistrierung). Die Mutationsprobe (Transferlöschung entfernt) lässt den Test scheitern. Gebot und Lose aus dem Akzeptanzkriterium sind mangels Entitäten nicht testbar.

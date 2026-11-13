@@ -170,6 +170,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-T11b – Kontolöschung räumt Handel ab: `TradeDeletionHandler` entfernt Angebote mit Reserven, Transfers, Lizenzen und Warenkonten in der Löschtransaktion, Transaktionen und Basishandelskurse bleiben anonymisiert; Handler-Registrierung im Löschgerüst ergänzt – 7d995ca5
 - tmw-T11a – Handelsranglisten: „Die 10 aktivsten Handelsposten“ (Transaktionen der letzten 7 Tage), Aurodium-Rangliste um Warenkonten und Angebotsreserven ergänzt; Route für `rpg`/`aurodium` aus D2 freigeschaltet – d0158a4b
 - tmw-T13 – Handelsabkommen: neue Fähigkeit `mayTradeFavorably`; Partner erhalten Lizenzen am Spielerposten des Eigentümers kostenlos (Kauf, Verlängerung, Lizenzmenü), NPC-Posten und Auflösungsfehler zum regulären Preis; `tradeModifier` per Migration entfernt – 773cc0f7
 - tmw-T7b – Basishandel endgültig: Doonium, Transparistahl, Durastahl-Legierung in beiden Fraktionsnetzen zum ältesten STU-Testkurs; entfernte Waren ausgeblendet und nicht handelbar, Historie bleibt – 963d3672
