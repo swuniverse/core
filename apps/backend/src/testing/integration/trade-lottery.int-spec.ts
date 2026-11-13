@@ -5,6 +5,9 @@ import { NpcKey } from '../../modules/auth/npc-account.service';
 import { MessagingService } from '../../modules/messaging/messaging.service';
 import { PrestigeService } from '../../modules/prestige/prestige.service';
 import { TradeLotteryService } from '../../modules/trade/trade-lottery.service';
+import { LotteryAwardListener } from '../../modules/trade/lottery-award.listener';
+import { AwardService } from '../../modules/awards/award.service';
+import { AWARD_CATALOG } from '../../modules/awards/award.catalog';
 import { connectIntegrationDatabase, createUser, factionId, resetDatabase } from './database';
 
 const AURODIUM = 50;
@@ -213,6 +216,46 @@ describe('Hutt Cartel lottery (PostgreSQL)', () => {
 
       expect(await source.getRepository('LotteryTicket').find({ where: { period: '2026.12' } })).toMatchObject([{ userId: tarkin.id, isWinner: null }]);
       expect(await source.getRepository('Message').findOneByOrFail({ recipientId: tarkin.id, body: 'Du hast ein Gratislos für den aktuellen Lotteriezeitraum erhalten. Möge das Glück mit dir sein!' })).toBeTruthy();
+    });
+
+    describe('award (soc-G2c)', () => {
+      beforeEach(async () => {
+        // The award catalog is seeded by migration; resetDatabase empties it.
+        const catalog = AWARD_CATALOG.find((entry) => entry.key === 'LOTTERY_WINNER');
+        await source.getRepository('Award').save({ ...catalog, image: '/favicon.ico' });
+        const awards = new AwardService(
+          source.getRepository('UserAward') as never,
+          new PrestigeService(source.getRepository('PrestigeHistoryEntry') as never),
+          { sendSystem: async () => undefined } as never,
+        );
+        new LotteryAwardListener(service, awards).onModuleInit();
+      });
+
+      const award = () => source.getRepository('UserAward').findOneBy({ userId: player.id, awardKey: 'LOTTERY_WINNER' });
+
+      it('grants LOTTERY_WINNER to the winner once per period and counts repeated wins', async () => {
+        rolls = [0];
+        await service.draw(firstOfDecember);
+        expect(await award()).toMatchObject({ count: 1 });
+
+        rolls = [0];
+        await service.draw(new Date(firstOfDecember.getTime() + HOUR_MS));
+        expect(await award()).toMatchObject({ count: 1 });
+
+        await tickets(player, '2026.12', 1);
+        rolls = [0];
+        await service.draw(new Date('2027-01-01T03:00:00+01:00'));
+        expect(await award()).toMatchObject({ count: 2 });
+        expect(await source.getRepository('UserAward').countBy({ awardKey: 'LOTTERY_WINNER' })).toBe(1);
+      });
+
+      it('grants nothing without a draw', async () => {
+        await source.getRepository('LotteryTicket').delete({ period: '2026.11' });
+        await service.draw(firstOfDecember);
+        await service.draw(new Date('2026-11-15T03:00:00+01:00'));
+
+        expect(await source.getRepository('UserAward').countBy({ awardKey: 'LOTTERY_WINNER' })).toBe(0);
+      });
     });
 
     it('does nothing without tickets of the last period', async () => {

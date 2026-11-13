@@ -21,6 +21,8 @@ import { TradeDealAdminService } from './trade-deal-admin.service';
 import { TradeDealNotificationService } from './trade-deal-notification.service';
 import { AdminTradeDealController, AdminTradeLotteryController, TradeDealController, TradeLotteryController } from './trade-deal.controller';
 import { TradeLotteryService } from './trade-lottery.service';
+import { LotteryAwardListener } from './lottery-award.listener';
+import { AwardsModule } from '../awards/awards.module';
 import { LotteryTicket } from './entities/lottery-ticket.entity';
 import { LotteryWinnerBuildplan } from './entities/lottery-winner-buildplan.entity';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
@@ -53,6 +55,7 @@ import { TradeQueryService } from './trade-query.service';
     AllianceModule,
     AccountDeletionModule,
     PrestigeModule,
+    AwardsModule,
     TypeOrmModule.forFeature([
       TradePost,
       TradeLicenseCondition,
@@ -103,6 +106,7 @@ import { TradeQueryService } from './trade-query.service';
     TradeNetworkTransferService,
     TradeShoutboxService,
     TradeLotteryService,
+    LotteryAwardListener,
   ],
   exports: [
     TradeLotteryService,
