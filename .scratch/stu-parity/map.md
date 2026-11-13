@@ -170,6 +170,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-T11a – Handelsranglisten: „Die 10 aktivsten Handelsposten“ (Transaktionen der letzten 7 Tage), Aurodium-Rangliste um Warenkonten und Angebotsreserven ergänzt; Route für `rpg`/`aurodium` aus D2 freigeschaltet – d0158a4b
 - tmw-T13 – Handelsabkommen: neue Fähigkeit `mayTradeFavorably`; Partner erhalten Lizenzen am Spielerposten des Eigentümers kostenlos (Kauf, Verlängerung, Lizenzmenü), NPC-Posten und Auflösungsfehler zum regulären Preis; `tradeModifier` per Migration entfernt – 773cc0f7
 - tmw-T7b – Basishandel endgültig: Doonium, Transparistahl, Durastahl-Legierung in beiden Fraktionsnetzen zum ältesten STU-Testkurs; entfernte Waren ausgeblendet und nicht handelbar, Historie bleibt – 963d3672
 - tmw-T7a – Basishandel nach STU: Aurodium gegen Waren an lizenzierten NPC-Posten zum Netzkurs (Kauf −10, Verkauf +10, Mittelung, Kurs-ID, Sperre je Netz und Ware), Startkurse aus `game-data`, Tab „Basishandel“ mit Kursdiagramm – 1c73c928
