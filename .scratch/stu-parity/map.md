@@ -172,6 +172,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-T12b – Postenverwaltung in der Stationsansicht: Box „Handelsposten“ mit Netz, Lager, Lizenzbedingung und Lizenznehmern, Umbenennen per `PATCH trade/posts/:id` nur durch den Eigentümer (Name 3–40, Beschreibung ≤ 1000, bereinigt), Link zum Handel – d0c91470
 - tmw-T12a – Fertiggestellter Außenposten erzeugt in derselben Transaktion einen Spielerhandelsposten (eigenes Netz = Eigentümer-ID, STU-Werte, unbefristete Eigentümerlizenz); Spieler-IDs ab 100, ein Posten je Feld, Stationen nicht traktorierbar – e5e4a545
 - tmw-T8b – Deal-Auktionen: Maximalgebot nach STU in Prestige oder Ware, Überbotene erhalten den Einsatz zurück, Gewinner holt nach dem Ende einmal ab und erhält den Rest über dem Preis zurück; Bereiche „Auktionen“ und „Gewonnene Auktionen“, Admin-Schalter „Auktion“ – 44c4bcea
 - soc-G2c – Award `LOTTERY_WINNER` für den Lotteriegewinner über das Ereignis „Lotterie gezogen“, Mehrfachgewinne zählen hoch, je Periode höchstens einmal – cfd8f198
