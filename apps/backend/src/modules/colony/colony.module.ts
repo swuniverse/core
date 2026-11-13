@@ -3,6 +3,7 @@ import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ShipbuildingModule } from '../shipbuilding/shipbuilding.module';
 import { ColonyController } from './colony.controller';
+import { SpacecraftOrbitOrderController } from './spacecraft-orbit-order.controller';
 import { ColonyService } from './colony.service';
 import { ColonySeedService } from './colony-seed.service';
 import { ColonyStatsService } from './colony-stats.service';
@@ -101,7 +102,7 @@ import { Layer } from '../starmap/entities/layer.entity';
     AnomalyModule,
     forwardRef(() => SpacecraftFeatureModule),
   ],
-  controllers: [ColonyController],
+  controllers: [ColonyController, SpacecraftOrbitOrderController],
   providers: [
     ColonyService,
     ColonySeedService,

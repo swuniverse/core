@@ -8,7 +8,11 @@ jest.mock('./entities/colony-storage.entity', () => ({
 jest.mock('../spacecraft/entities/spacecraft.entity', () => ({
   AlertState: { GREEN: 'GREEN' },
   Spacecraft: class Spacecraft {},
-  SpacecraftStatus: { IDLE: 'IDLE', IN_FLIGHT: 'IN_FLIGHT' },
+  SpacecraftStatus: {
+    IDLE: 'IDLE',
+    IN_FLIGHT: 'IN_FLIGHT',
+    DESTROYED: 'DESTROYED',
+  },
   SpacecraftKind: { SHIP: 'SHIP', STATION: 'STATION' },
 }));
 jest.mock('../spacecraft/entities/ship-class-def.entity', () => ({
@@ -65,8 +69,16 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     update: jest.fn(async () => ({ affected: 1 })),
     find: jest.fn<Promise<any[]>, any[]>(async () => []),
     findOne: jest.fn(),
-    manager: { save: jest.fn(async (value) => value) },
+    manager: {
+      save: jest.fn(async (value) => value),
+      // Orbit orders run in one transaction over colony, fleet and assignments.
+      transaction: jest.fn(
+        async (work: (manager: unknown) => unknown): Promise<unknown> =>
+          work(orbitTransactionManager),
+      ),
+    },
   };
+  const fleetRepo = { findOne: jest.fn(async () => null) };
   const fieldRepo = { save: jest.fn(async (value) => value) };
   const statsRepo = { save: jest.fn(async (value) => value) };
   const userRepo = {
@@ -127,6 +139,24 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     save: jest.fn(async (value) => ({ id: 1, ...value })),
     remove: jest.fn(async (value) => value),
     delete: jest.fn(async () => ({ affected: 1 })),
+  };
+  const orbitTransactionManager: {
+    save: unknown;
+    getRepository: jest.Mock<unknown, [{ name?: string }]>;
+  } = {
+    save: colonyRepo.manager.save,
+    getRepository: jest.fn((entity: { name?: string }) => {
+      switch (entity?.name) {
+        case 'Colony':
+          return colonyRepo;
+        case 'Fleet':
+          return fleetRepo;
+        case 'ColonyOrbitAssignment':
+          return orbitAssignmentRepo;
+        default:
+          return statsRepo;
+      }
+    }),
   };
   const spacecraftModuleRepo = {
     create: jest.fn((value) => value),
@@ -1497,6 +1527,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       shipBuildQueueRepo,
       shipBuildplanRepo,
       orbitAssignmentRepo,
+      fleetRepo,
       spacecraftModuleRepo,
       crewAssignmentRepo,
       crewRepo,
@@ -9250,146 +9281,212 @@ describe('ship repair queue reactivation', () => {
 });
 
 describe('colony orbit assignments', () => {
-  it('starts a fleet-led colony defense order', async () => {
-    const {
-      service,
-      colonyRepo,
-      shipRepo,
-      orbitAssignmentRepo,
-      colonyEventService,
-    } = createColonyService();
-    colonyRepo.findOne.mockResolvedValue({
+  function arrangeOrbitOrder(
+    setup: ReturnType<typeof createColonyService>,
+    {
+      colony = {},
+      ship = {},
+      fleet = {},
+      assignments = [],
+    }: {
+      colony?: Record<string, unknown>;
+      ship?: Record<string, unknown>;
+      fleet?: Record<string, unknown> | null;
+      assignments?: Array<Record<string, unknown>>;
+    } = {},
+  ) {
+    const target = {
       id: 1,
+      name: 'Kashyyyk',
       userId: 2,
+      isAbandoned: false,
       ...orbitColonyLocation,
       starSystemId: 10,
-      celestialObjectId: 20,
       fields: [],
       stats: { isBlockaded: false },
-    });
-    shipRepo.findOne.mockResolvedValue({
+      ...colony,
+    };
+    const leader = {
       id: 7,
       userId: 1,
       fleetId: 99,
-      fleet: { id: 99, leaderId: 7 },
       ...orbitShipLocation,
-      starSystemId: 10,
-      celestialObjectId: 20,
       status: 'IDLE',
+      ...ship,
+    };
+    const fleetRow =
+      fleet === null ? null : { id: 99, name: 'Rogue', leaderId: 7, ...fleet };
+    setup.colonyRepo.find.mockResolvedValue([target]);
+    setup.colonyRepo.findOne.mockResolvedValue(target);
+    setup.shipRepo.findOne.mockResolvedValue({ ...leader, fleet: fleetRow });
+    setup.fleetRepo.findOne.mockResolvedValue(fleetRow as never);
+    setup.orbitAssignmentRepo.find.mockImplementation(async (options: any) =>
+      assignments.filter(
+        (assignment) =>
+          options?.where?.colonyId == null ||
+          assignment.colonyId === options.where.colonyId,
+      ),
+    );
+    setup.orbitAssignmentRepo.findOne.mockImplementation(
+      async (options: any) => {
+        const clauses = Array.isArray(options?.where)
+          ? options.where
+          : [options?.where ?? {}];
+        return (
+          assignments.find((assignment) =>
+            clauses.some((clause: Record<string, unknown>) =>
+              Object.entries(clause).every(
+                ([key, value]) => assignment[key] === value,
+              ),
+            ),
+          ) ?? null
+        );
+      },
+    );
+    return { target, leader };
+  }
+
+  it('starts a fleet-led defense order for a foreign colony with STU feedback', async () => {
+    const setup = createColonyService();
+    arrangeOrbitOrder(setup);
+
+    const result = await setup.orbitService.startOrbitOrder(
+      7,
+      1,
+      'DEFEND' as any,
+    );
+
+    expect(result).toEqual({
+      order: { colonyId: 1, fleetId: 99, mode: 'DEFEND' },
+      message: 'Die Kolonie Kashyyyk wird nun von der Flotte Rogue verteidigt',
     });
-    orbitAssignmentRepo.find.mockResolvedValue([]);
-    orbitAssignmentRepo.findOne.mockResolvedValue(null);
-    orbitAssignmentRepo.count.mockResolvedValue(0);
-    orbitAssignmentRepo.create.mockImplementation((value: any) => value);
-    orbitAssignmentRepo.save.mockImplementation(async (value: any) => ({
-      id: 1,
-      ...value,
-    }));
-
-    const result = await service.setOrbitAssignment(1, 1, 7, 'DEFEND' as any);
-
-    expect(result).toEqual(
+    expect(setup.orbitAssignmentRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ colonyId: 1, spacecraftId: 7, fleetId: 99 }),
+    );
+    expect(setup.colonyEventService.createActionEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         colonyId: 1,
-        spacecraftId: 7,
-        fleetId: 99,
-        mode: 'DEFEND',
+        userId: 2,
+        type: 'ORBIT_DEFENSE_STARTED',
+        message: 'Die Kolonie Kashyyyk wird nun von der Flotte Rogue verteidigt',
       }),
     );
-    expect(colonyEventService.createActionEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'ORBIT_DEFENSE_STARTED' }),
+  });
+
+  it('keeps the colony-based alias on the same policy and returns the assignment', async () => {
+    const setup = createColonyService();
+    arrangeOrbitOrder(setup);
+
+    await expect(
+      setup.service.setOrbitAssignment(1, 1, 7, 'DEFEND' as any),
+    ).resolves.toEqual(
+      expect.objectContaining({ colonyId: 1, fleetId: 99, mode: 'DEFEND' }),
     );
+    await expect(
+      setup.service.setOrbitAssignment(5, 1, 7, 'DEFEND' as any),
+    ).rejects.toThrow('Das Schiff befindet sich nicht im Orbit dieser Kolonie.');
   });
 
   it.each([
     ['effective vacation', true, true],
     ['pending vacation', false, false],
     ['no vacation', false, false],
-  ])('protects a colony from blockade during %s', async (_label, effective, rejected) => {
-    const {
-      service,
-      colonyRepo,
-      shipRepo,
-      orbitAssignmentRepo,
-      interactionContext,
-    } = createColonyService();
-    colonyRepo.findOne.mockResolvedValue({
-      id: 1,
-      userId: 2,
-      ...orbitColonyLocation,
-      fields: [],
-      stats: { isBlockaded: false },
-    });
-    shipRepo.findOne.mockResolvedValue({
-      id: 7,
-      userId: 1,
-      fleetId: 99,
-      fleet: { id: 99, leaderId: 7 },
-      ...orbitShipLocation,
-      status: 'IDLE',
-    });
-    orbitAssignmentRepo.find.mockResolvedValue([]);
-    orbitAssignmentRepo.findOne.mockResolvedValue(null);
-    orbitAssignmentRepo.count.mockResolvedValue(0);
-    interactionContext.load.mockResolvedValue({ targetOnVacation: effective });
+  ])('protects a colony from both orders during %s', async (_label, effective, rejected) => {
+    for (const mode of ['DEFEND', 'BLOCKADE']) {
+      const setup = createColonyService();
+      arrangeOrbitOrder(setup);
+      setup.interactionContext.load.mockResolvedValue({
+        targetOnVacation: effective,
+      });
 
-    const action = service.setOrbitAssignment(1, 1, 7, 'BLOCKADE' as any);
+      const action = setup.orbitService.startOrbitOrder(7, 1, mode as any);
 
-    if (rejected) {
-      await expect(action).rejects.toThrow(
-        'Aktion nicht möglich, der Spieler befindet sich im Urlaubsmodus!',
+      if (rejected) {
+        await expect(action).rejects.toThrow(
+          'Aktion nicht möglich, der Spieler befindet sich im Urlaubsmodus!',
+        );
+        expect(setup.orbitAssignmentRepo.save).not.toHaveBeenCalled();
+      } else {
+        await expect(action).resolves.toEqual(
+          expect.objectContaining({ order: expect.objectContaining({ mode }) }),
+        );
+      }
+    }
+  });
+
+  it.each([
+    ['a free colony', { colony: { userId: null } }, 'Die Kolonie ist unbewohnt.'],
+    ['an abandoned colony', { colony: { isAbandoned: true } }, 'Die Kolonie ist unbewohnt.'],
+    ['a ship outside the orbit', { ship: { location: { id: 9, kind: 'SYSTEM_FIELD', systemField: { id: 9, starSystemId: 10, sx: 9, sy: 9 } } } }, 'Das Schiff befindet sich nicht im Orbit dieser Kolonie.'],
+    ['a ship without fleet', { ship: { fleetId: null }, fleet: null }, 'Nur Flottenführer können Orbitaufträge erteilen.'],
+    ['a fleet member', { fleet: { leaderId: 8 } }, 'Nur Flottenführer können Orbitaufträge erteilen.'],
+    ['a ship in flight', { ship: { status: 'IN_FLIGHT' } }, 'Das Schiff ist nicht einsatzbereit.'],
+    ['a destroyed ship', { ship: { status: 'DESTROYED' } }, 'Das Schiff ist zerstört.'],
+    ['a fleet ordered elsewhere', { assignments: [{ id: 3, colonyId: 4, fleetId: 99, spacecraftId: 7, mode: 'DEFEND' }] }, 'Die Flotte hat bereits einen Orbitauftrag.'],
+    ['an opposing blockade', { assignments: [{ id: 3, colonyId: 1, fleetId: 50, spacecraftId: 70, mode: 'BLOCKADE' }] }, 'Aktion nicht möglich, die Kolonie wird blockiert!'],
+  ] as const)('rejects defense for %s', async (_label, arrangement, reason) => {
+    const setup = createColonyService();
+    arrangeOrbitOrder(setup, arrangement as never);
+
+    await expect(
+      setup.orbitService.startOrbitOrder(7, 1, 'DEFEND' as any),
+    ).rejects.toThrow(reason);
+    expect(setup.orbitAssignmentRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('rejects blockade on defended colonies and active orbital defense only', async () => {
+    const defended = createColonyService();
+    arrangeOrbitOrder(defended, {
+      assignments: [
+        { id: 3, colonyId: 1, fleetId: 50, spacecraftId: 70, mode: 'DEFEND' },
+      ],
+    });
+    await expect(
+      defended.orbitService.startOrbitOrder(7, 1, 'BLOCKADE' as any),
+    ).rejects.toThrow('Aktion nicht möglich, die Kolonie wird verteidigt!');
+
+    for (const phalanx of [
+      'hasEnergyPhalanx',
+      'hasParticlePhalanx',
+      'hasAntiParticle',
+    ] as const) {
+      const setup = createColonyService();
+      arrangeOrbitOrder(setup);
+      setup.colonyDefenseService[phalanx].mockReturnValue(true);
+      await expect(
+        setup.orbitService.startOrbitOrder(7, 1, 'BLOCKADE' as any),
+      ).rejects.toThrow(
+        'Aktion nicht möglich, die Kolonie verfügt über aktive Orbitalverteidigung',
       );
-    } else {
-      await expect(action).resolves.toEqual(
-        expect.objectContaining({ mode: 'BLOCKADE' }),
+      await expect(
+        setup.orbitService.startOrbitOrder(7, 1, 'DEFEND' as any),
+      ).resolves.toEqual(
+        expect.objectContaining({ order: expect.objectContaining({ mode: 'DEFEND' }) }),
       );
     }
   });
 
   it('starts blockade and syncs colony blockade flag', async () => {
-    const { service, colonyRepo, shipRepo, orbitAssignmentRepo } =
-      createColonyService();
-    const stats = { isBlockaded: false };
-    colonyRepo.findOne.mockResolvedValue({
-      id: 1,
-      userId: 2,
-      ...orbitColonyLocation,
-      starSystemId: 10,
-      celestialObjectId: 20,
-      fields: [],
-      stats,
-    });
-    shipRepo.findOne.mockResolvedValue({
-      id: 7,
-      userId: 1,
-      fleetId: 99,
-      fleet: { id: 99, leaderId: 7 },
-      ...orbitShipLocation,
-      starSystemId: 10,
-      celestialObjectId: 20,
-      status: 'IDLE',
-    });
-    orbitAssignmentRepo.find.mockResolvedValue([]);
-    orbitAssignmentRepo.findOne.mockResolvedValue(null);
-    orbitAssignmentRepo.count.mockResolvedValue(1);
-    orbitAssignmentRepo.create.mockImplementation((value: any) => value);
-    orbitAssignmentRepo.save.mockImplementation(async (value: any) => ({
-      id: 1,
-      ...value,
-    }));
+    const setup = createColonyService();
+    const { target } = arrangeOrbitOrder(setup);
+    setup.orbitAssignmentRepo.count.mockResolvedValue(1);
 
-    await service.setOrbitAssignment(1, 1, 7, 'BLOCKADE' as any);
+    await setup.orbitService.startOrbitOrder(7, 1, 'BLOCKADE' as any);
 
-    expect(stats.isBlockaded).toBe(true);
-    expect(colonyRepo.manager.save).toHaveBeenCalledWith(
+    expect(target.stats.isBlockaded).toBe(true);
+    expect(setup.colonyRepo.manager.save).toHaveBeenCalledWith(
       expect.objectContaining({ isBlockaded: true }),
+    );
+    expect(setup.colonyEventService.createActionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'ORBIT_BLOCKADE_STARTED',
+        message: 'Die Kolonie Kashyyyk wird nun von der Flotte Rogue blockiert',
+      }),
     );
   });
 
-  it('clears fleet orbit order and syncs blockade flag', async () => {
-    const { service, colonyRepo, shipRepo, orbitAssignmentRepo } =
-      createColonyService();
-    const stats = { isBlockaded: true };
+  it('clears the fleet orbit order from the ship and syncs blockade flag', async () => {
+    const setup = createColonyService();
     const assignment = {
       id: 5,
       colonyId: 1,
@@ -9397,30 +9494,67 @@ describe('colony orbit assignments', () => {
       fleetId: 99,
       mode: 'BLOCKADE',
     };
-    colonyRepo.findOne.mockResolvedValue({
-      id: 1,
-      userId: 2,
-      stats,
+    const { target } = arrangeOrbitOrder(setup, {
+      colony: { stats: { isBlockaded: true } },
+      assignments: [assignment],
     });
-    shipRepo.findOne.mockResolvedValue({
-      id: 7,
-      userId: 1,
-      fleetId: 99,
-      fleet: { id: 99, leaderId: 7 },
+    setup.orbitAssignmentRepo.count.mockResolvedValue(0);
+
+    const result = await setup.orbitService.stopOrbitOrder(7, 1);
+
+    expect(result).toEqual({
+      cleared: true,
+      order: { colonyId: 1, fleetId: 99, mode: 'BLOCKADE' },
+      message: 'Die Flotte Rogue hat die Blockierung der Kolonie Kashyyyk aufgehoben',
     });
-    orbitAssignmentRepo.findOne.mockResolvedValue(assignment);
-    orbitAssignmentRepo.count.mockResolvedValue(0);
-
-    const result = await service.clearOrbitAssignment(1, 1, 7);
-
-    expect(result).toEqual({ cleared: true });
-    expect(orbitAssignmentRepo.remove).toHaveBeenCalledWith(assignment);
-    expect(stats.isBlockaded).toBe(false);
-    expect(colonyRepo.manager.save).toHaveBeenCalledWith(
-      expect.objectContaining({ isBlockaded: false }),
+    expect(setup.orbitAssignmentRepo.remove).toHaveBeenCalledWith(assignment);
+    expect(target.stats.isBlockaded).toBe(false);
+    expect(setup.colonyEventService.createActionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'ORBIT_BLOCKADE_STOPPED' }),
     );
   });
 
+  it('reports stop without order or for a non-leader without mutating', async () => {
+    const idle = createColonyService();
+    arrangeOrbitOrder(idle);
+    await expect(idle.orbitService.stopOrbitOrder(7, 1)).resolves.toEqual({
+      cleared: false,
+      order: null,
+      message: 'Die Flotte hat keinen Orbitauftrag.',
+    });
+    await expect(idle.service.clearOrbitAssignment(1, 1, 7)).resolves.toEqual({
+      cleared: false,
+    });
+
+    const member = createColonyService();
+    arrangeOrbitOrder(member, {
+      fleet: { leaderId: 8 },
+      assignments: [
+        { id: 5, colonyId: 1, fleetId: 99, spacecraftId: 8, mode: 'DEFEND' },
+      ],
+    });
+    await expect(member.orbitService.stopOrbitOrder(7, 1)).rejects.toThrow(
+      'Nur Flottenführer können Orbitaufträge erteilen.',
+    );
+    expect(member.orbitAssignmentRepo.remove).not.toHaveBeenCalled();
+  });
+
+  it('keeps the colony-based clear alias scoped to its colony', async () => {
+    const setup = createColonyService();
+    arrangeOrbitOrder(setup, {
+      assignments: [
+        { id: 5, colonyId: 1, fleetId: 99, spacecraftId: 7, mode: 'DEFEND' },
+      ],
+    });
+
+    await expect(setup.service.clearOrbitAssignment(4, 1, 7)).resolves.toEqual({
+      cleared: false,
+    });
+    expect(setup.orbitAssignmentRepo.remove).not.toHaveBeenCalled();
+    await expect(setup.service.clearOrbitAssignment(1, 1, 7)).resolves.toEqual({
+      cleared: true,
+    });
+  });
   it('transfers shuttles from colony storage to orbit ship cargo within shuttle capacity', async () => {
     const {
       service,
