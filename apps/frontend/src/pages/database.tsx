@@ -51,6 +51,7 @@ type RankingKey =
   | 'flights'
   | 'rpg'
   | 'aurodium'
+  | 'trade-posts'
   | 'colony-worth'
   | 'colony-production';
 
@@ -97,11 +98,15 @@ type Ranking = {
   faction?: string | null;
   score: string | number;
   shipCount?: number;
+  postName?: string;
+  networkName?: string;
 };
 type RankingDetail = {
   title: string;
   metricLabel: string;
   anonymous?: boolean;
+  /** Ranks trade posts instead of players. */
+  kind?: 'trade-posts';
   entries: Array<Ranking & { rank: number; colonyName?: string }>;
   currentUser: (Ranking & { rank: number; colonyName?: string }) | null;
 };
@@ -242,6 +247,11 @@ const groups: Array<{
         label: 'Die 10 Günstlinge der Hutten',
         view: 'rankings',
         ranking: 'aurodium',
+      },
+      {
+        label: 'Die 10 aktivsten Handelsposten',
+        view: 'rankings',
+        ranking: 'trade-posts',
       },
     ],
   },
@@ -1109,6 +1119,19 @@ function Settlers({ data }: { data: Settler[] }) {
   );
 }
 function RankingView({ data }: { data: RankingDetail }) {
+  if (data.kind === 'trade-posts') {
+    return (
+      <div className="max-w-3xl space-y-2">
+        <h1 className="border border-swu-border bg-black/30 px-2 py-1 font-bold text-swu-primary">
+          {data.title}
+        </h1>
+        <Table
+          headers={['#', 'Handelsposten', 'Handelsnetz', data.metricLabel]}
+          rows={data.entries.map((entry) => [entry.rank, entry.postName, entry.networkName, entry.score])}
+        />
+      </div>
+    );
+  }
   return (
     <div className="max-w-3xl space-y-2">
       <h1 className="border border-swu-border bg-black/30 px-2 py-1 font-bold text-swu-primary">

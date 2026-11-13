@@ -46,6 +46,10 @@ import { HolonetRating } from '../holonet/entities/holonet-rating.entity';
 import { ColonyAurodiumRankingSource } from './colony-aurodium-ranking.source';
 import { SpacecraftAurodiumRankingSource } from './spacecraft-aurodium-ranking.source';
 import { AURODIUM_RANKING_SOURCES } from './aurodium-ranking-source';
+import { TradeAccountAurodiumRankingSource } from './trade-account-aurodium-ranking.source';
+import { TradeOfferAurodiumRankingSource } from './trade-offer-aurodium-ranking.source';
+import { TradePostActivityRanking } from './trade-post-activity.ranking';
+import { TradeTransaction } from '../trade/entities/trade-transaction.entity';
 import { SettingsModule } from '../settings/settings.module';
 import { RpgModule } from '../rpg/rpg.module';
 import { StarmapModule } from '../starmap/starmap.module';
@@ -79,6 +83,7 @@ import { StarmapModule } from '../starmap/starmap.module';
       TradePost,
       TradeAccountStorage,
       TradeOffer,
+      TradeTransaction,
       ExplorationState,
       HolonetRating,
     ]),
@@ -103,13 +108,23 @@ import { StarmapModule } from '../starmap/starmap.module';
     TradeOfferCommodityLocationSource,
     ColonyAurodiumRankingSource,
     SpacecraftAurodiumRankingSource,
+    TradeAccountAurodiumRankingSource,
+    TradeOfferAurodiumRankingSource,
+    TradePostActivityRanking,
     {
       provide: AURODIUM_RANKING_SOURCES,
       useFactory: (
         colonies: ColonyAurodiumRankingSource,
         spacecraft: SpacecraftAurodiumRankingSource,
-      ) => [colonies, spacecraft],
-      inject: [ColonyAurodiumRankingSource, SpacecraftAurodiumRankingSource],
+        tradeAccounts: TradeAccountAurodiumRankingSource,
+        tradeOffers: TradeOfferAurodiumRankingSource,
+      ) => [colonies, spacecraft, tradeAccounts, tradeOffers],
+      inject: [
+        ColonyAurodiumRankingSource,
+        SpacecraftAurodiumRankingSource,
+        TradeAccountAurodiumRankingSource,
+        TradeOfferAurodiumRankingSource,
+      ],
     },
     {
       provide: COMMODITY_LOCATION_SOURCES,

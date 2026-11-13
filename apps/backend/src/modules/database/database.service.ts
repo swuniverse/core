@@ -2,6 +2,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { TradePost } from '../trade/entities/trade-post.entity';
+import { TradePostActivityRanking } from './trade-post-activity.ranking';
 import { ExplorationState } from '../starmap/entities/exploration-state.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { FLIGHT_SIGNATURE_RETENTION_MS } from '../spacecraft/flight-signature.service';
@@ -74,8 +75,19 @@ type RankingKey =
   | 'flights'
   | 'rpg'
   | 'aurodium'
+  | 'trade-posts'
   | 'colony-worth'
   | 'colony-production';
+const TRADE_NETWORK_NAMES: Record<number, string> = {
+  1: 'Imperiales Versorgungsnetz',
+  2: 'Versorgungsnetz der Rebellenallianz',
+  3: 'Hutten-Handelsnetz',
+};
+
+function tradeNetworkName(networkId: number): string {
+  return TRADE_NETWORK_NAMES[networkId] ?? `Handelsnetz ${networkId}`;
+}
+
 type RankingEntry = {
   userId: number;
   username: string;
@@ -150,6 +162,8 @@ export class DatabaseService {
     private readonly contacts: ContactService = {} as ContactService,
     private readonly settingsReader: UserSettingsReader = {} as UserSettingsReader,
     private readonly rpgPlotService: RpgPlotService = {} as RpgPlotService,
+    private readonly tradePostActivity: TradePostActivityRanking =
+      {} as TradePostActivityRanking,
   ) {}
 
   async getTradePosts(userId: number) {
@@ -178,11 +192,6 @@ export class DatabaseService {
     const exploredFields = new Set(
       explored.map((field) => `${field.layerId}:${field.cx}:${field.cy}`),
     );
-    const networkNames: Record<number, string> = {
-      1: 'Imperiales Versorgungsnetz',
-      2: 'Versorgungsnetz der Rebellenallianz',
-      3: 'Hutten-Handelsnetz',
-    };
 
     return posts
       .sort(
@@ -208,7 +217,7 @@ export class DatabaseService {
           description: post.description,
           networkId: post.networkId,
           networkName:
-            networkNames[post.networkId] ?? `Handelsnetz ${post.networkId}`,
+            tradeNetworkName(post.networkId),
           ownerName: post.owner?.username ?? `Spieler #${post.ownerId}`,
           location: isExplored
             ? {
@@ -906,6 +915,22 @@ export class DatabaseService {
         currentUser: null,
       };
     }
+    if (key === 'trade-posts') {
+      const posts = await this.tradePostActivity.top(now);
+      return {
+        title: 'Die 10 aktivsten Handelsposten',
+        metricLabel: 'Transaktionen (7 Tage)',
+        kind: 'trade-posts' as const,
+        entries: posts.map(({ tradePostId, postName, networkId, score }, index) => ({
+          rank: index + 1,
+          tradePostId,
+          postName,
+          networkName: tradeNetworkName(networkId),
+          score,
+        })),
+        currentUser: null,
+      };
+    }
     const ranking = await this.rankingFor(key, false);
     const rankedEntries = ranking.entries.map((entry, index) => ({
       ...entry,
@@ -949,7 +974,8 @@ export class DatabaseService {
           entries: await this.getCrewTrainingRanking(topOnly),
         };
       case 'flights':
-        throw new Error('Anonymous flight rankings use getRanking directly');
+      case 'trade-posts':
+        throw new Error('Anonymous rankings use getRanking directly');
       case 'rpg':
         return {
           title: 'Die 10 bestbewerteten RPG-Schreiber',

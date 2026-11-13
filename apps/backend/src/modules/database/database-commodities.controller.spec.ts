@@ -28,3 +28,20 @@ describe('DatabaseController commodities', () => {
     expect(commodityOverview.getLocations).toHaveBeenCalledWith(42, 2);
   });
 });
+
+describe('DatabaseController rankings', () => {
+  const controllerWith = (getRanking: jest.Mock) =>
+    new DatabaseController({ getRanking } as never, {} as never, {} as never, {} as never);
+
+  it.each(['rpg', 'aurodium', 'trade-posts'])('serves the %s ranking', async (key) => {
+    const getRanking = jest.fn(async () => ({ entries: [] }));
+
+    await controllerWith(getRanking).getRanking({ user: { sub: 7 } }, key);
+
+    expect(getRanking).toHaveBeenCalledWith(7, key);
+  });
+
+  it('rejects unknown rankings', () => {
+    expect(() => controllerWith(jest.fn()).getRanking({ user: { sub: 7 } }, 'nagus')).toThrow('Rangliste nicht gefunden');
+  });
+});

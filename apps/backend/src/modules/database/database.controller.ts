@@ -238,6 +238,9 @@ export class DatabaseController {
       'prestige',
       'crew-training',
       'flights',
+      'rpg',
+      'aurodium',
+      'trade-posts',
       'colony-worth',
       'colony-production',
     ] as const;

@@ -40,6 +40,7 @@ function createService(overrides: {
   flightSignatureRepo?: object;
   holonetRatingRepo?: object;
   aurodiumSources?: object[];
+  tradePostActivity?: object;
 } = {}) {
   return new DatabaseService(
     (overrides.userRepo ?? {}) as never,
@@ -71,6 +72,10 @@ function createService(overrides: {
     {} as never,
     (overrides.holonetRatingRepo ?? {}) as never,
     (overrides.aurodiumSources ?? []) as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    (overrides.tradePostActivity ?? {}) as never,
   );
 }
 
@@ -117,6 +122,32 @@ describe('DatabaseService RPG ranking', () => {
     expect(query.where).toHaveBeenCalledWith('rating.value > 0');
     expect(query.andWhere).toHaveBeenCalledWith('post.deletedAt IS NULL');
     expect(query.andWhere).toHaveBeenCalledWith('author.isNpc = false');
+  });
+});
+
+describe('DatabaseService trade post ranking', () => {
+  it('ranks the most active trade posts anonymously with their network name', async () => {
+    const now = new Date('2026-11-13T12:00:00Z');
+    const tradePostActivity = {
+      top: jest.fn().mockResolvedValue([
+        { tradePostId: 4, postName: 'Mos Eisley', networkId: 3, score: 12 },
+        { tradePostId: 9, postName: 'Fernposten', networkId: 9, score: 2 },
+      ]),
+    };
+
+    const result = await createService({ tradePostActivity }).getRanking(1, 'trade-posts', now);
+
+    expect(tradePostActivity.top).toHaveBeenCalledWith(now);
+    expect(result).toEqual({
+      title: 'Die 10 aktivsten Handelsposten',
+      metricLabel: 'Transaktionen (7 Tage)',
+      kind: 'trade-posts',
+      entries: [
+        { rank: 1, tradePostId: 4, postName: 'Mos Eisley', networkName: 'Hutten-Handelsnetz', score: 12 },
+        { rank: 2, tradePostId: 9, postName: 'Fernposten', networkName: 'Handelsnetz 9', score: 2 },
+      ],
+      currentUser: null,
+    });
   });
 });
 

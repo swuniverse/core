@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
@@ -268,6 +268,40 @@ describe('DatabasePage', () => {
     expect(
       screen.getByRole('link', { name: 'Falcon' }).getAttribute('href'),
     ).toBe('/spacecraft/9');
+  });
+
+  it('opens the most active trade posts from the Handel group as a post table', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/database/rankings/trade-posts') {
+        return Promise.resolve({
+          title: 'Die 10 aktivsten Handelsposten',
+          metricLabel: 'Transaktionen (7 Tage)',
+          kind: 'trade-posts',
+          entries: [
+            { rank: 1, tradePostId: 4, postName: 'Mos Eisley', networkName: 'Hutten-Handelsnetz', score: 1234 },
+          ],
+          currentUser: null,
+        });
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+    render(
+      <MemoryRouter>
+        <DatabasePage />
+      </MemoryRouter>,
+    );
+
+    const handel = screen.getByRole('heading', { name: 'Handel' }).parentElement as HTMLElement;
+    fireEvent.click(within(handel).getByRole('button', { name: 'Die 10 aktivsten Handelsposten' }));
+
+    const table = await screen.findByRole('table');
+    expect(within(table).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual([
+      '#', 'Handelsposten', 'Handelsnetz', 'Transaktionen (7 Tage)',
+    ]);
+    expect(within(table).getByText('Mos Eisley')).toBeTruthy();
+    expect(within(table).getByText('Hutten-Handelsnetz')).toBeTruthy();
+    expect(within(table).getByText('1234')).toBeTruthy();
+    expect(screen.queryByText(/Dein Punktestand/)).toBeNull();
   });
 
   it('renders the anonymous flight ranking without player names', async () => {
