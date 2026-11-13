@@ -170,6 +170,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-T8a – Hutten-Deals: `TradeDeal` mit Ware, Schiff oder Bauplan gegen Ware oder Prestige, optional je Fraktion; Annahme n-fach mit STU-Kürzungen und Sperre gegen Überverkauf, Schiffe/Baupläne über Port aus dem Spacecraft-Modul; Admin-Verwaltung, einmalige Handelsnachricht bei Start, Tab „Hutten-Deals“ – 836a24d6
 - tmw-T11b – Kontolöschung räumt Handel ab: `TradeDeletionHandler` entfernt Angebote mit Reserven, Transfers, Lizenzen und Warenkonten in der Löschtransaktion, Transaktionen und Basishandelskurse bleiben anonymisiert; Handler-Registrierung im Löschgerüst ergänzt – 7d995ca5
 - tmw-T11a – Handelsranglisten: „Die 10 aktivsten Handelsposten“ (Transaktionen der letzten 7 Tage), Aurodium-Rangliste um Warenkonten und Angebotsreserven ergänzt; Route für `rpg`/`aurodium` aus D2 freigeschaltet – d0158a4b
 - tmw-T13 – Handelsabkommen: neue Fähigkeit `mayTradeFavorably`; Partner erhalten Lizenzen am Spielerposten des Eigentümers kostenlos (Kauf, Verlängerung, Lizenzmenü), NPC-Posten und Auflösungsfehler zum regulären Preis; `tradeModifier` per Migration entfernt – 773cc0f7
