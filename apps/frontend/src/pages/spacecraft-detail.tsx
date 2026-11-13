@@ -21,6 +21,7 @@ import { SensorOperationsPanel } from '../components/spacecraft/SensorOperations
 import { DockingPanel } from '../components/spacecraft/DockingPanel';
 import { StationShipManagementPanel } from '../components/spacecraft/StationShipManagementPanel';
 import { StationRepairPanel } from '../components/spacecraft/StationRepairPanel';
+import { StationTradePostPanel } from '../components/spacecraft/StationTradePostPanel';
 import { StationShipyardPanel } from '../components/spacecraft/StationShipyardPanel';
 import { DockingPrivilegesPanel } from '../components/spacecraft/DockingPrivilegesPanel';
 import { WormholeRestrictionsPanel } from '../components/spacecraft/WormholeRestrictionsPanel';
@@ -313,6 +314,7 @@ export function SpacecraftDetailPage() {
         <div className="mb-2"><StationShipyardPanel stationId={ship.id} onChanged={refreshShipAndStorage} /></div>
       )}
       <StationRepairPanel ship={ship} onChanged={refreshShipAndStorage} />
+      <StationTradePostPanel ship={ship} />
       {ship.kind === 'STATION' && <DockingPrivilegesPanel stationId={ship.id} />}
       {ship.kind === 'STATION' && <WormholeRestrictionsPanel stationId={ship.id} />}
       <div className="mt-2">

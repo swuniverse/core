@@ -28,6 +28,7 @@ describe('TradeController', () => {
   const basicTrade = { getOverview: jest.fn(), buy: jest.fn(), sell: jest.fn() };
   const transfers = { capacities: jest.fn(), targets: jest.fn(), transfer: jest.fn() };
   const shoutboxes = { list: jest.fn(), post: jest.fn() };
+  const management = { getForStation: jest.fn(), update: jest.fn() };
   const controller = new TradeController(
     query as never,
     licenses as never,
@@ -38,6 +39,7 @@ describe('TradeController', () => {
     basicTrade as never,
     transfers as never,
     shoutboxes as never,
+    management as never,
   );
 
   beforeEach(() => jest.clearAllMocks());
@@ -88,6 +90,14 @@ describe('TradeController', () => {
 
     expect(transfers.targets).toHaveBeenCalledWith(3, 42);
     expect(transfers.transfer).toHaveBeenCalledWith(3, 42, input);
+  });
+
+  it('manages the trade post of a station as the authenticated owner', async () => {
+    await controller.getStationPost(9, { user: { sub: 42 } });
+    await controller.updatePost(7, { user: { sub: 42 } }, { name: 'Bespin' });
+
+    expect(management.getForStation).toHaveBeenCalledWith(9, 42);
+    expect(management.update).toHaveBeenCalledWith(7, 42, { name: 'Bespin' });
   });
 
   it('forwards owner condition reads and updates', async () => {

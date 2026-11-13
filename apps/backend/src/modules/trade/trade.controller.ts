@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Put,
   Query,
@@ -32,9 +33,11 @@ import type {
   TradeNetworkTransferRequestDto,
   TradeOfferSearchMode,
   TradeOverviewDto,
+  UpdateTradePostDto,
 } from '@swuniverse/shared';
 import { TradeNetworkTransferService } from './trade-network-transfer.service';
 import { TradeShoutboxService } from './trade-shoutbox.service';
+import { TradePostManagementService } from './trade-post-management.service';
 
 @Controller('trade')
 @RequiresGameAccess()
@@ -50,6 +53,7 @@ export class TradeController {
     private readonly basicTrade: BasicTradeService,
     private readonly transfers: TradeNetworkTransferService,
     private readonly shoutboxes: TradeShoutboxService,
+    private readonly management: TradePostManagementService,
   ) {}
 
   @Get('posts')
@@ -62,6 +66,20 @@ export class TradeController {
     const overview = await this.query.getOverview(req.user.sub);
     const postIds = [...new Set(overview.accounts.map((account) => account.tradePostId))];
     return { ...overview, transferCapacities: await this.transfers.capacities(postIds, req.user.sub) };
+  }
+
+  @Patch('posts/:id')
+  updatePost(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body() input: UpdateTradePostDto,
+  ) {
+    return this.management.update(id, req.user.sub, input);
+  }
+
+  @Get('stations/:id/post')
+  getStationPost(@Param('id', ParseIntPipe) id: number, @Request() req: { user: { sub: number } }) {
+    return this.management.getForStation(id, req.user.sub);
   }
 
   @Get('networks/:id/shoutbox')

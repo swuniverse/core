@@ -113,6 +113,33 @@ export interface TradePostAtSpacecraftDto {
   reason: string | null;
 }
 
+/** The owner's view of the trade post of an own station (`GET trade/stations/:id/post`). */
+export interface StationTradePostDto {
+  tradePostId: number;
+  name: string;
+  description: string;
+  networkId: number;
+  networkName: string;
+  /** The owner's own account at the post; offers count as used. */
+  storage: { used: number; capacity: number };
+  condition: {
+    commodityId: number;
+    commodityName: string;
+    amount: number;
+    durationDays: number;
+  } | null;
+  /** Valid licenses of the post, the owner's included (STU `getLicenseCount`). */
+  licenseeCount: number;
+  /** Commodities the owner may configure as license price. */
+  tradeableCommodities: Array<{ id: number; name: string }>;
+}
+
+/** `PATCH trade/posts/:id`, owner only; at least one field. */
+export interface UpdateTradePostDto {
+  name?: string;
+  description?: string;
+}
+
 export type TradeAccountTransferDirection = 'TO_ACCOUNT' | 'FROM_ACCOUNT';
 
 /** One requested line of an account transfer. */
