@@ -169,10 +169,13 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-29 – soc-A8 – Fraktionswillkommen wird als idempotente Systemnachricht vom **Oberkommando der Rebellenallianz** beziehungsweise **Imperialen Oberkommando** versandt.
 - 2026-11-13 – tmw-T12a – Spieler-IDs beginnen wie in STU bei 100; Spielerhandelsnetze tragen die Eigentümer-ID und kollidieren nie mit den NPC-Netzen 1–3
 - 2026-11-13 – tmw-T12c – Statt STU `USER_NOONE` hat ein verlassener Handelsposten keinen Eigentümer (`trade_posts.ownerId` nullable); SWU legt keinen Platzhalter-Spieler an
+- 2026-11-13 – sh-AP-05b – Inhalte, die andere sehen, verlieren beim Löschen nur den Autor (`NULL`, Anzeige „Gelöschter Siedler“) statt eines Fallback-Kontos; Löschhandler können einen `prepare`-Schritt vor der Transaktion nutzen (Allianzaustritt)
 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- sh-AP-05c – Kontolöschung: Schiffe ohne Wrack, Crew, Kapseln, Flotten, Blockaden, Traktorstrahlen, geteilte Baupläne ohne Besitzer, Entdeckungen und Forschungsbelohnungen – 04779aa5
+- sh-AP-05b – Kontolöschung: Allianzaustritt vor der Transaktion (`prepare`), Nachrichten/HoloNet/News bleiben als „Gelöschter Siedler“, persönliche Daten, Invite-Keys und Prestige-Historie gelöscht – 04779aa5
 - tmw-T12c – Zerstörte Station: STU-Bergungsregel (50 % je Zeile verloren, sonst 0–50 % ins Wrack), Posten samt Konten/Angeboten/Lizenzen entfernt, Inhaber benachrichtigt; Kontolöschung des Eigentümers verlässt den Posten (ohne Eigentümer, STU-Name), Handel und Einzahlungen gesperrt, Auszahlen bleibt – 59197c48
 - tmw-T12b – Postenverwaltung in der Stationsansicht: Box „Handelsposten“ mit Netz, Lager, Lizenzbedingung und Lizenznehmern, Umbenennen per `PATCH trade/posts/:id` nur durch den Eigentümer (Name 3–40, Beschreibung ≤ 1000, bereinigt), Link zum Handel – d0c91470
 - tmw-T12a – Fertiggestellter Außenposten erzeugt in derselben Transaktion einen Spielerhandelsposten (eigenes Netz = Eigentümer-ID, STU-Werte, unbefristete Eigentümerlizenz); Spieler-IDs ab 100, ein Posten je Feld, Stationen nicht traktorierbar – e5e4a545
