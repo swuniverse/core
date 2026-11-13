@@ -1,6 +1,6 @@
 # Wirkung des Handelsabkommens und des Fraktions-Handelsmodifikators
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-T2b, tmw-T7a
@@ -22,10 +22,10 @@ Der Beziehungstyp „Handelsabkommen“ (`TRADE_AGREEMENT`) und der Fraktionswer
 
 ## Akzeptanzkriterien
 
-- [ ] Die Auflösung liefert eine neue Fähigkeit (z. B. `mayTradeFavorably`), dokumentiert in `docs/alliance-relationship-effects.md`.
-- [ ] Am Spielerposten erhält ein Partner mit aktivem Handelsabkommen die Lizenz kostenlos; die Wirkung greift nur bei aktiver Beziehung. Fehler der Auflösung führen geschlossen zu keiner Vergünstigung. NPC-Posten sind nicht betroffen.
-- [ ] `tradeModifier` wird aus Entity, Seed (`DEFAULT_FACTIONS`), DTOs und Admin-Oberfläche entfernt (Migration); `docs/faction-modifiers.md` vermerkt die Entfernung.
-- [ ] Backend-Tests: mit und ohne Abkommen, Fehlerfall der Auflösung, Modifikator entfernt.
+- [x] Die Auflösung liefert eine neue Fähigkeit (z. B. `mayTradeFavorably`), dokumentiert in `docs/alliance-relationship-effects.md`.
+- [x] Am Spielerposten erhält ein Partner mit aktivem Handelsabkommen die Lizenz kostenlos; die Wirkung greift nur bei aktiver Beziehung. Fehler der Auflösung führen geschlossen zu keiner Vergünstigung. NPC-Posten sind nicht betroffen.
+- [x] `tradeModifier` wird aus Entity, Seed (`DEFAULT_FACTIONS`), DTOs und Admin-Oberfläche entfernt (Migration); `docs/faction-modifiers.md` vermerkt die Entfernung.
+- [x] Backend-Tests: mit und ohne Abkommen, Fehlerfall der Auflösung, Modifikator entfernt.
 
 ## Entscheidung
 
@@ -37,3 +37,8 @@ Vorgabe:
 
 - 2026-10-21 Product Owner: Option 1a, 2b – Handelsabkommen-Partner erhalten am Spielerposten des Eigentümers die Lizenz kostenlos (1a); `tradeModifier` wird entfernt (2b).
 - 2026-11-09: Die Vergünstigung erweitert den transaktionalen Lizenzkauf tmw-T2b; kein Frontend-Split als Voraussetzung erfunden.
+- 2026-11-13: Umgesetzt.
+  - Beziehungsauflösung: neue Fähigkeit `mayTradeFavorably`, genau bei aktivem `TRADE_AGREEMENT` zwischen den Parteien beider Spieler (Allianz oder Siedler), auch bei Freund-Behandlung; Mitglieder derselben Allianz, andere Beziehungstypen, Krieg und persönlicher Feindkontakt erhalten sie nicht; Fehler ergeben wie bisher Neutral ohne Fähigkeit. Dokumentiert in `docs/alliance-relationship-effects.md`.
+  - Handel: `TradeAgreementPolicy` wertet die Fähigkeit für Lizenzen aus (nie am eigenen oder an NPC-Posten, Fehler → regulärer Preis). Lizenzkauf und -verlängerung (`tmw-T2b`/`T2c`) buchen für Partner weder Zahlung noch Gutschrift; neue Zahlart `agreement` für Partner ohne Zahlquelle, Verlängerung ohne Warenkonto; Eigentümer erhält „über das Handelsabkommen … erhalten“. Lizenzmenü meldet `freeByAgreement`; das Lizenzpanel zeigt „Für dich kostenlos“ und Knöpfe „Lizenz kostenlos erhalten/verlängern“. Basishandel, Shoutbox und netzübergreifende Transfers unverändert.
+  - `tradeModifier` per Migration `20261113110000-drop-faction-trade-modifier` aus `faction_modifiers` entfernt, ebenso aus Entity, Migrations-Entity, `DEFAULT_FACTIONS` und der Registrierungsseite (eine eigene Admin-Oberfläche oder Shared-DTO dafür gab es nicht); Vermerk in `docs/faction-modifiers.md`.
+  - Tests: `relationship-resolver.service.spec.ts` (Abkommen beidseitig und für Allianzmitglieder, Freund-Behandlung, andere Typen, Feindkontakt, Fehlerfall); `trade-agreement-license.int-spec.ts` (kostenlos mit Abkommen, Zahlart `agreement` ohne Zahlquelle, ohne Abkommen regulär und `agreement` abgelehnt, beendetes Abkommen, Auflösungsfehler, NPC-Posten, kostenlose Verlängerung, Spalte entfernt); Frontend `trade.spec.tsx`. Mutationsprobe (Fähigkeit an FRIENDSHIP statt TRADE_AGREEMENT) lässt 4 Integrationstests scheitern.
