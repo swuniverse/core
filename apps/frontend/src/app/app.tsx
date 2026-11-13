@@ -36,6 +36,7 @@ import { AdminInvitesPage } from '../pages/admin-invites';
 import { AdminUsersPage } from '../pages/admin-users';
 import { AdminFactionsPage } from '../pages/admin-factions';
 import { AdminAwardsPage } from '../pages/admin-awards';
+import { AdminTradeDealsPage } from '../pages/admin-trade-deals';
 import { NotesPage } from '../pages/notes';
 import { ColonyScansPage } from '../pages/colony-scans';
 import { ImprintPage } from '../pages/imprint';
@@ -200,6 +201,14 @@ export function App() {
               element={
                 <AdminRoute>
                   <AdminAwardsPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/trade-deals"
+              element={
+                <AdminRoute>
+                  <AdminTradeDealsPage />
                 </AdminRoute>
               }
             />

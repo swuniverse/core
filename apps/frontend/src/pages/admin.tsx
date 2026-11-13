@@ -60,6 +60,12 @@ const adminCards = [
     description: 'NPC-, Rollenspiel- und Community-Awards an Spieler vergeben.',
     badge: 'Spieler',
   },
+  {
+    title: 'Hutten-Deals',
+    path: '/admin/trade-deals',
+    description: 'Sofortangebote des Hutten-Kartells anlegen, bearbeiten und beenden.',
+    badge: 'Handel',
+  },
 ];
 
 function GameStatusControl() {

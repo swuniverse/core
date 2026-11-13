@@ -1754,83 +1754,16 @@ export class SpacecraftService {
     const location = await this.findLocationByGalaxyField(galaxyField.id);
     if (!location) throw new NotFoundException('Space location not found');
 
-    const selections = this.validateAdminModuleSelections(
-      shipClass,
-      modules,
-      user.faction,
-    );
     const ship = await this.dataSource.transaction(async (manager) => {
-      const savedShip = await manager.getRepository(Spacecraft).save(
-        manager.getRepository(Spacecraft).create({
-          name: name.trim() || shipClass.name,
-          shipClassId: shipClass.id,
-          userId: user.id,
-          locationId: location.id,
+      const { ship: savedShip, modules: createdModules } =
+        await this.createShipInManager(manager, {
+          user,
+          shipClass,
+          modules,
           location,
-          status: SpacecraftStatus.IDLE,
-          alertState: AlertState.GREEN,
-          operatingMode: SpacecraftOperatingMode.NORMAL,
-          hull: shipClass.hullBase,
-          hullMax: shipClass.hullBase,
-          shields: shipClass.shieldBase,
-          shieldsMax: shipClass.shieldBase,
-          energy: shipClass.epsBase,
-          energyMax: shipClass.epsBase,
-          warpSpeed: shipClass.warpdriveBase,
-          crew: 0,
-          crewMax: shipClass.crewMax,
-          cargoUsed: 0,
-          cargoMax: shipClass.cargoCapacity,
-          battery: shipClass.batteryBase,
-          batteryMax: shipClass.batteryBase,
-          reactorFuel: shipClass.reactorBase * 10,
-          reactorFuelMax: shipClass.reactorBase * 10,
-        }),
-      );
-      const createdModules = await Promise.all(
-        selections.map((selection) => {
-          const item = this.gameData.getFabricationItemByOutputCommodity(
-            selection.commodityId,
-          )!;
-          return manager.getRepository(SpacecraftModule).save(
-            manager.getRepository(SpacecraftModule).create({
-              spacecraftId: savedShip.id,
-              slotId: selection.slotId,
-              moduleType: item.moduleType!,
-              category: item.shipyardType!,
-              level: item.moduleLevel ?? 1,
-              integrity: this.presetIntegrity(preset),
-              cooldown: 0,
-              isActive: preset !== 'offline',
-            }),
-          );
-        }),
-      );
-      this.spacecraftStatsService.applyStats(
-        savedShip,
-        shipClass,
-        createdModules,
-      );
-      this.spacecraftCrewService.applyRequiredCrew(
-        savedShip,
-        shipClass.crewMin,
-        createdModules,
-      );
-      this.applyAdminSpawnPreset(savedShip, preset);
-      this.spacecraftRuntimeStateService.initialize(savedShip);
-      if (preset === 'operational') {
-        const systems =
-          this.spacecraftRuntimeStateService.initialize(savedShip);
-        for (const state of Object.values(systems)) {
-          if (state) {
-            state.active = true;
-            state.integrity = 100;
-            state.cooldown = 0;
-          }
-        }
-        savedShip.runtimeSystems = systems;
-      }
-      await manager.getRepository(Spacecraft).save(savedShip);
+          name,
+          preset,
+        });
       const crewRequired = this.spacecraftCrewService.calculateRequiredCrew(
         shipClass.crewMin,
         createdModules,
@@ -1888,6 +1821,101 @@ export class SpacecraftService {
       'SPAWN',
     );
     return hydratedShip;
+  }
+
+  /**
+   * Builds a ship with modules, stats and runtime systems inside the caller's
+   * transaction, without crew. Shared by the admin spawn and trade deals.
+   */
+  async createShipInManager(
+    manager: EntityManager,
+    input: {
+      user: User;
+      shipClass: ShipClassDef;
+      modules: AdminSpawnShipDto['modules'];
+      location: SpaceLocation;
+      name: string;
+      preset: AdminShipSpawnPreset;
+    },
+  ): Promise<{ ship: Spacecraft; modules: SpacecraftModule[] }> {
+    const { user, shipClass, location, name, preset } = input;
+    const selections = this.validateAdminModuleSelections(
+      shipClass,
+      input.modules,
+      user.faction,
+    );
+    const savedShip = await manager.getRepository(Spacecraft).save(
+      manager.getRepository(Spacecraft).create({
+        name: name.trim() || shipClass.name,
+        shipClassId: shipClass.id,
+        userId: user.id,
+        locationId: location.id,
+        location,
+        status: SpacecraftStatus.IDLE,
+        alertState: AlertState.GREEN,
+        operatingMode: SpacecraftOperatingMode.NORMAL,
+        hull: shipClass.hullBase,
+        hullMax: shipClass.hullBase,
+        shields: shipClass.shieldBase,
+        shieldsMax: shipClass.shieldBase,
+        energy: shipClass.epsBase,
+        energyMax: shipClass.epsBase,
+        warpSpeed: shipClass.warpdriveBase,
+        crew: 0,
+        crewMax: shipClass.crewMax,
+        cargoUsed: 0,
+        cargoMax: shipClass.cargoCapacity,
+        battery: shipClass.batteryBase,
+        batteryMax: shipClass.batteryBase,
+        reactorFuel: shipClass.reactorBase * 10,
+        reactorFuelMax: shipClass.reactorBase * 10,
+      }),
+    );
+    const createdModules = await Promise.all(
+      selections.map((selection) => {
+        const item = this.gameData.getFabricationItemByOutputCommodity(
+          selection.commodityId,
+        )!;
+        return manager.getRepository(SpacecraftModule).save(
+          manager.getRepository(SpacecraftModule).create({
+            spacecraftId: savedShip.id,
+            slotId: selection.slotId,
+            moduleType: item.moduleType!,
+            category: item.shipyardType!,
+            level: item.moduleLevel ?? 1,
+            integrity: this.presetIntegrity(preset),
+            cooldown: 0,
+            isActive: preset !== 'offline',
+          }),
+        );
+      }),
+    );
+    this.spacecraftStatsService.applyStats(
+      savedShip,
+      shipClass,
+      createdModules,
+    );
+    this.spacecraftCrewService.applyRequiredCrew(
+      savedShip,
+      shipClass.crewMin,
+      createdModules,
+    );
+    this.applyAdminSpawnPreset(savedShip, preset);
+    this.spacecraftRuntimeStateService.initialize(savedShip);
+    if (preset === 'operational') {
+      const systems =
+        this.spacecraftRuntimeStateService.initialize(savedShip);
+      for (const state of Object.values(systems)) {
+        if (state) {
+          state.active = true;
+          state.integrity = 100;
+          state.cooldown = 0;
+        }
+      }
+      savedShip.runtimeSystems = systems;
+    }
+    await manager.getRepository(Spacecraft).save(savedShip);
+    return { ship: savedShip, modules: createdModules };
   }
 
   private getAdminShipLayout(shipClass: ShipClassDef) {

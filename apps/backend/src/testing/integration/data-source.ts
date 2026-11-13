@@ -72,6 +72,9 @@ import { TradeAccountStorage } from '../../modules/trade/entities/trade-account-
 import { TradeOffer } from '../../modules/trade/entities/trade-offer.entity';
 import { TradeTransfer } from '../../modules/trade/entities/trade-transfer.entity';
 import { TradeTransaction } from '../../modules/trade/entities/trade-transaction.entity';
+import { TradeDeal } from '../../modules/trade/entities/trade-deal.entity';
+import { AdminShipBuildplan } from '../../modules/spacecraft/entities/admin-ship-buildplan.entity';
+import { ColonyShipBuildplan } from '../../modules/colony/entities/colony-ship-buildplan.entity';
 import { BasicTradeRate } from '../../modules/trade/entities/basic-trade-rate.entity';
 
 /** Entities used by integration tests. Add more as suites need them. */
@@ -149,6 +152,9 @@ export const INTEGRATION_ENTITIES = [
   TradeTransfer,
   TradeTransaction,
   BasicTradeRate,
+  TradeDeal,
+  AdminShipBuildplan,
+  ColonyShipBuildplan,
 ];
 
 export function createIntegrationDataSource(url: string): DataSource {

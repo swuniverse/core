@@ -12,11 +12,12 @@ import { TradeLicensePanel } from '../components/trade/TradeLicensePanel';
 import { BasicTradeTab } from '../components/trade/BasicTradeTab';
 import { TradeMarketTab } from '../components/trade/TradeMarketTab';
 import { TradeOffersTab } from '../components/trade/TradeOffersTab';
+import { TradeDealsTab } from '../components/trade/TradeDealsTab';
 import { commodityImage } from '../lib/assets';
 import { formatDateTime, formatNumber } from '../lib/format';
 import { api } from '../services/api';
 
-type TradeTab = 'accounts' | 'posts' | 'licenses' | 'market' | 'offers' | 'basic';
+type TradeTab = 'accounts' | 'posts' | 'licenses' | 'market' | 'offers' | 'basic' | 'deals';
 
 type CommodityName = { id: number; name: string };
 
@@ -27,6 +28,7 @@ const TABS: { key: TradeTab; label: string }[] = [
   { key: 'market', label: 'Angebote' },
   { key: 'offers', label: 'Meine Angebote' },
   { key: 'basic', label: 'Basishandel' },
+  { key: 'deals', label: 'Hutten-Deals' },
 ];
 
 function locationLink(location: SpaceLocationDto) {
@@ -66,7 +68,8 @@ export function TradePage() {
     tabParam === 'licenses' ||
     tabParam === 'market' ||
     tabParam === 'offers' ||
-    tabParam === 'basic'
+    tabParam === 'basic' ||
+    tabParam === 'deals'
       ? tabParam
       : 'accounts';
   const selectedPostId = Number(searchParams.get('post')) || null;
@@ -119,6 +122,8 @@ export function TradePage() {
     segments.push({ label: 'Lizenzen' });
   } else if (tab === 'basic') {
     segments.push({ label: 'Basishandel' });
+  } else if (tab === 'deals') {
+    segments.push({ label: 'Hutten-Deals' });
   } else if (tab === 'market') {
     segments.push({ label: 'Angebote' });
   } else if (tab === 'offers') {
@@ -160,6 +165,8 @@ export function TradePage() {
         />
       ) : tab === 'basic' ? (
         <BasicTradeTab />
+      ) : tab === 'deals' ? (
+        <TradeDealsTab />
       ) : tab === 'market' ? (
         <TradeMarketTab />
       ) : tab === 'offers' ? (

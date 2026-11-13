@@ -201,6 +201,15 @@ describe('TradePage', () => {
     expect(await screen.findByRole('status')).toHaveProperty('textContent', 'Handelslizenz wurde kostenlos verlängert (Handelsabkommen)');
   });
 
+  it('opens the Hutt Cartel deals from their tab', async () => {
+    serveMenu({}, { '/trade/deals': { hasLicense: false, notice: 'Handelslizenz beim Hutten-Kartell erforderlich', deals: [] } });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Hutten-Deals' }));
+
+    expect(await screen.findByText('Handelslizenz beim Hutten-Kartell erforderlich')).toBeTruthy();
+  });
+
   it('explains why no purchase is offered', async () => {
     renderPage('/trade?tab=posts&post=1');
 

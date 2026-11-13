@@ -114,6 +114,8 @@ import { SpacecraftIonStormEffects } from './ion-storm-effects';
 import { GameDataService } from '../game-data/game-data.service';
 import { MessagingService } from '../messaging/messaging.service';
 
+import { TradeModule } from '../trade/trade.module';
+import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -169,9 +171,11 @@ import { MessagingService } from '../messaging/messaging.service';
     DatabaseModule,
     StatisticsModule,
     AnomalyModule,
+    forwardRef(() => TradeModule),
   ],
   controllers: [SpacecraftController],
   providers: [
+    TradeDealFulfillmentAdapter,
     SpacecraftService,
     WormholePassageService,
     WormholeRestrictionService,

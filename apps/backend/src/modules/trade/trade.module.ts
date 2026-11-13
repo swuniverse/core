@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TradeAccountStorage } from './entities/trade-account-storage.entity';
 import { TradeLicenseCondition } from './entities/trade-license-condition.entity';
@@ -11,6 +11,12 @@ import { AuthModule } from '../auth/auth.module';
 import { AllianceModule } from '../alliance/alliance.module';
 import { AccountDeletionModule } from '../account-deletion/account-deletion.module';
 import { TradeDeletionHandler } from './trade-deletion.handler';
+import { PrestigeModule } from '../prestige/prestige.module';
+import { TradeDeal } from './entities/trade-deal.entity';
+import { TradeDealService } from './trade-deal.service';
+import { TradeDealAdminService } from './trade-deal-admin.service';
+import { TradeDealNotificationService } from './trade-deal-notification.service';
+import { AdminTradeDealController, TradeDealController } from './trade-deal.controller';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { TradeStorageService } from './trade-storage.service';
@@ -36,9 +42,11 @@ import { TradeQueryService } from './trade-query.service';
 
 @Module({
   imports: [
-    AuthModule,
+    // Auth reaches trade again through colony and spacecraft.
+    forwardRef(() => AuthModule),
     AllianceModule,
     AccountDeletionModule,
+    PrestigeModule,
     TypeOrmModule.forFeature([
       TradePost,
       TradeLicenseCondition,
@@ -53,9 +61,10 @@ import { TradeQueryService } from './trade-query.service';
       TradeTransaction,
       CargoItem,
       BasicTradeRate,
+      TradeDeal,
     ]),
   ],
-  controllers: [TradeController, TradeShipController],
+  controllers: [TradeController, TradeShipController, TradeDealController, AdminTradeDealController],
   providers: [
     TradeStorageService,
     TradePostSeedService,
@@ -72,8 +81,13 @@ import { TradeQueryService } from './trade-query.service';
     TradePostPresencePolicy,
     TradeAgreementPolicy,
     TradeDeletionHandler,
+    TradeDealService,
+    TradeDealAdminService,
+    TradeDealNotificationService,
   ],
   exports: [
+    TradeDealService,
+    TradeDealNotificationService,
     TradeLicenseMaintenanceService,
     TradeOfferMaintenanceService,
     TradeStorageService,

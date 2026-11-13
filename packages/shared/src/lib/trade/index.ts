@@ -270,3 +270,58 @@ export interface BasicTradeRequestDto {
   postId: number;
   rateId: string;
 }
+
+export type TradeDealItemKind = 'COMMODITY' | 'SHIP' | 'BUILDPLAN';
+
+/** An active Hutt Cartel instant deal (`GET trade/deals`). */
+export interface TradeDealDto {
+  id: number;
+  kind: TradeDealItemKind;
+  /** Remaining takes; `null` is unlimited. */
+  amount: number | null;
+  give: { commodityId: number; commodityName: string; amount: number } | null;
+  /** Ship or buildplan deals: the admin buildplan and its hull. */
+  buildplan: { id: number; name: string; shipClassName: string } | null;
+  want: { commodityId: number; commodityName: string; amount: number } | null;
+  wantPrestige: number | null;
+  factionName: string | null;
+  endsAt: string;
+}
+
+export interface TradeDealsDto {
+  /** Licensed at the Hutt Cartel post; without it `deals` stays empty. */
+  hasLicense: boolean;
+  notice: string | null;
+  tradePostId: number | null;
+  tradePostName: string | null;
+  prestige: number;
+  /** Own account at the Hutt post, for the commodities the deals want. */
+  account: Array<{ commodityId: number; amount: number }>;
+  deals: TradeDealDto[];
+}
+
+/** Body of `POST trade/deals/:id/take`. */
+export interface TakeTradeDealDto {
+  amount: number;
+}
+
+/** Admin input for `admin/trade/deals`. Exactly one gift and one price. */
+export interface AdminTradeDealInput {
+  amount: number | null;
+  giveCommodityId: number | null;
+  giveCommodityAmount: number | null;
+  buildplanId: number | null;
+  ship: boolean;
+  wantCommodityId: number | null;
+  wantCommodityAmount: number | null;
+  wantPrestige: number | null;
+  factionId: number | null;
+  startsAt: string;
+  endsAt: string;
+}
+
+export interface AdminTradeDealDto extends AdminTradeDealInput {
+  id: number;
+  notifiedAt: string | null;
+  createdAt: string;
+}
