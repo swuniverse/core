@@ -34,6 +34,7 @@ import type {
   TradeOverviewDto,
 } from '@swuniverse/shared';
 import { TradeNetworkTransferService } from './trade-network-transfer.service';
+import { TradeShoutboxService } from './trade-shoutbox.service';
 
 @Controller('trade')
 @RequiresGameAccess()
@@ -48,6 +49,7 @@ export class TradeController {
     private readonly market: TradeOfferMarketService,
     private readonly basicTrade: BasicTradeService,
     private readonly transfers: TradeNetworkTransferService,
+    private readonly shoutboxes: TradeShoutboxService,
   ) {}
 
   @Get('posts')
@@ -60,6 +62,20 @@ export class TradeController {
     const overview = await this.query.getOverview(req.user.sub);
     const postIds = [...new Set(overview.accounts.map((account) => account.tradePostId))];
     return { ...overview, transferCapacities: await this.transfers.capacities(postIds, req.user.sub) };
+  }
+
+  @Get('networks/:id/shoutbox')
+  shoutbox(@Param('id', ParseIntPipe) id: number, @Request() req: { user: { sub: number } }) {
+    return this.shoutboxes.list(id, req.user.sub);
+  }
+
+  @Post('networks/:id/shoutbox')
+  postShoutbox(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body('message') message: string,
+  ) {
+    return this.shoutboxes.post(id, req.user.sub, message);
   }
 
   @Get('posts/:id/transfer-targets')

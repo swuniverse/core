@@ -27,6 +27,7 @@ describe('TradeController', () => {
   const market = { search: jest.fn(), byCommodity: jest.fn(), take: jest.fn() };
   const basicTrade = { getOverview: jest.fn(), buy: jest.fn(), sell: jest.fn() };
   const transfers = { capacities: jest.fn(), targets: jest.fn(), transfer: jest.fn() };
+  const shoutboxes = { list: jest.fn(), post: jest.fn() };
   const controller = new TradeController(
     query as never,
     licenses as never,
@@ -36,6 +37,7 @@ describe('TradeController', () => {
     market as never,
     basicTrade as never,
     transfers as never,
+    shoutboxes as never,
   );
 
   beforeEach(() => jest.clearAllMocks());
@@ -68,6 +70,14 @@ describe('TradeController', () => {
 
     expect(transfers.capacities).toHaveBeenCalledWith([3, 8], 42);
     expect(result.transferCapacities).toEqual([{ tradePostId: 3, free: 50, capacity: 200 }]);
+  });
+
+  it('reads and writes the network shoutbox as the authenticated player', async () => {
+    await controller.shoutbox(2, { user: { sub: 42 } });
+    await controller.postShoutbox(2, { user: { sub: 42 } }, 'Hallo');
+
+    expect(shoutboxes.list).toHaveBeenCalledWith(2, 42);
+    expect(shoutboxes.post).toHaveBeenCalledWith(2, 42, 'Hallo');
   });
 
   it('forwards network transfers and their targets for the authenticated player', async () => {

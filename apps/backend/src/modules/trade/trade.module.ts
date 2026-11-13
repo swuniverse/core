@@ -12,6 +12,8 @@ import { AllianceModule } from '../alliance/alliance.module';
 import { AccountDeletionModule } from '../account-deletion/account-deletion.module';
 import { TradeDeletionHandler } from './trade-deletion.handler';
 import { TradeNetworkTransferService } from './trade-network-transfer.service';
+import { TradeShoutboxService } from './trade-shoutbox.service';
+import { TradeShoutboxEntry } from './entities/trade-shoutbox-entry.entity';
 import { PrestigeModule } from '../prestige/prestige.module';
 import { TradeDeal } from './entities/trade-deal.entity';
 import { TradeDealService } from './trade-deal.service';
@@ -63,6 +65,7 @@ import { TradeQueryService } from './trade-query.service';
       CargoItem,
       BasicTradeRate,
       TradeDeal,
+      TradeShoutboxEntry,
     ]),
   ],
   controllers: [TradeController, TradeShipController, TradeDealController, AdminTradeDealController],
@@ -86,6 +89,7 @@ import { TradeQueryService } from './trade-query.service';
     TradeDealAdminService,
     TradeDealNotificationService,
     TradeNetworkTransferService,
+    TradeShoutboxService,
   ],
   exports: [
     TradeDealService,

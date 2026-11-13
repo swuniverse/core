@@ -13,12 +13,13 @@ import { BasicTradeTab } from '../components/trade/BasicTradeTab';
 import { TradeMarketTab } from '../components/trade/TradeMarketTab';
 import { TradeOffersTab } from '../components/trade/TradeOffersTab';
 import { TradeDealsTab } from '../components/trade/TradeDealsTab';
+import { TradeShoutboxTab } from '../components/trade/TradeShoutboxTab';
 import { TradeNetworkTransferDialog } from '../components/trade/TradeNetworkTransferDialog';
 import { commodityImage } from '../lib/assets';
 import { formatDateTime, formatNumber } from '../lib/format';
 import { api } from '../services/api';
 
-type TradeTab = 'accounts' | 'posts' | 'licenses' | 'market' | 'offers' | 'basic' | 'deals';
+type TradeTab = 'accounts' | 'posts' | 'licenses' | 'market' | 'offers' | 'basic' | 'deals' | 'shoutbox';
 
 type CommodityName = { id: number; name: string };
 
@@ -30,6 +31,7 @@ const TABS: { key: TradeTab; label: string }[] = [
   { key: 'offers', label: 'Meine Angebote' },
   { key: 'basic', label: 'Basishandel' },
   { key: 'deals', label: 'Hutten-Deals' },
+  { key: 'shoutbox', label: 'Shoutbox' },
 ];
 
 function locationLink(location: SpaceLocationDto) {
@@ -70,7 +72,8 @@ export function TradePage() {
     tabParam === 'market' ||
     tabParam === 'offers' ||
     tabParam === 'basic' ||
-    tabParam === 'deals'
+    tabParam === 'deals' ||
+    tabParam === 'shoutbox'
       ? tabParam
       : 'accounts';
   const selectedPostId = Number(searchParams.get('post')) || null;
@@ -129,6 +132,8 @@ export function TradePage() {
     segments.push({ label: 'Basishandel' });
   } else if (tab === 'deals') {
     segments.push({ label: 'Hutten-Deals' });
+  } else if (tab === 'shoutbox') {
+    segments.push({ label: 'Shoutbox' });
   } else if (tab === 'market') {
     segments.push({ label: 'Angebote' });
   } else if (tab === 'offers') {
@@ -174,6 +179,8 @@ export function TradePage() {
         <BasicTradeTab />
       ) : tab === 'deals' ? (
         <TradeDealsTab />
+      ) : tab === 'shoutbox' ? (
+        <TradeShoutboxTab />
       ) : tab === 'market' ? (
         <TradeMarketTab />
       ) : tab === 'offers' ? (

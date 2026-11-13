@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { TradePost } from '../trade/entities/trade-post.entity';
 import { TradePostActivityRanking } from './trade-post-activity.ranking';
+import { tradeNetworkName } from '../trade/trade-network';
 import { ExplorationState } from '../starmap/entities/exploration-state.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { FLIGHT_SIGNATURE_RETENTION_MS } from '../spacecraft/flight-signature.service';
@@ -78,16 +79,6 @@ type RankingKey =
   | 'trade-posts'
   | 'colony-worth'
   | 'colony-production';
-const TRADE_NETWORK_NAMES: Record<number, string> = {
-  1: 'Imperiales Versorgungsnetz',
-  2: 'Versorgungsnetz der Rebellenallianz',
-  3: 'Hutten-Handelsnetz',
-};
-
-function tradeNetworkName(networkId: number): string {
-  return TRADE_NETWORK_NAMES[networkId] ?? `Handelsnetz ${networkId}`;
-}
-
 type RankingEntry = {
   userId: number;
   username: string;

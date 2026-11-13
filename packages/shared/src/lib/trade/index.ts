@@ -342,3 +342,10 @@ export interface TradeNetworkTransferRequestDto {
   commodityId: number;
   amount: number;
 }
+
+/** `GET`/`POST trade/networks/:id/shoutbox`: the newest entries first. */
+export interface TradeShoutboxDto {
+  networkId: number;
+  networkName: string;
+  entries: Array<{ id: number; userId: number; username: string; message: string; createdAt: string }>;
+}
