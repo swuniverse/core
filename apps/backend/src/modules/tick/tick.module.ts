@@ -41,6 +41,9 @@ import { TradeModule } from '../trade/trade.module';
 import { TradeLicenseMaintenanceService } from '../trade/trade-license-maintenance.service';
 import { TradeOfferMaintenanceService } from '../trade/trade-offer-maintenance.service';
 import { TradeLotteryService } from '../trade/trade-lottery.service';
+import { AccountDeletionModule } from '../account-deletion/account-deletion.module';
+import { IdleUserMaintenanceService } from '../account-deletion/idle-user-maintenance.service';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
@@ -69,6 +72,8 @@ import { TradeLotteryService } from '../trade/trade-lottery.service';
     StarmapModule,
     AnomalyModule,
     TradeModule,
+    AccountDeletionModule,
+    MailModule,
   ],
   controllers: [TickController, TickStatusController],
   providers: [
@@ -78,6 +83,7 @@ import { TradeLotteryService } from '../trade/trade-lottery.service';
     MaintenanceService,
     TopFlightsRewardService,
     WreckDecayService,
+    IdleUserMaintenanceService,
     {
       provide: WRECK_DECAY_RANDOM_TOKEN,
       useValue: () => Math.floor(Math.random() * 11) + 5,
@@ -91,7 +97,8 @@ import { TradeLotteryService } from '../trade/trade-lottery.service';
         tradeLicenses: TradeLicenseMaintenanceService,
         tradeOffers: TradeOfferMaintenanceService,
         tradeLottery: TradeLotteryService,
-      ) => [topFlightsReward, profileVisitors, layerMapCycle, tradeLicenses, tradeOffers, tradeLottery],
+        idleUsers: IdleUserMaintenanceService,
+      ) => [topFlightsReward, profileVisitors, layerMapCycle, tradeLicenses, tradeOffers, tradeLottery, idleUsers],
       inject: [
         TopFlightsRewardService,
         ProfileVisitorService,
@@ -99,6 +106,7 @@ import { TradeLotteryService } from '../trade/trade-lottery.service';
         TradeLicenseMaintenanceService,
         TradeOfferMaintenanceService,
         TradeLotteryService,
+        IdleUserMaintenanceService,
       ],
     },
   ],
