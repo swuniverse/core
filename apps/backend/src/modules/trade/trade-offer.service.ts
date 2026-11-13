@@ -7,6 +7,7 @@ import { TradeAccountStorage } from './entities/trade-account-storage.entity';
 import { TradeLicense } from './entities/trade-license.entity';
 import { TradeOffer } from './entities/trade-offer.entity';
 import { TradePost } from './entities/trade-post.entity';
+import { assertNotAbandoned } from './player-trade-post.service';
 import { TradeStorageService } from './trade-storage.service';
 
 /** STU allows at most 99 offers per entry. */
@@ -29,6 +30,7 @@ export class TradeOfferService {
     const saved = await this.dataSource.transaction(async (manager) => {
       const post = await manager.findOne(TradePost, { where: { id: tradePostId }, lock: { mode: 'pessimistic_write' } });
       if (!post) throw new NotFoundException('Handelsposten nicht gefunden');
+      assertNotAbandoned(post);
       if (!(await this.hasLicense(manager, tradePostId, userId))) {
         throw new BadRequestException('Du benötigst eine gültige Lizenz für diesen Handelsposten');
       }

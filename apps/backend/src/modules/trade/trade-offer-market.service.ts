@@ -16,6 +16,7 @@ import { TradeAccountStorage } from './entities/trade-account-storage.entity';
 import { TradeLicense } from './entities/trade-license.entity';
 import { TradeOffer } from './entities/trade-offer.entity';
 import { TradePost } from './entities/trade-post.entity';
+import { assertNotAbandoned } from './player-trade-post.service';
 import { TradeTransaction } from './entities/trade-transaction.entity';
 import { TradeStorageService } from './trade-storage.service';
 
@@ -55,6 +56,7 @@ export class TradeOfferMarketService {
       const post = await manager.findOne(TradePost, { where: { id: known.tradePostId }, lock: { mode: 'pessimistic_write' } });
       const offer = await manager.findOne(TradeOffer, { where: { id: offerId }, lock: { mode: 'pessimistic_write' } });
       if (!post || !offer) throw new BadRequestException('Das Angebot ist nicht mehr verfügbar');
+      assertNotAbandoned(post);
       if (!(await this.hasLicense(manager, post.id, userId))) {
         throw new BadRequestException('Du benötigst eine gültige Lizenz für diesen Handelsposten');
       }

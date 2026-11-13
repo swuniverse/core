@@ -40,8 +40,9 @@ export class TradePost {
   @Column({ type: 'int', default: TRADE_POST_DEFAULT_TRANSFER_CAPACITY })
   transferCapacity: number;
 
-  @Column({ type: 'int' })
-  ownerId: number;
+  /** `null` once the owner's account was deleted: the post is abandoned (tmw-T12c). */
+  @Column({ type: 'int', nullable: true })
+  ownerId: number | null;
 
   @Column({ type: 'int' })
   locationId: number;

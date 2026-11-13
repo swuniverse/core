@@ -1,5 +1,6 @@
 import { DataSource } from 'typeorm';
 import { PlayerDeletionService } from '../../modules/account-deletion/player-deletion.service';
+import { PlayerTradePostService } from '../../modules/trade/player-trade-post.service';
 import { TradeDeletionHandler } from '../../modules/trade/trade-deletion.handler';
 import { connectIntegrationDatabase, createUser, resetDatabase } from './database';
 
@@ -44,7 +45,7 @@ describe('trade data on player deletion (PostgreSQL)', () => {
     });
 
     const deletions = new PlayerDeletionService(source);
-    new TradeDeletionHandler(deletions).onModuleInit();
+    new TradeDeletionHandler(deletions, new PlayerTradePostService({} as never)).onModuleInit();
     await deletions.delete(doomed.id);
 
     for (const entity of ['TradeAccountStorage', 'TradeOffer', 'TradeLicense', 'TradeTransfer', 'TradeShoutboxEntry', 'LotteryTicket']) {
@@ -66,10 +67,11 @@ describe('trade data on player deletion (PostgreSQL)', () => {
       update: async (entity: { name: string }) => { removed.push(`${entity.name}:anonymized`); },
     };
 
-    await new TradeDeletionHandler({ register: () => undefined } as never).delete(manager as never, doomed.id);
+    const posts = { abandonOwnedBy: async () => { removed.push('TradePost:abandoned'); } };
+    await new TradeDeletionHandler({ register: () => undefined } as never, posts as never).delete(manager as never, doomed.id);
 
     expect(removed).toEqual([
-      'TradeOffer', 'TradeTransfer', 'TradeLicense', 'TradeAccountStorage', 'TradeShoutboxEntry', 'LotteryTicket',
+      'TradePost:abandoned', 'TradeOffer', 'TradeTransfer', 'TradeLicense', 'TradeAccountStorage', 'TradeShoutboxEntry', 'LotteryTicket',
       'TradeDeal:anonymized', 'TradeAuctionBid',
       'TradeTransaction:anonymized', 'TradeTransaction:anonymized', 'BasicTradeRate:anonymized',
     ]);

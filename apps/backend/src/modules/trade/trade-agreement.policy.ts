@@ -14,7 +14,7 @@ export class TradeAgreementPolicy {
   constructor(private readonly relationships: RelationshipResolverService) {}
 
   async licenseIsFree(manager: EntityManager, post: Pick<TradePost, 'ownerId'>, userId: number): Promise<boolean> {
-    if (post.ownerId === userId) return false;
+    if (post.ownerId == null || post.ownerId === userId) return false;
     const owner = await manager.findOne(User, { select: { id: true, isNpc: true }, where: { id: post.ownerId } });
     if (!owner || owner.isNpc) return false;
     try {

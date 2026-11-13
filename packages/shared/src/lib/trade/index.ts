@@ -7,10 +7,11 @@ export interface TradePostListItemDto {
   name: string;
   description: string;
   networkId: number;
+  /** `null` for an abandoned post (tmw-T12c). */
   owner: {
     id: number;
     name: string;
-  };
+  } | null;
   licenseStatus: TradeLicenseStatus;
   location: SpaceLocationDto | null;
   level: number;

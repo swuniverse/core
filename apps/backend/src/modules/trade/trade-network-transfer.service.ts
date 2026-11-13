@@ -1,11 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, In, MoreThan, type EntityManager } from 'typeorm';
+import { DataSource, In, IsNull, MoreThan, Not, type EntityManager } from 'typeorm';
 import type { TradeNetworkTransferTargetsDto, TradeNetworkTransferRequestDto } from '@swuniverse/shared';
 import { GameDataService } from '../game-data/game-data.service';
 import { TradeAccountStorage } from './entities/trade-account-storage.entity';
 import { TradeLicense } from './entities/trade-license.entity';
 import { TradePost } from './entities/trade-post.entity';
+import { assertNotAbandoned } from './player-trade-post.service';
 import { TradeTransfer } from './entities/trade-transfer.entity';
 import { TradeStorageService } from './trade-storage.service';
 
@@ -32,7 +33,7 @@ export class TradeNetworkTransferService {
     const licensed = await manager.find(TradeLicense, { where: { userId, expiresAt: MoreThan(now) } });
     const candidates = licensed.length
       ? await manager.find(TradePost, {
-          where: { id: In(licensed.map((license) => license.tradePostId)), networkId: post.networkId },
+          where: { id: In(licensed.map((license) => license.tradePostId)), networkId: post.networkId, ownerId: Not(IsNull()) },
           order: { name: 'ASC', id: 'ASC' },
         })
       : [];
@@ -76,6 +77,8 @@ export class TradeNetworkTransferService {
       const target = locked.find((entry) => entry.id === input.targetPostId);
       if (!post) throw new NotFoundException('Handelsposten nicht gefunden');
       if (!target) throw new NotFoundException('Zielposten nicht gefunden');
+      // STU `TransferCommodities`: nothing goes to an abandoned post, withdrawing from it stays possible.
+      assertNotAbandoned(target);
       if (!(await this.licensed(manager, post.id, userId, now))) {
         throw new BadRequestException('Du benötigst eine gültige Lizenz am Quellposten');
       }

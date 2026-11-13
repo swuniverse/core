@@ -11,6 +11,7 @@ import { TradeAccountStorage } from './entities/trade-account-storage.entity';
 import { TradeLicenseCondition } from './entities/trade-license-condition.entity';
 import { TradeLicense } from './entities/trade-license.entity';
 import { TradePost } from './entities/trade-post.entity';
+import { assertNotAbandoned } from './player-trade-post.service';
 import { TradeAgreementPolicy } from './trade-agreement.policy';
 import { TradePostPresencePolicy } from './trade-post-presence.policy';
 
@@ -54,6 +55,7 @@ export class TradeLicensePurchaseService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!post) throw new NotFoundException('Handelsposten nicht gefunden');
+      assertNotAbandoned(post);
       const condition = await manager.findOneBy(TradeLicenseCondition, { tradePostId });
       if (!condition) {
         throw new BadRequestException('Dieser Handelsposten vergibt keine Lizenzen');
@@ -134,6 +136,7 @@ export class TradeLicensePurchaseService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!post) throw new NotFoundException('Handelsposten nicht gefunden');
+      assertNotAbandoned(post);
       const condition = await manager.findOneBy(TradeLicenseCondition, { tradePostId });
       if (!condition) {
         throw new BadRequestException('Dieser Handelsposten vergibt keine Lizenzen');
@@ -233,7 +236,11 @@ export class TradeLicensePurchaseService {
   }
 
   /** STU `upperStorage` on the owner's account at the licensed post, without a capacity check. */
-  private async creditOwner(manager: EntityManager, post: TradePost, condition: TradeLicenseCondition): Promise<void> {
+  private async creditOwner(
+    manager: EntityManager,
+    post: TradePost & { ownerId: number },
+    condition: TradeLicenseCondition,
+  ): Promise<void> {
     const storage =
       (await manager.findOne(TradeAccountStorage, {
         where: { tradePostId: post.id, userId: post.ownerId, commodityId: condition.commodityId },

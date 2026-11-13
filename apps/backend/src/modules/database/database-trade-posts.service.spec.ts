@@ -62,4 +62,16 @@ describe('DatabaseService trade posts', () => {
       expect.objectContaining({ id: 2, networkId: 2, networkName: 'Versorgungsnetz der Rebellenallianz', location: { layerId: 4, layerName: null, x: 8, y: 9, systemName: 'Hoth' } }),
     ]);
   });
+
+  it('marks an abandoned player post without operator (tmw-T12c)', async () => {
+    const { service, query, explorationRepo } = createService();
+    query.getMany.mockResolvedValue([
+      { id: 4, name: 'Verlassener Handelsposten', description: '', networkId: 120, ownerId: null, owner: null, location: null },
+    ]);
+    explorationRepo.find.mockResolvedValue([]);
+
+    await expect(service.getTradePosts(42)).resolves.toEqual([
+      expect.objectContaining({ id: 4, networkName: 'Handelsnetz 120', ownerName: 'Verlassen' }),
+    ]);
+  });
 });

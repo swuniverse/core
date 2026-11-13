@@ -43,7 +43,7 @@ export class TradeQueryService {
     );
     const [owners, locations] = await Promise.all([
       this.userRepo.findBy({
-        id: In([...new Set(posts.map((post) => post.ownerId))]),
+        id: In([...new Set(posts.flatMap((post) => (post.ownerId == null ? [] : [post.ownerId])))]),
       }),
       knownLocationIds.size
         ? this.locationRepo.find({
@@ -61,10 +61,10 @@ export class TradeQueryService {
       name: post.name,
       description: post.description,
       networkId: post.networkId,
-      owner: {
-        id: post.ownerId,
-        name: ownerById.get(post.ownerId)?.username ?? `Spieler #${post.ownerId}`,
-      },
+      owner:
+        post.ownerId == null
+          ? null
+          : { id: post.ownerId, name: ownerById.get(post.ownerId)?.username ?? `Spieler #${post.ownerId}` },
       licenseStatus: accountPostIds.has(post.id) ? 'ACCOUNT' : 'NONE',
       location: resolveSpaceLocation(locationById.get(post.locationId)),
       level: post.level,

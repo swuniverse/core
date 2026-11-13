@@ -209,7 +209,9 @@ export class DatabaseService {
           networkId: post.networkId,
           networkName:
             tradeNetworkName(post.networkId, post.networkId === post.ownerId ? post.owner?.username : null),
-          ownerName: post.owner?.username ?? `Spieler #${post.ownerId}`,
+          ownerName:
+            post.owner?.username ??
+            (post.ownerId == null ? 'Verlassen' : `Spieler #${post.ownerId}`),
           location: isExplored
             ? {
                 layerId,

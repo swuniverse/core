@@ -7,6 +7,7 @@ import { MessagingService } from '../../modules/messaging/messaging.service';
 import { PrestigeService } from '../../modules/prestige/prestige.service';
 import { TradeAuctionService } from '../../modules/trade/trade-auction.service';
 import { TradeDealService } from '../../modules/trade/trade-deal.service';
+import { PlayerTradePostService } from '../../modules/trade/player-trade-post.service';
 import { TradeDeletionHandler } from '../../modules/trade/trade-deletion.handler';
 import { TradeStorageService } from '../../modules/trade/trade-storage.service';
 import { connectIntegrationDatabase, createUser, factionId, resetDatabase } from './database';
@@ -254,7 +255,7 @@ describe('Hutt Cartel auctions (PostgreSQL)', () => {
     await auctions.bid(id, han.id, 10, now);
     await auctions.bid(id, lando.id, 20, now);
     const deletions = new PlayerDeletionService(source);
-    new TradeDeletionHandler(deletions).onModuleInit();
+    new TradeDeletionHandler(deletions, new PlayerTradePostService({} as never)).onModuleInit();
 
     await deletions.delete(lando.id);
 

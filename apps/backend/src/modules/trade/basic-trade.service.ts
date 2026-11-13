@@ -249,6 +249,7 @@ export class BasicTradeService implements OnApplicationBootstrap {
   }
 
   private async isLicensedNpcPost(manager: EntityManager, post: TradePost, userId: number): Promise<boolean> {
+    if (post.ownerId == null) return false;
     const [owner, licensed] = await Promise.all([
       manager.findOneBy(User, { id: post.ownerId }),
       manager.exists(TradeLicense, { where: { tradePostId: post.id, userId, expiresAt: MoreThan(new Date()) } }),
@@ -265,11 +266,11 @@ export class BasicTradeService implements OnApplicationBootstrap {
     const posts = licenses.map((license) => license.tradePost);
     if (!posts.length) return [];
     const npcOwners = new Set(
-      (await manager.find(User, { select: { id: true }, where: { id: In(posts.map((post) => post.ownerId)), isNpc: true } }))
+      (await manager.find(User, { select: { id: true }, where: { id: In(posts.flatMap((post) => (post.ownerId == null ? [] : [post.ownerId]))), isNpc: true } }))
         .map((owner) => owner.id),
     );
     return posts
-      .filter((post) => npcOwners.has(post.ownerId))
+      .filter((post) => post.ownerId != null && npcOwners.has(post.ownerId))
       .sort((left, right) => left.networkId - right.networkId || left.name.localeCompare(right.name, 'de'));
   }
 

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import type { SpacecraftSelfDestructResultDto } from '@swuniverse/shared';
 import { WsEventType } from '@swuniverse/shared';
@@ -17,7 +18,11 @@ import { ShipDistressSignal } from './entities/ship-distress-signal.entity';
 import { CargoItem } from './entities/cargo-item.entity';
 import { SpacecraftTorpedoStorage } from './entities/spacecraft-torpedo-storage.entity';
 import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
-import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
+import {
+  Spacecraft,
+  SpacecraftKind,
+  SpacecraftStatus,
+} from './entities/spacecraft.entity';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 import { GameEventService } from '../events/game-event.service';
 import { GameEventType } from '../events/entities/game-event.entity';
@@ -33,6 +38,7 @@ import { EscapePodService } from './escape-pod.service';
 import { EscapePodLaunchReason } from './entities/escape-pod.entity';
 import { SpacecraftTakeoverService } from './spacecraft-takeover.service';
 import { SpacecraftTrackerService } from './spacecraft-tracker.service';
+import { PlayerTradePostService } from '../trade/player-trade-post.service';
 import {
   applyMovementState,
   assertMovementState,
@@ -66,6 +72,7 @@ export class SpacecraftDestructionService {
     private readonly trackerService: SpacecraftTrackerService = {
       clearTrackingTarget: async () => undefined,
     } as unknown as SpacecraftTrackerService,
+    @Optional() private readonly playerTradePosts?: PlayerTradePostService,
   ) {}
 
   async selfDestruct(
@@ -307,6 +314,22 @@ export class SpacecraftDestructionService {
         return item ? [{ commodityId: item.outputCommodityId, amount: 1 }] : [];
       });
     const location = ship.location ?? (await this.loadLocation(ship, manager));
+    // STU `TradepostDestruction`: part of the post's stock joins the wreck.
+    // Its messages are stored here; their live notice is skipped like on deletion.
+    const salvage =
+      ship.kind === SpacecraftKind.STATION && this.playerTradePosts
+        ? await this.playerTradePosts.destroyForStation(manager, ship, {
+            manager,
+            afterCommit: [],
+          })
+        : [];
+    const wreckCargo = new Map<number, number>();
+    for (const item of [...cargo, ...salvage]) {
+      wreckCargo.set(
+        item.commodityId,
+        (wreckCargo.get(item.commodityId) ?? 0) + item.amount,
+      );
+    }
     // Crew moves into a pod, so the wreck must not count it a second time.
     const evacuation = await this.escapePods.launchForShip(
       manager,
@@ -324,9 +347,9 @@ export class SpacecraftDestructionService {
         location,
         hull: Math.ceil(ship.hullMax / 20),
         crewCount: 0,
-        cargo: cargo.map((item) => ({
-          commodityId: item.commodityId,
-          amount: item.amount,
+        cargo: [...wreckCargo].map(([commodityId, amount]) => ({
+          commodityId,
+          amount,
         })),
         modules,
         torpedoes: torpedoes.map((item) => ({

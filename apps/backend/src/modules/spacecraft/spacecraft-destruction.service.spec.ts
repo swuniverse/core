@@ -90,6 +90,9 @@ function setup(
   const trackerService = {
     clearTrackingTarget: jest.fn(async () => undefined),
   };
+  const playerTradePosts = {
+    destroyForStation: jest.fn(async () => [{ commodityId: 5, amount: 3 }, { commodityId: 9, amount: 4 }]),
+  };
   const gameData = {
     getAllFabricationItems: jest.fn(() => [
       {
@@ -121,8 +124,10 @@ function setup(
       escapePods as any,
       undefined,
       trackerService as any,
+      playerTradePosts as never,
     ),
     escapePods,
+    playerTradePosts,
     ship,
     distress,
     manager,
@@ -196,6 +201,37 @@ describe('SpacecraftDestructionService', () => {
       }),
     );
     expect(manager.remove).toHaveBeenCalledWith(ship);
+  });
+
+  it('turns the trade post of a destroyed station into salvage on its wreck (tmw-T12c)', async () => {
+    const { service, ship, manager, playerTradePosts } = setup({ kind: 'STATION' });
+    (manager.find as jest.Mock).mockImplementation(async (entity) =>
+      entity.name === 'CargoItem' ? [{ commodityId: 5, amount: 2 }] : entity.name === 'CrewAssignment' ? [{ crewId: 9 }] : [],
+    );
+
+    await service.selfDestruct(ship.id, ship.userId);
+
+    expect(playerTradePosts.destroyForStation).toHaveBeenCalledWith(
+      manager,
+      ship,
+      expect.objectContaining({ manager, afterCommit: expect.any(Array) }),
+    );
+    expect(manager.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cargo: [
+          { commodityId: 5, amount: 5 },
+          { commodityId: 9, amount: 4 },
+        ],
+      }),
+    );
+  });
+
+  it('leaves trade posts alone when a ship is destroyed', async () => {
+    const { service, ship, playerTradePosts } = setup();
+
+    await service.selfDestruct(ship.id, ship.userId);
+
+    expect(playerTradePosts.destroyForStation).not.toHaveBeenCalled();
   });
 
   it('clears trackers that point to a destroyed ship', async () => {

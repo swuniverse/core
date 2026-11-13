@@ -25,7 +25,7 @@ const posts = [
     name: 'Verborgener Posten',
     description: '',
     networkId: 2,
-    owner: { id: 9, name: 'Hutten-Kartell' },
+    owner: null,
     licenseStatus: 'NONE',
     location: null,
     level: 1,
@@ -138,6 +138,8 @@ describe('TradePage', () => {
 
     expect(await screen.findByText('Verborgener Posten')).toBeTruthy();
     expect(screen.getByText('Unbekannt')).toBeTruthy();
+    // An abandoned post has no operator (tmw-T12c).
+    expect(within(screen.getByText('Verborgener Posten').closest('tr') as HTMLElement).getByText('Verlassen')).toBeTruthy();
     expect(
       screen.getByRole('link', { name: 'Ebene 1 4:5' }).getAttribute('href'),
     ).toBe('/starmap?layer=1&x=4&y=5');

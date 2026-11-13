@@ -409,7 +409,7 @@ function PostsTab({
                 </button>
               </td>
               <td className="px-2 py-1">Netz {post.networkId}</td>
-              <td className="px-2 py-1">{post.owner.name}</td>
+              <td className="px-2 py-1">{post.owner?.name ?? 'Verlassen'}</td>
               <td className="px-2 py-1">
                 <PostLocation post={post} />
               </td>
@@ -455,7 +455,7 @@ function PostInfo({
         <dt className="text-swu-muted">Handelsnetz</dt>
         <dd>Netz {post.networkId}</dd>
         <dt className="text-swu-muted">Betreiber</dt>
-        <dd>{post.owner.name}</dd>
+        <dd>{post.owner?.name ?? 'Verlassen'}</dd>
         <dt className="text-swu-muted">Ort</dt>
         <dd>
           <PostLocation post={post} />
