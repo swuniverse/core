@@ -170,6 +170,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- soc-G2c – Award `LOTTERY_WINNER` für den Lotteriegewinner über das Ereignis „Lotterie gezogen“, Mehrfachgewinne zählen hoch, je Periode höchstens einmal – cfd8f198
 - tmw-T9 – Hutten-Lotterie: Lose für 1 Aurodium am Hutten-Posten, Ziehung am Monatsersten per täglicher Wartung (einmal je Periode) mit Jackpot, Prestige, Fraktionsschiff, Nachrichten und Freilosen; Ereignis „Lotterie gezogen“ für soc-G2c, Admin-Gewinnbaupläne, Tab „Lotterie“ – ecad3add
 - tmw-T6 – Handels-Shoutbox je Netz: Lesen und Schreiben mit Lizenz im Netz, HTML-bereinigt und auf 200 Zeichen gekürzt, 30 Einträge je Netz, 5 Einträge pro Minute; Tab „Shoutbox“, Kontolöschung räumt ab – d9b493c2
 - tmw-T5 – Transfers im Handelsnetz: eigene Waren zwischen Posten desselben Netzes, gekürzt auf Bestand, Zielplatz und 24-h-Transferkapazität des Quellpostens, Lizenz an Quelle und Ziel; Kapazitätsanzeige und Transferdialog in der Kontobox – 25d47465
