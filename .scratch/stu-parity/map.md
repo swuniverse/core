@@ -170,6 +170,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-T5 – Transfers im Handelsnetz: eigene Waren zwischen Posten desselben Netzes, gekürzt auf Bestand, Zielplatz und 24-h-Transferkapazität des Quellpostens, Lizenz an Quelle und Ziel; Kapazitätsanzeige und Transferdialog in der Kontobox – 25d47465
 - tmw-T8a – Hutten-Deals: `TradeDeal` mit Ware, Schiff oder Bauplan gegen Ware oder Prestige, optional je Fraktion; Annahme n-fach mit STU-Kürzungen und Sperre gegen Überverkauf, Schiffe/Baupläne über Port aus dem Spacecraft-Modul; Admin-Verwaltung, einmalige Handelsnachricht bei Start, Tab „Hutten-Deals“ – 836a24d6
 - tmw-T11b – Kontolöschung räumt Handel ab: `TradeDeletionHandler` entfernt Angebote mit Reserven, Transfers, Lizenzen und Warenkonten in der Löschtransaktion, Transaktionen und Basishandelskurse bleiben anonymisiert; Handler-Registrierung im Löschgerüst ergänzt – 7d995ca5
 - tmw-T11a – Handelsranglisten: „Die 10 aktivsten Handelsposten“ (Transaktionen der letzten 7 Tage), Aurodium-Rangliste um Warenkonten und Angebotsreserven ergänzt; Route für `rpg`/`aurodium` aus D2 freigeschaltet – d0158a4b
