@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import {
   Faction,
   FieldEffect,
@@ -10,6 +10,7 @@ import { FieldEffectQuery } from '../starmap/field-effect-query';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { CargoItem } from './entities/cargo-item.entity';
 import { ShipClassDef } from './entities/ship-class-def.entity';
+import { PlayerTradePostService } from '../trade/player-trade-post.service';
 import {
   AlertState,
   Spacecraft,
@@ -31,6 +32,7 @@ export class StationConstructionService {
     private readonly dataSource: DataSource,
     private readonly gameData?: GameDataService,
     private readonly fieldEffectQuery: FieldEffectQuery = new FieldEffectQuery(),
+    @Optional() private readonly playerTradePosts?: PlayerTradePostService,
   ) {}
 
   async build(shipId: number, userId: number) {
@@ -247,6 +249,13 @@ export class StationConstructionService {
         );
       }
       if (option.limit.reached) throw new BadRequestException('Stationslimit erreicht');
+      if (
+        shipClass.role === StationRole.OUTPOST &&
+        this.playerTradePosts &&
+        (await this.playerTradePosts.locationTaken(manager, station.locationId))
+      ) {
+        throw new BadRequestException('An diesem Ort befindet sich bereits ein Handelsposten');
+      }
       if (!option.workbees.sufficient) throw new BadRequestException('Nicht genügend Workbees angedockt');
       const missing = option.modules.find((module) => !module.sufficient);
       if (missing) throw new BadRequestException(`Nicht genügend ${missing.name} geladen`);
@@ -304,6 +313,10 @@ export class StationConstructionService {
       }
       this.finishExpansion(station, station.shipClass, definition.dockCapacity);
       await repository.save(station);
+      if (station.stationRole === StationRole.OUTPOST) {
+        // STU `StationUtility#createTradepostAndLicense`, in the completion transaction.
+        await this.playerTradePosts?.createForStation(manager, station);
+      }
       return { paused: false, completed: true, station };
     });
   }

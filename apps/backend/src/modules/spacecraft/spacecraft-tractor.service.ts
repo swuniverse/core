@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { isVacationEffective } from '@swuniverse/shared';
 import { DataSource, EntityManager } from 'typeorm';
 import { MessagingService } from '../messaging/messaging.service';
-import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
+import { Spacecraft, SpacecraftKind, SpacecraftStatus } from './entities/spacecraft.entity';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 
 const TRACTOR_ACTIVATION_EPS = 2;
@@ -28,6 +28,8 @@ export class SpacecraftTractorService {
         throw new NotFoundException('Spacecraft not found');
       }
       if (!target) throw new BadRequestException('Ziel nicht gefunden');
+      // STU `ActivateTractorBeam` only tractors ships; stations (and their trade posts) stay put.
+      if (target.kind === SpacecraftKind.STATION) throw new BadRequestException('Das Ziel kann nicht erfasst werden');
       if (target.user?.isNpc) {
         throw new BadRequestException('NPC-Schiffe können nicht erfasst werden');
       }

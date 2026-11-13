@@ -24,6 +24,7 @@ import { AdminTradeDealController, AdminTradeLotteryController, TradeDealControl
 import { TradeLotteryService } from './trade-lottery.service';
 import { LotteryAwardListener } from './lottery-award.listener';
 import { TradeAuctionService } from './trade-auction.service';
+import { PlayerTradePostService } from './player-trade-post.service';
 import { AwardsModule } from '../awards/awards.module';
 import { LotteryTicket } from './entities/lottery-ticket.entity';
 import { LotteryWinnerBuildplan } from './entities/lottery-winner-buildplan.entity';
@@ -111,8 +112,10 @@ import { TradeQueryService } from './trade-query.service';
     TradeLotteryService,
     LotteryAwardListener,
     TradeAuctionService,
+    PlayerTradePostService,
   ],
   exports: [
+    PlayerTradePostService,
     TradeLotteryService,
     TradeDealService,
     TradeDealNotificationService,

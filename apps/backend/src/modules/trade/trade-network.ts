@@ -4,6 +4,7 @@ const TRADE_NETWORK_NAMES: Record<number, string> = {
   3: 'Hutten-Handelsnetz',
 };
 
-export function tradeNetworkName(networkId: number): string {
-  return TRADE_NETWORK_NAMES[networkId] ?? `Handelsnetz ${networkId}`;
+/** Player networks are numbered after their owner (tmw-T12a). */
+export function tradeNetworkName(networkId: number, ownerName?: string | null): string {
+  return TRADE_NETWORK_NAMES[networkId] ?? (ownerName ? `Handelsnetz von ${ownerName}` : `Handelsnetz ${networkId}`);
 }

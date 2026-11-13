@@ -217,6 +217,19 @@ describe('StationConstructionService', () => {
       await expect(service.expand(100, 3, 'REBEL_DEPOT_LARGE')).rejects.toThrow(message);
     });
 
+    it('refuses an outpost on a field that already has a trade post', async () => {
+      const posts = { locationTaken: jest.fn().mockResolvedValue(true) };
+      const withPosts = new StationConstructionService(dataSource, gameData as never, undefined, posts as never);
+      classRepo.findOneBy.mockResolvedValue({ ...stationClass, key: 'REBEL_OUTPOST', role: 'OUTPOST' });
+      shipRepo.countBy.mockResolvedValue(0);
+
+      await expect(withPosts.expand(100, 3, 'REBEL_OUTPOST')).rejects.toThrow('An diesem Ort befindet sich bereits ein Handelsposten');
+      expect(posts.locationTaken).toHaveBeenCalledWith(manager, 44);
+
+      posts.locationTaken.mockResolvedValue(false);
+      await expect(withPosts.expand(100, 3, 'REBEL_OUTPOST')).resolves.toMatchObject({ stationRole: 'OUTPOST' });
+    });
+
     it('pauses an expansion without enough docked Workbees', async () => {
       shipRepo.findOne.mockResolvedValue({
         ...construction,

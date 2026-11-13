@@ -1,6 +1,7 @@
 jest.mock('./entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
   SpacecraftStatus: { IDLE: 'IDLE', IN_FLIGHT: 'IN_FLIGHT', DESTROYED: 'DESTROYED' },
+  SpacecraftKind: { SHIP: 'SHIP', STATION: 'STATION' },
 }));
 
 import { SpacecraftTractorService } from './spacecraft-tractor.service';
@@ -111,6 +112,15 @@ describe('SpacecraftTractorService', () => {
 
     await expect(service.activate(source.id, source.userId, target.id)).rejects.toThrow(
       'NPC-Schiffe können nicht erfasst werden',
+    );
+  });
+
+  it('rejects a station like STU, which only tractors ships', async () => {
+    const { service, source, target } = setup();
+    (target as { kind?: string }).kind = 'STATION';
+
+    await expect(service.activate(source.id, source.userId, target.id)).rejects.toThrow(
+      'Das Ziel kann nicht erfasst werden',
     );
   });
 
