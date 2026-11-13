@@ -170,6 +170,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-T7b – Basishandel endgültig: Doonium, Transparistahl, Durastahl-Legierung in beiden Fraktionsnetzen zum ältesten STU-Testkurs; entfernte Waren ausgeblendet und nicht handelbar, Historie bleibt – 963d3672
 - tmw-T7a – Basishandel nach STU: Aurodium gegen Waren an lizenzierten NPC-Posten zum Netzkurs (Kauf −10, Verkauf +10, Mittelung, Kurs-ID, Sperre je Netz und Ware), Startkurse aus `game-data`, Tab „Basishandel“ mit Kursdiagramm – 1c73c928
 - tmw-T4b – Angebote nach STU annehmen (Kürzung auf Bestand, Platz und Restanzahl, Transaktion, Nachricht an den Anbieter), suchen nach Ware, Modus und Posten, Übersicht je Ware, Verfall nach 14 Tagen; Tab „Angebote“ mit Annehmen-Dialog – 2251fbc9
 - tmw-T4a – Tauschangebote nach STU erstellen (Reserve aus dem Warenkonto, Vergleichsregel, Kürzung), auflisten und zurückziehen; Angebotsreserven als Lagerort; Tab „Meine Angebote“ und Dialog „Neues Angebot“ – 60b5c41b
