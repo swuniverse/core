@@ -26,6 +26,7 @@ describe('TradeController', () => {
   const offers = { listMine: jest.fn(), getOptions: jest.fn(), create: jest.fn(), cancel: jest.fn() };
   const market = { search: jest.fn(), byCommodity: jest.fn(), take: jest.fn() };
   const basicTrade = { getOverview: jest.fn(), buy: jest.fn(), sell: jest.fn() };
+  const transfers = { capacities: jest.fn(), targets: jest.fn(), transfer: jest.fn() };
   const controller = new TradeController(
     query as never,
     licenses as never,
@@ -34,6 +35,7 @@ describe('TradeController', () => {
     offers as never,
     market as never,
     basicTrade as never,
+    transfers as never,
   );
 
   beforeEach(() => jest.clearAllMocks());
@@ -48,10 +50,34 @@ describe('TradeController', () => {
 
   it('uses the authenticated player for account and local ship data', async () => {
     query.getOverview.mockResolvedValue({ accounts: [], spacecraft: [] });
+    transfers.capacities.mockResolvedValue([]);
 
     await controller.getOverview({ user: { sub: 42 } });
 
     expect(query.getOverview).toHaveBeenCalledWith(42);
+  });
+
+  it('adds the transfer capacity of every own account post to the overview', async () => {
+    query.getOverview.mockResolvedValue({
+      accounts: [{ tradePostId: 3, commodityId: 2, amount: 5 }, { tradePostId: 3, commodityId: 4, amount: 1 }, { tradePostId: 8, commodityId: 2, amount: 1 }],
+      spacecraft: [],
+    });
+    transfers.capacities.mockResolvedValue([{ tradePostId: 3, free: 50, capacity: 200 }]);
+
+    const result = await controller.getOverview({ user: { sub: 42 } });
+
+    expect(transfers.capacities).toHaveBeenCalledWith([3, 8], 42);
+    expect(result.transferCapacities).toEqual([{ tradePostId: 3, free: 50, capacity: 200 }]);
+  });
+
+  it('forwards network transfers and their targets for the authenticated player', async () => {
+    const input = { targetPostId: 4, commodityId: 2, amount: 10 };
+
+    await controller.transferTargets(3, { user: { sub: 42 } });
+    await controller.transfer(3, { user: { sub: 42 } }, input);
+
+    expect(transfers.targets).toHaveBeenCalledWith(3, 42);
+    expect(transfers.transfer).toHaveBeenCalledWith(3, 42, input);
   });
 
   it('forwards owner condition reads and updates', async () => {

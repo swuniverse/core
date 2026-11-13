@@ -11,6 +11,7 @@ import { AuthModule } from '../auth/auth.module';
 import { AllianceModule } from '../alliance/alliance.module';
 import { AccountDeletionModule } from '../account-deletion/account-deletion.module';
 import { TradeDeletionHandler } from './trade-deletion.handler';
+import { TradeNetworkTransferService } from './trade-network-transfer.service';
 import { PrestigeModule } from '../prestige/prestige.module';
 import { TradeDeal } from './entities/trade-deal.entity';
 import { TradeDealService } from './trade-deal.service';
@@ -84,6 +85,7 @@ import { TradeQueryService } from './trade-query.service';
     TradeDealService,
     TradeDealAdminService,
     TradeDealNotificationService,
+    TradeNetworkTransferService,
   ],
   exports: [
     TradeDealService,

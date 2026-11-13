@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import { TradePage } from './trade';
@@ -39,6 +39,7 @@ const overview = {
   spacecraft: [
     { tradePostId: 1, spacecraftId: 77, spacecraftName: 'Falke', shipClassId: 3, kind: 'SHIP' },
   ],
+  transferCapacities: [{ tradePostId: 1, free: 60, capacity: 200 }],
 };
 
 const baseMenu = {
@@ -92,6 +93,41 @@ describe('TradePage', () => {
     expect(await screen.findByText('Durastahl')).toBeTruthy();
     expect(screen.getByText('1.200')).toBeTruthy();
     expect(screen.queryByText('Verborgener Posten')).toBeNull();
+  });
+
+  it('shows the transfer capacity and transfers goods to a licensed post of the network', async () => {
+    serveMenu({}, {
+      '/trade/posts/1/transfer-targets': {
+        tradePostId: 1, free: 60, capacity: 200,
+        targets: [{ tradePostId: 4, tradePostName: 'Kessel', freeStorage: 300 }],
+      },
+    });
+    apiMocks.post.mockResolvedValue({ message: 'Es wurde 25 Durastahl zum Kessel transferiert', amount: 25 });
+    renderPage();
+
+    expect(await screen.findByText('Transferkapazität: 60 / 200 (24 h)')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Durastahl transferieren' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Waren transferieren' });
+    const target = await within(dialog).findByRole('combobox', { name: 'Zielposten' });
+    expect(Array.from(target.querySelectorAll('option')).map((option) => option.textContent)).toEqual(['Kessel (300 frei)']);
+    fireEvent.change(within(dialog).getByRole('spinbutton', { name: 'Menge' }), { target: { value: '25' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Transferieren' }));
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith('/trade/posts/1/transfer', { targetPostId: 4, commodityId: 10101, amount: 25 }),
+    );
+    expect((await screen.findByRole('status')).textContent).toBe('Es wurde 25 Durastahl zum Kessel transferiert');
+    expect(apiMocks.get.mock.calls.filter(([url]) => url === '/trade/overview')).toHaveLength(2);
+  });
+
+  it('explains when no licensed target post exists in the network', async () => {
+    serveMenu({}, { '/trade/posts/1/transfer-targets': { tradePostId: 1, free: 60, capacity: 200, targets: [] } });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Durastahl transferieren' }));
+
+    expect(await screen.findByText('Du besitzt an keinem anderen Posten dieses Handelsnetzes eine gültige Lizenz.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Transferieren' })).toBeNull();
   });
 
   it('lists posts without a location link for unknown posts and opens post info', async () => {

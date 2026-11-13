@@ -13,6 +13,7 @@ import { BasicTradeTab } from '../components/trade/BasicTradeTab';
 import { TradeMarketTab } from '../components/trade/TradeMarketTab';
 import { TradeOffersTab } from '../components/trade/TradeOffersTab';
 import { TradeDealsTab } from '../components/trade/TradeDealsTab';
+import { TradeNetworkTransferDialog } from '../components/trade/TradeNetworkTransferDialog';
 import { commodityImage } from '../lib/assets';
 import { formatDateTime, formatNumber } from '../lib/format';
 import { api } from '../services/api';
@@ -99,6 +100,10 @@ export function TradePage() {
     };
   }, []);
 
+  const reloadOverview = async () => {
+    setOverview(await api.get<TradeOverviewDto>('/trade/overview'));
+  };
+
   const commodityName = useMemo(() => {
     const names = new Map(commodities.map((entry) => [entry.id, entry.name]));
     return (id: number) => names.get(id) ?? `Ware #${id}`;
@@ -160,8 +165,10 @@ export function TradePage() {
         <AccountsTab
           posts={posts}
           accounts={overview.accounts}
+          capacities={overview.transferCapacities}
           commodityName={commodityName}
           onSelect={(id) => select({ tab: 'posts', post: id })}
+          onChanged={reloadOverview}
         />
       ) : tab === 'basic' ? (
         <BasicTradeTab />
@@ -194,14 +201,20 @@ export function TradePage() {
 function AccountsTab({
   posts,
   accounts,
+  capacities,
   commodityName,
   onSelect,
+  onChanged,
 }: {
   posts: TradePostListItemDto[];
   accounts: TradeAccountStorageDto[];
+  capacities: TradeOverviewDto['transferCapacities'];
   commodityName: (id: number) => string;
   onSelect: (postId: number) => void;
+  onChanged: () => Promise<void>;
 }) {
+  const [transferring, setTransferring] = useState<TradeAccountStorageDto | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const postsWithAccounts = posts.filter((post) =>
     accounts.some((account) => account.tradePostId === post.id),
   );
@@ -214,7 +227,9 @@ function AccountsTab({
   }
   return (
     <div className="max-w-3xl space-y-2">
+      {notice && <p role="status" className="text-emerald-300">{notice}</p>}
       {postsWithAccounts.map((post) => {
+        const capacity = capacities.find((entry) => entry.tradePostId === post.id);
         const rows = accounts.filter(
           (account) => account.tradePostId === post.id && account.amount > 0,
         );
@@ -233,6 +248,11 @@ function AccountsTab({
                 {formatNumber(total)} / {formatNumber(post.storageLimit)}
               </span>
             </h2>
+            {capacity && (
+              <p className="border-b border-swu-border/60 px-2 py-1 text-swu-muted">
+                Transferkapazität: {formatNumber(capacity.free)} / {formatNumber(capacity.capacity)} (24 h)
+              </p>
+            )}
             <table className="w-full">
               <tbody>
                 {rows.length === 0 ? (
@@ -255,6 +275,16 @@ function AccountsTab({
                       <td className="px-2 py-1 text-right font-mono">
                         {formatNumber(row.amount)}
                       </td>
+                      <td className="w-px px-2 py-1">
+                        <button
+                          type="button"
+                          aria-label={`${commodityName(row.commodityId)} transferieren`}
+                          onClick={() => { setNotice(null); setTransferring(row); }}
+                          className="text-swu-accent hover:underline"
+                        >
+                          Transferieren
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -263,6 +293,20 @@ function AccountsTab({
           </section>
         );
       })}
+      {transferring && (
+        <TradeNetworkTransferDialog
+          tradePostId={transferring.tradePostId}
+          commodityId={transferring.commodityId}
+          commodityName={commodityName(transferring.commodityId)}
+          stock={transferring.amount}
+          onClose={() => setTransferring(null)}
+          onTransferred={async (message) => {
+            setTransferring(null);
+            setNotice(message);
+            await onChanged();
+          }}
+        />
+      )}
     </div>
   );
 }

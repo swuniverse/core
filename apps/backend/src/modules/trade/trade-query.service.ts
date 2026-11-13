@@ -73,7 +73,7 @@ export class TradeQueryService {
     }));
   }
 
-  async getOverview(userId: number): Promise<TradeOverviewDto> {
+  async getOverview(userId: number): Promise<Omit<TradeOverviewDto, 'transferCapacities'>> {
     const [posts, accounts, spacecraft] = await Promise.all([
       this.postRepo.find({ select: ['id', 'locationId'] }),
       this.accountRepo.find({ where: { userId } }),

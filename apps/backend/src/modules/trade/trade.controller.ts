@@ -26,7 +26,14 @@ import { TradeOfferService } from './trade-offer.service';
 import { BasicTradeService } from './basic-trade.service';
 import { TradeOfferMarketService } from './trade-offer-market.service';
 import { TradeQueryService } from './trade-query.service';
-import type { BasicTradeRequestDto, CreateTradeOfferDto, TradeOfferSearchMode } from '@swuniverse/shared';
+import type {
+  BasicTradeRequestDto,
+  CreateTradeOfferDto,
+  TradeNetworkTransferRequestDto,
+  TradeOfferSearchMode,
+  TradeOverviewDto,
+} from '@swuniverse/shared';
+import { TradeNetworkTransferService } from './trade-network-transfer.service';
 
 @Controller('trade')
 @RequiresGameAccess()
@@ -40,6 +47,7 @@ export class TradeController {
     private readonly offers: TradeOfferService,
     private readonly market: TradeOfferMarketService,
     private readonly basicTrade: BasicTradeService,
+    private readonly transfers: TradeNetworkTransferService,
   ) {}
 
   @Get('posts')
@@ -48,8 +56,24 @@ export class TradeController {
   }
 
   @Get('overview')
-  getOverview(@Request() req: { user: { sub: number } }) {
-    return this.query.getOverview(req.user.sub);
+  async getOverview(@Request() req: { user: { sub: number } }): Promise<TradeOverviewDto> {
+    const overview = await this.query.getOverview(req.user.sub);
+    const postIds = [...new Set(overview.accounts.map((account) => account.tradePostId))];
+    return { ...overview, transferCapacities: await this.transfers.capacities(postIds, req.user.sub) };
+  }
+
+  @Get('posts/:id/transfer-targets')
+  transferTargets(@Param('id', ParseIntPipe) id: number, @Request() req: { user: { sub: number } }) {
+    return this.transfers.targets(id, req.user.sub);
+  }
+
+  @Post('posts/:id/transfer')
+  transfer(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body() input: TradeNetworkTransferRequestDto,
+  ) {
+    return this.transfers.transfer(id, req.user.sub, input);
   }
 
   @Get('licenses')

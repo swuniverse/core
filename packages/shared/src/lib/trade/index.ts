@@ -35,6 +35,8 @@ export interface TradePostSpacecraftDto {
 export interface TradeOverviewDto {
   accounts: TradeAccountStorageDto[];
   spacecraft: TradePostSpacecraftDto[];
+  /** Free and total transfer capacity per own account post, over the last 24 hours. */
+  transferCapacities: Array<{ tradePostId: number; free: number; capacity: number }>;
 }
 
 /** A valid trade license of the requesting player (`GET trade/licenses`). */
@@ -324,4 +326,19 @@ export interface AdminTradeDealDto extends AdminTradeDealInput {
   id: number;
   notifiedAt: string | null;
   createdAt: string;
+}
+
+/** `GET trade/posts/:id/transfer-targets`: own licensed posts of the same network. */
+export interface TradeNetworkTransferTargetsDto {
+  tradePostId: number;
+  free: number;
+  capacity: number;
+  targets: Array<{ tradePostId: number; tradePostName: string; freeStorage: number }>;
+}
+
+/** Body of `POST trade/posts/:id/transfer`. */
+export interface TradeNetworkTransferRequestDto {
+  targetPostId: number;
+  commodityId: number;
+  amount: number;
 }
