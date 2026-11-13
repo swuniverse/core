@@ -149,14 +149,6 @@ export class AuthService {
     if (user.deletionMark === AccountDeletionMark.Forbidden) {
       throw new ForbiddenException('Account deletion has been forbidden by admin');
     }
-    // Ships are handled since sh-AP-05c; colonies follow with sh-AP-05d.
-    const colonies = await this.dataSource.query(
-      'SELECT COUNT(*)::int AS count FROM "colonies" WHERE "userId" = $1',
-      [userId],
-    );
-    if (Number(colonies[0]?.count ?? 0) > 0) {
-      throw new ConflictException('Konten mit Kolonien können noch nicht gelöscht werden');
-    }
     await this.playerDeletionService!.delete(userId);
   }
 

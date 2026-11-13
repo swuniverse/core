@@ -20,6 +20,8 @@ import { ColonyBuildingManagementService } from './colony-building-management.se
 import { ColonySocialService } from './colony-social.service';
 import { ColonyOwnershipService } from './colony-ownership.service';
 import { ColonyAbandonmentService } from './colony-abandonment.service';
+import { ColonyDeletionHandler } from './colony-deletion.handler';
+import { AccountDeletionModule } from '../account-deletion/account-deletion.module';
 import { ColonySettingsService } from './colony-settings.service';
 import { ColonyTimingService } from './colony-timing.service';
 import { ColonyFabricationService } from './colony-fabrication.service';
@@ -67,6 +69,7 @@ import { Layer } from '../starmap/entities/layer.entity';
 
 @Module({
   imports: [
+    AccountDeletionModule,
     TypeOrmModule.forFeature([
       Colony,
       ColonyField,
@@ -104,6 +107,7 @@ import { Layer } from '../starmap/entities/layer.entity';
   ],
   controllers: [ColonyController, SpacecraftOrbitOrderController],
   providers: [
+    ColonyDeletionHandler,
     ColonyService,
     ColonySeedService,
     ColonyStatsService,

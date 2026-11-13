@@ -12,7 +12,7 @@ export const PLAYER_DELETION_HANDLERS = Symbol('PLAYER_DELETION_HANDLERS');
  *
  * Current order: 10 alliance, 20 messages, 30 HoloNet, 40 account data,
  * 100 trade (abandons own trade posts before their stations go), 200 ships
- * and knowledge, colonies follow (sh-AP-05d).
+ * and knowledge, 300 colonies (ruins, sh-AP-05d).
  *
  * Content other players see stays and loses its author (`NULL`), shown as
  * "Gelöschter Siedler" (see `deleted-player.ts`). Personal data goes.

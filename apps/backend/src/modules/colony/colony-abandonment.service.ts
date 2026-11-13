@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
 import { ColonyEventService } from '../messaging/colony-event.service';
 import {
@@ -15,14 +15,19 @@ import { ColonyFabricationQueue } from './entities/colony-fabrication-queue.enti
 import { ColonyCrewTrainingQueue } from './entities/colony-crew-training-queue.entity';
 import { ColonyShipBuildQueue } from './entities/colony-ship-build-queue.entity';
 import { ColonyOrbitAssignment } from './entities/colony-orbit-assignment.entity';
-import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStats } from './entities/colony-stats.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { CrewAssignment } from './entities/crew-assignment.entity';
 import { Crew } from './entities/crew.entity';
 import { Colony } from './entities/colony.entity';
-import { CelestialObjectType } from '../starmap/entities/celestial-object.entity';
-import { convertObjectToSwu } from '../starmap/generator/swu-stu-class-mapping';
+import {
+  CelestialObject,
+  CelestialObjectType,
+} from '../starmap/entities/celestial-object.entity';
+import {
+  convertObjectToSwu,
+  getSwuClassIdForStuClassId,
+} from '../starmap/generator/swu-stu-class-mapping';
 import { purgeColonies } from './colony-purge';
 
 @Injectable()
@@ -30,22 +35,6 @@ export class ColonyAbandonmentService {
   constructor(
     @InjectRepository(Colony)
     private readonly colonyRepo: Repository<Colony>,
-    @InjectRepository(ColonyField)
-    private readonly fieldRepo: Repository<ColonyField>,
-    @InjectRepository(ColonyStats)
-    private readonly statsRepo: Repository<ColonyStats>,
-    @InjectRepository(ColonyFabricationQueue)
-    private readonly fabricationQueueRepo: Repository<ColonyFabricationQueue>,
-    @InjectRepository(ColonyCrewTrainingQueue)
-    private readonly crewTrainingQueueRepo: Repository<ColonyCrewTrainingQueue>,
-    @InjectRepository(ColonyShipBuildQueue)
-    private readonly shipBuildQueueRepo: Repository<ColonyShipBuildQueue>,
-    @InjectRepository(ColonyOrbitAssignment)
-    private readonly orbitAssignmentRepo: Repository<ColonyOrbitAssignment>,
-    @InjectRepository(CrewAssignment)
-    private readonly crewAssignmentRepo: Repository<CrewAssignment>,
-    @InjectRepository(Crew)
-    private readonly crewRepo: Repository<Crew>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly colonyEventService: ColonyEventService,
@@ -73,61 +62,58 @@ export class ColonyAbandonmentService {
       throw new BadRequestException('Confirmation does not match colony name');
     }
 
-    // Noch-STU-Planeten/-Monde werden nicht als Ruine hinterlassen, sondern
-    // gesaeubert und auf SWU umgestellt - so muss das nicht mehr manuell
-    // (Admin: Bereinigen + "Set empty to SWU") nachgezogen werden.
-    const object = colony.celestialObject;
-    if (
-      object &&
-      (object.objectType === CelestialObjectType.PLANET ||
-        object.objectType === CelestialObjectType.MOON) &&
-      object.originalClassId == null &&
-      convertObjectToSwu(object)
-    ) {
-      await this.colonyRepo.manager.transaction(async (manager) => {
-        await purgeColonies(manager, [colony.id]);
-        await manager.save(object);
-      });
-      return { abandoned: true, colonyId: colony.id };
-    }
-
     const asteroid =
       colony.celestialObject?.objectType === CelestialObjectType.ASTEROID;
-    await this.colonyEventService.createActionEvent({
-      colonyId: colony.id,
-      userId,
-      type: ColonyEventType.COLONY_ABANDONED,
-      severity: ColonyEventSeverity.WARNING,
-      title: 'Kolonie aufgegeben',
-      message: asteroid
-        ? `${colony.name} wurde aufgegeben. Der Asteroid bleibt für diesen Account erschöpft.`
-        : `${colony.name} wurde aufgegeben. Gebäude und Storage bleiben zurück.`,
-      payload: { previousUserId: userId },
-    });
+    if (!this.purgedInsteadOfRuin(colony)) {
+      await this.colonyEventService.createActionEvent({
+        colonyId: colony.id,
+        userId,
+        type: ColonyEventType.COLONY_ABANDONED,
+        severity: ColonyEventSeverity.WARNING,
+        title: 'Kolonie aufgegeben',
+        message: asteroid
+          ? `${colony.name} wurde aufgegeben. Der Asteroid bleibt für diesen Account erschöpft.`
+          : `${colony.name} wurde aufgegeben. Gebäude und Storage bleiben zurück.`,
+        payload: { previousUserId: userId },
+      });
+    }
+    await this.colonyRepo.manager.transaction((manager) =>
+      this.abandonInManager(manager, colony, userId),
+    );
+    return { abandoned: true, colonyId: colony.id };
+  }
 
-    await Promise.all([
-      this.fabricationQueueRepo.delete({ colonyId: colony.id }),
-      this.crewTrainingQueueRepo.delete({ colonyId: colony.id }),
-      this.shipBuildQueueRepo.delete({ colonyId: colony.id }),
-      this.orbitAssignmentRepo.delete({ colonyId: colony.id }),
-      ...(asteroid
-        ? [
-            this.colonyRepo.manager
-              .getRepository(ColonyStorage)
-              .delete({ colonyId: colony.id }),
-          ]
-        : []),
-    ]);
+  /**
+   * The shared part of giving up a colony (col-E2, ADR-0007), also used by the
+   * account deletion (sh-AP-05d) inside its transaction: queues end without
+   * refund, orbit orders and blockade end, the colony's crew goes, and the
+   * colony stays as a resettleable ruin with buildings and storage. Former
+   * STU planets and moons are purged and converted instead. Callers check the
+   * starter-colony lock and confirmation themselves.
+   */
+  async abandonInManager(manager: EntityManager, colony: Colony, userId: number): Promise<void> {
+    if (this.purgedInsteadOfRuin(colony)) {
+      const object = colony.celestialObject as CelestialObject;
+      convertObjectToSwu(object);
+      await purgeColonies(manager, [colony.id]);
+      await manager.save(object);
+      return;
+    }
+    const asteroid =
+      colony.celestialObject?.objectType === CelestialObjectType.ASTEROID;
+    await manager.delete(ColonyFabricationQueue, { colonyId: colony.id });
+    await manager.delete(ColonyCrewTrainingQueue, { colonyId: colony.id });
+    await manager.delete(ColonyShipBuildQueue, { colonyId: colony.id });
+    await manager.delete(ColonyOrbitAssignment, { colonyId: colony.id });
+    if (asteroid) await manager.delete(ColonyStorage, { colonyId: colony.id });
 
-    const crewAssignments = await this.crewAssignmentRepo.find({
+    const crewAssignments = await manager.find(CrewAssignment, {
       where: { colonyId: colony.id, userId },
     });
     if (crewAssignments.length > 0) {
       const crewIds = crewAssignments.map((assignment) => assignment.crewId);
-      await this.crewAssignmentRepo.delete(
-        crewIds.map((crewId) => ({ crewId })),
-      );
-      await this.crewRepo.delete(crewIds.map((id) => ({ id })));
+      await manager.delete(CrewAssignment, { crewId: In(crewIds) });
+      await manager.delete(Crew, { id: In(crewIds) });
     }
 
     for (const field of colony.fields ?? []) {
@@ -145,7 +131,7 @@ export class ColonyAbandonmentService {
       }
     }
     if ((colony.fields ?? []).length > 0) {
-      await this.fieldRepo.save(colony.fields);
+      await manager.save(colony.fields);
     }
 
     if (colony.changeable) {
@@ -157,21 +143,36 @@ export class ColonyAbandonmentService {
       colony.changeable.shieldFrequency = null;
       colony.changeable.torpedoTypeId = null;
       colony.changeable.immigrationEnabled = false;
-      await this.colonyRepo.manager.save(colony.changeable);
+      await manager.save(colony.changeable);
       if (
         process.env.NODE_ENV === 'test' ||
         process.env.JEST_WORKER_ID ||
         'expect' in globalThis
       ) {
-        await this.statsRepo.save(colony.changeable as never);
+        await manager.getRepository(ColonyStats).save(colony.changeable as never);
       }
     }
 
     colony.previousUserId = userId;
     colony.isAbandoned = true;
     colony.abandonedAt = new Date();
-    await this.colonyRepo.save(colony);
+    await manager.save(colony);
+  }
 
-    return { abandoned: true, colonyId: colony.id };
+  /**
+   * Noch-STU-Planeten/-Monde werden nicht als Ruine hinterlassen, sondern
+   * gesaeubert und auf SWU umgestellt - so muss das nicht mehr manuell
+   * (Admin: Bereinigen + "Set empty to SWU") nachgezogen werden.
+   */
+  private purgedInsteadOfRuin(colony: Colony): boolean {
+    const object = colony.celestialObject;
+    return Boolean(
+      object &&
+        (object.objectType === CelestialObjectType.PLANET ||
+          object.objectType === CelestialObjectType.MOON) &&
+        object.originalClassId == null &&
+        object.classId != null &&
+        getSwuClassIdForStuClassId(object.classId) != null,
+    );
   }
 }

@@ -1251,14 +1251,6 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
   };
   const abandonmentService = new ColonyAbandonmentService(
     colonyRepo as any,
-    fieldRepo as any,
-    statsRepo as any,
-    fabricationQueueRepo as any,
-    crewTrainingQueueRepo as any,
-    shipBuildQueueRepo as any,
-    orbitAssignmentRepo as any,
-    crewAssignmentRepo as any,
-    crewRepo as any,
     userRepo as any,
     colonyEventService as any,
   );
@@ -1571,19 +1563,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
 
 describe('colony give up', () => {
   it('abandons a non-starter colony while keeping storage and deactivating buildings', async () => {
-    const {
-      service,
-      colonyRepo,
-      fieldRepo,
-      fabricationQueueRepo,
-      crewTrainingQueueRepo,
-      shipBuildQueueRepo,
-      orbitAssignmentRepo,
-      crewAssignmentRepo,
-      crewRepo,
-      userRepo,
-      colonyEventService,
-    } = createColonyService();
+    const { service, colonyRepo, userRepo, colonyEventService } = createColonyService();
     const field = {
       id: 1,
       buildingId: 82010100,
@@ -1615,20 +1595,34 @@ describe('colony give up', () => {
     };
     colonyRepo.findOne.mockResolvedValue(colony);
     userRepo.findOneBy.mockResolvedValue({ id: 1, starterColonyId: 99 });
-    crewAssignmentRepo.find.mockResolvedValue([{ crewId: 7, colonyId: 1 }]);
+
+    const removed: Array<[string, unknown]> = [];
+    const tx = {
+      delete: jest.fn(async (entity: { name: string }, criteria: unknown) => {
+        removed.push([entity.name, criteria]);
+      }),
+      find: jest.fn(async () => [{ crewId: 7, colonyId: 1 }]),
+      save: jest.fn(async (value) => value),
+      getRepository: jest.fn(() => ({ save: jest.fn(async (value) => value) })),
+    };
+    colonyRepo.manager.transaction.mockImplementationOnce(async (work: (manager: unknown) => unknown) => work(tx));
 
     await expect(service.giveUpColony(1, 1, 'Ruinenwelt')).resolves.toEqual({
       abandoned: true,
       colonyId: 1,
     });
 
-    expect(fabricationQueueRepo.delete).toHaveBeenCalledWith({ colonyId: 1 });
-    expect(crewTrainingQueueRepo.delete).toHaveBeenCalledWith({ colonyId: 1 });
-    expect(shipBuildQueueRepo.delete).toHaveBeenCalledWith({ colonyId: 1 });
-    expect(orbitAssignmentRepo.delete).toHaveBeenCalledWith({ colonyId: 1 });
-    expect(crewAssignmentRepo.delete).toHaveBeenCalledWith([{ crewId: 7 }]);
-    expect(crewRepo.delete).toHaveBeenCalledWith([{ id: 7 }]);
-    expect(fieldRepo.save).toHaveBeenCalledWith([
+    expect(removed.map(([entity]) => entity)).toEqual([
+      'ColonyFabricationQueue',
+      'ColonyCrewTrainingQueue',
+      'ColonyShipBuildQueue',
+      'ColonyOrbitAssignment',
+      'CrewAssignment',
+      'Crew',
+    ]);
+    expect(removed.slice(0, 4).every(([, criteria]) => (criteria as { colonyId: number }).colonyId === 1)).toBe(true);
+    expect(tx.find).toHaveBeenCalledWith(expect.anything(), { where: { colonyId: 1, userId: 1 } });
+    expect(tx.save).toHaveBeenCalledWith([
       expect.objectContaining({
         buildingId: 82010100,
         isBuilding: false,
@@ -1637,7 +1631,7 @@ describe('colony give up', () => {
         terraformingFinishesAt: null,
       }),
     ]);
-    expect(colonyRepo.manager.save).toHaveBeenCalledWith(
+    expect(tx.save).toHaveBeenCalledWith(
       expect.objectContaining({
         workers: 0,
         trainedCrew: 0,
@@ -1647,7 +1641,7 @@ describe('colony give up', () => {
         immigrationEnabled: false,
       }),
     );
-    expect(colonyRepo.save).toHaveBeenCalledWith(
+    expect(tx.save).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 1,
         previousUserId: 1,

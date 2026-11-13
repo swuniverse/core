@@ -171,6 +171,57 @@ describe('Account deletion with game content (PostgreSQL, AppModule)', () => {
     });
   });
 
+  describe('colonies (sh-AP-05d)', () => {
+    async function colony(name: string, values: Record<string, unknown> = {}) {
+      const saved = await source.getRepository('Colony').save({ name, userId: doomed.id, colonyClassId: 1, ...values }) as unknown as { id: number };
+      await source.getRepository('ColonyChangeable').save({ colonyId: saved.id, workers: 12, isBlockaded: true, immigrationEnabled: true });
+      await source.getRepository('ColonyField').save({ colonyId: saved.id, fieldIndex: 0, fieldType: 1, buildingId: 82010100, isActive: true });
+      await source.getRepository('ColonyStorage').save({ colonyId: saved.id, commodityId: 2, amount: 500 });
+      await source.getRepository('ColonyFabricationQueue').save({
+        colonyId: saved.id, userId: doomed.id, queueType: 'MODULE', itemKey: 'laser', buildingFunctionId: 1, finishesAt: new Date(Date.now() + 3_600_000),
+      });
+      const crew = await source.getRepository('Crew').save({ userId: doomed.id, name: 'Siedler' }) as unknown as { id: number };
+      await source.getRepository('CrewAssignment').save({ crewId: crew.id, userId: doomed.id, colonyId: saved.id });
+      return saved;
+    }
+
+    it('turns every colony, the starter colony included, into an ownerless ruin with buildings and storage', async () => {
+      const home = await colony('Heimat');
+      const outpost = await colony('Außenposten');
+      await source.getRepository('User').update(doomed.id, { starterColonyId: home.id });
+      const oldRuin = await source.getRepository('Colony').save({
+        name: 'Alte Ruine', userId: doomed.id, colonyClassId: 1, isAbandoned: true, previousUserId: doomed.id, abandonedAt: new Date(),
+      }) as unknown as { id: number };
+      const besieger = await source.getRepository('Spacecraft').save({ name: 'Belagerer', userId: other.id, shipClassId, locationId, runtimeSystems: {} }) as unknown as { id: number };
+      const fleet = await source.getRepository('Fleet').save({ name: 'Blockade', userId: other.id, leaderId: besieger.id }) as unknown as { id: number };
+      await source.getRepository('ColonyOrbitAssignment').save({ colonyId: outpost.id, spacecraftId: besieger.id, fleetId: fleet.id, mode: 'BLOCKADE' });
+      // Legacy table without entity, see migration 20261013120000.
+      await source.query(
+        `INSERT INTO "colony_events" ("colonyId", "userId", "type", "title", "message") VALUES ($1, $2, 'COLONY_FOUNDED', 'Gegründet', 'Heimat')`,
+        [home.id, doomed.id],
+      );
+
+      await deletions.delete(doomed.id);
+
+      expect(await count('User', { id: doomed.id })).toBe(0);
+      for (const id of [home.id, outpost.id]) {
+        expect(await source.getRepository('Colony').findOneByOrFail({ id })).toMatchObject({
+          userId: null, previousUserId: null, isAbandoned: true, abandonedAt: expect.any(Date),
+        });
+        expect(await source.getRepository('ColonyField').findOneByOrFail({ colonyId: id })).toMatchObject({ buildingId: 82010100, isActive: false });
+        expect(await source.getRepository('ColonyStorage').findOneByOrFail({ colonyId: id })).toMatchObject({ commodityId: 2, amount: 500 });
+        expect(await source.getRepository('ColonyChangeable').findOneByOrFail({ colonyId: id })).toMatchObject({ workers: 0, isBlockaded: false });
+        expect(await count('ColonyFabricationQueue', { colonyId: id })).toBe(0);
+        expect(await count('CrewAssignment', { colonyId: id })).toBe(0);
+      }
+      expect(await source.getRepository('Colony').findOneByOrFail({ id: oldRuin.id })).toMatchObject({ userId: null, previousUserId: null, isAbandoned: true });
+      expect(await count('ColonyOrbitAssignment', { colonyId: outpost.id })).toBe(0);
+      expect(await count('Crew', { userId: doomed.id })).toBe(0);
+      expect(await source.query(`SELECT 1 FROM "colony_events" WHERE "userId" = $1`, [doomed.id])).toEqual([]);
+      expect(await count('Spacecraft', { id: besieger.id })).toBe(1);
+    });
+  });
+
   describe('ships and knowledge (sh-AP-05c)', () => {
     async function ship(userId: number, values: Record<string, unknown> = {}) {
       return source.getRepository('Spacecraft').save({

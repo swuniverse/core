@@ -45,6 +45,8 @@ function setup(object: Record<string, unknown>) {
   type TransactionManager = {
     query: (sql: string) => Promise<unknown[]>;
     save: (value: unknown) => Promise<unknown>;
+    delete: jest.Mock;
+    find: jest.Mock;
     transaction: (
       fn: (manager: TransactionManager) => unknown,
     ) => Promise<unknown>;
@@ -55,6 +57,8 @@ function setup(object: Record<string, unknown>) {
       return [];
     }),
     save: jest.fn(async (o: unknown) => o),
+    delete: jest.fn(async () => undefined),
+    find: jest.fn(async () => []),
     transaction: jest.fn(async (fn: (m: TransactionManager) => unknown) =>
       fn(manager),
     ),
@@ -75,29 +79,12 @@ function setup(object: Record<string, unknown>) {
   };
   const service = new ColonyAbandonmentService(
     colonyRepo as never,
-    { save: jest.fn() } as never,
-    {} as never,
-    { delete: jest.fn() } as never,
-    { delete: jest.fn() } as never,
-    { delete: jest.fn() } as never,
-    { delete: jest.fn() } as never,
-    { find: jest.fn(async () => []), delete: jest.fn() } as never,
-    { delete: jest.fn() } as never,
     {
       findOneBy: jest.fn(async () => ({ id: 1, starterColonyId: null })),
     } as never,
     { createActionEvent: jest.fn() } as never,
   );
-  return {
-    service,
-    colony,
-    colonyRepo,
-    manager,
-    queries,
-    orbitAssignmentRepo: service['orbitAssignmentRepo'] as {
-      delete: jest.Mock;
-    },
-  };
+  return { service, colony, colonyRepo, manager, queries };
 }
 
 describe('giveUpColony on a still-STU planet/moon', () => {
@@ -111,7 +98,7 @@ describe('giveUpColony on a still-STU planet/moon', () => {
       originalClassId: null,
       name: 'Coruscant',
     };
-    const { service, colonyRepo, manager, queries } = setup(object);
+    const { service, colony, manager, queries } = setup(object);
 
     await expect(service.giveUpColony(5, 1, 'Testkolonie')).resolves.toEqual({
       abandoned: true,
@@ -124,7 +111,7 @@ describe('giveUpColony on a still-STU planet/moon', () => {
     expect(object.originalClassId).toBe(stuClassId);
     expect(object.classId).not.toBe(stuClassId);
     expect(manager.save).toHaveBeenCalledWith(object);
-    expect(colonyRepo.save).not.toHaveBeenCalled();
+    expect(manager.save).not.toHaveBeenCalledWith(colony);
   });
 
   it('keeps ruins for bodies that are already SWU', async () => {
@@ -135,19 +122,14 @@ describe('giveUpColony on a still-STU planet/moon', () => {
       originalClassId: stuClassId,
       name: 'Coruscant',
     };
-    const {
-      service,
-      colony,
-      colonyRepo,
-      orbitAssignmentRepo,
-      queries,
-    } = setup(object);
+    const { service, colony, manager, queries } = setup(object);
 
     await service.giveUpColony(5, 1, 'Testkolonie');
 
     expect(queries).toHaveLength(0);
-    expect(orbitAssignmentRepo.delete).toHaveBeenCalledWith({ colonyId: 5 });
+    expect(manager.delete).toHaveBeenCalledWith(expect.anything(), { colonyId: 5 });
     expect(colony.isAbandoned).toBe(true);
-    expect(colonyRepo.save).toHaveBeenCalled();
+    expect(object.classId).toBe(90010);
+    expect(manager.save).toHaveBeenCalledWith(colony);
   });
 });
