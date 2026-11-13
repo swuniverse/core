@@ -1,6 +1,6 @@
 # Faction modifiers
 
-Status as of 2026-10-30. Persisted faction modifiers are seeded and returned by the faction module. Gameplay consumers are listed below.
+Status as of 2026-11-13. Persisted faction modifiers are seeded and returned by the faction module. Gameplay consumers are listed below.
 
 | Modifier | Effective today | Reader |
 |---|---|---|
@@ -9,7 +9,8 @@ Status as of 2026-10-30. Persisted faction modifiers are seeded and returned by 
 | `cargoMultiplier` | No | None outside the faction module |
 | `researchMultiplier` | Yes | `ResearchService.processTick` applies it once to the current tick's authoritative commodity production before queue consumption |
 | `colonyGrowthMultiplier` | Yes | `ColonyTickProcessorService.growPopulation` applies it once to positive base growth before population and housing capacity limits |
-| `tradeModifier` | No | None outside the faction module |
+
+`tradeModifier` was removed on 2026-11-13 (tmw-T13, migration `20261113110000-drop-faction-trade-modifier`). It was never read; trade effects between players come from active trade agreements via `mayTradeFavorably` (see `docs/alliance-relationship-effects.md`).
 
 `researchMultiplier` is resolved from the player's current faction on every main tick. The service multiplies the newly produced base points and floors the result to a whole number before applying it to research. Fractional points are not carried between ticks, and stored points or progress are never recalculated.
 

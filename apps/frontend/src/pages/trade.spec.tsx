@@ -46,6 +46,7 @@ const baseMenu = {
   tradePostName: 'Nar Shaddaa Markt',
   networkId: 2,
   isOwner: false,
+  freeByAgreement: false,
   condition: { commodityId: 10101, commodityName: 'Durastahl', amount: 10, durationDays: 30 },
   license: null,
   renewalExpiresAt: null,
@@ -167,6 +168,37 @@ describe('TradePage', () => {
       expect(apiMocks.post).toHaveBeenCalledWith('/trade/posts/1/licenses', { method: 'account', shipId: 77, accountPostId: 3 }),
     );
     expect((await screen.findByRole('alert')).textContent).toBe('Nicht genügend Waren auf dem Handelskonto');
+  });
+
+  it('takes the license for free under a trade agreement without a payment source', async () => {
+    serveMenu({ freeByAgreement: true, purchase: { shipId: 77, rejection: null, payShips: [] } });
+    apiMocks.post.mockResolvedValue({});
+    renderPage('/trade?tab=posts&post=1&ship=77');
+
+    expect(await screen.findByText('Für dich kostenlos (Handelsabkommen mit dem Eigentümer)')).toBeTruthy();
+    expect(screen.queryByRole('radio')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Lizenz kostenlos erhalten' }));
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith('/trade/posts/1/licenses', { method: 'agreement', shipId: 77 }),
+    );
+    expect(await screen.findByRole('status')).toHaveProperty('textContent', 'Handelslizenz wurde kostenlos erteilt (Handelsabkommen)');
+  });
+
+  it('renews for free under a trade agreement without an account', async () => {
+    serveMenu({
+      freeByAgreement: true,
+      license: { id: 4, startsAt: '2026-11-12T10:00:00.000Z', expiresAt: '2026-12-12T10:00:00.000Z' },
+      renewalExpiresAt: '2027-01-11T10:00:00.000Z',
+      purchase: { shipId: null, rejection: 'Du besitzt bereits eine gültige Lizenz für diesen Handelsposten', payShips: [] },
+    });
+    apiMocks.post.mockResolvedValue({});
+    renderPage('/trade?tab=posts&post=1');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Lizenz kostenlos verlängern' }));
+
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/trade/posts/1/licenses/renewal', {}));
+    expect(await screen.findByRole('status')).toHaveProperty('textContent', 'Handelslizenz wurde kostenlos verlängert (Handelsabkommen)');
   });
 
   it('explains why no purchase is offered', async () => {

@@ -12,7 +12,6 @@ interface FactionModifiers {
   cargoMultiplier: number;
   researchMultiplier: number;
   colonyGrowthMultiplier: number;
-  tradeModifier: number;
 }
 
 const MODIFIER_LABELS: Record<keyof FactionModifiers, string> = {
@@ -21,7 +20,6 @@ const MODIFIER_LABELS: Record<keyof FactionModifiers, string> = {
   cargoMultiplier: 'Fracht',
   researchMultiplier: 'Forschung',
   colonyGrowthMultiplier: 'Koloniewachstum',
-  tradeModifier: 'Handel',
 };
 
 function getBonuses(m: FactionModifiers): { label: string; value: string }[] {

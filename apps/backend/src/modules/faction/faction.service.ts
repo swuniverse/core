@@ -24,7 +24,6 @@ const DEFAULT_FACTIONS: Array<{
     | 'cargoMultiplier'
     | 'researchMultiplier'
     | 'colonyGrowthMultiplier'
-    | 'tradeModifier'
   >;
 }> = [
   {
@@ -43,7 +42,6 @@ const DEFAULT_FACTIONS: Array<{
       cargoMultiplier: 1,
       researchMultiplier: 1.1,
       colonyGrowthMultiplier: 1,
-      tradeModifier: 1,
     },
   },
   {
@@ -62,7 +60,6 @@ const DEFAULT_FACTIONS: Array<{
       cargoMultiplier: 1,
       researchMultiplier: 1,
       colonyGrowthMultiplier: 1.1,
-      tradeModifier: 1,
     },
   },
 ];

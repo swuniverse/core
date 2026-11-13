@@ -252,7 +252,6 @@ Ergänzen:
 - `cargoMultiplier`
 - `researchMultiplier`
 - `colonyGrowthMultiplier`
-- `tradeModifier`
 
 #### `OnboardingSelection`
 

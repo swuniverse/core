@@ -37,7 +37,4 @@ export class FactionModifier {
 
   @Column({ type: 'float', default: 1 })
   colonyGrowthMultiplier: number;
-
-  @Column({ type: 'float', default: 1 })
-  tradeModifier: number;
 }

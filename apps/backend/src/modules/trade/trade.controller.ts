@@ -189,7 +189,7 @@ export class TradeController {
   renewLicense(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body() input: { accountPostId: number },
+    @Body() input: { accountPostId?: number },
   ) {
     return this.purchases.renew(id, req.user.sub, input);
   }

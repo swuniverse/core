@@ -36,6 +36,11 @@ export interface ResolvedStance {
   mayShareHistoricalScans: boolean;
   /** Same-alliance only: the other player's ships appear on the alliance map. */
   mayShareAllianceMap: boolean;
+  /**
+   * The parties hold an active trade agreement: the other player gets
+   * licenses at this player's posts (and vice versa) free of charge.
+   */
+  mayTradeFavorably: boolean;
 }
 
 /**
@@ -342,10 +347,12 @@ export class RelationshipResolverService {
       if (relationship?.type === AllianceRelationshipType.WAR) {
         return resolved('ENEMY');
       }
+      const mayTradeFavorably =
+        relationship?.type === AllianceRelationshipType.TRADE_AGREEMENT;
       if (relationship) {
         mayShareLivePosition ||= relationship.shareLivePositions;
         if (relationship.treatAsFriend) {
-          return resolved('FRIEND', { mayShareLivePosition });
+          return resolved('FRIEND', { mayShareLivePosition, mayTradeFavorably });
         }
       }
 
@@ -353,9 +360,9 @@ export class RelationshipResolverService {
         return resolved('ENEMY', { mayShareLivePosition });
       }
       if (personalContactStatus === 'FRIEND') {
-        return resolved('FRIEND', { mayShareLivePosition });
+        return resolved('FRIEND', { mayShareLivePosition, mayTradeFavorably });
       }
-      return resolved('NEUTRAL', { mayShareLivePosition });
+      return resolved('NEUTRAL', { mayShareLivePosition, mayTradeFavorably });
     } catch {
       return resolved('NEUTRAL');
     }
@@ -398,10 +405,12 @@ function resolved(
     mayShareLivePosition = false,
     mayShareHistoricalScans = false,
     mayShareAllianceMap = false,
+    mayTradeFavorably = false,
   }: {
     mayShareLivePosition?: boolean;
     mayShareHistoricalScans?: boolean;
     mayShareAllianceMap?: boolean;
+    mayTradeFavorably?: boolean;
   } = {},
 ): ResolvedStance {
   const isFriend = status === 'FRIEND';
@@ -416,5 +425,6 @@ function resolved(
     mayShareLivePosition,
     mayShareHistoricalScans: isFriend && mayShareHistoricalScans,
     mayShareAllianceMap: isFriend && mayShareAllianceMap,
+    mayTradeFavorably,
   };
 }

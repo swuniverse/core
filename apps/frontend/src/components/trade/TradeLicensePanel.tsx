@@ -89,6 +89,9 @@ export function TradeLicensePanel({
             ? `${formatNumber(menu.condition.amount)} ${menu.condition.commodityName} für ${menu.condition.durationDays} Tage`
             : 'Dieser Handelsposten vergibt keine Lizenzen.'}
         </p>
+        {menu.condition && menu.freeByAgreement && (
+          <p className="text-emerald-300">Für dich kostenlos (Handelsabkommen mit dem Eigentümer)</p>
+        )}
         {menu.license && (
           <p>Deine Lizenz ist gültig bis {formatDateTime(menu.license.expiresAt)}.</p>
         )}
@@ -119,7 +122,8 @@ function RenewalForm({
     menu.accounts[0]?.tradePostId ?? null,
   );
   const [busy, setBusy] = useState(false);
-  if (!menu.accounts.length) {
+  const free = menu.freeByAgreement;
+  if (!free && !menu.accounts.length) {
     return (
       <p className="text-swu-muted">
         Verlängerung: Kein eigenes Warenkonto in Netz {menu.networkId} deckt den Preis.
@@ -127,12 +131,12 @@ function RenewalForm({
     );
   }
   const renew = async () => {
-    if (accountPostId == null) return;
+    if (!free && accountPostId == null) return;
     setBusy(true);
     onError(null);
     try {
-      await api.post(`/trade/posts/${menu.tradePostId}/licenses/renewal`, { accountPostId });
-      await onDone('Handelslizenz wurde verlängert');
+      await api.post(`/trade/posts/${menu.tradePostId}/licenses/renewal`, free ? {} : { accountPostId });
+      await onDone(free ? 'Handelslizenz wurde kostenlos verlängert (Handelsabkommen)' : 'Handelslizenz wurde verlängert');
     } catch (err) {
       onError(errorText(err, 'Verlängerung fehlgeschlagen'));
     } finally {
@@ -141,23 +145,25 @@ function RenewalForm({
   };
   return (
     <div className="space-y-1">
-      <label className="flex flex-wrap items-center gap-2">
-        <span>Verlängern aus</span>
-        <select
-          value={accountPostId ?? ''}
-          onChange={(event) => setAccountPostId(Number(event.target.value))}
-          className="border border-swu-border bg-swu-bg px-1 py-0.5"
-        >
-          {menu.accounts.map((account) => (
-            <option key={account.tradePostId} value={account.tradePostId}>
-              Warenkonto {account.tradePostName} ({formatNumber(account.amount)})
-            </option>
-          ))}
-        </select>
-      </label>
+      {!free && (
+        <label className="flex flex-wrap items-center gap-2">
+          <span>Verlängern aus</span>
+          <select
+            value={accountPostId ?? ''}
+            onChange={(event) => setAccountPostId(Number(event.target.value))}
+            className="border border-swu-border bg-swu-bg px-1 py-0.5"
+          >
+            {menu.accounts.map((account) => (
+              <option key={account.tradePostId} value={account.tradePostId}>
+                Warenkonto {account.tradePostName} ({formatNumber(account.amount)})
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <p>Neuer Ablauf: {formatDateTime(menu.renewalExpiresAt as string)}</p>
       <button type="button" disabled={busy} onClick={() => void renew()} className={buttonClass}>
-        Lizenz verlängern
+        {free ? 'Lizenz kostenlos verlängern' : 'Lizenz verlängern'}
       </button>
     </div>
   );
@@ -187,6 +193,25 @@ function PurchaseForm({
   const shipId = menu.purchase.shipId;
   if (menu.purchase.rejection || shipId == null) {
     return <p className="text-amber-200">{menu.purchase.rejection ?? 'Kein Kauf möglich'}</p>;
+  }
+  if (menu.freeByAgreement) {
+    const take = async () => {
+      setBusy(true);
+      onError(null);
+      try {
+        await api.post(`/trade/posts/${menu.tradePostId}/licenses`, { method: 'agreement', shipId });
+        await onDone('Handelslizenz wurde kostenlos erteilt (Handelsabkommen)');
+      } catch (err) {
+        onError(errorText(err, 'Lizenz konnte nicht erteilt werden'));
+      } finally {
+        setBusy(false);
+      }
+    };
+    return (
+      <button type="button" disabled={busy} onClick={() => void take()} className={buttonClass}>
+        Lizenz kostenlos erhalten
+      </button>
+    );
   }
   const buy = async () => {
     if (!choice) return;

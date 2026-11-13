@@ -8,6 +8,7 @@ import { TradePost } from './entities/trade-post.entity';
 import { TradeTransaction } from './entities/trade-transaction.entity';
 import { TradeTransfer } from './entities/trade-transfer.entity';
 import { AuthModule } from '../auth/auth.module';
+import { AllianceModule } from '../alliance/alliance.module';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { TradeStorageService } from './trade-storage.service';
@@ -28,11 +29,13 @@ import { TradeOfferMarketService } from './trade-offer-market.service';
 import { TradeOfferMaintenanceService } from './trade-offer-maintenance.service';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import { TradePostPresencePolicy } from './trade-post-presence.policy';
+import { TradeAgreementPolicy } from './trade-agreement.policy';
 import { TradeQueryService } from './trade-query.service';
 
 @Module({
   imports: [
     AuthModule,
+    AllianceModule,
     TypeOrmModule.forFeature([
       TradePost,
       TradeLicenseCondition,
@@ -64,6 +67,7 @@ import { TradeQueryService } from './trade-query.service';
     TradeOfferMaintenanceService,
     BasicTradeService,
     TradePostPresencePolicy,
+    TradeAgreementPolicy,
   ],
   exports: [
     TradeLicenseMaintenanceService,
