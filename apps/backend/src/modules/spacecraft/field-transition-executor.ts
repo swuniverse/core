@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Optional } from '@nestjs/common';
+import type { MovementResultDto, MovementStopReason } from '@swuniverse/shared';
+import {
+  MOVEMENT_REACTIONS,
+  type MovementReaction,
+  type MovementReactionContext,
+} from './movement-reaction.port';
 
 export interface FieldCoordinate {
   x: number;
@@ -6,6 +12,7 @@ export interface FieldCoordinate {
 }
 
 export interface TransitionParticipant {
+  id: number;
   canPay(): boolean | Promise<boolean>;
   pay(): void | Promise<void>;
   isDestroyed(): boolean;
@@ -18,15 +25,18 @@ export interface FieldTransitionPlan<TField> {
   isPassable(field: TField): boolean;
   participants: TransitionParticipant[];
   enter(field: TField, coordinate: FieldCoordinate): void | Promise<void>;
-}
-
-export interface FieldTransitionResult {
-  completedSteps: number;
-  stopped: 'DESTINATION' | 'INSUFFICIENT_COST' | 'DESTROYED';
+  /** Context handed to the movement reactions after each entered field. */
+  reactionContext(field: TField, coordinate: FieldCoordinate): MovementReactionContext;
 }
 
 @Injectable()
 export class FieldTransitionExecutor {
+  constructor(
+    @Optional()
+    @Inject(MOVEMENT_REACTIONS)
+    private readonly reactions: MovementReaction[] = [],
+  ) {}
+
   /** A discontinuous passage enters only its destination, never an invented route. */
   async enterDestination<TField>(
     field: TField,
@@ -39,9 +49,26 @@ export class FieldTransitionExecutor {
 
   async execute<TField>(
     plan: FieldTransitionPlan<TField>,
-  ): Promise<FieldTransitionResult> {
+  ): Promise<MovementResultDto> {
     const route = this.route(plan.start, plan.target);
     let completedSteps = 0;
+    const reports: string[] = [];
+    const result = (stopReason: MovementStopReason): MovementResultDto => {
+      const destroyed = plan.participants.filter((participant) => participant.isDestroyed());
+      return {
+        plannedSteps: route.length,
+        completedSteps,
+        stopReason,
+        movedShipIds:
+          completedSteps === 0
+            ? []
+            : plan.participants
+                .filter((participant) => !participant.isDestroyed())
+                .map((participant) => participant.id),
+        destroyedShipIds: destroyed.map((participant) => participant.id),
+        combatReport: reports.length ? { messages: reports } : null,
+      };
+    };
 
     for (const coordinate of route) {
       const field = await plan.resolveField(coordinate.x, coordinate.y);
@@ -50,13 +77,13 @@ export class FieldTransitionExecutor {
         throw new BadRequestException('Next field is not passable');
       }
       if (plan.participants.some((participant) => participant.isDestroyed())) {
-        return { completedSteps, stopped: 'DESTROYED' };
+        return result('DESTROYED');
       }
       const affordability = await Promise.all(
         plan.participants.map((participant) => participant.canPay()),
       );
       if (affordability.includes(false)) {
-        return { completedSteps, stopped: 'INSUFFICIENT_COST' };
+        return result('INSUFFICIENT_ENERGY');
       }
       await Promise.all(
         plan.participants.map((participant) => participant.pay()),
@@ -64,11 +91,32 @@ export class FieldTransitionExecutor {
       await plan.enter(field, coordinate);
       completedSteps += 1;
       if (plan.participants.some((participant) => participant.isDestroyed())) {
-        return { completedSteps, stopped: 'DESTROYED' };
+        return result('DESTROYED');
+      }
+      const stopRequested = await this.react(plan.reactionContext(field, coordinate), reports);
+      if (plan.participants.every((participant) => participant.isDestroyed())) {
+        return result('DESTROYED');
+      }
+      if (stopRequested) return result('ALERT_COMBAT');
+      if (plan.participants.some((participant) => participant.isDestroyed())) {
+        return result('DESTROYED');
       }
     }
 
-    return { completedSteps, stopped: 'DESTINATION' };
+    return result('ARRIVED');
+  }
+
+  /** Runs the reactions in order; the first requested stop ends the round. */
+  private async react(
+    context: MovementReactionContext,
+    reports: string[],
+  ): Promise<boolean> {
+    for (const reaction of this.reactions) {
+      const outcome = await reaction.afterTransition(context);
+      if (outcome?.report) reports.push(...outcome.report.messages);
+      if (outcome?.stop) return true;
+    }
+    return false;
   }
 
   private route(

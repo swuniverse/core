@@ -89,6 +89,7 @@ import {
   type ShipCentredMapDto,
   type CartographyPlanDto,
   type SpacecraftLssMode as SpacecraftLssModeDto,
+  type MovementResultDto,
   WsEventType,
   FieldEffect,
   getStuCelestialClass,
@@ -142,6 +143,12 @@ import { DockingPrivilegeService } from './docking-privilege.service';
 import { DOCK_EPS_COST } from './docking.constants';
 import { FieldTransitionExecutor } from './field-transition-executor';
 import { applyLssSensorEffects } from './lss-sensor-effects';
+
+/** Ship after a field-by-field flight and how the flight ended. */
+export interface SpacecraftMovement {
+  ship: Spacecraft;
+  movement: MovementResultDto;
+}
 
 @Injectable()
 export class SpacecraftService {
@@ -2008,7 +2015,7 @@ export class SpacecraftService {
     userId: number,
     targetX: number,
     targetY: number,
-  ): Promise<Spacecraft> {
+  ): Promise<SpacecraftMovement> {
     await this.cartographyPlanService.resetFinishingForSpacecraft(shipId);
     await this.takeoverService.cancelForShip(shipId);
     const ship = await this.findOne(shipId, userId);
@@ -2104,6 +2111,7 @@ export class SpacecraftService {
         }),
       isPassable: (field) => field.isPassable,
       participants: participants.map((member) => ({
+        id: member.id,
         canPay: () =>
           member.energy >=
           shipClass.flightEnergyCost +
@@ -2154,17 +2162,24 @@ export class SpacecraftService {
         );
         await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT);
       },
+      reactionContext: (field, coordinate) => ({
+        scope: 'SYSTEM',
+        fieldId: field.id,
+        coordinate,
+        leader: ship,
+        participants,
+      }),
     });
-    if (result.completedSteps === 0 && result.stopped === 'INSUFFICIENT_COST') {
+    if (result.completedSteps === 0 && result.stopReason === 'INSUFFICIENT_ENERGY') {
       throw new BadRequestException('Not enough EPS for navigation');
     }
     // A flight consequence may have destroyed and removed the ship.
-    if (isSpacecraftDestroyed(ship)) return ship;
+    if (isSpacecraftDestroyed(ship)) return { ship, movement: result };
     await this.emitOrbitUpdates(currentLocation, resolveSpacecraftField(ship));
     await this.repairService.cancelForFlight(
       participants.map((member) => member.id),
     );
-    return this.findOne(ship.id, userId);
+    return { ship: await this.findOne(ship.id, userId), movement: result };
   }
 
   private async processCartographyArrival(
@@ -2225,7 +2240,7 @@ export class SpacecraftService {
     userId: number,
     targetX: number,
     targetY: number,
-  ): Promise<Spacecraft> {
+  ): Promise<SpacecraftMovement> {
     const ship = await this.findOne(shipId, userId);
     const originals = captureMovementOriginals(ship);
     if (ship.kind === 'STATION')
@@ -2286,6 +2301,7 @@ export class SpacecraftService {
         }),
       isPassable: (field) => field.isPassable,
       participants: participants.map((member) => ({
+        id: member.id,
         canPay: () => member.energy >= shipClass.flightEnergyCost,
         pay: () => {
           member.energy -= shipClass.flightEnergyCost;
@@ -2325,16 +2341,23 @@ export class SpacecraftService {
         await this.flightConsequencePipeline.onEnterField(ship, field);
         await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT);
       },
+      reactionContext: (field, coordinate) => ({
+        scope: 'GALAXY',
+        fieldId: field.id,
+        coordinate,
+        leader: ship,
+        participants,
+      }),
     });
-    if (result.completedSteps === 0 && result.stopped === 'INSUFFICIENT_COST') {
+    if (result.completedSteps === 0 && result.stopReason === 'INSUFFICIENT_ENERGY') {
       throw new BadRequestException('Not enough EPS for galaxy flight');
     }
     // A flight consequence may have destroyed and removed the ship.
-    if (isSpacecraftDestroyed(ship)) return ship;
+    if (isSpacecraftDestroyed(ship)) return { ship, movement: result };
     await this.repairService.cancelForFlight(
       participants.map((member) => member.id),
     );
-    return this.findOne(ship.id, userId);
+    return { ship: await this.findOne(ship.id, userId), movement: result };
   }
 
   /** One movement step only; effects follow a successful commit, not a rejected snapshot. */

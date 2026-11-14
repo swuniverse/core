@@ -1081,3 +1081,4 @@ export interface SpacecraftDistressSignalDto {
   stoppedAt: string | null;
   locationLabel: string;
 }
+export * from './movement-result.js';

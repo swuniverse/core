@@ -24,3 +24,4 @@ Ein **Langstreckensprung** ist eine eigene Fähigkeit und wird ausschließlich d
 - Das Folgeissue muss Schiffe behandeln, die sich zum Migrationszeitpunkt in `IN_FLIGHT` befinden, ohne sie zu verlieren oder an einen ungültigen Ort zu setzen.
 - Hyperraumrouten und ihre Darstellung bleiben bestehen, erhalten durch diese Entscheidung aber keine Reisezeitwirkung.
 - Feldkosten und Feldfolgen werden weiterhin im Galaxieflug umgesetzt; Details gehören zu den dafür vorgesehenen Navigationsissues.
+- System- und Galaxieflug liefern über den gemeinsamen `FieldTransitionExecutor` einen `MovementResult` (Teilfortschritt, Stopgrund, bewegte und zerstörte Schiffe, optionaler Kampfbericht). Reaktionen auf ein erreichtes Feld wie der Alarmkampf hängen sich über den neutralen Port `MOVEMENT_REACTIONS` ein und können die restliche Route stoppen, ohne dass der Spacecraft-Kern Combat-Typen importiert (sc-WP-COMBAT-1a).
