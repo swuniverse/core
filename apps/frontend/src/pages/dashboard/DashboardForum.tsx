@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { formatDateTime } from '../../lib/format';
+import { formatGameDateTime } from '../../lib/format';
 import type { DashboardData } from './types';
 
 /** Recent forum topics of the player's alliance; hidden without any. */
@@ -20,7 +20,7 @@ export function DashboardForum({ data }: { data: DashboardData }) {
           >
             <strong className="truncate text-swu-text">{topic.title}</strong>
             <span className="font-mono text-[9px] text-swu-muted">
-              {formatDateTime(topic.lastActivityAt)}
+              {formatGameDateTime(topic.lastActivityAt)}
             </span>
             <span className="col-span-2 text-[9px] text-swu-muted">
               in {topic.boardName}

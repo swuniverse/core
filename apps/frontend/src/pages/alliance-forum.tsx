@@ -15,7 +15,7 @@ import type {
 import { BbCodeText } from '../components/BbCodeText';
 import { api } from '../services/api';
 import { getErrorMessage } from '../lib/errors';
-import { formatDateTime } from '../lib/format';
+import { formatGameDateTime } from '../lib/format';
 
 const inputClass =
   'w-full border border-swu-border bg-swu-bg px-2 py-1.5 text-sm text-swu-text focus:border-swu-accent focus:outline-none';
@@ -255,7 +255,7 @@ export function AllianceForumPage() {
                           {board.lastPost.topicTitle}
                         </Link>{' '}
                         von <AuthorLine author={board.lastPost.author} />,{' '}
-                        {formatDateTime(board.lastPost.createdAt)}
+                        {formatGameDateTime(board.lastPost.createdAt)}
                       </>
                     ) : (
                       'Noch keine Beiträge'
@@ -427,12 +427,12 @@ export function AllianceForumBoardPage() {
                     </Link>
                     <p className="text-xs text-swu-muted">
                       von <AuthorLine author={topic.author} />,{' '}
-                      {formatDateTime(topic.createdAt)}
+                      {formatGameDateTime(topic.createdAt)}
                     </p>
                   </div>
                   <div className="text-xs text-swu-muted">
                     {topic.postCount} Beiträge, zuletzt{' '}
-                    {formatDateTime(topic.lastActivityAt)}
+                    {formatGameDateTime(topic.lastActivityAt)}
                     {topic.capabilities.rename && (
                       <ActionButton
                         label="Umbenennen"
@@ -685,18 +685,18 @@ export function AllianceForumTopicPage() {
                     )}
                   </span>
                   <span className="text-swu-muted">
-                    {formatDateTime(post.createdAt)}
+                    {formatGameDateTime(post.createdAt)}
                     {post.editedAt &&
-                      ` (zuletzt bearbeitet ${formatDateTime(post.editedAt)})`}
+                      ` (zuletzt bearbeitet ${formatGameDateTime(post.editedAt)})`}
                   </span>
                 </div>
                 {post.deleted ? (
                   <p className="text-sm italic text-swu-muted">
                     Beitrag von der Moderation entfernt
                     {post.deleted.moderatorName &&
-                      ` (${post.deleted.moderatorName}, ${formatDateTime(post.deleted.deletedAt)})`}
+                      ` (${post.deleted.moderatorName}, ${formatGameDateTime(post.deleted.deletedAt)})`}
                     {!post.deleted.moderatorName &&
-                      ` (${formatDateTime(post.deleted.deletedAt)})`}
+                      ` (${formatGameDateTime(post.deleted.deletedAt)})`}
                   </p>
                 ) : editingId === post.id ? (
                   <PostEditor

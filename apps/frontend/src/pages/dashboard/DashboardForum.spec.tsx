@@ -29,6 +29,7 @@ describe('DashboardForum', () => {
       screen.getByRole('link', { name: /Angriffsplan/ }).getAttribute('href'),
     ).toBe('/alliances/3/forum/topics/7');
     expect(screen.getByText(/Strategie/)).toBeTruthy();
+    expect(screen.getByText(/09\.10\.3 NSY/)).toBeTruthy();
   });
 
   it('renders nothing without alliance topics', () => {
