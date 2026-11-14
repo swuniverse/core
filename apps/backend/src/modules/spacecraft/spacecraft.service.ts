@@ -3265,18 +3265,20 @@ export class SpacecraftService {
 
   async leaveFleet(userId: number, shipId: number): Promise<Spacecraft> {
     await this.dataSource.transaction(async (manager) => {
-      const { ship, fleet, members } = await lockFleetParticipants(
+      const { ship, fleet } = await lockFleetParticipants(
         manager,
         userId,
         shipId,
       );
       if (!fleet)
         throw new BadRequestException('Das Schiff ist in keiner Flotte');
+      // STU `LeaveFleet`: the leader dissolves the fleet or hands it over.
       if (fleet.leaderId === ship.id) {
-        await this.dissolveLockedFleet(manager, fleet, members);
-      } else {
-        await manager.update(Spacecraft, ship.id, { fleetId: null });
+        throw new BadRequestException(
+          'Der Flottenführer kann die Flotte nicht verlassen; löse sie auf oder übergib die Führung',
+        );
       }
+      await manager.update(Spacecraft, ship.id, { fleetId: null });
     });
     return this.findOne(shipId, userId);
   }

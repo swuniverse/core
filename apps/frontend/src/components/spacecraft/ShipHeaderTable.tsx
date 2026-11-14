@@ -482,15 +482,18 @@ function FleetActions({
         </button>
       ) : (
         <>
-          <button
-            type="button"
-            onClick={() =>
-              void execute(`/spacecraft/${ship.id}/leave-fleet`, 'post')
-            }
-            className="text-swu-accent"
-          >
-            Flotte verlassen
-          </button>
+          {/* STU: the leader dissolves instead of leaving. */}
+          {!isLeader && (
+            <button
+              type="button"
+              onClick={() =>
+                void execute(`/spacecraft/${ship.id}/leave-fleet`, 'post')
+              }
+              className="text-swu-accent"
+            >
+              Flotte verlassen
+            </button>
+          )}
           {isLeader && (
             <>
               <button

@@ -632,7 +632,13 @@ describe('Public fleet mutations across committed relocation (PostgreSQL)', () =
         .getRepository(Spacecraft)
         .findOneByOrFail({ id: leader.id }),
     ).toMatchObject({ fleetId: null, locationId: origin.id, energy: 71 });
-    await fixture.service.leaveFleet(owner.id, joiner.id);
+    await expect(fixture.service.leaveFleet(owner.id, joiner.id)).rejects.toThrow(
+      'Der Flottenführer kann die Flotte nicht verlassen',
+    );
+    expect(
+      await dataSource.getRepository(Fleet).findOneBy({ id: created.id }),
+    ).toMatchObject({ leaderId: joiner.id });
+    await fixture.service.dissolveFleet(owner.id, created.id);
     expect(
       await dataSource.getRepository(Fleet).findOneBy({ id: created.id }),
     ).toBeNull();

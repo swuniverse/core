@@ -591,7 +591,7 @@ describe('SpacecraftService fleet management', () => {
     await expect(service.joinFleet(5, 7, 2)).rejects.toThrow(message);
   });
 
-  it('dissolves a fleet when its leader leaves', async () => {
+  it('does not let the leader leave its fleet (STU)', async () => {
     const { service, shipRepo, fleetRepo } = createService();
     const leader = ship({ fleetId: 7 });
     const member = ship({ id: 3, fleetId: 7 });
@@ -599,11 +599,13 @@ describe('SpacecraftService fleet management', () => {
     fleetRepo.findOne.mockResolvedValue({ id: 7, userId: 5, leaderId: 2 });
     shipRepo.find = jest.fn().mockResolvedValue([leader, member]);
 
-    await service.leaveFleet(5, 2);
+    await expect(service.leaveFleet(5, 2)).rejects.toThrow(
+      'Der Flottenführer kann die Flotte nicht verlassen',
+    );
 
-    expect(leader.fleetId).toBeNull();
-    expect(member.fleetId).toBeNull();
-    expect(fleetRepo.remove).toHaveBeenCalled();
+    expect(leader.fleetId).toBe(7);
+    expect(member.fleetId).toBe(7);
+    expect(fleetRepo.remove).not.toHaveBeenCalled();
   });
 
   it('changes the fleet alert state for capable ships and reports failures', async () => {

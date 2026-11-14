@@ -236,6 +236,25 @@ describe('ShipHeaderTable', () => {
     expect(onUpdate).toHaveBeenCalled();
   });
 
+  it('lets a fleet member leave without leader actions', () => {
+    render(
+      <ShipHeaderTable
+        ship={{ ...ship, fleetId: 7, fleetName: 'Aurek', fleetLeaderId: 3, fleetIsFixed: false, fleetMembers: [] }}
+        onUpdate={vi.fn()}
+        onSelfDestruct={vi.fn()}
+        onInfo={vi.fn()}
+        onEnergy={vi.fn()}
+        standby={false}
+        alertState="GREEN"
+        onNavigation={vi.fn()}
+        onSensors={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByRole('button', { name: 'Flotte verlassen' }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: 'Flotte auflösen' })).toBeNull();
+  });
+
   it('manages a fleet from the ship header', async () => {
     const onUpdate = vi.fn();
     render(
@@ -265,6 +284,9 @@ describe('ShipHeaderTable', () => {
     expect(screen.getAllByText('Aurek (Flottenführer)').length).toBeGreaterThan(
       0,
     );
+    // STU: the leader dissolves or hands over instead of leaving.
+    expect(screen.queryByRole('button', { name: 'Flotte verlassen' })).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Flotte auflösen' }).length).toBeGreaterThan(0);
     fireEvent.click(
       screen.getAllByRole('button', { name: 'Flotte fixieren' })[0],
     );
