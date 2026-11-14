@@ -1,6 +1,6 @@
 # Führungswechsel bei Zerstörung des Flottenleaders
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** sc-WP-COMBAT-1c
@@ -31,14 +31,14 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] Wird ein Flottenleader zerstört (Kampf, Anomalie, Selbstzerstörung), wird in derselben Transaktion wie in STU `ChangeFleetLeader` das nächste verbleibende Flottenmitglied Leader. Die Auswahl ist stabil (z. B. niedrigste Schiffs-ID unter den verbleibenden Mitgliedern) und dokumentiert.
-- [ ] Bleibt kein Mitglied übrig, wird die Flotte gelöscht; laufende Kolonieblockade bzw. -verteidigung der Flotte wird dabei wie in STU beendet, sofern SWU diese Zustände kennt.
-- [ ] Wird ein einfaches Mitglied zerstört, verlässt es nur die Flotte (heutiges Verhalten bleibt).
-- [ ] Nach der Zerstörung existiert keine Flotte mehr, deren `leaderId` auf ein fehlendes oder fremdes Schiff zeigt; eine Migration bereinigt bestehende verwaiste Flotten nach derselben Regel.
-- [ ] Fällt der Leader während eines System- oder Galaxieflugs (Feldfolge oder Alarmkampf), fliegen die überlebenden Mitglieder mit dem neuen Leader weiter. Standort, Kosten, Signatur, Erkundung und Statistik je Feld bleiben wie bisher; Sperren und Veraltet-Prüfung laufen über den neuen Leader, ohne einen fälschlichen Konflikt „Bewegungszustand ist veraltet“.
-- [ ] Der Flug endet mit `DESTROYED` erst, wenn kein Teilnehmer mehr übrig ist. `MovementResult` nennt den alten Leader in `destroyedShipIds` und die Überlebenden in `movedShipIds`; die Antwort von `navigate`/`flyGalaxy` liefert das Schiff des neuen Leaders.
-- [ ] Alarmreaktionen auf späteren Feldern verwenden den neuen Leader als Kontext (Verteidigungsziel, Eigner bleibt derselbe Spieler).
-- [ ] Backend-Tests: Leaderzerstörung mit und ohne verbleibende Mitglieder für jede Ursache; Flug, in dem der Leader auf einem Zwischenfeld fällt und die Flotte das Ziel erreicht; Migration verwaister Flotten. `lint`, `typecheck`, `test` und `build` sind grün.
+- [x] Wird ein Flottenleader zerstört (Kampf, Anomalie, Selbstzerstörung), wird in derselben Transaktion wie in STU `ChangeFleetLeader` das nächste verbleibende Flottenmitglied Leader. Die Auswahl ist stabil (z. B. niedrigste Schiffs-ID unter den verbleibenden Mitgliedern) und dokumentiert.
+- [x] Bleibt kein Mitglied übrig, wird die Flotte gelöscht; laufende Kolonieblockade bzw. -verteidigung der Flotte wird dabei wie in STU beendet, sofern SWU diese Zustände kennt.
+- [x] Wird ein einfaches Mitglied zerstört, verlässt es nur die Flotte (heutiges Verhalten bleibt).
+- [x] Nach der Zerstörung existiert keine Flotte mehr, deren `leaderId` auf ein fehlendes oder fremdes Schiff zeigt; eine Migration bereinigt bestehende verwaiste Flotten nach derselben Regel.
+- [x] Fällt der Leader während eines System- oder Galaxieflugs (Feldfolge oder Alarmkampf), fliegen die überlebenden Mitglieder mit dem neuen Leader weiter. Standort, Kosten, Signatur, Erkundung und Statistik je Feld bleiben wie bisher; Sperren und Veraltet-Prüfung laufen über den neuen Leader, ohne einen fälschlichen Konflikt „Bewegungszustand ist veraltet“.
+- [x] Der Flug endet mit `DESTROYED` erst, wenn kein Teilnehmer mehr übrig ist. `MovementResult` nennt den alten Leader in `destroyedShipIds` und die Überlebenden in `movedShipIds`; die Antwort von `navigate`/`flyGalaxy` liefert das Schiff des neuen Leaders.
+- [x] Alarmreaktionen auf späteren Feldern verwenden den neuen Leader als Kontext (Verteidigungsziel, Eigner bleibt derselbe Spieler).
+- [x] Backend-Tests: Leaderzerstörung mit und ohne verbleibende Mitglieder für jede Ursache; Flug, in dem der Leader auf einem Zwischenfeld fällt und die Flotte das Ziel erreicht; Migration verwaister Flotten. `lint`, `typecheck`, `test` und `build` sind grün.
 
 ## Abgrenzung
 
@@ -48,3 +48,11 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Comments
 
 - 2026-11-14: Angelegt als Folgeissue aus sc-WP-COMBAT-1c. Nach der Maintainer-Entscheidung „wir halten uns an STU“ fliegt die Flotte nach Alarmkämpfen mit den Überlebenden weiter; einzig der Verlust des Leaders beendet den Flug noch, weil SWU keinen Führungswechsel kennt.
+- 2026-11-14: Umgesetzt (9a5ed1e2).
+  - `leaveFleetOnDestruction` (`fleet-leadership.ts`) läuft in `finalizeInManager` vor dem Löschen der Zeile, also für Kampf, Anomalie und Selbstzerstörung. Nachfolger ist das verbleibende, nicht zerstörte Mitglied mit der niedrigsten ID; ohne Mitglieder wird die Flotte gelöscht. Ein Orbitauftrag (Blockade/Verteidigung) der Flotte, den das zerstörte Schiff hält, geht auf den Leader über; ohne Flotte entfällt er per Kaskade und der Blockadestatus der Kolonie wird wie bisher bei der nächsten Kolonieansicht über `cleanupInvalidOrbitAssignments` bereinigt (keine eigenen Nachrichten wie STU `CancelColonyBlockOrDefend`).
+  - Migration `20261114180000-repair-orphaned-fleet-leaders`: Flotten mit fehlendem, zerstörtem oder fremdem Leader erhalten nach derselben Regel einen neuen Leader; Flotten ohne Mitglieder werden gelöscht.
+  - Flug: Die Leaderrolle ist in `navigate`/`flyGalaxy` veränderlich. Nach Verlusten bei der Feldfolge oder nach einer Reaktion lädt `refreshMovementParticipants` den Zustand neu und übernimmt den bei der Zerstörung gewählten Leader (Sperre, Veraltet-Prüfung, Feldfolgen, Kartographie, Erkundung, Reaktionskontext). Der Flug endet erst mit `DESTROYED`, wenn kein Teilnehmer übrig ist; die Antwort liefert das Schiff des neuen Leaders. `TransitionParticipant.required` bleibt im Executor verfügbar, wird von den Flügen aber nicht mehr gesetzt.
+  - Tests: `fleet-leadership.int-spec.ts` (Leaderwechsel mit Orbitauftrag, zerstörte Mitglieder übersprungen, Mitglied verlässt nur, letzte Zerstörung löscht Flotte und Auftrag, Migration); `spacecraft-destruction.service.spec.ts` (Übergabe vor dem Löschen); `field-transition-executor.spec.ts` (Neuladen nach Verlust durch Feldfolge vor der Reaktion); `alert-reaction.int-spec.ts` (Leader fällt im Alarmkampf, Flügelmann übernimmt und erreicht das Ziel).
+  - Gates: Lint 0 Fehler (Warnungen 1433/110 nach Behebung einer ungenutzten Variable aus sc-WP-COMBAT-1c), Typecheck und Build grün, Backend-Unit 2131/2131, Frontend 759/759, Integration 724/724.
+- 2026-11-14 Maintainer: Auch das freiwillige Verlassen durch den Leader folgt STU (Spieleraktion `LeaveFleet` lässt den Leader nicht austreten). Umsetzung als Nachtrag zu diesem Issue.
+

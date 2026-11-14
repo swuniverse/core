@@ -175,6 +175,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- sc-WP-FLEET-4 – Führungswechsel wie STU bei Zerstörung des Flottenleaders (Nachfolger niedrigste ID, sonst Flotte löschen, Orbitauftrag zieht mit), Migration verwaister Flotten, Flug fliegt mit neuem Leader weiter – 9a5ed1e2
 - sc-WP-COMBAT-1c – Alarmreaktion über den Bewegungsport nach STU: alle berechtigten Parteien in zufälliger Reihenfolge, Flug läuft mit Überlebenden weiter, Nachrichten an beide Seiten; Kampfberichte im Navigationspanel – 98ad951f, 88b7fbdd
 - sc-WP-COMBAT-1a – System- und Galaxieflug liefern gemeinsamen `MovementResult`; neutraler Port `MOVEMENT_REACTIONS` kann die Route nach jedem Feld stoppen – 2355ce7b
 - sh-AP-22 – Flaky `research.spec.tsx`: nach Nachmessung (40/40 einzeln, 10/10 unter Volllast) ohne weitere Änderung geschlossen; Korrektur war 14b86081
