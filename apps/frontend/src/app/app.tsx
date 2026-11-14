@@ -31,6 +31,7 @@ import { AllianceMemberOverviewPage } from '../pages/alliance-member-overview';
 import { StarmapAdminFullmapPage } from '../pages/starmap-admin-fullmap';
 import { AdminPage } from '../pages/admin';
 import { AdminTicksPage } from '../pages/admin-ticks';
+import { AdminMassMessagePage } from '../pages/admin-mass-message';
 import { AdminShipsPage } from '../pages/admin-ships';
 import { AdminInvitesPage } from '../pages/admin-invites';
 import { AdminUsersPage } from '../pages/admin-users';
@@ -145,6 +146,14 @@ export function App() {
               element={
                 <AdminRoute>
                   <AdminPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/messages"
+              element={
+                <AdminRoute>
+                  <AdminMassMessagePage />
                 </AdminRoute>
               }
             />

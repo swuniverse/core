@@ -10,6 +10,8 @@ import { SettingsModule } from '../settings/settings.module';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { AccountDeletionModule } from '../account-deletion/account-deletion.module';
 import { MessagingDeletionHandler } from './messaging-deletion.handler';
+import { MailModule } from '../mail/mail.module';
+import { AdminBroadcastService } from './admin-broadcast.service';
 
 @Global()
 @Module({
@@ -19,9 +21,15 @@ import { MessagingDeletionHandler } from './messaging-deletion.handler';
     SettingsModule,
     WebsocketModule,
     AccountDeletionModule,
+    MailModule,
   ],
   controllers: [MessagingController],
-  providers: [MessagingService, ColonyEventService, MessagingDeletionHandler],
+  providers: [
+    MessagingService,
+    ColonyEventService,
+    MessagingDeletionHandler,
+    AdminBroadcastService,
+  ],
   exports: [MessagingService, ColonyEventService],
 })
 export class MessagingModule {}

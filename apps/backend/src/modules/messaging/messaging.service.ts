@@ -378,6 +378,46 @@ export class MessagingService {
     return existing;
   }
 
+  /**
+   * Idempotent system message to many players: each recipient's delivery key
+   * is inserted at most once. Returns the recipients that were new.
+   */
+  async sendSystemToMany(
+    recipientIds: number[],
+    subject: string,
+    body: string,
+    deliveryKey: (recipientId: number) => string,
+  ): Promise<number[]> {
+    const delivered: number[] = [];
+    for (let start = 0; start < recipientIds.length; start += 500) {
+      const chunk = recipientIds.slice(start, start + 500);
+      if (chunk.length === 0) continue;
+      const result = await this.messageRepo
+        .createQueryBuilder()
+        .insert()
+        .into(Message)
+        .values(
+          chunk.map((recipientId) => ({
+            senderId: recipientId,
+            recipientId,
+            subject,
+            body,
+            isSystem: true,
+            folder: MessageFolder.SYSTEM,
+            deliveryKey: deliveryKey(recipientId),
+          })),
+        )
+        .orIgnore()
+        .returning(['recipientId'])
+        .execute();
+      for (const row of result.raw as Array<{ recipientId: number }>) {
+        delivered.push(row.recipientId);
+        this.notifyRecipient(row.recipientId, MessageFolder.SYSTEM);
+      }
+    }
+    return delivered;
+  }
+
   private notifyRecipient(recipientId: number, folder: MessageFolder): void {
     this.gateway.emitToUser(recipientId, WsEventType.MESSAGE_RECEIVED, {
       folder,

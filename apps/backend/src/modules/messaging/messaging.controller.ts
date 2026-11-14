@@ -13,9 +13,25 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Transform } from 'class-transformer';
-import { IsInt, IsString, MaxLength, Min, MinLength } from 'class-validator';
-import type { SendMessageDto as SharedSendMessageDto } from '@swuniverse/shared';
+import {
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsString,
+  IsUUID,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
+import {
+  Faction,
+  type AdminBroadcastDto as SharedAdminBroadcastDto,
+  type AdminBroadcastTarget,
+  type SendMessageDto as SharedSendMessageDto,
+} from '@swuniverse/shared';
+import { AdminGuard } from '../auth/admin.guard';
 import { RequiresGameAccess } from '../game-status/game-status.guard';
+import { AdminBroadcastService } from './admin-broadcast.service';
 import { MessagingService } from './messaging.service';
 import { MessageFolder, MESSAGE_FOLDERS } from './message-folder';
 
@@ -42,11 +58,60 @@ export class SendMessageDto implements SharedSendMessageDto {
   body: string;
 }
 
+const BROADCAST_TARGETS: AdminBroadcastTarget[] = ['ALL', ...Object.values(Faction)];
+
+export class AdminBroadcastDto implements SharedAdminBroadcastDto {
+  @IsUUID('4', { message: 'Die Sendungs-ID ist ungültig' })
+  broadcastId: string;
+
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString({ message: 'Der Betreff muss Text sein' })
+  @MinLength(1, { message: 'Der Betreff darf nicht leer sein' })
+  @MaxLength(255, {
+    message: 'Der Betreff darf höchstens 255 Zeichen lang sein',
+  })
+  subject: string;
+
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString({ message: 'Die Nachricht muss Text sein' })
+  @MinLength(5, {
+    message: 'Die Nachricht muss mindestens 5 Zeichen lang sein',
+  })
+  @MaxLength(10_000, {
+    message: 'Die Nachricht darf höchstens 10.000 Zeichen lang sein',
+  })
+  body: string;
+
+  @IsIn(BROADCAST_TARGETS, { message: 'Unbekannte Zielgruppe' })
+  target: AdminBroadcastTarget;
+
+  @IsBoolean({ message: 'alsoEmail muss true oder false sein' })
+  alsoEmail: boolean;
+}
+
 @Controller('messages')
 @RequiresGameAccess()
 @UseGuards(AuthGuard('jwt'))
 export class MessagingController {
-  constructor(private readonly messagingService: MessagingService) {}
+  constructor(
+    private readonly messagingService: MessagingService,
+    private readonly adminBroadcastService: AdminBroadcastService,
+  ) {}
+
+  @Get('admin/broadcast/audience')
+  @UseGuards(AdminGuard)
+  broadcastAudience(@Query('target') target = 'ALL') {
+    if (!BROADCAST_TARGETS.includes(target as AdminBroadcastTarget)) {
+      throw new BadRequestException('Unbekannte Zielgruppe');
+    }
+    return this.adminBroadcastService.audience(target as AdminBroadcastTarget);
+  }
+
+  @Post('admin/broadcast')
+  @UseGuards(AdminGuard)
+  broadcast(@Body() dto: AdminBroadcastDto) {
+    return this.adminBroadcastService.broadcast(dto);
+  }
 
   @Get('folders')
   folders(@Request() req: { user: { sub: number } }) {

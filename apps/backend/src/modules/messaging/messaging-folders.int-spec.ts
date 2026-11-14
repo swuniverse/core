@@ -17,6 +17,7 @@ import { JwtStrategy } from '../auth/jwt.strategy';
 import { MessagingController } from './messaging.controller';
 import { StatisticsService } from '../statistics/statistics.service';
 import { MessagingService } from './messaging.service';
+import { AdminBroadcastService } from './admin-broadcast.service';
 import { Message } from './entities/message.entity';
 import { MessageFolder } from './message-folder';
 
@@ -56,6 +57,7 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
               { getManyBoolean: async (ids: number[]) => new Map(ids.map((id) => [id, true])) } as never,
             ),
         },
+        { provide: AdminBroadcastService, useValue: {} },
       ],
     }).compile();
 

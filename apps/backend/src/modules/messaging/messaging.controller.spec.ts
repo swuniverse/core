@@ -7,7 +7,7 @@ describe('MessagingController', () => {
     getCorrespondence: jest.fn(),
     getConversations: jest.fn(),
   };
-  const controller = new MessagingController(service as never);
+  const controller = new MessagingController(service as never, {} as never);
 
   it.each([
     [

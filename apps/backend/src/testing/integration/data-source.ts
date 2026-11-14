@@ -21,6 +21,7 @@ import { ForumTopic } from '../../modules/alliance/entities/forum-topic.entity';
 import { ForumPost } from '../../modules/alliance/entities/forum-post.entity';
 import { Message } from '../../modules/messaging/entities/message.entity';
 import { Layer } from '../../modules/starmap/entities/layer.entity';
+import { UserSetting } from '../../modules/settings/entities/user-setting.entity';
 import { LayerKnowledge } from '../../modules/starmap/entities/layer-knowledge.entity';
 import { LayerExploredEvent } from '../../modules/starmap/entities/layer-explored-event.entity';
 import { ExplorationState } from '../../modules/starmap/entities/exploration-state.entity';
@@ -105,6 +106,7 @@ export const INTEGRATION_ENTITIES = [
   Message,
   Layer,
   LayerKnowledge,
+  UserSetting,
   LayerExploredEvent,
   ExplorationState,
   SystemExploration,

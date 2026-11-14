@@ -21,6 +21,12 @@ const adminCards = [
     badge: 'Runtime',
   },
   {
+    title: 'Massennachricht',
+    path: '/admin/messages',
+    description: 'Systemnachricht an alle Spieler oder eine Fraktion schicken, optional per E-Mail.',
+    badge: 'Spieler',
+  },
+  {
     title: 'Ship Spawn',
     path: '/admin/ships',
     description:
