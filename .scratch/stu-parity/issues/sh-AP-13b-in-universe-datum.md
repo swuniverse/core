@@ -37,6 +37,7 @@ Vorgabe: Variante (a). Jahr „n NSY“ (nach der Schlacht von Yavin), berechnet
 - 2026-11-14: Umgesetzt (f2f18dab); Kürzel NSY auf Rückfrage bestätigt (statt ABY).
   - `formatGameDate`/`formatGameDateTime` in `apps/frontend/src/lib/format.tsx`: Tag, Monat und Uhrzeit lokal und real (über `formatToParts`), Jahr = lokales Jahr − 2023 als „n NSY“ (z. B. „14.11.3 NSY, 18:30“); Jahre vor 2023 als „n VSY“. Kürzel als Konstante `GAME_ERA`.
   - Verwendet für Ereignisse (Ereignisseite, Maindesk), Nachrichten (Liste ab 7 Tagen, Korrespondenz), HoloNet (Beiträge, Kommentare, Maindesk-Teaser) und das Schiffslogbuch (`CommunicationDrawer`).
-  - Real bleiben Registrierung, Sperren, Urlaub, Löschfristen, Tickzeiten, Admin-Seiten, Kontakt-/Ignorierlisten, Profilbesuche und das Allianzforum (nicht im Umfang des Issues).
+  - Real bleiben Registrierung, Sperren, Urlaub, Löschfristen, Tickzeiten, Admin-Seiten, Kontakt-/Ignorierlisten, Profilbesuche.
   - Tests: `format.spec.tsx` (Formatierung, Jahr 0, VSY, Jahreswechsel um lokale Mitternacht); `DashboardLowerSections.spec.tsx` auf NSY angepasst.
   - Gates: Lint 0 Fehler (Frontend-Warnungen 110 unverändert), Typecheck und Build grün, Frontend 758/758. Backend unberührt.
+- 2026-11-14: Auf Wunsch zusätzlich das Allianzforum und das Forum-Widget im Maindesk auf NSY umgestellt (38945807).
