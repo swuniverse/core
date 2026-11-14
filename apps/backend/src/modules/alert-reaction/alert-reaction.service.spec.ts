@@ -36,17 +36,23 @@ function createService(options: {
   ships: Spacecraft[];
   stances?: Record<number, Stance>;
   fleets?: Array<{ id: number; leaderId: number }>;
-  destroyed?: number[];
+  destroyed?: number[] | ((call: number) => number[]);
 }) {
   const resolve = jest.fn(async (alertOwner: number) => stance(options.stances?.[alertOwner] ?? 'NEUTRAL'));
+  let calls = 0;
   const battle = jest.fn(async (input: { attackers: Spacecraft[]; defenders: Spacecraft[] }) => ({
     parties: {
       attacker: input.attackers.map((member) => ({ id: member.id, name: member.name, destroyed: false })),
       defender: input.defenders.map((member) => ({ id: member.id, name: member.name, destroyed: false })),
     },
     rounds: [],
-    outcome: { winner: 'ATTACKER', destroyedShipIds: options.destroyed ?? [] },
+    outcome: {
+      winner: 'ATTACKER',
+      destroyedShipIds:
+        typeof options.destroyed === 'function' ? options.destroyed(++calls) : (options.destroyed ?? []),
+    },
   }));
+  const sendSystem = jest.fn(async () => undefined);
   const registry: MovementReaction[] = [];
   const service = new AlertReactionService(
     registry,
@@ -54,8 +60,9 @@ function createService(options: {
     { findBy: jest.fn(async () => options.fleets ?? []) } as never,
     { resolve } as never,
     { resolve: battle } as never,
+    { sendSystem } as never,
   );
-  return { service, resolve, battle, registry };
+  return { service, resolve, battle, registry, sendSystem };
 }
 
 function context(participants: Spacecraft[]): MovementReactionContext {
@@ -110,7 +117,8 @@ describe('AlertReactionService', () => {
     const outcome = await service.afterTransition(context([mover]));
 
     expect(battle).toHaveBeenCalledTimes(fights ? 1 : 0);
-    expect(Boolean(outcome && outcome.stop)).toBe(fights);
+    expect(Boolean(outcome?.reports?.length)).toBe(fights);
+    expect(outcome?.stop).toBeUndefined();
   });
 
   it('asks the central resolver from the alerted owner towards the incoming player', async () => {
@@ -125,7 +133,7 @@ describe('AlertReactionService', () => {
     expect(resolve).toHaveBeenCalledWith(2, INCOMING);
   });
 
-  it('makes the alerted ship attacker and the incoming party defender, then stops with the report', async () => {
+  it('makes the alerted ship attacker and the incoming party defender without stopping the flight', async () => {
     const mover = incoming();
     const wingman = ship(11, INCOMING);
     const { service, battle } = createService({
@@ -145,7 +153,10 @@ describe('AlertReactionService', () => {
     const input = battle.mock.calls[0][0];
     expect(input.attackers.map((member) => member.id)).toEqual([20]);
     expect(input.defenders.map((member) => member.id)).toEqual([10, 11]);
-    expect(outcome).toMatchObject({ stop: true, report: { outcome: { winner: 'ATTACKER' } } });
+    expect(outcome).toEqual({
+      reports: [expect.objectContaining({ outcome: expect.objectContaining({ winner: 'ATTACKER' }) })],
+      changedParticipants: true,
+    });
   });
 
   it('ignores own ships and both sides in effective vacation', async () => {
@@ -187,22 +198,90 @@ describe('AlertReactionService', () => {
     expect(hiddenIncoming.battle).not.toHaveBeenCalled();
   });
 
-  it('lets only the first eligible owner by ship id fight, once per transition', async () => {
+  it('lets every eligible party fight in shuffled order (STU shuffle)', async () => {
+    const mover = incoming();
+    const random = jest.spyOn(Math, 'random').mockReturnValue(0);
+    try {
+      const { service, battle } = createService({
+        ships: [
+          mover,
+          ship(25, 3, { alertState: AlertState.YELLOW }),
+          ship(30, 4, { alertState: AlertState.RED }),
+          ship(40, 5, { alertState: AlertState.RED }),
+        ],
+        stances: { 3: 'NEUTRAL' },
+      });
+
+      const outcome = await service.afterTransition(context([mover]));
+
+      // Fisher-Yates with random() = 0 turns [30, 40] into [40, 30].
+      expect(battle.mock.calls.map(([input]) => input.attackers[0].id)).toEqual([40, 30]);
+      expect(outcome && outcome.reports).toHaveLength(2);
+    } finally {
+      random.mockRestore();
+    }
+  });
+
+  it('stops attacking once the incoming party is defeated', async () => {
     const mover = incoming();
     const { service, battle } = createService({
       ships: [
         mover,
         ship(30, 4, { alertState: AlertState.RED }),
-        ship(25, 3, { alertState: AlertState.YELLOW }),
         ship(40, 5, { alertState: AlertState.RED }),
-      ].sort((a, b) => a.id - b.id),
-      stances: { 3: 'NEUTRAL' },
+      ],
+      destroyed: [10],
     });
 
     await service.afterTransition(context([mover]));
 
     expect(battle).toHaveBeenCalledTimes(1);
-    expect(battle.mock.calls[0][0].attackers.map((member) => member.id)).toEqual([30]);
+    expect(mover.status).toBe(SpacecraftStatus.DESTROYED);
+  });
+
+  it('only lets survivors of an earlier fight defend in the next one', async () => {
+    const mover = incoming();
+    const wingman = ship(11, INCOMING);
+    const { service, battle } = createService({
+      ships: [
+        mover,
+        wingman,
+        ship(30, 4, { alertState: AlertState.RED }),
+        ship(40, 5, { alertState: AlertState.RED }),
+      ],
+      destroyed: (call) => (call === 1 ? [11] : []),
+    });
+
+    await service.afterTransition(context([mover, wingman]));
+
+    expect(battle.mock.calls.map(([input]) => input.defenders.map((member) => member.id))).toEqual([
+      [10, 11],
+      [10],
+    ]);
+  });
+
+  it('sends both sides the fight log like STU', async () => {
+    const mover = incoming();
+    const { service, sendSystem } = createService({
+      ships: [mover, ship(20, 2, { alertState: AlertState.RED, kind: 'STATION' as never })],
+    });
+
+    await service.afterTransition(context([mover]));
+
+    expect(sendSystem).toHaveBeenCalledWith(
+      2,
+      'Eigene Schiffe auf Alarm-Rot',
+      expect.stringContaining('Kampf in Sektor 2|1'),
+      undefined,
+      'STATION',
+    );
+    expect(sendSystem).toHaveBeenCalledWith(
+      INCOMING,
+      'Fremde Schiffe auf Alarm-Rot',
+      expect.stringContaining('Kampf in Sektor 2|1'),
+      undefined,
+      'SHIP',
+    );
   });
 
   it('reacts with the fleet of an alerted fleet leader only', async () => {

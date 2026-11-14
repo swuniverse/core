@@ -1317,7 +1317,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       stopReason: 'ARRIVED',
       movedShipIds: [ship.id],
       destroyedShipIds: [],
-      combatReport: null,
+      combatReports: [],
     });
     expect(moved).toMatchObject({
       locationId: locations[2].id,
@@ -1827,7 +1827,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
     ];
     const stopAt = (x: number, text = 'Alarm Rot'): MovementReaction => ({
       afterTransition: ({ coordinate }) =>
-        coordinate.x === x ? { stop: true, report: battleReport(text) } : undefined,
+        coordinate.x === x ? { stop: true, reports: [battleReport(text)] } : undefined,
     });
 
     it('stops a galaxy flight on the intermediate field and keeps its cost, signature and exploration', async () => {
@@ -1850,7 +1850,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
         stopReason: 'ALERT_COMBAT',
         movedShipIds: [ship.id],
         destroyedShipIds: [],
-        combatReport: battleReport('Alarm Rot'),
+        combatReports: [battleReport('Alarm Rot')],
       });
       expect(reached).toEqual([{ scope: 'GALAXY', x: 2, participants: [ship.id] }]);
       expect(stopped).toMatchObject({ locationId: locations[1].id, energy: 70 });
@@ -1862,7 +1862,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       expect(await dataSource.getRepository(ExplorationState).count()).toBeGreaterThan(0);
     });
 
-    it('does not fly destroyed fleet members further and keeps survivors on the reached field', async () => {
+    it('leaves destroyed fleet members behind while the survivors fly on (STU)', async () => {
       const fleet = await dataSource
         .getRepository(Fleet)
         .save({ name: 'Ambushed fleet', userId: ship.userId, leaderId: ship.id });
@@ -1894,27 +1894,32 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
         afterTransition: async ({ participants }) => {
           const target = participants.find((member) => member.id === lost.id);
           if (!target) return;
-          target.status = SpacecraftStatus.DESTROYED;
-          await dataSource.getRepository(Spacecraft).update(lost.id, { status: SpacecraftStatus.DESTROYED });
-          return { report: battleReport('Lost member zerstört') };
+          // Like combat destruction: the ship leaves its fleet and is gone.
+          await dataSource
+            .getRepository(Spacecraft)
+            .update(lost.id, { status: SpacecraftStatus.DESTROYED, fleetId: null });
+          await dataSource.getRepository(Spacecraft).update(survivor.id, { hull: 3 });
+          return { reports: [battleReport('Lost member zerstört')], changedParticipants: true };
         },
       });
 
       const { movement } = await fixture.service.flyGalaxy(ship.id, ship.userId, 3, 1);
 
       expect(movement).toMatchObject({
-        completedSteps: 1,
-        stopReason: 'DESTROYED',
+        completedSteps: 2,
+        stopReason: 'ARRIVED',
         movedShipIds: [ship.id, survivor.id],
         destroyedShipIds: [lost.id],
-        combatReport: battleReport('Lost member zerstört'),
+        combatReports: [battleReport('Lost member zerstört')],
       });
       const rows = await dataSource.getRepository(Spacecraft).find({ order: { id: 'ASC' } });
       expect(rows.map((row) => [row.id, row.locationId, row.status])).toEqual([
-        [ship.id, locations[1].id, SpacecraftStatus.IDLE],
+        [ship.id, locations[2].id, SpacecraftStatus.IDLE],
         [lost.id, locations[1].id, SpacecraftStatus.DESTROYED],
-        [survivor.id, locations[1].id, SpacecraftStatus.IDLE],
+        [survivor.id, locations[2].id, SpacecraftStatus.IDLE],
       ]);
+      // Combat damage persists and is not overwritten by the next field.
+      expect(rows[2].hull).toBe(3);
     });
 
     it('stops a system flight on the intermediate field with the same result contract', async () => {
@@ -1955,7 +1960,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
         stopReason: 'ALERT_COMBAT',
         movedShipIds: [ship.id],
         destroyedShipIds: [],
-        combatReport: battleReport('Abgefangen'),
+        combatReports: [battleReport('Abgefangen')],
       });
       expect(scopes).toEqual([`SYSTEM:${fields[1].id}`]);
       expect(

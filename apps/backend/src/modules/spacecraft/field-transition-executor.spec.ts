@@ -74,7 +74,7 @@ describe('FieldTransitionExecutor', () => {
       stopReason: 'ARRIVED',
       movedShipIds: [1],
       destroyedShipIds: [],
-      combatReport: null,
+      combatReports: [],
     });
   });
 
@@ -123,9 +123,10 @@ describe('FieldTransitionExecutor', () => {
     expect(route.entered).toEqual(['2|1', '3|1']);
   });
 
-  it('stops after a field consequence destroys a participant and lists the losses', async () => {
-    const leader = participant(1);
-    const member = participant(2);
+  it('flies on without destroyed members and neither charges nor checks them (STU flight company)', async () => {
+    const leader = participant(1, { required: true });
+    const pay = jest.fn();
+    const member = participant(2, { canPay: () => !member.destroyed, pay });
     const route = plan({
       participants: [leader, member],
       enter: async (next) => {
@@ -136,13 +137,35 @@ describe('FieldTransitionExecutor', () => {
 
     const result = await new FieldTransitionExecutor().execute(route);
 
+    expect(route.entered).toEqual(['2|1', '3|1', '4|1']);
+    expect(pay).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({
-      completedSteps: 1,
-      stopReason: 'DESTROYED',
+      completedSteps: 3,
+      stopReason: 'ARRIVED',
       movedShipIds: [1],
       destroyedShipIds: [2],
     });
+  });
+
+  it('ends the flight when the required leader is destroyed', async () => {
+    const leader = participant(1, { required: true });
+    const route = plan({
+      participants: [leader, participant(2)],
+      enter: async (next) => {
+        route.entered.push(`${next.x}|${next.y}`);
+        leader.destroyed = true;
+      },
+    });
+
+    const result = await new FieldTransitionExecutor().execute(route);
+
     expect(route.entered).toEqual(['2|1']);
+    expect(result).toMatchObject({
+      completedSteps: 1,
+      stopReason: 'DESTROYED',
+      movedShipIds: [2],
+      destroyedShipIds: [1],
+    });
   });
 
   it('runs the reactions after every entered field with the reached field as context', async () => {
@@ -152,9 +175,8 @@ describe('FieldTransitionExecutor', () => {
         contexts.push(context);
       },
     };
-    const route = plan();
 
-    await new FieldTransitionExecutor([reaction]).execute(route);
+    await new FieldTransitionExecutor([reaction]).execute(plan());
 
     expect(contexts.map((context) => context.coordinate)).toEqual([
       { x: 2, y: 1 },
@@ -164,58 +186,50 @@ describe('FieldTransitionExecutor', () => {
     expect(contexts[0]).toMatchObject({ scope: 'GALAXY', fieldId: 21 });
   });
 
-  it('stops on the intermediate field when a reaction requests it and keeps its report', async () => {
-    const later = { afterTransition: jest.fn() };
+  it('collects battle reports along the route and refreshes the participants after changes', async () => {
+    const refreshParticipants = jest.fn();
     const alert: MovementReaction = {
       afterTransition: ({ coordinate }) =>
-        coordinate.x === 3
-          ? { stop: true, report: battleReport('Alarm Rot: Feuergefecht') }
-          : undefined,
+        coordinate.x === 4
+          ? undefined
+          : { reports: [battleReport(`Kampf auf ${coordinate.x}`)], changedParticipants: true },
     };
-    const route = plan();
 
-    const result = await new FieldTransitionExecutor([alert, later]).execute(route);
+    const result = await new FieldTransitionExecutor([alert]).execute(plan({ refreshParticipants }));
 
-    expect(route.entered).toEqual(['2|1', '3|1']);
-    expect(result).toEqual({
-      plannedSteps: 3,
-      completedSteps: 2,
-      stopReason: 'ALERT_COMBAT',
-      movedShipIds: [1],
-      destroyedShipIds: [],
-      combatReport: battleReport('Alarm Rot: Feuergefecht'),
-    });
-    expect(later.afterTransition).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ completedSteps: 3, stopReason: 'ARRIVED' });
+    expect(result.combatReports).toEqual([battleReport('Kampf auf 2'), battleReport('Kampf auf 3')]);
+    expect(refreshParticipants).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps survivors on the reached field when a reaction destroys fleet members', async () => {
-    const leader = participant(1);
+  it('continues with the survivors when a reaction destroys a fleet member', async () => {
     const member = participant(2);
+    const route = plan({ participants: [participant(1, { required: true }), member] });
     const destroyer: MovementReaction = {
       afterTransition: () => {
+        if (member.destroyed) return;
         member.destroyed = true;
-        return { stop: true, report: battleReport('Schiff 2 zerstört') };
+        return { reports: [battleReport('Schiff 2 zerstört')], changedParticipants: true };
       },
     };
-    const route = plan({ participants: [leader, member] });
 
     const result = await new FieldTransitionExecutor([destroyer]).execute(route);
 
-    expect(route.entered).toEqual(['2|1']);
+    expect(route.entered).toEqual(['2|1', '3|1', '4|1']);
     expect(result).toMatchObject({
-      completedSteps: 1,
-      stopReason: 'ALERT_COMBAT',
+      stopReason: 'ARRIVED',
       movedShipIds: [1],
       destroyedShipIds: [2],
+      combatReports: [battleReport('Schiff 2 zerstört')],
     });
   });
 
   it('ends with DESTROYED when a reaction destroys every participant', async () => {
-    const leader = participant(1);
+    const leader = participant(1, { required: true });
     const destroyer: MovementReaction = {
       afterTransition: () => {
         leader.destroyed = true;
-        return { stop: true };
+        return { changedParticipants: true };
       },
     };
 
@@ -231,18 +245,17 @@ describe('FieldTransitionExecutor', () => {
     });
   });
 
-  it('stops without a stop request once a reaction destroyed a member', async () => {
-    const member = participant(2);
-    const route = plan({ participants: [participant(1), member] });
-    const destroyer: MovementReaction = {
-      afterTransition: () => {
-        member.destroyed = true;
-      },
+  it('stops on the intermediate field when a reaction explicitly requests it', async () => {
+    const later = { afterTransition: jest.fn() };
+    const blocker: MovementReaction = {
+      afterTransition: ({ coordinate }) => (coordinate.x === 3 ? { stop: true } : undefined),
     };
+    const route = plan();
 
-    const result = await new FieldTransitionExecutor([destroyer]).execute(route);
+    const result = await new FieldTransitionExecutor([blocker, later]).execute(route);
 
-    expect(route.entered).toEqual(['2|1']);
-    expect(result).toMatchObject({ stopReason: 'DESTROYED', destroyedShipIds: [2] });
+    expect(route.entered).toEqual(['2|1', '3|1']);
+    expect(result).toMatchObject({ completedSteps: 2, stopReason: 'ALERT_COMBAT', movedShipIds: [1] });
+    expect(later.afterTransition).toHaveBeenCalledTimes(1);
   });
 });

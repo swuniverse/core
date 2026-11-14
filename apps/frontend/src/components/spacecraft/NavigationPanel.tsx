@@ -38,7 +38,7 @@ interface NavigationPanelProps {
 
 const STOP_MESSAGES: Record<MovementStopReason, string> = {
   ARRIVED: 'Position aktualisiert',
-  ALERT_COMBAT: 'Flug durch Alarmreaktion gestoppt',
+  ALERT_COMBAT: 'Flug durch Reaktion gestoppt',
   DESTROYED: 'Flug nach Schiffsverlusten abgebrochen',
   INSUFFICIENT_ENERGY: 'Flug mangels Energie abgebrochen',
 };
@@ -54,7 +54,7 @@ export function NavigationPanel({
     null,
   );
   const [navMessage, setNavMessage] = useState<string | null>(null);
-  const [combatReport, setCombatReport] = useState<CombatReportDto | null>(null);
+  const [combatReports, setCombatReports] = useState<CombatReportDto[]>([]);
   const [mapError, setMapError] = useState<string | null>(null);
   const [stepSize, setStepSize] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -137,8 +137,14 @@ export function NavigationPanel({
       const movement = response?.movement;
       await tutorialEvent('spacecraft.flight.started');
       setNavTarget(null);
-      setNavMessage(STOP_MESSAGES[movement?.stopReason ?? 'ARRIVED']);
-      if (movement?.combatReport) setCombatReport(movement.combatReport);
+      const reports = movement?.combatReports ?? [];
+      const stop = STOP_MESSAGES[movement?.stopReason ?? 'ARRIVED'];
+      setNavMessage(
+        reports.length
+          ? `Alarmreaktion: ${reports.length === 1 ? '1 Kampf' : `${reports.length} Kämpfe`} · ${stop}`
+          : stop,
+      );
+      setCombatReports(reports);
       await onShipUpdate();
       await fetchLocalMap();
     } catch (err: unknown) {
@@ -382,10 +388,10 @@ export function NavigationPanel({
           </div>
         </div>
       )}
-      {combatReport && (
+      {combatReports[0] && (
         <CombatReportDialog
-          report={combatReport}
-          onClose={() => setCombatReport(null)}
+          report={combatReports[0]}
+          onClose={() => setCombatReports((previous) => previous.slice(1))}
         />
       )}
     </section>

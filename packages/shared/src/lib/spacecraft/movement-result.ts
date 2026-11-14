@@ -1,6 +1,9 @@
 /**
  * Why a field-by-field flight ended. `ARRIVED` reached the target; the other
  * reasons stop on the last reached field and keep everything done so far.
+ * Like STU, alert combat does not stop a flight by itself: `DESTROYED` ends
+ * it once every moving ship or the leader is lost, `ALERT_COMBAT` is left
+ * for reactions that explicitly stop the route.
  */
 export type MovementStopReason =
   | 'ARRIVED'
@@ -38,5 +41,6 @@ export interface MovementResultDto {
   /** Surviving moving ships standing on the last reached field. */
   movedShipIds: number[];
   destroyedShipIds: number[];
-  combatReport: CombatReportDto | null;
+  /** Every battle fought on the way, in order. */
+  combatReports: CombatReportDto[];
 }

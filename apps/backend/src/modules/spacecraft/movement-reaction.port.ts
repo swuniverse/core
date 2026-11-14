@@ -27,7 +27,13 @@ export interface MovementReactionContext {
 export interface MovementReactionOutcome {
   /** Stops the remaining route on the reached field. */
   stop?: boolean;
-  report?: CombatReportDto | null;
+  /** Battles fought on the reached field. */
+  reports?: CombatReportDto[];
+  /**
+   * The reaction changed moving ships (damage, destruction); the flight
+   * reloads their state before the next field.
+   */
+  changedParticipants?: boolean;
 }
 
 export interface MovementReaction {

@@ -19,6 +19,7 @@ import {
   assertMovementState,
   captureMovementState,
   captureMovementOriginals,
+  refreshMovementFields,
   type MovementOriginals,
 } from './movement-state';
 import { User } from '../auth/user.entity';
@@ -2112,6 +2113,7 @@ export class SpacecraftService {
       isPassable: (field) => field.isPassable,
       participants: participants.map((member) => ({
         id: member.id,
+        required: member === ship,
         canPay: () =>
           member.energy >=
           shipClass.flightEnergyCost +
@@ -2129,10 +2131,11 @@ export class SpacecraftService {
       })),
       enter: async (field) => {
         const destination = await this.findLocationBySystemField(field.id);
+        const moving = participants.filter((member) => !isSpacecraftDestroyed(member));
         const origins = new Map(
-          participants.map((member) => [member, member.location]),
+          moving.map((member) => [member, member.location]),
         );
-        for (const member of participants) {
+        for (const member of moving) {
           await this.setCurrentLocation(member, destination);
           member.status = SpacecraftStatus.IDLE;
         }
@@ -2142,11 +2145,11 @@ export class SpacecraftService {
           await this.setCurrentLocation(target, destination);
         await this.saveMovementParticipants(
           ship,
-          participants,
+          moving,
           originals,
           carried,
         );
-        for (const member of participants) {
+        for (const member of moving) {
           await this.flightSignatureService.createMovement(
             member,
             origins.get(member) ?? null,
@@ -2167,8 +2170,10 @@ export class SpacecraftService {
         fieldId: field.id,
         coordinate,
         leader: ship,
-        participants,
+        participants: participants.filter((member) => !isSpacecraftDestroyed(member)),
       }),
+      refreshParticipants: () =>
+        this.refreshMovementParticipants(participants, originals),
     });
     if (result.completedSteps === 0 && result.stopReason === 'INSUFFICIENT_ENERGY') {
       throw new BadRequestException('Not enough EPS for navigation');
@@ -2302,6 +2307,7 @@ export class SpacecraftService {
       isPassable: (field) => field.isPassable,
       participants: participants.map((member) => ({
         id: member.id,
+        required: member === ship,
         canPay: () => member.energy >= shipClass.flightEnergyCost,
         pay: () => {
           member.energy -= shipClass.flightEnergyCost;
@@ -2310,16 +2316,17 @@ export class SpacecraftService {
       })),
       enter: async (field, coordinate) => {
         const destination = await this.findLocationByGalaxyField(field.id);
+        const moving = participants.filter((member) => !isSpacecraftDestroyed(member));
         const origins = new Map(
-          participants.map((member) => [member, member.location]),
+          moving.map((member) => [member, member.location]),
         );
-        for (const member of participants) {
+        for (const member of moving) {
           member.lastGalaxyFlightDirection = direction;
           await this.setCurrentLocation(member, destination);
           member.status = SpacecraftStatus.IDLE;
         }
-        await this.saveMovementParticipants(ship, participants, originals);
-        for (const member of participants) {
+        await this.saveMovementParticipants(ship, moving, originals);
+        for (const member of moving) {
           await this.flightSignatureService.createMovement(
             member,
             origins.get(member) ?? null,
@@ -2346,8 +2353,10 @@ export class SpacecraftService {
         fieldId: field.id,
         coordinate,
         leader: ship,
-        participants,
+        participants: participants.filter((member) => !isSpacecraftDestroyed(member)),
       }),
+      refreshParticipants: () =>
+        this.refreshMovementParticipants(participants, originals),
     });
     if (result.completedSteps === 0 && result.stopReason === 'INSUFFICIENT_ENERGY') {
       throw new BadRequestException('Not enough EPS for galaxy flight');
@@ -2358,6 +2367,44 @@ export class SpacecraftService {
       participants.map((member) => member.id),
     );
     return { ship: await this.findOne(ship.id, userId), movement: result };
+  }
+
+  /**
+   * After a reaction (alert combat) changed moving ships: destroyed ones drop
+   * out of the flight and the fleet expectation, survivors continue with
+   * their persisted damage as the new original state.
+   */
+  private async refreshMovementParticipants(
+    participants: Spacecraft[],
+    originals: MovementOriginals,
+  ): Promise<void> {
+    const rows = await this.shipRepo.findBy({
+      id: In(participants.map((member) => member.id)),
+    });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    for (const member of participants) {
+      if (isSpacecraftDestroyed(member) && !originals.has(member)) continue;
+      const row = byId.get(member.id);
+      if (!row || row.status === SpacecraftStatus.DESTROYED) {
+        member.status = SpacecraftStatus.DESTROYED;
+        originals.delete(member);
+        if (originals.fleet) {
+          originals.fleet.memberIds = originals.fleet.memberIds.filter(
+            (id) => id !== member.id,
+          );
+          originals.fleet.memberLocations.delete(member.id);
+        }
+        continue;
+      }
+      refreshMovementFields(member, row);
+      if (originals.get(member)?.modules) {
+        member.modules = await this.moduleRepo.find({
+          where: { spacecraftId: member.id },
+          order: { id: 'ASC' },
+        });
+      }
+      originals.set(member, captureMovementState(member));
+    }
   }
 
   /** One movement step only; effects follow a successful commit, not a rejected snapshot. */

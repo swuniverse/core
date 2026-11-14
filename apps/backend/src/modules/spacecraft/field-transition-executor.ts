@@ -17,6 +17,8 @@ export interface FieldCoordinate {
 
 export interface TransitionParticipant {
   id: number;
+  /** Losing a required participant (the leader) ends the flight. */
+  required?: boolean;
   canPay(): boolean | Promise<boolean>;
   pay(): void | Promise<void>;
   isDestroyed(): boolean;
@@ -27,10 +29,13 @@ export interface FieldTransitionPlan<TField> {
   target: FieldCoordinate;
   resolveField(x: number, y: number): Promise<TField | null>;
   isPassable(field: TField): boolean;
+  /** Destroyed participants drop out; the others fly on (STU `FlightCompany`). */
   participants: TransitionParticipant[];
   enter(field: TField, coordinate: FieldCoordinate): void | Promise<void>;
   /** Context handed to the movement reactions after each entered field. */
   reactionContext(field: TField, coordinate: FieldCoordinate): MovementReactionContext;
+  /** Reloads moving ships after a reaction changed them. */
+  refreshParticipants?(): void | Promise<void>;
 }
 
 @Injectable()
@@ -56,23 +61,21 @@ export class FieldTransitionExecutor {
   ): Promise<MovementResultDto> {
     const route = this.route(plan.start, plan.target);
     let completedSteps = 0;
-    const reports: { combat: CombatReportDto | null } = { combat: null };
-    const result = (stopReason: MovementStopReason): MovementResultDto => {
-      const destroyed = plan.participants.filter((participant) => participant.isDestroyed());
-      return {
-        plannedSteps: route.length,
-        completedSteps,
-        stopReason,
-        movedShipIds:
-          completedSteps === 0
-            ? []
-            : plan.participants
-                .filter((participant) => !participant.isDestroyed())
-                .map((participant) => participant.id),
-        destroyedShipIds: destroyed.map((participant) => participant.id),
-        combatReport: reports.combat,
-      };
-    };
+    const combatReports: CombatReportDto[] = [];
+    const active = () => plan.participants.filter((participant) => !participant.isDestroyed());
+    const lost = () =>
+      active().length === 0 ||
+      plan.participants.some((participant) => participant.required && participant.isDestroyed());
+    const result = (stopReason: MovementStopReason): MovementResultDto => ({
+      plannedSteps: route.length,
+      completedSteps,
+      stopReason,
+      movedShipIds: completedSteps === 0 ? [] : active().map((participant) => participant.id),
+      destroyedShipIds: plan.participants
+        .filter((participant) => participant.isDestroyed())
+        .map((participant) => participant.id),
+      combatReports,
+    });
 
     for (const coordinate of route) {
       const field = await plan.resolveField(coordinate.x, coordinate.y);
@@ -80,31 +83,20 @@ export class FieldTransitionExecutor {
       if (!plan.isPassable(field)) {
         throw new BadRequestException('Next field is not passable');
       }
-      if (plan.participants.some((participant) => participant.isDestroyed())) {
-        return result('DESTROYED');
-      }
-      const affordability = await Promise.all(
-        plan.participants.map((participant) => participant.canPay()),
-      );
+      if (lost()) return result('DESTROYED');
+      const moving = active();
+      const affordability = await Promise.all(moving.map((participant) => participant.canPay()));
       if (affordability.includes(false)) {
         return result('INSUFFICIENT_ENERGY');
       }
-      await Promise.all(
-        plan.participants.map((participant) => participant.pay()),
-      );
+      await Promise.all(moving.map((participant) => participant.pay()));
       await plan.enter(field, coordinate);
       completedSteps += 1;
-      if (plan.participants.some((participant) => participant.isDestroyed())) {
-        return result('DESTROYED');
-      }
-      const stopRequested = await this.react(plan.reactionContext(field, coordinate), reports);
-      if (plan.participants.every((participant) => participant.isDestroyed())) {
-        return result('DESTROYED');
-      }
-      if (stopRequested) return result('ALERT_COMBAT');
-      if (plan.participants.some((participant) => participant.isDestroyed())) {
-        return result('DESTROYED');
-      }
+      if (lost()) return result('DESTROYED');
+      const reaction = await this.react(plan.reactionContext(field, coordinate), combatReports);
+      if (reaction.changed) await plan.refreshParticipants?.();
+      if (lost()) return result('DESTROYED');
+      if (reaction.stop) return result('ALERT_COMBAT');
     }
 
     return result('ARRIVED');
@@ -113,14 +105,16 @@ export class FieldTransitionExecutor {
   /** Runs the reactions in order; the first requested stop ends the round. */
   private async react(
     context: MovementReactionContext,
-    reports: { combat: CombatReportDto | null },
-  ): Promise<boolean> {
+    combatReports: CombatReportDto[],
+  ): Promise<{ stop: boolean; changed: boolean }> {
+    let changed = false;
     for (const reaction of this.reactions) {
       const outcome = await reaction.afterTransition(context);
-      if (outcome?.report) reports.combat = outcome.report;
-      if (outcome?.stop) return true;
+      if (outcome?.reports) combatReports.push(...outcome.reports);
+      changed ||= Boolean(outcome?.changedParticipants);
+      if (outcome?.stop) return { stop: true, changed };
     }
-    return false;
+    return { stop: false, changed };
   }
 
   private route(

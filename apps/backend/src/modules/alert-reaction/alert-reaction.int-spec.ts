@@ -53,7 +53,7 @@ import { AlertReactionService } from './alert-reaction.service';
  * Real flights, real relationship resolver (alliances and personal contacts)
  * and Postgres. The battle itself is random and covered by the combat
  * module; here a deterministic stand-in records the parties and destroys
- * chosen ships.
+ * chosen ships the way combat destruction does (status, fleet membership).
  */
 async function flightWithAlerts(dataSource: DataSource) {
   const realServices = [
@@ -109,7 +109,9 @@ async function flightWithAlerts(dataSource: DataSource) {
     resolve: async (input: BattleResolutionInput): Promise<CombatReportDto> => {
       battles.push(input);
       for (const id of destroy) {
-        await dataSource.getRepository(Spacecraft).update(id, { status: SpacecraftStatus.DESTROYED });
+        await dataSource
+          .getRepository(Spacecraft)
+          .update(id, { status: SpacecraftStatus.DESTROYED, fleetId: null });
       }
       return {
         parties: {
@@ -131,17 +133,20 @@ async function flightWithAlerts(dataSource: DataSource) {
       ),
     ),
   );
+  const messages = { sendSystem: jest.fn(async (..._args: unknown[]) => undefined) };
   new AlertReactionService(
     reactions,
     dataSource.getRepository(Spacecraft),
     dataSource.getRepository(Fleet),
     relationships,
     battleResolver as unknown as BattleResolverService,
+    messages as unknown as MessagingService,
   ).onModuleInit();
 
   return {
     service: module.get(SpacecraftService),
     battles,
+    messages,
     destroyOnBattle: (ids: number[]) => {
       destroy = ids;
     },
@@ -170,6 +175,7 @@ describe('alert reactions during flight (PostgreSQL)', () => {
   beforeEach(async () => {
     await resetDatabase(dataSource);
     fixture.battles.length = 0;
+    fixture.messages.sendSystem.mockClear();
     fixture.destroyOnBattle([]);
     rebels = await factionId(dataSource, Faction.REBEL_ALLIANCE);
     empire = await factionId(dataSource, Faction.GALACTIC_EMPIRE);
@@ -223,7 +229,7 @@ describe('alert reactions during flight (PostgreSQL)', () => {
 
   const rebel = () => createUser(dataSource, { faction: Faction.REBEL_ALLIANCE, factionId: rebels });
 
-  it('stops a galaxy flight on the intermediate field when a personal enemy of the same faction is on yellow alert', async () => {
+  it('fights a personal enemy of the same faction on yellow alert and flies on like STU', async () => {
     const ship = await flyingShip(galaxy[0].id, 'HYPERDRIVE');
     const rival = await rebel();
     await dataSource.getRepository(Contact).save({
@@ -237,10 +243,10 @@ describe('alert reactions during flight (PostgreSQL)', () => {
 
     expect(movement).toMatchObject({
       plannedSteps: 2,
-      completedSteps: 1,
-      stopReason: 'ALERT_COMBAT',
+      completedSteps: 2,
+      stopReason: 'ARRIVED',
       movedShipIds: [ship.id],
-      combatReport: { parties: { attacker: [{ id: guard.id }], defender: [{ id: ship.id }] } },
+      combatReports: [{ parties: { attacker: [{ id: guard.id }], defender: [{ id: ship.id }] } }],
     });
     expect(fixture.battles).toHaveLength(1);
     expect(fixture.battles[0]).toMatchObject({
@@ -249,10 +255,14 @@ describe('alert reactions during flight (PostgreSQL)', () => {
       defenderUserId: pilot.id,
     });
     expect(await dataSource.getRepository(Spacecraft).findOneByOrFail({ id: ship.id })).toMatchObject({
-      locationId: galaxy[1].id,
-      energy: 49,
+      locationId: galaxy[2].id,
+      energy: 48,
     });
-    expect(await dataSource.getRepository(FlightSignature).count()).toBe(2);
+    expect(await dataSource.getRepository(FlightSignature).count()).toBe(4);
+    expect(fixture.messages.sendSystem.mock.calls.map(([userId, subject]) => [userId, subject])).toEqual([
+      [rival.id, 'Eigene Schiffe auf Alarm-Gelb'],
+      [pilot.id, 'Fremde Schiffe auf Alarm-Gelb'],
+    ]);
   });
 
   it('lets a yellow alert of a neutral player of the same faction pass', async () => {
@@ -261,11 +271,11 @@ describe('alert reactions during flight (PostgreSQL)', () => {
 
     const { movement } = await fixture.service.flyGalaxy(ship.id, pilot.id, 3, 1);
 
-    expect(movement).toMatchObject({ completedSteps: 2, stopReason: 'ARRIVED', combatReport: null });
+    expect(movement).toMatchObject({ completedSteps: 2, stopReason: 'ARRIVED', combatReports: [] });
     expect(fixture.battles).toHaveLength(0);
   });
 
-  it('stops a system flight on the intermediate field at a red alert of the other faction', async () => {
+  it('fights a red alert of the other faction on a system field and reaches the target', async () => {
     const layer = await dataSource.getRepository(Layer).findOneByOrFail({ name: 'Alert layer' });
     const system = await dataSource.getRepository(StarSystem).save({
       name: 'Alert system',
@@ -288,14 +298,14 @@ describe('alert reactions during flight (PostgreSQL)', () => {
 
     const { movement } = await fixture.service.navigate(ship.id, pilot.id, 3, 1);
 
-    expect(movement).toMatchObject({ completedSteps: 1, stopReason: 'ALERT_COMBAT' });
-    expect(movement.combatReport?.rounds[0].lines[0].text).toBe('Alarmfeuer');
+    expect(movement).toMatchObject({ completedSteps: 2, stopReason: 'ARRIVED' });
+    expect(movement.combatReports.map((report) => report.rounds[0].lines[0].text)).toEqual(['Alarmfeuer']);
     expect(await dataSource.getRepository(Spacecraft).findOneByOrFail({ id: ship.id })).toMatchObject({
-      locationId: locations[1].id,
+      locationId: locations[2].id,
     });
   });
 
-  it('reports fleet losses and keeps the surviving leader on the reached field', async () => {
+  it('leaves a destroyed wingman behind while the leader flies on', async () => {
     const fleet = await dataSource.getRepository(Fleet).save({ name: 'Rot-Staffel', userId: pilot.id, leaderId: 0 });
     const leader = await flyingShip(galaxy[0].id, 'HYPERDRIVE', fleet.id);
     const wingman = await flyingShip(galaxy[0].id, 'HYPERDRIVE', fleet.id);
@@ -307,8 +317,8 @@ describe('alert reactions during flight (PostgreSQL)', () => {
     const { movement } = await fixture.service.flyGalaxy(leader.id, pilot.id, 3, 1);
 
     expect(movement).toMatchObject({
-      completedSteps: 1,
-      stopReason: 'ALERT_COMBAT',
+      completedSteps: 2,
+      stopReason: 'ARRIVED',
       movedShipIds: [leader.id],
       destroyedShipIds: [wingman.id],
     });
@@ -317,8 +327,28 @@ describe('alert reactions during flight (PostgreSQL)', () => {
       .getRepository(Spacecraft)
       .find({ where: { userId: pilot.id }, order: { id: 'ASC' } });
     expect(rows.map((row) => [row.id, row.locationId, row.status])).toEqual([
-      [leader.id, galaxy[1].id, SpacecraftStatus.IDLE],
+      [leader.id, galaxy[2].id, SpacecraftStatus.IDLE],
       [wingman.id, galaxy[1].id, SpacecraftStatus.DESTROYED],
     ]);
+  });
+
+  it('ends the flight on the reached field when the leader is destroyed', async () => {
+    const ship = await flyingShip(galaxy[0].id, 'HYPERDRIVE');
+    const imperial = await createUser(dataSource, { faction: Faction.GALACTIC_EMPIRE, factionId: empire });
+    await alertedShip(imperial, galaxy[1].id, AlertState.RED);
+    fixture.destroyOnBattle([ship.id]);
+
+    const { movement } = await fixture.service.flyGalaxy(ship.id, pilot.id, 3, 1);
+
+    expect(movement).toMatchObject({
+      completedSteps: 1,
+      stopReason: 'DESTROYED',
+      movedShipIds: [],
+      destroyedShipIds: [ship.id],
+    });
+    expect(await dataSource.getRepository(Spacecraft).findOneByOrFail({ id: ship.id })).toMatchObject({
+      locationId: galaxy[1].id,
+      status: SpacecraftStatus.DESTROYED,
+    });
   });
 });

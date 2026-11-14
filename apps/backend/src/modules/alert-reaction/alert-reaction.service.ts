@@ -1,15 +1,18 @@
 import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { isVacationEffective } from '@swuniverse/shared';
+import { isVacationEffective, type CombatReportDto } from '@swuniverse/shared';
 import {
   RelationshipResolverService,
   type ResolvedStance,
 } from '../alliance/relationship-resolver.service';
 import { BattleResolverService } from '../combat/battle-resolver.service';
+import { MessageFolder } from '../messaging/message-folder';
+import { MessagingService } from '../messaging/messaging.service';
 import {
   AlertState,
   Spacecraft,
+  SpacecraftKind,
   SpacecraftOperatingMode,
   SpacecraftStatus,
 } from '../spacecraft/entities/spacecraft.entity';
@@ -38,14 +41,30 @@ export function reactsToIncoming(alertState: AlertState, stance: ResolvedStance)
   return false;
 }
 
+const ALERT_DESCRIPTIONS: Partial<Record<AlertState, string>> = {
+  [AlertState.YELLOW]: 'Alarm-Gelb',
+  [AlertState.RED]: 'Alarm-Rot',
+};
+
+/** Fisher-Yates like STU's `shuffle` of the alerted battle parties. */
+function shuffled<T>(items: T[]): T[] {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const other = Math.floor(Math.random() * (index + 1));
+    [result[index], result[other]] = [result[other], result[index]];
+  }
+  return result;
+}
+
 const operational = (ship: Spacecraft) =>
   ship.status === SpacecraftStatus.IDLE &&
   ship.operatingMode !== SpacecraftOperatingMode.STANDBY;
 
 /**
- * Alert reaction on a reached field (STU `AlertReactionFacade`): the first
- * eligible foreign alerted ship or fleet, by ship id, attacks the incoming
- * party once per transition and stops the flight.
+ * Alert reaction on a reached field (STU `AlertReactionFacade`): every
+ * eligible foreign alerted ship or fleet attacks the incoming party in random
+ * order until it is defeated. Like STU the flight itself continues with the
+ * survivors.
  */
 @Injectable()
 export class AlertReactionService implements MovementReaction, OnModuleInit {
@@ -58,6 +77,7 @@ export class AlertReactionService implements MovementReaction, OnModuleInit {
     private readonly fleetRepo: Repository<Fleet>,
     private readonly relationships: RelationshipResolverService,
     private readonly battleResolver: BattleResolverService,
+    private readonly messaging: MessagingService,
   ) {}
 
   onModuleInit(): void {
@@ -67,6 +87,7 @@ export class AlertReactionService implements MovementReaction, OnModuleInit {
   async afterTransition({
     leader,
     participants,
+    coordinate,
   }: MovementReactionContext): Promise<MovementReactionOutcome | void> {
     const incomingUserId = leader.userId;
     const participantIds = new Set(participants.map((ship) => ship.id));
@@ -75,7 +96,7 @@ export class AlertReactionService implements MovementReaction, OnModuleInit {
       relations: COMBAT_RELATIONS,
       order: { id: 'ASC' },
     });
-    const incoming = ships.filter((ship) => participantIds.has(ship.id) && operational(ship));
+    let incoming = ships.filter((ship) => participantIds.has(ship.id) && operational(ship));
     const incomingUser = ships.find((ship) => ship.id === leader.id)?.user;
     if (!incoming.length || !incomingUser || isVacationEffective(incomingUser)) return;
 
@@ -101,21 +122,29 @@ export class AlertReactionService implements MovementReaction, OnModuleInit {
     if (!candidates.length) return;
 
     const stances = new Map<number, ResolvedStance>();
+    const eligible: Spacecraft[] = [];
     for (const candidate of candidates) {
       let stance = stances.get(candidate.userId);
       if (!stance) {
         stance = await this.relationships.resolve(candidate.userId, incomingUserId);
         stances.set(candidate.userId, stance);
       }
-      if (!reactsToIncoming(candidate.alertState, stance)) continue;
-      const defenders = incoming.filter((ship) => !isHiddenFromViewer(ship, candidate.userId));
-      if (!defenders.length) continue;
+      if (reactsToIncoming(candidate.alertState, stance)) eligible.push(candidate);
+    }
+
+    const reports: CombatReportDto[] = [];
+    for (const candidate of shuffled(eligible)) {
+      if (!incoming.length) break;
       const attackers = foreign.filter(
         (ship) =>
           ship.userId === candidate.userId &&
+          ship.status !== SpacecraftStatus.DESTROYED &&
           (ship.id === candidate.id ||
             (candidate.fleetId != null && ship.fleetId === candidate.fleetId)),
       );
+      if (!attackers.length) break;
+      const defenders = incoming.filter((ship) => !isHiddenFromViewer(ship, candidate.userId));
+      if (!defenders.length) continue;
 
       const report = await this.battleResolver.resolve({
         attackers,
@@ -125,11 +154,44 @@ export class AlertReactionService implements MovementReaction, OnModuleInit {
         attackerUserId: candidate.userId,
         defenderUserId: incomingUserId,
       });
+      reports.push(report);
       const destroyed = new Set(report.outcome.destroyedShipIds);
+      for (const ship of [...attackers, ...defenders]) {
+        if (destroyed.has(ship.id)) ship.status = SpacecraftStatus.DESTROYED;
+      }
       for (const ship of participants) {
         if (destroyed.has(ship.id)) ship.status = SpacecraftStatus.DESTROYED;
       }
-      return { stop: true, report };
+      incoming = incoming.filter((ship) => !destroyed.has(ship.id));
+      await this.inform(candidate, incomingUserId, `${coordinate.x}|${coordinate.y}`, report);
     }
+    if (!reports.length) return;
+    return { reports, changedParticipants: true };
+  }
+
+  /** STU `performAttackCycle` messages: both sides get the fight log. */
+  private async inform(
+    alerted: Spacecraft,
+    incomingUserId: number,
+    sector: string,
+    report: CombatReportDto,
+  ): Promise<void> {
+    const alert = ALERT_DESCRIPTIONS[alerted.alertState] ?? 'Alarm';
+    const log = report.rounds.flatMap((round) => round.lines.map((line) => line.text)).join('\n');
+    const body = `Kampf in Sektor ${sector}\n${log}`;
+    await this.messaging.sendSystem(
+      alerted.userId,
+      `Eigene Schiffe auf ${alert}`,
+      body,
+      undefined,
+      alerted.kind === SpacecraftKind.STATION ? MessageFolder.STATION : MessageFolder.SHIP,
+    );
+    await this.messaging.sendSystem(
+      incomingUserId,
+      `Fremde Schiffe auf ${alert}`,
+      body,
+      undefined,
+      MessageFolder.SHIP,
+    );
   }
 }

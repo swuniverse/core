@@ -122,3 +122,14 @@ export function assertMovementState(
     );
   }
 }
+
+/** Takes over the bounded movement fields of a freshly loaded row. */
+export function refreshMovementFields(
+  moving: Spacecraft,
+  persisted: Spacecraft,
+): void {
+  Object.assign(
+    moving,
+    Object.fromEntries(MOVEMENT_STATE_KEYS.map((key) => [key, persisted[key]])),
+  );
+}

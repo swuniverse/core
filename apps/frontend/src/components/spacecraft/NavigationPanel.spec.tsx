@@ -118,26 +118,27 @@ describe('NavigationPanel', () => {
     );
   });
 
-  it('opens the combat report and refreshes the reached state after an alert stop', async () => {
+  it('shows every alert battle report in turn and refreshes the reached state', async () => {
+    const report = (attacker: string) => ({
+      parties: {
+        attacker: [{ id: 9, name: attacker, destroyed: false }],
+        defender: [{ id: 2, name: 'X-Wing', destroyed: false }],
+      },
+      rounds: [
+        { number: 1, lines: [{ kind: 'ENERGY_HIT', text: `${attacker} feuert auf X-Wing`, emphasis: 'warning' }] },
+      ],
+      outcome: { winner: 'ATTACKER', destroyedShipIds: [] },
+    });
     apiMocks.get.mockResolvedValue(map);
     apiMocks.post.mockResolvedValue({
       ship: { id: 2 },
       movement: {
         plannedSteps: 3,
-        completedSteps: 1,
-        stopReason: 'ALERT_COMBAT',
+        completedSteps: 3,
+        stopReason: 'ARRIVED',
         movedShipIds: [2],
         destroyedShipIds: [],
-        combatReport: {
-          parties: {
-            attacker: [{ id: 9, name: 'Wache', destroyed: false }],
-            defender: [{ id: 2, name: 'X-Wing', destroyed: false }],
-          },
-          rounds: [
-            { number: 1, lines: [{ kind: 'ENERGY_HIT', text: 'Wache feuert auf X-Wing', emphasis: 'warning' }] },
-          ],
-          outcome: { winner: 'ATTACKER', destroyedShipIds: [] },
-        },
+        combatReports: [report('Wache'), report('Patrouille')],
       },
     });
     const onShipUpdate = vi.fn();
@@ -146,11 +147,15 @@ describe('NavigationPanel', () => {
     const mapLoads = apiMocks.get.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: 'Flug starten' }));
 
-    const dialog = await screen.findByRole('dialog', { name: 'Kampfbericht' });
-    expect(within(dialog).getByText(/Wache feuert auf X-Wing/)).toBeTruthy();
-    expect(screen.getByRole('status').textContent).toBe('Flug durch Alarmreaktion gestoppt');
+    const first = await screen.findByRole('dialog', { name: 'Kampfbericht' });
+    expect(within(first).getByText(/Wache feuert auf X-Wing/)).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe('Alarmreaktion: 2 Kämpfe · Position aktualisiert');
     await waitFor(() => expect(onShipUpdate).toHaveBeenCalled());
     expect(apiMocks.get.mock.calls.length).toBeGreaterThan(mapLoads);
+
+    fireEvent.click(within(first).getByRole('button', { name: /Schlie/ }));
+    const second = await screen.findByRole('dialog', { name: 'Kampfbericht' });
+    expect(within(second).getByText(/Patrouille feuert auf X-Wing/)).toBeTruthy();
   });
 
   it('marks planned measurement points only in cartography mode', async () => {
