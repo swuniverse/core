@@ -209,7 +209,7 @@ describe('Ship-based colony orbit orders through the production application (Pos
   }
 
   async function call(
-    method: 'POST' | 'DELETE',
+    method: 'GET' | 'POST' | 'DELETE',
     path: string,
     body?: unknown,
     userId = actorId,
@@ -458,5 +458,62 @@ describe('Ship-based colony orbit orders through the production application (Pos
       (await call('POST', `colonies/${target.id}/orbit/ships/${leader.id}/blockade`)).status,
     ).toBe(201);
     expect(await blockaded(target.id)).toBe(true);
+  });
+
+  describe('field context projection (sc-WP-UI-3a2)', () => {
+    const view = async (shipId: number, userId?: number) =>
+      (await call('GET', `spacecraft/${shipId}/field-context`, undefined, userId)).body.orbitOrder;
+    const available = { available: true, reason: null };
+    const rejected = (reason: string) => ({ available: false, reason });
+
+    it('projects available orders, the fleet-wide order and stop with the mutation policy', async () => {
+      const target = await colony(3, 4);
+      const { fleet, leader, member } = await fleetAt(target);
+
+      await expect(view(leader.id)).resolves.toEqual({
+        order: null,
+        defend: available,
+        blockade: available,
+        stop: rejected('Die Flotte hat keinen Orbitauftrag.'),
+      });
+
+      expect((await start(leader.id, 'DEFEND')).status).toBe(201);
+      const order = { colonyId: target.id, fleetId: fleet.id, mode: 'DEFEND', colonyName: target.name };
+      await expect(view(leader.id)).resolves.toEqual({
+        order,
+        defend: rejected('Diese Flotte verteidigt die Kolonie bereits.'),
+        blockade: rejected('Die Flotte hat bereits einen Orbitauftrag.'),
+        stop: available,
+      });
+      await expect(view(member.id)).resolves.toEqual({
+        order,
+        defend: rejected('Nur Flottenführer können Orbitaufträge erteilen.'),
+        blockade: rejected('Nur Flottenführer können Orbitaufträge erteilen.'),
+        stop: rejected('Nur Flottenführer können Orbitaufträge erteilen.'),
+      });
+
+      expect((await stop(leader.id)).status).toBe(200);
+      await expect(view(leader.id)).resolves.toMatchObject({ order: null, defend: available });
+    });
+
+    it('projects rejections of other fleets and stays empty outside any orbit without an order', async () => {
+      const target = await colony(3, 4);
+      const { leader } = await fleetAt(target);
+      const rival = await fleetAt(target);
+      expect((await start(rival.leader.id, 'BLOCKADE')).status).toBe(201);
+
+      await expect(view(leader.id)).resolves.toEqual({
+        order: null,
+        defend: rejected('Aktion nicht möglich, die Kolonie wird blockiert!'),
+        blockade: available,
+        stop: rejected('Die Flotte hat keinen Orbitauftrag.'),
+      });
+
+      const { locationId } = await field(8, 8);
+      const loner = await source.getRepository(Spacecraft).save({
+        name: 'Streuner', userId: actorId, shipClassId, locationId, runtimeSystems: {},
+      });
+      await expect(view(loner.id)).resolves.toBeNull();
+    });
   });
 });

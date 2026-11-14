@@ -95,6 +95,7 @@ import {
 } from './flight-consequence-pipeline';
 import { FieldTransitionExecutor } from './field-transition-executor';
 import { MOVEMENT_REACTIONS, type MovementReaction } from './movement-reaction.port';
+import { ORBIT_ORDER_VIEW, type OrbitOrderViewPort } from './orbit-order-view.port';
 import {
   FieldEffectConsequence,
   STU_CLOCK_TOKEN,
@@ -257,6 +258,8 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     },
     // Filled at startup by reaction modules (alert combat) that import this module.
     { provide: MOVEMENT_REACTIONS, useFactory: (): MovementReaction[] => [] },
+    // Filled at startup by the colony module (orbit order policy).
+    { provide: ORBIT_ORDER_VIEW, useFactory: (): OrbitOrderViewPort => ({ view: null }) },
     {
       provide: FLIGHT_CONSEQUENCES,
       useFactory: (fieldEffects: FieldEffectConsequence, anomalies: AnomalyFlightConsequence) => [fieldEffects, anomalies],
@@ -265,6 +268,7 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
   ],
   exports: [
     MOVEMENT_REACTIONS,
+    ORBIT_ORDER_VIEW,
     SpacecraftService,
     ShipColonyContextService,
     ShipClassService,

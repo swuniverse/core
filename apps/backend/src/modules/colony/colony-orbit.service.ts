@@ -1,7 +1,10 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
+  Optional,
+  type OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, Repository } from 'typeorm';
@@ -9,6 +12,7 @@ import type {
   SpacecraftOrbitOrderDto,
   SpacecraftOrbitOrderResultDto,
   SpacecraftOrbitOrderStopResultDto,
+  SpacecraftOrbitOrderViewDto,
 } from '@swuniverse/shared';
 import { GameDataService } from '../game-data/game-data.service';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
@@ -43,7 +47,12 @@ import {
   evaluateOrbitOrderStart,
   evaluateOrbitOrderStop,
   ORBIT_ORDER_REASONS,
+  type OrbitOrderStartContext,
 } from './colony-orbit-order.policy';
+import {
+  ORBIT_ORDER_VIEW,
+  type OrbitOrderViewPort,
+} from '../spacecraft/orbit-order-view.port';
 import { Fleet } from '../spacecraft/entities/fleet.entity';
 import { reactorFuelProfile } from '../spacecraft/reactor-fuel-profile';
 import {
@@ -72,7 +81,7 @@ function toOrbitOrderDto(
 }
 
 @Injectable()
-export class ColonyOrbitService {
+export class ColonyOrbitService implements OnModuleInit {
   constructor(
     @InjectRepository(Colony)
     private readonly colonyRepo: Repository<Colony>,
@@ -98,7 +107,17 @@ export class ColonyOrbitService {
     private readonly colonyEventService: ColonyEventService,
     private readonly shipManagement: ShipManagementService,
     private readonly interactionContext: InteractionContextService,
+    @Optional()
+    @Inject(ORBIT_ORDER_VIEW)
+    private readonly orbitOrderView?: OrbitOrderViewPort,
   ) {}
+
+  onModuleInit(): void {
+    if (this.orbitOrderView) {
+      this.orbitOrderView.view = (shipId, userId) =>
+        this.getOrbitOrderView(shipId, userId);
+    }
+  }
 
   async getManagement(colonyId: number, userId: number) {
     const colony = await this.ownership.findOwnedColony(colonyId, userId);
@@ -503,36 +522,14 @@ export class ColonyOrbitService {
             })
           : null;
         const assignments = manager.getRepository(ColonyOrbitAssignment);
-        const fleetOrder = fleet
-          ? await assignments.findOne({
-              where: [{ fleetId: fleet.id }, { spacecraftId: ship.id }],
-            })
-          : null;
-        const colonyOrders = lockedColony
-          ? (
-              await assignments.find({ where: { colonyId: lockedColony.id } })
-            ).filter((order) => order.fleetId !== fleet?.id)
-          : [];
-        const occupied = lockedColony != null && isOwnedColony(lockedColony);
-        const decision = evaluateOrbitOrderStart(mode, {
-          colonyId: lockedColony?.id ?? null,
-          shipDestroyed: ship.status === SpacecraftStatus.DESTROYED,
-          inColonyOrbit: lockedColony != null,
-          isFleetLeader: fleet != null && fleet.leaderId === ship.id,
-          shipIdle: ship.status === SpacecraftStatus.IDLE,
-          colonyOccupied: occupied,
-          fleetOrder,
-          colonyDefended: colonyOrders.some(
-            (order) => order.mode === ColonyOrbitAssignmentMode.DEFEND,
-          ),
-          colonyBlockaded: colonyOrders.some(
-            (order) => order.mode === ColonyOrbitAssignmentMode.BLOCKADE,
-          ),
-          ownerOnVacation:
-            occupied && (await this.isOnVacation(ship.id, lockedColony.userId)),
-          activeOrbitalDefense:
-            colony != null && this.hasActiveOrbitalDefense(colony),
-        });
+        const { context } = await this.orbitOrderStartContext(
+          manager,
+          ship,
+          fleet,
+          lockedColony,
+          colony,
+        );
+        const decision = evaluateOrbitOrderStart(mode, context);
         if (!decision.allowed || !fleet || !lockedColony) {
           throw new BadRequestException(decision.reason);
         }
@@ -568,6 +565,105 @@ export class ColonyOrbitService {
       payload: { shipId: ship.id, fleetId: fleet.id, mode },
     });
     return { assignment, message };
+  }
+
+  /**
+   * Read model of the fleet-wide orbit order for the ship field context,
+   * evaluated with the same context and policy as the mutations. Null when
+   * the ship is neither in a colony orbit nor part of a fleet with an order.
+   */
+  async getOrbitOrderView(
+    shipId: number,
+    userId: number,
+  ): Promise<SpacecraftOrbitOrderViewDto | null> {
+    const ship = await this.shipRepo.findOne({
+      where: { id: shipId, userId },
+      relations: ['fleet', 'location', 'location.systemField'],
+    });
+    if (!ship) return null;
+    const colony = await this.findColonyInOrbit(ship);
+    const fleet = ship.fleet ?? null;
+    const manager = this.colonyRepo.manager;
+    const { context, fleetOrder } = await this.orbitOrderStartContext(
+      manager,
+      ship,
+      fleet,
+      colony,
+      colony,
+    );
+    if (!colony && !fleetOrder) return null;
+    const action = (decision: { allowed: boolean; reason: string | null }) => ({
+      available: decision.allowed,
+      reason: decision.reason,
+    });
+    const orderColony = fleetOrder
+      ? fleetOrder.colonyId === colony?.id
+        ? colony
+        : await this.colonyRepo.findOneBy({ id: fleetOrder.colonyId })
+      : null;
+    return {
+      order: fleetOrder
+        ? {
+            ...toOrbitOrderDto(fleetOrder),
+            colonyName: orderColony?.name ?? `#${fleetOrder.colonyId}`,
+          }
+        : null,
+      defend: action(evaluateOrbitOrderStart(ColonyOrbitAssignmentMode.DEFEND, context)),
+      blockade: action(evaluateOrbitOrderStart(ColonyOrbitAssignmentMode.BLOCKADE, context)),
+      stop: action(
+        evaluateOrbitOrderStop({
+          isFleetLeader: fleet != null && fleet.leaderId === ship.id,
+          fleetOrder,
+        }),
+      ),
+    };
+  }
+
+  /** Shared start context of mutation (locked rows) and read model. */
+  private async orbitOrderStartContext(
+    manager: EntityManager,
+    ship: Spacecraft,
+    fleet: Fleet | null,
+    orbitColony: Colony | null,
+    defenseColony: Colony | null,
+  ): Promise<{
+    context: OrbitOrderStartContext;
+    fleetOrder: ColonyOrbitAssignment | null;
+  }> {
+    const assignments = manager.getRepository(ColonyOrbitAssignment);
+    const fleetOrder = fleet
+      ? await assignments.findOne({
+          where: [{ fleetId: fleet.id }, { spacecraftId: ship.id }],
+        })
+      : null;
+    const colonyOrders = orbitColony
+      ? (await assignments.find({ where: { colonyId: orbitColony.id } })).filter(
+          (order) => order.fleetId !== fleet?.id,
+        )
+      : [];
+    const occupied = orbitColony != null && isOwnedColony(orbitColony);
+    return {
+      fleetOrder,
+      context: {
+        colonyId: orbitColony?.id ?? null,
+        shipDestroyed: ship.status === SpacecraftStatus.DESTROYED,
+        inColonyOrbit: orbitColony != null,
+        isFleetLeader: fleet != null && fleet.leaderId === ship.id,
+        shipIdle: ship.status === SpacecraftStatus.IDLE,
+        colonyOccupied: occupied,
+        fleetOrder,
+        colonyDefended: colonyOrders.some(
+          (order) => order.mode === ColonyOrbitAssignmentMode.DEFEND,
+        ),
+        colonyBlockaded: colonyOrders.some(
+          (order) => order.mode === ColonyOrbitAssignmentMode.BLOCKADE,
+        ),
+        ownerOnVacation:
+          occupied && (await this.isOnVacation(ship.id, orbitColony.userId)),
+        activeOrbitalDefense:
+          defenseColony != null && this.hasActiveOrbitalDefense(defenseColony),
+      },
+    };
   }
 
   /** The colony (occupied or free) whose orbit the ship currently occupies. */

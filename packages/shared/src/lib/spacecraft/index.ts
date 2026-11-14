@@ -853,6 +853,21 @@ export interface SpacecraftOrbitOrderDto {
   mode: SpacecraftOrbitOrderMode;
 }
 
+/** Server-computed availability of one orbit order action with its reason. */
+export interface SpacecraftOrbitOrderActionDto {
+  available: boolean;
+  reason: string | null;
+}
+
+/** Fleet-wide orbit order as seen from one ship, with its allowed actions. */
+export interface SpacecraftOrbitOrderViewDto {
+  /** Current order of the ship's fleet, at any colony. */
+  order: (SpacecraftOrbitOrderDto & { colonyName: string }) | null;
+  defend: SpacecraftOrbitOrderActionDto;
+  blockade: SpacecraftOrbitOrderActionDto;
+  stop: SpacecraftOrbitOrderActionDto;
+}
+
 export interface SpacecraftOrbitOrderResultDto {
   order: SpacecraftOrbitOrderDto;
   message: string;
@@ -891,6 +906,8 @@ export interface SpacecraftFieldContextDto {
     attackReason?: string | null;
   } | null;
   runtimeSystems?: SpacecraftRuntimeSystemsDto;
+  /** Set in a colony orbit or while the fleet holds an orbit order. */
+  orbitOrder?: SpacecraftOrbitOrderViewDto | null;
   construction?: {
     station: { id: number; name: string; isOwn: boolean } | null;
     canBuild: boolean;

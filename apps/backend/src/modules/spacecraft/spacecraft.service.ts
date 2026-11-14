@@ -1,5 +1,6 @@
 import { stationBatteryReload } from './station-battery-reload';
 import {
+  Inject,
   Injectable,
   NotFoundException,
   BadRequestException,
@@ -142,6 +143,7 @@ import { EscapePodService } from './escape-pod.service';
 import { DockingPrivilegeService } from './docking-privilege.service';
 import { DOCK_EPS_COST } from './docking.constants';
 import { FieldTransitionExecutor } from './field-transition-executor';
+import { ORBIT_ORDER_VIEW, type OrbitOrderViewPort } from './orbit-order-view.port';
 import { applyLssSensorEffects } from './lss-sensor-effects';
 
 /** Ship after a field-by-field flight and how the flight ended. */
@@ -255,6 +257,9 @@ export class SpacecraftService {
     } as unknown as SpacecraftTrackerService,
     @Optional() private readonly wormholeService?: WormholeService,
     @Optional() private readonly anomalyQuery?: AnomalyQueryService,
+    @Optional()
+    @Inject(ORBIT_ORDER_VIEW)
+    private readonly orbitOrderView?: OrbitOrderViewPort,
   ) {}
 
   async getTorpedoStorage(shipId: number, userId: number) {
@@ -3648,6 +3653,7 @@ export class SpacecraftService {
           }
         : null,
       runtimeSystems: systems,
+      orbitOrder: (await this.orbitOrderView?.view?.(ship.id, userId)) ?? null,
       construction: {
         station: station
           ? {

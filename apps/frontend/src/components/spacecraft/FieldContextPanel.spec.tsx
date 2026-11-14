@@ -44,7 +44,87 @@ describe('FieldContextPanel', () => {
     apiMocks.get.mockReset();
     apiMocks.post.mockReset();
     apiMocks.patch.mockReset();
+    apiMocks.delete.mockReset();
     apiMocks.get.mockResolvedValue(null);
+  });
+
+  describe('orbit order', () => {
+    const base = {
+      wormholePassages: [],
+      coordinates: { x: 1, y: 2 },
+      starSystem: null,
+      colony: null,
+      information: { canSectorScan: false, cartographyKnown: false },
+    };
+    const available = { available: true, reason: null };
+    const renderPanel = (orbitOrder: object, onUpdate = vi.fn()) =>
+      render(
+        <MemoryRouter>
+          <FieldContextPanel shipId={7} context={{ ...base, orbitOrder } as never} onUpdate={onUpdate} />
+        </MemoryRouter>,
+      );
+
+    it('offers server-allowed orders and shows the server reason for disabled ones', async () => {
+      const onUpdate = vi.fn();
+      apiMocks.post.mockResolvedValue({ order: {}, message: 'Die Kolonie Endor wird nun von der Flotte Rot verteidigt' });
+      renderPanel(
+        {
+          order: null,
+          defend: available,
+          blockade: { available: false, reason: 'Aktion nicht möglich, die Kolonie wird verteidigt!' },
+          stop: { available: false, reason: 'Die Flotte hat keinen Orbitauftrag.' },
+        },
+        onUpdate,
+      );
+
+      const panel = screen.getByLabelText('Orbitauftrag');
+      expect(within(panel).getByText('Die Flotte hat keinen Orbitauftrag.')).toBeTruthy();
+      const blockade = within(panel).getByRole('button', { name: 'Kolonie blockieren' }) as HTMLButtonElement;
+      expect(blockade.disabled).toBe(true);
+      expect(blockade.title).toBe('Aktion nicht möglich, die Kolonie wird verteidigt!');
+      expect(within(panel).getByText('Aktion nicht möglich, die Kolonie wird verteidigt!')).toBeTruthy();
+      expect(within(panel).queryByRole('button', { name: /beenden/ })).toBeNull();
+
+      fireEvent.click(within(panel).getByRole('button', { name: 'Kolonie verteidigen' }));
+
+      await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/7/orbit-order', { mode: 'DEFEND' }));
+      expect(await screen.findByText('Die Kolonie Endor wird nun von der Flotte Rot verteidigt')).toBeTruthy();
+      expect(onUpdate).toHaveBeenCalled();
+    });
+
+    it('shows the fleet-wide order and ends it', async () => {
+      const onUpdate = vi.fn();
+      apiMocks.delete.mockResolvedValue({ cleared: true, order: {}, message: 'Blockade aufgehoben' });
+      renderPanel(
+        {
+          order: { colonyId: 4, fleetId: 9, mode: 'BLOCKADE', colonyName: 'Endor' },
+          defend: { available: false, reason: 'Die Flotte hat bereits einen Orbitauftrag.' },
+          blockade: { available: false, reason: 'Diese Flotte blockiert die Kolonie bereits.' },
+          stop: available,
+        },
+        onUpdate,
+      );
+
+      const panel = screen.getByLabelText('Orbitauftrag');
+      expect(within(panel).getByText('Die Flotte blockiert Endor.')).toBeTruthy();
+      expect(within(panel).queryByRole('button', { name: 'Kolonie verteidigen' })).toBeNull();
+      fireEvent.click(within(panel).getByRole('button', { name: 'Blockade beenden' }));
+
+      await waitFor(() => expect(apiMocks.delete).toHaveBeenCalledWith('/spacecraft/7/orbit-order'));
+      expect(await screen.findByText('Blockade aufgehoben')).toBeTruthy();
+      expect(onUpdate).toHaveBeenCalled();
+    });
+
+    it('reports a server rejection and still refreshes the field context', async () => {
+      const onUpdate = vi.fn();
+      apiMocks.post.mockRejectedValue(new Error('Die Flotte hat bereits einen Orbitauftrag.'));
+      renderPanel({ order: null, defend: available, blockade: available, stop: available }, onUpdate);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Kolonie blockieren' }));
+
+      expect(await screen.findByText('Die Flotte hat bereits einen Orbitauftrag.')).toBeTruthy();
+      expect(onUpdate).toHaveBeenCalled();
+    });
   });
 
   it('shows active anomalies with name and remaining duration', () => {

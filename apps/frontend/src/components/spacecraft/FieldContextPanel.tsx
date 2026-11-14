@@ -6,6 +6,9 @@ import type {
   SpacecraftFieldContextDto,
   SpacecraftRuntimeSystemsDto,
   SpacecraftWormholePassageResultDto,
+  SpacecraftOrbitOrderMode,
+  SpacecraftOrbitOrderResultDto,
+  SpacecraftOrbitOrderStopResultDto,
 } from '@swuniverse/shared';
 import { PlanetImg } from '../PlanetImg';
 import { formatAnomaly } from '../starmap/AnomalyMarker';
@@ -107,6 +110,7 @@ export function FieldContextPanel({
     null,
   );
   const [enteringWormhole, setEnteringWormhole] = useState(false);
+  const [orbitBusy, setOrbitBusy] = useState(false);
 
   useEffect(() => {
     setCartographyDialog(null);
@@ -200,6 +204,25 @@ export function FieldContextPanel({
         title: 'Stationsbau',
         message: err instanceof Error ? err.message : 'Stationsaktion fehlgeschlagen',
       });
+    }
+  }
+
+  /** Starts or ends the fleet-wide orbit order; the server decides availability. */
+  async function changeOrbitOrder(mode: SpacecraftOrbitOrderMode | null) {
+    setOrbitBusy(true);
+    try {
+      const result = mode
+        ? await api.post<SpacecraftOrbitOrderResultDto>(`/spacecraft/${shipId}/orbit-order`, { mode })
+        : await api.delete<SpacecraftOrbitOrderStopResultDto>(`/spacecraft/${shipId}/orbit-order`);
+      setActionMessage({ title: 'Orbitauftrag', message: result.message });
+    } catch (err: unknown) {
+      setActionMessage({
+        title: 'Orbitauftrag',
+        message: err instanceof Error ? err.message : 'Orbitauftrag fehlgeschlagen',
+      });
+    } finally {
+      setOrbitBusy(false);
+      await onUpdate();
     }
   }
 
@@ -586,6 +609,46 @@ export function FieldContextPanel({
               Konstrukt errichten
             </button>
           ) : null}
+        </div>
+      )}
+      {context.orbitOrder && (
+        <div className="border border-swu-border bg-swu-surface p-2 text-sm" aria-label="Orbitauftrag">
+          <h3 className="mb-1 font-bold text-swu-primary">Orbitauftrag</h3>
+          <p className="mb-2 text-xs text-swu-muted">
+            {context.orbitOrder.order
+              ? `Die Flotte ${context.orbitOrder.order.mode === 'DEFEND' ? 'verteidigt' : 'blockiert'} ${context.orbitOrder.order.colonyName}.`
+              : 'Die Flotte hat keinen Orbitauftrag.'}
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {(context.orbitOrder.order
+              ? [
+                  {
+                    label: context.orbitOrder.order.mode === 'DEFEND' ? 'Verteidigung beenden' : 'Blockade beenden',
+                    action: context.orbitOrder.stop,
+                    mode: null,
+                  },
+                ]
+              : [
+                  { label: 'Kolonie verteidigen', action: context.orbitOrder.defend, mode: 'DEFEND' as const },
+                  { label: 'Kolonie blockieren', action: context.orbitOrder.blockade, mode: 'BLOCKADE' as const },
+                ]
+            ).map(({ label, action, mode }) => (
+              <div key={label} className="flex flex-col">
+                <button
+                  type="button"
+                  disabled={!action.available || orbitBusy}
+                  title={action.reason ?? undefined}
+                  onClick={() => void changeOrbitOrder(mode)}
+                  className="text-left text-swu-primary hover:text-swu-accent disabled:cursor-not-allowed disabled:text-swu-muted"
+                >
+                  {label}
+                </button>
+                {!action.available && action.reason && (
+                  <span className="text-[11px] text-swu-muted">{action.reason}</span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
       {context.colony && (
