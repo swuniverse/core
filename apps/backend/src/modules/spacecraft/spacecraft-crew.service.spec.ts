@@ -172,23 +172,6 @@ describe('SpacecraftCrewService', () => {
     );
   });
 
-  it('blocks slot and name changes while the ship is in flight', async () => {
-    const { service, shipRepo } = createService();
-    shipRepo.findOne.mockResolvedValue({
-      id: 10,
-      userId: 7,
-      shipClassId: 3,
-      status: 'IN_FLIGHT',
-    });
-
-    await expect(service.assignSlot(10, 4, 7, null)).rejects.toThrow(
-      'Crew cannot be changed during flight',
-    );
-    await expect(service.renameCrewMember(10, 4, 7, 'Luke')).rejects.toThrow(
-      'Crew cannot be changed during flight',
-    );
-  });
-
   it('renames the complete crew and individual crew members with trimmed names', async () => {
     const { service, crewAssignmentRepo, crewRepo, shipRepo } = createService();
     shipRepo.findOne.mockResolvedValue({

@@ -21,8 +21,6 @@ const emptyDashboard: DashboardData = {
   colonies: [],
   colonyCount: 0,
   fleetTotal: 0,
-  fleetInFlight: 0,
-  shipsInFlight: [],
   allShips: [],
   researchCompleted: 0,
   unreadMessages: 0,

@@ -1238,7 +1238,6 @@ describe('Atomic wormhole passage (PostgreSQL)', () => {
   it.each([
     ['combat', { status: SpacecraftStatus.IN_COMBAT }],
     ['destroyed', { status: SpacecraftStatus.DESTROYED }],
-    ['in flight', { status: SpacecraftStatus.IN_FLIGHT }],
     ['standby', { operatingMode: SpacecraftOperatingMode.STANDBY }],
     ['station', { kind: SpacecraftKind.STATION }],
   ] as const)(

@@ -17,7 +17,6 @@ const ALERT_LABELS: Record<SpacecraftAlertState, string> = {
 
 const STATUS_LABELS: Record<string, string> = {
   IDLE: 'Bereit',
-  IN_FLIGHT: 'Im Flug',
   IN_COMBAT: 'Im Kampf',
 };
 

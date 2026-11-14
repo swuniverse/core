@@ -239,7 +239,6 @@ describe('wormhole passage planner', () => {
       [{ operatingMode: SpacecraftOperatingMode.STANDBY }, 'Standby'],
       [{ status: SpacecraftStatus.IN_COMBAT }, 'combat'],
       [{ status: SpacecraftStatus.DESTROYED }, 'destroyed'],
-      [{ status: SpacecraftStatus.IN_FLIGHT }, 'flight'],
       [
         {
           runtimeSystems: {

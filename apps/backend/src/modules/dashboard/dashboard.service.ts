@@ -3,10 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
 import { Colony } from '../colony/entities/colony.entity';
-import {
-  Spacecraft,
-  SpacecraftStatus,
-} from '../spacecraft/entities/spacecraft.entity';
+import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { HolonetPost } from '../holonet/entities/holonet-post.entity';
 import { GameGateway } from '../websocket/game.gateway';
 import { DashboardSnapshot } from './entities/dashboard-snapshot.entity';
@@ -175,13 +172,11 @@ export class DashboardService {
       playerCount,
       colonyCount,
       shipCount,
-      inFlightShipCount,
       holonetPostCount,
     ] = await Promise.all([
       this.userRepo.count(),
       this.colonyRepo.count({ where: { isAbandoned: false } }),
       this.shipRepo.count(),
-      this.shipRepo.count({ where: { status: SpacecraftStatus.IN_FLIGHT } }),
       this.postRepo.count({ where: { deletedAt: IsNull() } }),
     ]);
     const snapshot = this.snapshotRepo.create({
@@ -189,7 +184,6 @@ export class DashboardService {
       activePlayerCount: this.gateway.onlineUserIds.length,
       colonyCount,
       shipCount,
-      inFlightShipCount,
       holonetPostCount,
     });
     return this.snapshotRepo.save(snapshot);
@@ -238,7 +232,6 @@ export class DashboardService {
           'alertState',
           'hull',
           'hullMax',
-          'arrivalAt',
         ],
       }),
       Promise.all([

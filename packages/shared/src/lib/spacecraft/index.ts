@@ -380,7 +380,7 @@ export interface SpacecraftListDto {
   dockedAtId: number | null;
   dockedAtName: string | null;
   status: string;
-  specialStatus: 'IN_FLIGHT' | 'STANDBY' | 'CARTOGRAPHY_FINALIZATION' | null;
+  specialStatus: 'STANDBY' | 'CARTOGRAPHY_FINALIZATION' | null;
   alertState: SpacecraftAlertState;
   layer: { id: number; name: string };
   location: SpaceLocationDto & {
@@ -505,7 +505,6 @@ export interface SpacecraftDetailDto {
   warpdrive: number;
   warpdriveMax: number;
   warpSpeed: number;
-  warpCooldown: number;
   battery: number;
   batteryMax: number;
   reactorFuel: number;
@@ -531,7 +530,6 @@ export interface SpacecraftDetailDto {
   } | null;
   adminRegion?: { key: string; name: string } | null;
   navigationBounds?: { minX: number; maxX: number; minY: number; maxY: number };
-  arrivalAt: string | null;
   locationLabel?: string;
   moduleCount?: number;
   moduleCategories?: string[];

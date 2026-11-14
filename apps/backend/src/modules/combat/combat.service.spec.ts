@@ -4,7 +4,6 @@ jest.mock('../spacecraft/entities/spacecraft.entity', () => ({
   AlertState: { GREEN: 'GREEN', YELLOW: 'YELLOW', RED: 'RED' },
   SpacecraftStatus: {
     IDLE: 'IDLE',
-    IN_FLIGHT: 'IN_FLIGHT',
     IN_COMBAT: 'IN_COMBAT',
     DESTROYED: 'DESTROYED',
   },

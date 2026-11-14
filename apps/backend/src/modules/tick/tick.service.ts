@@ -17,10 +17,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, LessThanOrEqual, Not, Repository } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyField } from '../colony/entities/colony-field.entity';
-import {
-  Spacecraft,
-  SpacecraftStatus,
-} from '../spacecraft/entities/spacecraft.entity';
+import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { User } from '../auth/user.entity';
 import { UserLockService } from '../auth/user-lock.service';
 import { WsEventType } from '@swuniverse/shared';
@@ -236,9 +233,6 @@ export class TickService {
             'location',
             'location.galaxyField',
             'location.systemField',
-            'targetLocation',
-            'targetLocation.galaxyField',
-            'targetLocation.systemField',
           ],
         });
         for (const ship of ships) {
@@ -417,41 +411,6 @@ export class TickService {
 
     this.logger.log('Admin: all builds force-completed');
     return { completed: `tick #${tickResult.tickNumber}` };
-  }
-
-  @Cron(CronExpression.EVERY_MINUTE, {
-    timeZone: process.env.GAME_TIMEZONE?.trim() || DEFAULT_GAME_TIMEZONE,
-  })
-  async checkWarpArrivals() {
-    const now = new Date();
-    const arrived = await this.shipRepo.find({
-      where: {
-        status: SpacecraftStatus.IN_FLIGHT,
-        arrivalAt: LessThanOrEqual(now),
-      },
-      relations: [
-        'location',
-        'location.galaxyField',
-        'location.systemField',
-        'targetLocation',
-        'targetLocation.galaxyField',
-        'targetLocation.systemField',
-      ],
-    });
-
-    if (arrived.length === 0) return { processed: 0 };
-
-    for (const ship of arrived) {
-      await this.spacecraftService.processMovement(ship);
-      this.gateway.emitToUser(ship.userId, WsEventType.SHIP_MOVED, {
-        shipId: ship.id,
-        locationId: ship.location?.id ?? null,
-        location: resolveSpaceLocation(ship.location),
-      });
-    }
-
-    this.logger.log(`Processed ${arrived.length} warp arrival(s)`);
-    return { processed: arrived.length };
   }
 
   private async startTick(

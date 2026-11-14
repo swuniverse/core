@@ -84,8 +84,6 @@ export async function planWormholePassage(
       throw new BadRequestException('Cannot fly during combat');
     if (ship.status === 'DESTROYED')
       throw new BadRequestException('Ship is destroyed');
-    if (ship.status === 'IN_FLIGHT')
-      throw new BadRequestException('Ship already in flight');
     const current = resolveSpacecraftLocation(ship);
     if (current?.scope !== 'GALAXY')
       throw new BadRequestException('Ship is not on a galaxy field');

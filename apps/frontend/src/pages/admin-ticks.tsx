@@ -9,7 +9,6 @@ import { api } from '../services/api';
 const LABELS: Record<TickRunType, string> = {
   MAIN: 'Haupttick',
   BUILDING_COMPLETION: 'Bauabschluss',
-  WARP_ARRIVAL: 'Warp-Ankunft',
   MAINTENANCE: 'Maintenance',
 };
 

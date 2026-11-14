@@ -43,7 +43,7 @@ export class SpacecraftTractorService {
         source.status !== SpacecraftStatus.IDLE ||
         target.status !== SpacecraftStatus.IDLE
       ) {
-        throw new BadRequestException('Traktorstrahl im Hyperraumflug nicht möglich');
+        throw new BadRequestException('Traktorstrahl nur zwischen einsatzbereiten Schiffen möglich');
       }
       const [sourceTractor, targetTractor] = await Promise.all([
         manager.findOneBy(Spacecraft, { tractoredShipId: source.id }),

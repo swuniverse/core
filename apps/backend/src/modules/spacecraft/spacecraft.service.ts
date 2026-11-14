@@ -123,7 +123,6 @@ import {
   resolveContextualCelestialObjectId,
   resolveSpacecraftField,
   resolveSpacecraftLocation,
-  resolveSpaceLocation,
   sameSpacecraftLocation,
 } from './spacecraft-field';
 import { FLOWN_FIELDS_EVENT } from '../statistics/statistic-events';
@@ -388,12 +387,6 @@ export class SpacecraftService {
         'location.systemField',
         'location.systemField.celestialObject',
         'location.systemField.starSystem',
-        'originLocation',
-        'originLocation.galaxyField',
-        'originLocation.systemField',
-        'targetLocation',
-        'targetLocation.galaxyField',
-        'targetLocation.systemField',
       ],
     });
     if (!ship) throw new NotFoundException('Spacecraft not found');
@@ -464,7 +457,6 @@ export class SpacecraftService {
       crewMax: effective?.crewMax ?? ship.crewMax,
       operatingMode: ship.operatingMode ?? SpacecraftOperatingMode.NORMAL,
       alertState: ship.alertState,
-      arrivalAt: ship.arrivalAt?.toISOString() ?? null,
       location: location!,
       region:
         fieldExplored && galaxyField?.region
@@ -1558,9 +1550,7 @@ export class SpacecraftService {
         ? 'CARTOGRAPHY_FINALIZATION'
         : ship.operatingMode === SpacecraftOperatingMode.STANDBY
           ? 'STANDBY'
-          : ship.status === SpacecraftStatus.IN_FLIGHT
-            ? 'IN_FLIGHT'
-            : null,
+          : null,
     };
   }
 
@@ -2031,8 +2021,6 @@ export class SpacecraftService {
       throw new BadRequestException('Cannot navigate during combat');
     if (ship.status === SpacecraftStatus.DESTROYED)
       throw new BadRequestException('Ship is destroyed');
-    if (ship.status === SpacecraftStatus.IN_FLIGHT)
-      throw new BadRequestException('Ship already in flight');
     if (currentLocation?.scope !== 'SYSTEM') {
       throw new BadRequestException(
         'Ship is not in a system. Use galaxy flight instead.',
@@ -2261,8 +2249,6 @@ export class SpacecraftService {
       throw new BadRequestException('Cannot fly during combat');
     if (ship.status === SpacecraftStatus.DESTROYED)
       throw new BadRequestException('Ship is destroyed');
-    if (ship.status === SpacecraftStatus.IN_FLIGHT)
-      throw new BadRequestException('Ship already in flight');
     if (currentLocation?.scope !== 'GALAXY') {
       throw new BadRequestException(
         'Ship is inside a system. Leave system first.',
@@ -2628,9 +2614,6 @@ export class SpacecraftService {
     if (ship.status === SpacecraftStatus.DESTROYED) {
       throw new BadRequestException('Ship is destroyed');
     }
-    if (ship.status === SpacecraftStatus.IN_FLIGHT) {
-      throw new BadRequestException('Ship is in flight');
-    }
     if (currentLocation?.scope !== 'GALAXY') {
       throw new BadRequestException('Ship is already in a system');
     }
@@ -2790,9 +2773,6 @@ export class SpacecraftService {
     if (ship.status === SpacecraftStatus.DESTROYED) {
       throw new BadRequestException('Ship is destroyed');
     }
-    if (ship.status === SpacecraftStatus.IN_FLIGHT) {
-      throw new BadRequestException('Ship is in flight');
-    }
     if (ship.status === SpacecraftStatus.IN_COMBAT) {
       throw new BadRequestException('Cannot leave system during combat');
     }
@@ -2873,109 +2853,6 @@ export class SpacecraftService {
     return ship;
   }
 
-  // Inter-system warp: 1 WE per galaxy-grid field, 60s per field
-  async warp(
-    shipId: number,
-    userId: number,
-    targetSystemId: number,
-  ): Promise<Spacecraft> {
-    const ship = await this.findOne(shipId, userId);
-    const originals = captureMovementOriginals(ship);
-    await this.assertFleetLeader(ship, userId);
-    await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
-    assertSpacecraftNotInStandby(ship, 'dem Hyperraumflug');
-    await this.assertNotTractored(ship);
-
-    if (
-      ship.status === SpacecraftStatus.IN_COMBAT ||
-      ship.status === SpacecraftStatus.DESTROYED
-    ) {
-      throw new BadRequestException('Cannot warp in current state');
-    }
-    if (ship.status === SpacecraftStatus.IN_FLIGHT) {
-      throw new BadRequestException('Ship already in flight');
-    }
-    if (ship.warpCooldown > 0) {
-      throw new BadRequestException('Hyperantrieb kühlt noch ab');
-    }
-    const currentSystemId = ship.location.systemField?.starSystemId;
-    if (currentSystemId == null) {
-      throw new BadRequestException('Ship has no current system');
-    }
-    await this.assertEnoughCrew(ship);
-    this.assertSystemsForFlight(ship, 'warp');
-
-    const currentSystem = await this.systemRepo.findOne({
-      where: { id: currentSystemId },
-    });
-    const targetSystem = await this.systemRepo.findOne({
-      where: { id: targetSystemId },
-    });
-    if (!targetSystem) throw new NotFoundException('Target system not found');
-
-    const galaxyDistance = currentSystem
-      ? Math.max(
-          Math.abs(targetSystem.cx - currentSystem.cx),
-          Math.abs(targetSystem.cy - currentSystem.cy),
-        )
-      : 1;
-
-    const warpdriveCost = Math.max(1, galaxyDistance);
-    this.undockForFlight(ship);
-    const fleetMembers = await this.prepareFleetMembers(
-      ship,
-      userId,
-      (member) => {
-        originals.set(member, captureMovementState(member));
-        this.assertSystemsForFlight(member, 'warp');
-        this.consumeWarpdrive(member, warpdriveCost, 'warp');
-        this.undockForFlight(member);
-      },
-      originals,
-    );
-    this.consumeWarpdrive(ship, warpdriveCost, 'warp');
-
-    const warpTimeMs = galaxyDistance * 60_000;
-    const targetField = await this.systemFieldRepo.findOne({
-      where: { starSystemId: targetSystemId, sx: 1, sy: 1 },
-    });
-    const destination = targetField
-      ? await this.findLocationBySystemField(targetField.id)
-      : null;
-    const arrivalAt = new Date(Date.now() + warpTimeMs);
-
-    ship.status = SpacecraftStatus.IN_FLIGHT;
-    ship.originLocationId = ship.locationId;
-    ship.originLocation = ship.location;
-    ship.targetLocation = destination;
-    ship.targetLocationId = destination?.id ?? null;
-    ship.arrivalAt = arrivalAt;
-    ship.warpCooldown = 3;
-    for (const member of fleetMembers) {
-      member.status = SpacecraftStatus.IN_FLIGHT;
-      member.originLocationId = member.locationId;
-      member.originLocation = member.location;
-      member.targetLocation = destination;
-      member.targetLocationId = destination?.id ?? null;
-      member.arrivalAt = arrivalAt;
-      member.warpCooldown = 3;
-    }
-
-    this.spacecraftRuntimeStateService.initialize(ship);
-
-    await this.saveMovementParticipants(
-      ship,
-      [ship, ...fleetMembers],
-      originals,
-    );
-    await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT, galaxyDistance);
-    await this.repairService.cancelForFlight([
-      ship.id,
-      ...fleetMembers.map((member) => member.id),
-    ]);
-    return ship;
-  }
-
   private assertSystemsForFlight(
     ship: Spacecraft,
     mode: 'sublight' | 'warp',
@@ -3041,19 +2918,6 @@ export class SpacecraftService {
     ship.energy -= DOCK_EPS_COST;
     ship.dockedAtId = null;
     ship.dockedAt = null;
-  }
-
-  private consumeWarpdrive(
-    ship: Spacecraft,
-    amount: number,
-    action: string,
-  ): void {
-    if (ship.warpdrive < amount) {
-      throw new BadRequestException(
-        `Nicht genug Hyperantriebsenergie für ${action === 'galaxy flight' ? 'Galaxieflug' : 'Hyperraumflug'}: benötigt ${amount}, vorhanden ${ship.warpdrive}`,
-      );
-    }
-    ship.warpdrive -= amount;
   }
 
   private async assertFleetLeader(
@@ -3248,9 +3112,7 @@ export class SpacecraftService {
         );
       }
       if (ship.status !== SpacecraftStatus.IDLE) {
-        throw new BadRequestException(
-          'Schiff darf sich nicht im Flug befinden',
-        );
+        throw new BadRequestException('Das Schiff ist nicht einsatzbereit');
       }
       const leader = members.find((member) => member.id === fleet.leaderId);
       if (!leader || ship.locationId !== leader.locationId) {
@@ -3424,84 +3286,6 @@ export class SpacecraftService {
     });
   }
 
-  async processMovement(ship: Spacecraft): Promise<void> {
-    if (ship.status !== SpacecraftStatus.IN_FLIGHT || !ship.arrivalAt) return;
-
-    if (new Date() >= ship.arrivalAt) {
-      const targetLocation =
-        ship.targetLocationId != null
-          ? await this.loadLocation(ship.targetLocationId, ship.targetLocation)
-          : null;
-
-      if (ship.targetLocationId != null) {
-        if (!targetLocation) {
-          throw new BadRequestException('Target location not found');
-        }
-
-        if (
-          targetLocation.kind === 'SYSTEM_FIELD' &&
-          targetLocation.systemField
-        ) {
-          await this.setCurrentLocation(ship, targetLocation);
-        } else if (
-          targetLocation.kind === 'GALAXY_FIELD' &&
-          targetLocation.galaxyField
-        ) {
-          const targetField = targetLocation.galaxyField;
-          await this.setCurrentLocation(ship, targetLocation);
-          await this.discoverGalaxyAroundShip(
-            ship,
-            targetField.layerId,
-            targetField.cx,
-            targetField.cy,
-            'FLIGHT',
-          );
-        } else {
-          throw new BadRequestException('Invalid target location');
-        }
-      }
-
-      const originLocation = await this.loadLocation(
-        ship.originLocationId,
-        ship.originLocation,
-      );
-      if (originLocation && targetLocation) {
-        const originField = resolveSpaceLocation(originLocation);
-        const targetField = resolveSpaceLocation(targetLocation);
-        if (originField && targetField) {
-          await this.flightSignatureService.createMovement(
-            ship,
-            originLocation,
-            targetLocation,
-            this.flightDirection(
-              this.directionFromMove(
-                originField.x,
-                originField.y,
-                targetField.x,
-                targetField.y,
-              ),
-            ),
-          );
-        }
-      }
-
-      ship.arrivalAt = null;
-      ship.originLocationId = null;
-      ship.originLocation = null;
-      ship.targetLocationId = null;
-      ship.targetLocation = null;
-      ship.status = SpacecraftStatus.IDLE;
-
-      const arrivedField =
-        targetLocation?.systemField ?? targetLocation?.galaxyField;
-      if (arrivedField) {
-        await this.flightConsequencePipeline.onEnterField(ship, arrivedField);
-      }
-      // A destroyed ship is already removed; saving would recreate it.
-      if (!isSpacecraftDestroyed(ship)) await this.shipRepo.save(ship);
-    }
-  }
-
   private findLocationByGalaxyField(
     galaxyFieldId: number,
   ): Promise<SpaceLocation | null> {
@@ -3517,18 +3301,6 @@ export class SpacecraftService {
     return this.dataSource.getRepository(SpaceLocation).findOne({
       where: { systemFieldId },
       relations: ['systemField', 'systemField.celestialObject'],
-    });
-  }
-
-  private async loadLocation(
-    locationId: number | null | undefined,
-    location: SpaceLocation | null | undefined,
-  ): Promise<SpaceLocation | null> {
-    if (location) return location;
-    if (locationId == null) return null;
-    return this.dataSource.getRepository(SpaceLocation).findOne({
-      where: { id: locationId },
-      relations: ['galaxyField', 'systemField', 'systemField.celestialObject'],
     });
   }
 
@@ -4754,7 +4526,6 @@ export class SpacecraftService {
       await this.stationRepairService.processTick(ship.id, options);
       await this.stationShipyardService.processTick(ship.id);
     }
-    await this.processMovement(ship);
     const tickLocation =
       ship.location?.systemField ?? ship.location?.galaxyField;
     if (tickLocation) {
@@ -4763,10 +4534,6 @@ export class SpacecraftService {
     if (!options.skipRepair) {
       await this.repairService.processTick(ship);
     }
-    if (ship.status === SpacecraftStatus.IN_FLIGHT) {
-      await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
-    }
-
     const [modules, shipClass] = await Promise.all([
       this.moduleRepo.find({ where: { spacecraftId: ship.id } }),
       this.shipClassService.findById(ship.shipClassId),
@@ -4806,10 +4573,6 @@ export class SpacecraftService {
       ship.energy -= 2;
     }
 
-    if (ship.warpCooldown > 0) {
-      ship.warpCooldown--;
-    }
-
     for (const mod of modules) {
       if (mod.cooldown > 0) {
         mod.cooldown--;
@@ -4835,7 +4598,6 @@ export class SpacecraftService {
     }
     const location = resolveSpacecraftLocation(ship);
     if (
-      ship.status === SpacecraftStatus.IN_FLIGHT ||
       ship.status === SpacecraftStatus.DESTROYED ||
       !this.isAstrometryLaborOperational(ship, systems) ||
       location?.scope !== 'SYSTEM' ||

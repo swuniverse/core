@@ -182,13 +182,6 @@ class MoveToCoordinatesDto {
   targetY: number;
 }
 
-class WarpDto {
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  targetSystemId: number;
-}
-
 class ReactorDistributionDto {
   @Type(() => Number)
   @IsInt()
@@ -1112,15 +1105,6 @@ export class SpacecraftController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.spacecraftService.leaveSystem(id, req.user.sub);
-  }
-
-  @Post(':id/warp')
-  warp(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { sub: number } },
-    @Body() dto: WarpDto,
-  ) {
-    return this.spacecraftService.warp(id, req.user.sub, dto.targetSystemId);
   }
 
   @Patch(':id/reactor-distribution')

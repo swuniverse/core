@@ -52,7 +52,6 @@ jest.mock('./entities/spacecraft.entity', () => ({
   SpacecraftLssMode: { DISABLED: 'DISABLED', CARTOGRAPHY: 'CARTOGRAPHY' },
   SpacecraftStatus: {
     IDLE: 'IDLE',
-    IN_FLIGHT: 'IN_FLIGHT',
     IN_COMBAT: 'IN_COMBAT',
     DESTROYED: 'DESTROYED',
   },
@@ -519,8 +518,7 @@ describe('cartography lifecycle integration (in-process)', () => {
     await harness.service.navigate(2, 11, 1, 3);
     await harness.service.startCartographyFinalization(1, 11);
 
-    harness.ships.get(1).status = SpacecraftStatus.IN_FLIGHT;
-    await harness.service.processTick(harness.ships.get(1));
+    await harness.service.navigate(1, 11, 1, 3);
 
     expect(harness.plan).toMatchObject({
       status: 'MEASURED',

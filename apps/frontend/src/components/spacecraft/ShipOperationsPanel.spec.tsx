@@ -22,7 +22,6 @@ const details = {
   warpdrive: 1,
   warpdriveMax: 3,
   warpSpeed: 1,
-  warpCooldown: 0,
   battery: 2,
   batteryMax: 4,
   evadeChance: 0,
@@ -34,7 +33,6 @@ const details = {
   },
   posX: 1,
   posY: 1,
-  arrivalAt: null,
   crewRoster: [{ id: 1, name: 'Leia', position: 'COMMAND', rank: 'CAPTAIN' }],
 };
 

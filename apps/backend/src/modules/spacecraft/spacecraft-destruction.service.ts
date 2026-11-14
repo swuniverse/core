@@ -377,7 +377,6 @@ export class SpacecraftDestructionService {
     ship.tractoredShip = null;
     ship.hull = 0;
     ship.status = SpacecraftStatus.DESTROYED;
-    ship.arrivalAt = null;
     ship.fleetId = null;
     const systems = this.runtimeState.initialize(ship);
     for (const state of Object.values(systems)) {

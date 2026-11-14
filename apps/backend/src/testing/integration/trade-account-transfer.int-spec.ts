@@ -143,7 +143,6 @@ describe('trade account transfer at a post (PostgreSQL)', () => {
 
   it('rejects transfers without presence, license, space or goods and changes nothing', async () => {
     const present = await ship({ [AURODIUM]: 10 });
-    const flying = await ship({ [AURODIUM]: 10 }, { status: 'IN_FLIGHT' });
     const cloaked = await ship({ [AURODIUM]: 10 }, { runtimeSystems: { CLOAK: { active: true } } });
     const away = await ship({ [AURODIUM]: 10 }, { locationId: locations[1] });
     const empty = await ship({});
@@ -151,7 +150,6 @@ describe('trade account transfer at a post (PostgreSQL)', () => {
     const other = await createUser(source);
     const line = [{ commodityId: AURODIUM, amount: 5 }];
 
-    await expect(service.transfer(flying.id, userId, postId, 'TO_ACCOUNT', line)).rejects.toThrow('Das Schiff befindet sich im Flug');
     await expect(service.transfer(cloaked.id, userId, postId, 'TO_ACCOUNT', line)).rejects.toThrow('Die Tarnung ist aktiv');
     await expect(service.transfer(away.id, userId, postId, 'TO_ACCOUNT', line)).rejects.toThrow('Das Schiff befindet sich nicht am Handelsposten');
     await expect(service.transfer(present.id, other.id, postId, 'TO_ACCOUNT', line)).rejects.toThrow('Schiff nicht gefunden');

@@ -52,12 +52,18 @@ export class InteractionContextService {
     targetOwnerId?: number,
   ): Promise<InteractionContext> {
     const requested = new Set(fields);
+    const needsHyperspace =
+      requested.has('sourceInHyperspace') || requested.has('targetInHyperspace');
     const needsModules =
+      needsHyperspace ||
       requested.has('sourceShieldsActive') ||
       requested.has('targetShieldsActive') ||
       requested.has('sourceCloaked') ||
       requested.has('targetCloaked');
-    const relations = needsModules ? ['modules'] : undefined;
+    const relations = [
+      ...(needsModules ? ['modules'] : []),
+      ...(needsHyperspace ? ['location'] : []),
+    ];
     const [source, target] = await Promise.all([
       this.shipRepo.findOne({ where: { id: sourceId }, relations }),
       this.shipRepo.findOne({ where: { id: targetId }, relations }),
@@ -79,20 +85,27 @@ export class InteractionContextService {
       ? await this.shipRepo.findOne({ where: { tractoredShipId: source.id } })
       : null;
     const sourceSystems =
-      requested.has('sourceShieldsActive') || requested.has('sourceCloaked')
+      requested.has('sourceShieldsActive') ||
+      requested.has('sourceCloaked') ||
+      requested.has('sourceInHyperspace')
         ? this.runtimeState.initialize(source)
         : {};
     const targetSystems =
-      requested.has('targetShieldsActive') || requested.has('targetCloaked')
+      requested.has('targetShieldsActive') ||
+      requested.has('targetCloaked') ||
+      requested.has('targetInHyperspace')
         ? this.runtimeState.initialize(target)
         : {};
+    // STU `isWarped`: warp drive running in open space (as nearby-interaction).
+    const inHyperspace = (ship: Spacecraft, systems: typeof sourceSystems) =>
+      ship.location?.kind === 'GALAXY_FIELD' && systems.WARPDRIVE?.active === true;
 
     return {
       samePosition: source.locationId === target.locationId,
       sourceHasSufficientCrew,
       sourceCombatCapable: source.hull > 0,
-      sourceInHyperspace: source.status === SpacecraftStatus.IN_FLIGHT,
-      targetInHyperspace: target.status === SpacecraftStatus.IN_FLIGHT,
+      sourceInHyperspace: inHyperspace(source, sourceSystems),
+      targetInHyperspace: inHyperspace(target, targetSystems),
       sourceCloaked: sourceSystems.CLOAK?.active === true,
       targetCloaked: targetSystems.CLOAK?.active === true,
       sourceShieldsActive: sourceSystems.SHIELDS?.active === true,

@@ -541,6 +541,19 @@ describe('starmap contact requests (Postgres, HTTP)', () => {
       expect(unknown.status).toBe(403);
     });
 
+    it('no longer offers the timed warp endpoint (sc-WP-NAV-3b)', async () => {
+      const w = await world();
+      const response = await fetch(`${await app.getUrl()}/api/spacecraft/1/warp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${jwt.sign({ sub: w.president.id, username: w.president.username })}`,
+        },
+        body: JSON.stringify({ targetSystemId: 2 }),
+      });
+      expect(response.status).toBe(404);
+    });
+
     it('rejects requests without a valid token', async () => {
       const w = await world();
       const { status } = await request(

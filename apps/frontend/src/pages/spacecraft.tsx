@@ -22,7 +22,6 @@ const SYSTEMS = [
 ] as const;
 
 const STATUS = {
-  IN_FLIGHT: 'Hyperraumflug',
   STANDBY: 'Bereitschaft',
   CARTOGRAPHY_FINALIZATION: 'Kartographie-Finalisierung',
 } as const;

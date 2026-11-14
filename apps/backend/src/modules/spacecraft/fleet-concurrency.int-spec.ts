@@ -690,7 +690,7 @@ describe('Public fleet mutations across committed relocation (PostgreSQL)', () =
           message:
             changed === 'owner'
               ? 'Spacecraft not found'
-              : 'Schiff darf sich nicht im Flug befinden',
+              : 'Das Schiff ist nicht einsatzbereit',
         }),
       );
       expect(

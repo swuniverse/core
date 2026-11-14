@@ -740,7 +740,7 @@ describe('StarmapPage ship layer', () => {
       contactsByLayer[3] = [
         allianceContact({
           management: {
-            status: 'IN_FLIGHT',
+            status: 'IN_COMBAT',
             alertState: 'RED',
             hull: 40,
             hullMax: 100,
@@ -758,7 +758,7 @@ describe('StarmapPage ship layer', () => {
       const panel = screen.getByRole('region', {
         name: 'Schiffe auf Feld 8|9',
       });
-      expect(within(panel).getByText('Im Flug')).toBeTruthy();
+      expect(within(panel).getByText('Im Kampf')).toBeTruthy();
       expect(within(panel).getByText('Alarmstufe Rot')).toBeTruthy();
       expect(within(panel).getByText('Hülle 40/100')).toBeTruthy();
       expect(within(panel).getByText('Crew 3/6')).toBeTruthy();

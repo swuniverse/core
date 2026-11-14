@@ -115,16 +115,15 @@ describe('trade license purchase (PostgreSQL)', () => {
     expect(await source.getRepository('TradeLicense').countBy({ userId: buyerId })).toBe(1);
   });
 
-  it('rejects an initiating ship or paying ship away from the post, in flight or under hyperdrive', async () => {
+  it('rejects an initiating ship or paying ship away from the post or under hyperdrive', async () => {
     const away = await ship({ locationId: locations[1] });
-    const flying = await ship({ status: 'IN_FLIGHT' });
     const warping = await ship({ runtimeSystems: { WARPDRIVE: { active: true } } });
     const present = await ship();
     const remotePayer = await ship({ locationId: locations[1] });
     await cargo(present.id, 50);
     await cargo(remotePayer.id, 50);
 
-    for (const shipId of [away.id, flying.id, warping.id]) {
+    for (const shipId of [away.id, warping.id]) {
       await expect(service.purchase(posts.licensed, buyerId, { method: 'ship', shipId, payShipId: present.id }))
         .rejects.toThrow('Das Schiff befindet sich nicht am Handelsposten');
     }

@@ -42,7 +42,6 @@ const ship = {
   status: 'IDLE',
   energy: 20,
   energyMax: 30,
-  arrivalAt: null,
   location: { scope: 'GALAXY' as const, layerId: 1, x: 5, y: 5 },
   runtimeSystems: { LONG_RANGE_SENSORS: { active: true } },
 };

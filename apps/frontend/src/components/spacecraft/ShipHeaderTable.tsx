@@ -31,7 +31,6 @@ interface ShipHeaderTableProps {
     battery: number;
     batteryMax: number;
     warpSpeed: number;
-    warpCooldown: number;
     crew: number;
     crewRequired?: number;
     crewMax: number;

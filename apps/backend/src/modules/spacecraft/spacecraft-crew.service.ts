@@ -239,11 +239,7 @@ export class SpacecraftCrewService {
   }
 
   private async findMutableOwnedShip(spacecraftId: number, userId: number) {
-    const ship = await this.findOwnedShip(spacecraftId, userId);
-    if (ship.status === 'IN_FLIGHT') {
-      throw new BadRequestException('Crew cannot be changed during flight');
-    }
-    return ship;
+    return this.findOwnedShip(spacecraftId, userId);
   }
 
   private async getPositionTargets(ship: Spacecraft) {

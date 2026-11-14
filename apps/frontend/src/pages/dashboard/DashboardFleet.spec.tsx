@@ -17,7 +17,6 @@ describe('DashboardFleet', () => {
           name: 'Home One',
           status: 'IDLE',
           alertState,
-          arrivalAt: null,
         },
       ],
     } as DashboardData;

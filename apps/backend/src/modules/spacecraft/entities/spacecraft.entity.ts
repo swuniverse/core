@@ -31,7 +31,6 @@ export enum StationRole {
 
 export enum SpacecraftStatus {
   IDLE = 'IDLE',
-  IN_FLIGHT = 'IN_FLIGHT',
   IN_COMBAT = 'IN_COMBAT',
   UNDER_CONSTRUCTION = 'UNDER_CONSTRUCTION',
   DESTROYED = 'DESTROYED',
@@ -58,8 +57,6 @@ export enum SpacecraftLssMode {
 @Entity('spacecraft')
 @Index(['userId'])
 @Index(['locationId'])
-@Index(['originLocationId'])
-@Index(['targetLocationId'])
 export class Spacecraft {
   @PrimaryGeneratedColumn()
   id: number;
@@ -166,9 +163,6 @@ export class Spacecraft {
   @Column({ default: 2 })
   warpSpeed: number;
 
-  @Column({ default: 0 })
-  warpCooldown: number;
-
   // Crew
   @Column({ default: 10 })
   crew: number;
@@ -230,23 +224,6 @@ export class Spacecraft {
 
   @Column({ default: false })
   reactorAutoCarryOver: boolean;
-
-  @Column({ type: 'timestamp', nullable: true })
-  arrivalAt: Date | null;
-
-  @Column({ type: 'int', nullable: true })
-  originLocationId: number | null;
-
-  @ManyToOne(() => SpaceLocation, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'originLocationId' })
-  originLocation: SpaceLocation | null;
-
-  @Column({ type: 'int', nullable: true })
-  targetLocationId: number | null;
-
-  @ManyToOne(() => SpaceLocation, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'targetLocationId' })
-  targetLocation: SpaceLocation | null;
 
   @Column({ type: 'int', nullable: true })
   fleetId: number | null;

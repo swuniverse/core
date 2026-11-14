@@ -19,9 +19,6 @@ export class DashboardSnapshot {
   shipCount: number;
 
   @Column({ type: 'int' })
-  inFlightShipCount: number;
-
-  @Column({ type: 'int' })
   holonetPostCount: number;
 
   @CreateDateColumn()

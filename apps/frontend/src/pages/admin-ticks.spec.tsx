@@ -33,6 +33,8 @@ describe('AdminTicksPage', () => {
     expect(await screen.findByText('Haupttick')).toBeTruthy();
     expect(screen.getByText('3,0 s')).toBeTruthy();
 
+    // The timed hyperspace jump and its arrival job are gone (sc-WP-NAV-3b).
+    expect(screen.queryByRole('button', { name: /Warp/ })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Haupttick starten' }));
 
     await waitFor(() =>

@@ -76,7 +76,6 @@ export interface Spacecraft {
   name: string;
   status: string;
   alertState?: string;
-  arrivalAt: string | null;
   hull?: number;
   hullMax?: number;
   crew?: number;
@@ -178,8 +177,6 @@ export interface DashboardData {
   colonies: ColonySummary[];
   colonyCount: number;
   fleetTotal: number;
-  fleetInFlight: number;
-  shipsInFlight: Spacecraft[];
   allShips: Spacecraft[];
   researchCompleted: number;
   unreadMessages: number;

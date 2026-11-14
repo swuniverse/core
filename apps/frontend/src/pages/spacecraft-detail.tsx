@@ -117,13 +117,6 @@ export function SpacecraftDetailPage() {
     };
   }, [ship?.id, locationKey, shipRefreshVersion]);
 
-  useEffect(() => {
-    if (ship?.status !== 'IN_FLIGHT') return;
-    // Ankunft kommt per SHIP_MOVED-Socket-Event; das Intervall ist nur Fallback.
-    const interval = setInterval(() => void fetchShip(), 30000);
-    return () => clearInterval(interval);
-  }, [ship?.status, fetchShip]);
-
   useSocket(WsEventType.SHIP_MOVED, (payload) => {
     const event = payload as { shipId?: number };
     if (event.shipId !== Number(id)) return;

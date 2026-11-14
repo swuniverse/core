@@ -136,7 +136,6 @@ export function DashboardPage() {
             name: string;
             status: string;
             alertState?: string;
-            arrivalAt: string | null;
             hull?: number;
             hullMax?: number;
             crew?: number;
@@ -199,10 +198,6 @@ export function DashboardPage() {
     const researchCompleted = researchData.filter(
       (r) => r.status === 'COMPLETED',
     ).length;
-
-    const shipsInFlight = spacecraftData.filter(
-      (s) => s.status === 'IN_FLIGHT',
-    );
 
     const buildJobs: Array<
       ActiveBuildJob & { colonyId: number; colonyName: string }
@@ -436,8 +431,6 @@ export function DashboardPage() {
       colonies,
       colonyCount: colonies.length,
       fleetTotal: spacecraftData.length,
-      fleetInFlight: shipsInFlight.length,
-      shipsInFlight,
       allShips: spacecraftData,
       researchCompleted,
       unreadMessages: unreadData,

@@ -567,7 +567,7 @@ describe('SpacecraftService fleet management', () => {
   });
 
   it.each([
-    [SpacecraftStatus.IN_FLIGHT, 10, 'Schiff darf sich nicht im Flug befinden'],
+    [SpacecraftStatus.IN_COMBAT, 10, 'Das Schiff ist nicht einsatzbereit'],
     [
       SpacecraftStatus.DESTROYED,
       10,

@@ -51,7 +51,6 @@ function setup(
     targetSystemId: 8,
     targetX: 9,
     targetY: 10,
-    arrivalAt: new Date(),
     runtimeSystems: {
       SHIELDS: { active: true, cooldown: 0, integrity: 100 },
     } as Record<string, any>,
@@ -205,7 +204,6 @@ describe('SpacecraftDestructionService', () => {
       status: 'DESTROYED',
       hull: 0,
       fleetId: null,
-      arrivalAt: null,
     });
     expect(ship.runtimeSystems.SHIELDS.active).toBe(false);
     expect(distress.active).toBe(false);

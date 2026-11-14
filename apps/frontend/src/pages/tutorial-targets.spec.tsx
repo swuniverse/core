@@ -44,7 +44,7 @@ const ship = {
   id: 2, name: 'Falke', shipClassId: 7, shipClassName: 'Korvette', status: 'IDLE',
   alertState: 'GREEN', hull: 90, hullMax: 100, shields: 40, shieldsMax: 50,
   energy: 70, energyMax: 100, reactorOutput: 12, warpdrive: 8, warpdriveMax: 20,
-  battery: 5, batteryMax: 10, warpSpeed: 2, warpCooldown: 0, crew: 4,
+  battery: 5, batteryMax: 10, warpSpeed: 2, crew: 4,
   crewRequired: 2, crewMax: 8, cargoUsed: 0, cargoMax: 20, reactorWarpSplit: 30,
   reactorAutoCarryOver: false, runtimeSystems: {
     SHIELDS: { active: true, cooldown: 0, integrity: 100 },
@@ -58,7 +58,7 @@ const ship = {
     WEAPONS: { present: true, active: false, damaged: false },
     TORPEDO_BANK: { present: false, active: false, damaged: false },
   },
-  location: { scope: 'GALAXY' as const, layerId: 3, x: 5, y: 6 }, arrivalAt: null,
+  location: { scope: 'GALAXY' as const, layerId: 3, x: 5, y: 6 },
   navigationBounds: { minX: 1, maxX: 100, minY: 1, maxY: 100 },
   tractor: null,
 };

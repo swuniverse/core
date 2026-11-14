@@ -32,7 +32,6 @@ export interface ApiError {
 export const TICK_RUN_TYPES = [
   'MAIN',
   'BUILDING_COMPLETION',
-  'WARP_ARRIVAL',
   'MAINTENANCE',
 ] as const;
 export type TickRunType = (typeof TICK_RUN_TYPES)[number];

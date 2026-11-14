@@ -22,11 +22,7 @@ import {
   RepairTargetType,
   SpacecraftRepairTask,
 } from './entities/spacecraft-repair-task.entity';
-import {
-  AlertState,
-  Spacecraft,
-  SpacecraftStatus,
-} from './entities/spacecraft.entity';
+import { AlertState, Spacecraft } from './entities/spacecraft.entity';
 import {
   CartographyPlan,
   CartographyPlanStatus,
@@ -122,9 +118,6 @@ export class SpacecraftRepairService {
       if (!ship) throw new NotFoundException('Spacecraft not found');
       if (ship.alertState !== AlertState.GREEN) {
         throw new BadRequestException('Reparaturen erfordern Alarmstufe Grün');
-      }
-      if (ship.status === SpacecraftStatus.IN_FLIGHT) {
-        throw new BadRequestException('Reparaturen sind im Flug nicht möglich');
       }
       if (!(await this.crewService.hasEnoughCrew(ship))) {
         throw new BadRequestException('Nicht ausreichend Crew');

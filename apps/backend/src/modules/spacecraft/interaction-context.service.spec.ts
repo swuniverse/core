@@ -2,7 +2,6 @@ jest.mock('./entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
   SpacecraftStatus: {
     IDLE: 'IDLE',
-    IN_FLIGHT: 'IN_FLIGHT',
     DESTROYED: 'DESTROYED',
   },
 }));
@@ -11,13 +10,12 @@ import type { Repository } from 'typeorm';
 import type { User } from '../auth/user.entity';
 import type { RelationshipResolverService } from '../alliance/relationship-resolver.service';
 import type { SpacecraftCrewService } from './spacecraft-crew.service';
-import type { Spacecraft, SpacecraftStatus as SpacecraftStatusType } from './entities/spacecraft.entity';
+import type { Spacecraft } from './entities/spacecraft.entity';
 import { InteractionContextService } from './interaction-context.service';
 import type { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 
 const SpacecraftStatus = {
   IDLE: 'IDLE',
-  IN_FLIGHT: 'IN_FLIGHT',
 } as const;
 
 const ship = (overrides: Partial<Spacecraft>): Spacecraft =>
@@ -52,7 +50,8 @@ describe('InteractionContextService', () => {
     const target = ship({
       id: 2,
       userId: 11,
-      status: SpacecraftStatus.IN_FLIGHT as SpacecraftStatusType,
+      // STU `isWarped`: warp drive running in open space.
+      location: { kind: 'GALAXY_FIELD' } as Spacecraft['location'],
       hull: 0,
     });
     (shipRepo.findOne as jest.Mock)
@@ -65,7 +64,10 @@ describe('InteractionContextService', () => {
     (crewService.hasEnoughCrew as jest.Mock).mockResolvedValue(true);
     (runtimeState.initialize as jest.Mock)
       .mockReturnValueOnce({ SHIELDS: { active: true, integrity: 100, cooldown: 0 } })
-      .mockReturnValueOnce({ SHIELDS: { active: false, integrity: 100, cooldown: 0 } });
+      .mockReturnValueOnce({
+        SHIELDS: { active: false, integrity: 100, cooldown: 0 },
+        WARPDRIVE: { active: true, integrity: 100, cooldown: 0 },
+      });
     (relationships.resolve as jest.Mock).mockResolvedValue({ mayTransferSafely: true });
 
     await expect(service.load(1, 2)).resolves.toEqual({

@@ -35,7 +35,6 @@ const ship = {
   battery: 5,
   batteryMax: 10,
   warpSpeed: 2,
-  warpCooldown: 0,
   crew: 4,
   crewRequired: 2,
   crewMax: 8,

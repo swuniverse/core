@@ -131,9 +131,6 @@ export class CombatService {
     if (defender.status === SpacecraftStatus.DESTROYED) {
       throw new BadRequestException('Target already destroyed');
     }
-    if (defender.status === SpacecraftStatus.IN_FLIGHT) {
-      throw new BadRequestException('Target is in flight');
-    }
     if (!(await this.spacecraftCrewService.hasEnoughCrew(attacker))) {
       throw new BadRequestException('Not enough crew');
     }

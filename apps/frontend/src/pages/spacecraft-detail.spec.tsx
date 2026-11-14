@@ -41,7 +41,6 @@ const ship = {
   warpdrive: 8,
   warpdriveMax: 20,
   warpSpeed: 2,
-  warpCooldown: 0,
   battery: 5,
   batteryMax: 10,
   evadeChance: 0,
@@ -62,7 +61,6 @@ const ship = {
     },
   },
   location: { scope: 'GALAXY' as const, layerId: 3, x: 5, y: 5 },
-  arrivalAt: null,
   tractor: {
     heldBy: { id: 9, name: 'Imperialer Schlepper' },
     canEscape: true,

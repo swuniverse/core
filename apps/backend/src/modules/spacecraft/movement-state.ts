@@ -18,7 +18,6 @@ const MOVEMENT_STATE_KEYS = [
   'epsMax',
   'warpdrive',
   'warpdriveMax',
-  'warpCooldown',
   'reactorFuel',
   'reactorFuelMax',
   'reactorOutput',
@@ -30,9 +29,6 @@ const MOVEMENT_STATE_KEYS = [
   'runtimeSystems',
   'shortRangeSensorsCooldownUntil',
   'lastGalaxyFlightDirection',
-  'arrivalAt',
-  'originLocationId',
-  'targetLocationId',
 ] as const;
 
 export type MovementState = Pick<
@@ -108,8 +104,6 @@ export function applyMovementState(
     Object.fromEntries(MOVEMENT_STATE_KEYS.map((key) => [key, moving[key]])),
   );
   persisted.location = moving.location;
-  persisted.originLocation = moving.originLocation;
-  persisted.targetLocation = moving.targetLocation;
 }
 
 export function assertMovementState(

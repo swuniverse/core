@@ -2,7 +2,6 @@ jest.mock('./entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
   SpacecraftStatus: {
     IDLE: 'IDLE',
-    IN_FLIGHT: 'IN_FLIGHT',
     IN_COMBAT: 'IN_COMBAT',
     DESTROYED: 'DESTROYED',
   },
@@ -734,8 +733,8 @@ describe('SpacecraftService movement resources', () => {
     );
   });
 
-  it('uses warpdrive for galaxy flight and warp', async () => {
-    const { service, shipRepo, galaxyFieldRepo, systemRepo, runtimeState } =
+  it('pays galaxy flight with EPS and keeps the warpdrive charge', async () => {
+    const { service, shipRepo, galaxyFieldRepo, runtimeState } =
       createService();
     const ship = {
       id: 7,
@@ -758,222 +757,6 @@ describe('SpacecraftService movement resources', () => {
     expect(ship.energy).toBe(7);
     expect(ship.runtimeSystems?.WARPDRIVE.active).toBe(true);
     expect(runtimeState.initialize).toHaveBeenCalledWith(ship);
-
-    ship.status = SpacecraftStatus.IDLE;
-    Object.assign(ship, systemLocation(11), { warpCooldown: 0 });
-    systemRepo.findOne
-      .mockResolvedValueOnce({ id: 11, cx: 1, cy: 1 })
-      .mockResolvedValueOnce({ id: 12, cx: 3, cy: 1 });
-
-    await service.warp(7, 1, 12);
-
-    expect(ship.warpdrive).toBe(3);
-    expect(ship.status).toBe(SpacecraftStatus.IN_FLIGHT);
-  });
-
-  it('writes canonical origin and target locations for warp', async () => {
-    const { service, shipRepo, systemRepo, systemFieldRepo, locationRepo } =
-      createService();
-    const originLocation = {
-      id: 90,
-      kind: 'SYSTEM_FIELD',
-      systemField: { id: 30, starSystemId: 11, sx: 4, sy: 5 },
-    };
-    const targetField = {
-      id: 31,
-      starSystemId: 12,
-      sx: 1,
-      sy: 1,
-      celestialObjectId: null,
-    };
-    const targetLocation = {
-      id: 91,
-      kind: 'SYSTEM_FIELD',
-      systemField: targetField,
-    };
-    const ship = {
-      id: 7,
-      userId: 1,
-      status: SpacecraftStatus.IDLE,
-      inSystem: true,
-      starSystemId: 99,
-      currentSystemFieldX: 9,
-      currentSystemFieldY: 9,
-      locationId: 90,
-      location: originLocation,
-      warpCooldown: 0,
-      warpdrive: 10,
-      runtimeSystems: {
-        WARPDRIVE: { active: true, cooldown: 0, integrity: 100 },
-      },
-      modules: [],
-    };
-    shipRepo.findOne.mockResolvedValue(ship);
-    systemRepo.findOne
-      .mockResolvedValueOnce({ id: 11, cx: 1, cy: 1 })
-      .mockResolvedValueOnce({ id: 12, cx: 3, cy: 1 });
-    systemFieldRepo.findOne.mockResolvedValue(targetField);
-    locationRepo.findOne.mockResolvedValue(targetLocation);
-
-    await service.warp(7, 1, 12);
-
-    expect(systemRepo.findOne).toHaveBeenNthCalledWith(1, {
-      where: { id: 11 },
-    });
-    expect(ship).toEqual(
-      expect.objectContaining({
-        originLocationId: 90,
-        originLocation,
-        targetLocationId: 91,
-        targetLocation,
-      }),
-    );
-  });
-
-  it('uses a canonical target location on arrival and clears flight locations', async () => {
-    const { service, shipRepo, objectRepo, systemFieldRepo, locationRepo } =
-      createService();
-    const celestialObject = { id: 42 };
-    const canonicalField = {
-      id: 31,
-      starSystemId: 3,
-      sx: 8,
-      sy: 12,
-      celestialObjectId: 42,
-    };
-    const targetLocation = {
-      id: 91,
-      kind: 'SYSTEM_FIELD',
-      galaxyFieldId: null,
-      galaxyField: null,
-      systemFieldId: canonicalField.id,
-      systemField: canonicalField,
-    };
-    const ship = {
-      id: 7,
-      userId: 1,
-      status: SpacecraftStatus.IN_FLIGHT,
-      inSystem: true,
-      starSystemId: 3,
-      currentSystemFieldX: 1,
-      currentSystemFieldY: 1,
-      celestialObjectId: null,
-      celestialObject: null,
-      targetX: 2,
-      targetY: 2,
-      targetSystemId: null,
-      targetLocationId: 91,
-      targetLocation: null,
-      originLocationId: 90,
-      originLocation: { id: 90 },
-      flightOrigin: { scope: 'SYSTEM', systemId: 3, x: 1, y: 1 },
-      arrivalAt: new Date(0),
-    };
-    locationRepo.findOne.mockResolvedValue(targetLocation);
-    objectRepo.findOneBy.mockResolvedValue(celestialObject);
-
-    await service.processMovement(ship as any);
-
-    expect(locationRepo.findOne).toHaveBeenCalledWith({
-      where: { id: 91 },
-      relations: ['galaxyField', 'systemField', 'systemField.celestialObject'],
-    });
-    expect(systemFieldRepo.findOne).not.toHaveBeenCalled();
-    expect(ship).toEqual(
-      expect.objectContaining({
-        locationId: 91,
-        location: targetLocation,
-        targetLocationId: null,
-        targetLocation: null,
-        originLocationId: null,
-        originLocation: null,
-      }),
-    );
-    expect(shipRepo.save).toHaveBeenCalledWith(ship);
-  });
-
-  it('does not discover a system when a ship enters it', async () => {
-    const { service, objectRepo, locationRepo, explorationService } =
-      createService();
-    const targetLocation = {
-      id: 91,
-      kind: 'SYSTEM_FIELD',
-      systemField: { id: 31, starSystemId: 3, sx: 8, sy: 12 },
-    };
-    const ship = {
-      id: 7,
-      userId: 1,
-      status: SpacecraftStatus.IN_FLIGHT,
-      locationId: 90,
-      location: { id: 90, kind: 'GALAXY_FIELD' },
-      targetLocationId: 91,
-      targetLocation,
-      originLocationId: 90,
-      originLocation: { id: 90 },
-      targetSystemId: 3,
-      arrivalAt: new Date(0),
-    };
-    locationRepo.findOne.mockResolvedValue(targetLocation);
-    objectRepo.findOneBy.mockResolvedValue(null);
-
-    await service.processMovement(ship as any);
-
-    expect(ship.location).toBe(targetLocation);
-    expect(explorationService.discoverSystem).not.toHaveBeenCalled();
-  });
-
-  it('uses the canonical target location kind on arrival', async () => {
-    const { service, shipRepo, systemRepo, galaxyFieldRepo } = createService();
-    const currentLocation = {
-      id: 90,
-      kind: 'SYSTEM_FIELD',
-      systemField: { starSystemId: 3, sx: 1, sy: 1 },
-    };
-    const targetLocation = {
-      id: 91,
-      kind: 'GALAXY_FIELD',
-      galaxyField: {
-        id: 41,
-        layerId: 5,
-        cx: 12,
-        cy: 14,
-        starSystemId: null,
-      },
-    };
-    const ship = {
-      id: 7,
-      userId: 1,
-      status: SpacecraftStatus.IN_FLIGHT,
-      inSystem: true,
-      starSystemId: 3,
-      currentSystemFieldX: 1,
-      currentSystemFieldY: 1,
-      currentLayerId: 2,
-      posX: 2,
-      posY: 2,
-      locationId: 90,
-      location: currentLocation,
-      targetLocationId: 91,
-      targetLocation,
-      targetSystemId: 99,
-      targetX: 8,
-      targetY: 9,
-      arrivalAt: new Date(0),
-    };
-
-    await service.processMovement(ship as any);
-
-    expect(systemRepo.findOne).not.toHaveBeenCalled();
-    expect(galaxyFieldRepo.findOne).not.toHaveBeenCalled();
-    expect(ship).toEqual(
-      expect.objectContaining({
-        locationId: 91,
-        location: targetLocation,
-        targetLocationId: null,
-        targetLocation: null,
-      }),
-    );
-    expect(shipRepo.save).toHaveBeenCalledWith(ship);
   });
 
   it('activates SUBLIGHT_DRIVE for in-system navigation', async () => {
@@ -998,29 +781,6 @@ describe('SpacecraftService movement resources', () => {
     await service.navigate(7, 1, 1, 3);
 
     expect(ship.runtimeSystems.SUBLIGHT_DRIVE.active).toBe(true);
-  });
-
-  it('blocks warp when WARPDRIVE system is offline', async () => {
-    const { service, shipRepo, systemRepo, runtimeState } = createService();
-    runtimeState.getSystems.mockReturnValue({
-      WARPDRIVE: { active: false, cooldown: 0, integrity: 100 },
-    });
-    shipRepo.findOne.mockResolvedValue({
-      id: 7,
-      userId: 1,
-      status: SpacecraftStatus.IDLE,
-      ...systemLocation(11),
-      warpCooldown: 0,
-      modules: [],
-      warpdrive: 10,
-    });
-    systemRepo.findOne
-      .mockResolvedValueOnce({ id: 11, cx: 1, cy: 1 })
-      .mockResolvedValueOnce({ id: 12, cx: 3, cy: 1 });
-
-    await expect(service.warp(7, 1, 12)).rejects.toThrow(
-      'Hyperantrieb offline',
-    );
   });
 
   it('blocks galaxy flight when no hyperdrive is installed', async () => {

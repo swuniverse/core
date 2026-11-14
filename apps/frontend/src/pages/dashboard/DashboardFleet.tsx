@@ -42,9 +42,7 @@ export function DashboardFleet({ data }: { data: DashboardData }) {
               <strong className="min-w-0 flex-1 truncate text-swu-text">
                 {ship.name}
               </strong>
-              <span className="text-swu-muted">
-                {ship.status === 'IN_FLIGHT' ? 'Im Flug' : 'Bereit'}
-              </span>
+              <span className="text-swu-muted">Bereit</span>
             </Link>
           );
         })}

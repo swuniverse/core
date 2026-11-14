@@ -1,6 +1,5 @@
 import { TradePostPresencePolicy } from './trade-post-presence.policy';
 
-const IN_FLIGHT = 'IN_FLIGHT';
 const IDLE = 'IDLE';
 
 describe('TradePostPresencePolicy', () => {
@@ -20,7 +19,6 @@ describe('TradePostPresencePolicy', () => {
   it.each<[Parameters<TradePostPresencePolicy['isAt']>[0], string]>([
     [{ ...ship, userId: 8 }, 'foreign ship'],
     [{ ...ship, locationId: 13 }, 'different location'],
-    [{ ...ship, status: IN_FLIGHT }, 'ship in flight'],
     [
       { ...ship, runtimeSystems: { WARPDRIVE: { active: true, cooldown: 0, integrity: 100 } } },
       'ship in hyperspace',
@@ -33,7 +31,6 @@ describe('TradePostPresencePolicy', () => {
   it.each<[Parameters<TradePostPresencePolicy['reason']>[0], string]>([
     [{ ...ship, userId: 8 }, 'Das Schiff gehört nicht dir'],
     [{ ...ship, locationId: 13 }, 'Das Schiff befindet sich nicht am Handelsposten'],
-    [{ ...ship, status: IN_FLIGHT }, 'Das Schiff befindet sich im Flug'],
     [
       { ...ship, runtimeSystems: { WARPDRIVE: { active: true, cooldown: 0, integrity: 100 } } },
       'Der Hyperantrieb ist aktiv',

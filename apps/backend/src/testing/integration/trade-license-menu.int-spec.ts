@@ -63,7 +63,7 @@ describe('trade license menu (PostgreSQL)', () => {
     const initiator = await ship('Falke', 0);
     const payer = await ship('Barke', 12);
     await ship('Arm', 9);
-    await ship('Unterwegs', 50, { status: 'IN_FLIGHT' });
+    await ship('Unterwegs', 50, { runtimeSystems: { WARPDRIVE: { active: true } } });
     await ship('Fern', 50, { locationId: locations[1] });
     await ship('Fremd', 50, { userId: ownerId });
     await account(posts.sameNetwork, buyerId, 10);
@@ -88,8 +88,8 @@ describe('trade license menu (PostgreSQL)', () => {
     });
   });
 
-  it('explains why no purchase is possible without a ship, from a ship in flight or without sources', async () => {
-    const flying = await ship('Unterwegs', 50, { status: 'IN_FLIGHT' });
+  it('explains why no purchase is possible without a ship, from a ship under hyperdrive or without sources', async () => {
+    const flying = await ship('Unterwegs', 50, { runtimeSystems: { WARPDRIVE: { active: true } } });
     const poor = await ship('Arm', 5);
 
     expect((await menus.getMenu(posts.licensed, buyerId, null)).purchase).toEqual({
@@ -97,7 +97,7 @@ describe('trade license menu (PostgreSQL)', () => {
       rejection: 'Lizenzen werden über das Handelsmenü eines eigenen Schiffs am Posten gekauft',
       payShips: [],
     });
-    expect((await menus.getMenu(posts.licensed, buyerId, flying.id)).purchase.rejection).toBe('Das Schiff befindet sich im Flug');
+    expect((await menus.getMenu(posts.licensed, buyerId, flying.id)).purchase.rejection).toBe('Der Hyperantrieb ist aktiv');
     expect((await menus.getMenu(posts.licensed, buyerId, poor.id)).purchase.rejection).toBe('Keine Zahlquelle mit ausreichendem Bestand');
     expect((await menus.getMenu(posts.sameNetwork, buyerId, poor.id)).purchase.rejection).toBe('Dieser Handelsposten vergibt keine Lizenzen');
   });

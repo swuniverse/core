@@ -10,7 +10,6 @@ jest.mock('../spacecraft/entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
   SpacecraftStatus: {
     IDLE: 'IDLE',
-    IN_FLIGHT: 'IN_FLIGHT',
     DESTROYED: 'DESTROYED',
   },
   SpacecraftKind: { SHIP: 'SHIP', STATION: 'STATION' },
@@ -7317,9 +7316,6 @@ describe('main tick idempotency', () => {
         'location',
         'location.galaxyField',
         'location.systemField',
-        'targetLocation',
-        'targetLocation.galaxyField',
-        'targetLocation.systemField',
       ],
     });
     expect(gateway.emitToUser).toHaveBeenCalledWith(4, WsEventType.SHIP_MOVED, {

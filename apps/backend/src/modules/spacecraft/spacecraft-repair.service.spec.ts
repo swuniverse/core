@@ -3,7 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 jest.mock('./entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
   AlertState: { GREEN: 'GREEN', YELLOW: 'YELLOW', RED: 'RED' },
-  SpacecraftStatus: { IDLE: 'IDLE', IN_FLIGHT: 'IN_FLIGHT' },
+  SpacecraftStatus: { IDLE: 'IDLE' },
 }));
 jest.mock('./entities/spacecraft-repair-task.entity', () => ({
   SpacecraftRepairTask: class SpacecraftRepairTask {},
@@ -95,7 +95,6 @@ describe('SpacecraftRepairService', () => {
 
   it.each([
     ['alarm state', (ctx: ReturnType<typeof setup>) => (ctx.state.ship.alertState = AlertState.YELLOW), 'Alarmstufe'],
-    ['flight', (ctx: ReturnType<typeof setup>) => (ctx.state.ship.status = SpacecraftStatus.IN_FLIGHT), 'im Flug'],
     ['crew', (ctx: ReturnType<typeof setup>) => ctx.crewService.hasEnoughCrew.mockResolvedValue(false), 'Crew'],
     ['active repair', (ctx: ReturnType<typeof setup>) => (ctx.state.task = { id: 2 }), 'läuft bereits'],
     ['cartography', (ctx: ReturnType<typeof setup>) => (ctx.state.finalizing = true), 'Kartographie'],

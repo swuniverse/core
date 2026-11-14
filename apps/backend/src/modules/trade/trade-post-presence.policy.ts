@@ -30,7 +30,6 @@ export class TradePostPresencePolicy {
     if (ship.locationId !== post.locationId) {
       return 'Das Schiff befindet sich nicht am Handelsposten';
     }
-    if (ship.status === 'IN_FLIGHT') return 'Das Schiff befindet sich im Flug';
     if (ship.runtimeSystems?.WARPDRIVE?.active === true) {
       return 'Der Hyperantrieb ist aktiv';
     }

@@ -22,7 +22,6 @@ interface Ship {
   status: string;
   energy: number;
   energyMax: number;
-  arrivalAt: string | null;
   location: SpaceLocationDto;
   runtimeSystems?: Record<string, { active: boolean }>;
   lssMode?: 'DISABLED' | 'TERRITORY' | 'IMPASSABLE' | 'CARTOGRAPHY';
@@ -112,15 +111,6 @@ export function NavigationPanel({
   useEffect(() => {
     setChangingSystem(false);
   }, [navigationLocationKey]);
-
-  useEffect(() => {
-    if (ship.status !== 'IN_FLIGHT') return;
-    const interval = setInterval(() => {
-      void fetchLocalMap();
-      onShipUpdate();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [ship.status, fetchLocalMap, onShipUpdate]);
 
   const handleFly = async (targetX: number, targetY: number) => {
     setNavMessage(null);
@@ -242,7 +232,6 @@ export function NavigationPanel({
   }
 
   const isDocked = ship.status === 'IDLE';
-  const isFlying = ship.status === 'IN_FLIGHT';
   const isErrorMessage =
     navMessage?.includes('fehl') ||
     navMessage?.includes('Fehler') ||
@@ -292,7 +281,6 @@ export function NavigationPanel({
           <span>
             E {ship.energy}/{ship.energyMax}
           </span>
-          {isFlying && <span className="text-amber-400">IM FLUG</span>}
           {navMessage && (
             <span
               role="status"

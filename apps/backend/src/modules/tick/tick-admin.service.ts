@@ -56,8 +56,6 @@ export class TickAdminService {
         return this.runWithFailureNotification(() =>
           this.tickService.checkBuildingCompletions(true),
         );
-      case 'WARP_ARRIVAL':
-        return this.tickService.checkWarpArrivals();
       case GameTickType.MAINTENANCE: {
         const result = await this.maintenanceService.run();
         await this.notifyFailure(result);
