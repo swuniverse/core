@@ -52,6 +52,7 @@ describe('Layer access through the authenticated production application (Postgre
         DATABASE_URL: process.env.INTEGRATION_DATABASE_URL,
         JWT_SECRET,
         NODE_ENV: 'production',
+        EMAIL_BLOCKLIST_PEPPER: 'integration-pepper',
         GAME_TIMEZONE: 'UTC',
       })[key],
     };

@@ -171,6 +171,23 @@ export class AuthController {
 
   @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Post('admin/users/:id/block')
+  blockUser(@Param('id') id: string) {
+    return this.authService.blockUser(Number(id));
+  }
+
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Patch('admin/users/:id/deletion-forbidden')
+  setDeletionForbidden(
+    @Param('id') id: string,
+    @Body() body: { forbidden: boolean },
+  ) {
+    return this.authService.setDeletionForbidden(Number(id), body?.forbidden);
+  }
+
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Patch('admin/users/:id/permissions')
   updatePermissions(
     @Param('id') id: string,

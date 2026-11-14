@@ -23,6 +23,7 @@ describe('AdminUsersPage', () => {
         lastActiveAt: null,
         vacationMode: false,
         deletionMark: 0,
+        blocked: false,
         lock: null,
       },
     ]);
@@ -67,5 +68,23 @@ describe('AdminUsersPage', () => {
     fireEvent.change(screen.getByLabelText('Begründung'), { target: { value: 'Regelverstoß' } });
     fireEvent.click(screen.getByRole('button', { name: 'Sperre setzen' }));
     await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/auth/admin/users/9/lock', { ticks: 3, reason: 'Regelverstoß' }));
+  });
+
+  it('confirms blocking a player and shows the blocked state', async () => {
+    render(<AdminUsersPage />);
+    await screen.findByText('NPC');
+    fireEvent.click(screen.getByRole('button', { name: 'Blockieren' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Spieler blockieren' }));
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/auth/admin/users/9/block', {}));
+    expect(screen.queryByRole('button', { name: 'Blockieren' })).toBeNull();
+  });
+
+  it('toggles the deletion ban', async () => {
+    apiMocks.patch.mockResolvedValue({ deletionMark: 3 });
+    render(<AdminUsersPage />);
+    await screen.findByText('NPC');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Löschverbot' }));
+    await waitFor(() => expect(apiMocks.patch).toHaveBeenCalledWith('/auth/admin/users/9/deletion-forbidden', { forbidden: true }));
+    expect((screen.getByRole('checkbox', { name: 'Löschverbot' }) as HTMLInputElement).checked).toBe(true);
   });
 });

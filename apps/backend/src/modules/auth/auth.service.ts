@@ -42,6 +42,7 @@ import {
 } from './account-access-check';
 import { UserSettingsReader } from '../settings/user-settings-reader';
 import { UserLock } from './user-lock.entity';
+import { EmailBlocklistService } from '../settings/email-blocklist.service';
 import { PlayerDeletionService } from '../account-deletion/player-deletion.service';
 
 const INITIAL_INVITE_QUOTA = 2;
@@ -109,6 +110,8 @@ export class AuthService {
     private readonly userLockRepo?: Repository<UserLock>,
     @Optional()
     private readonly playerDeletionService?: PlayerDeletionService,
+    @Optional()
+    private readonly emailBlocklist?: EmailBlocklistService,
   ) {}
 
   features(): AuthFeaturesDto {
@@ -196,6 +199,7 @@ export class AuthService {
     this.assertEmailVerificationEnabled();
     const email = dto.email.trim().toLowerCase();
     const user = await this.requireUnverifiedUser(userId);
+    await this.assertEmailNotBlocked(email);
     const duplicate = await this.userRepo.findOne({
       where: { email: Raw((column) => `LOWER(${column}) = LOWER(:email)`, { email }) },
     });
@@ -329,6 +333,7 @@ export class AuthService {
   async register(dto: RegisterDto): Promise<AuthResponse> {
     const passwordHash = await bcrypt.hash(dto.password, 12);
     const email = dto.email.trim().toLowerCase();
+    await this.assertEmailNotBlocked(email);
 
     const user = await this.dataSource.transaction(async (manager) => {
       await this.acquireRegistrationLock(manager);
@@ -757,6 +762,7 @@ export class AuthService {
   async listUsers(query?: string) {
     const users = await this.userRepo.find({ order: { id: 'ASC' } });
     const locks = this.userLockRepo ? await this.userLockRepo.find() : [];
+    const blocked = (await this.emailBlocklist?.blockedUserIds()) ?? new Set<number>();
     const locksByUser = new Map(locks.map((lock) => [lock.userId, lock]));
     const normalizedQuery = query?.trim().toLowerCase();
     return users
@@ -780,6 +786,7 @@ export class AuthService {
           lastActiveAt: user.lastActiveAt?.toISOString() ?? null,
           vacationMode: user.vacationMode,
           deletionMark: user.deletionMark,
+          blocked: blocked.has(user.id),
           lock: lock
             ? { remainingTicks: lock.remainingTicks, reason: lock.reason }
             : null,
@@ -830,6 +837,48 @@ export class AuthService {
 
   async unlockUser(userId: number): Promise<void> {
     await this.userLockRepo?.delete({ userId });
+  }
+
+  /** Blocks the email address and releases the account for deletion. */
+  async blockUser(userId: number): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(User);
+      const user = await repository.findOneBy({ id: userId });
+      if (!user) throw new NotFoundException('Spieler nicht gefunden');
+      if (user.isAdmin) {
+        throw new BadRequestException('Admins können nicht blockiert werden');
+      }
+      if (!this.emailBlocklist) throw new Error('Email blocklist is not available');
+      await this.emailBlocklist.block(manager, user.id, user.email);
+      await repository.update(user.id, {
+        deletionMark: AccountDeletionMark.Confirmed,
+        refreshToken: null,
+      });
+    });
+  }
+
+  async setDeletionForbidden(
+    userId: number,
+    forbidden: unknown,
+  ): Promise<{ deletionMark: AccountDeletionMark }> {
+    if (typeof forbidden !== 'boolean') {
+      throw new BadRequestException('forbidden muss true oder false sein');
+    }
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) throw new NotFoundException('Spieler nicht gefunden');
+    let deletionMark = user.deletionMark;
+    if (forbidden) deletionMark = AccountDeletionMark.Forbidden;
+    else if (deletionMark === AccountDeletionMark.Forbidden) {
+      deletionMark = AccountDeletionMark.None;
+    }
+    await this.userRepo.update(user.id, { deletionMark });
+    return { deletionMark };
+  }
+
+  private async assertEmailNotBlocked(email: string): Promise<void> {
+    if (await this.emailBlocklist?.isBlocked(email)) {
+      throw new BadRequestException('Die E-Mail-Adresse ist blockiert');
+    }
   }
 
   private async assertAccountAccess(user: User): Promise<void> {

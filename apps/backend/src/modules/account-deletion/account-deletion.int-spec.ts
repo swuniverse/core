@@ -50,6 +50,7 @@ describe('Account deletion with game content (PostgreSQL, AppModule)', () => {
           DATABASE_URL: process.env.INTEGRATION_DATABASE_URL,
           JWT_SECRET: 'account-deletion-test-secret',
           NODE_ENV: 'production',
+          EMAIL_BLOCKLIST_PEPPER: 'integration-pepper',
           GAME_TIMEZONE: 'UTC',
         })[key],
     };

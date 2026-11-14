@@ -39,6 +39,7 @@ services:
       DATABASE_URL: postgresql://swuniverse:${DB_PASSWORD:-devpassword}@db:5432/swuniverse
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-prod}
+      EMAIL_BLOCKLIST_PEPPER: ${EMAIL_BLOCKLIST_PEPPER:-dev-email-blocklist-pepper}
       GAME_DATA_PATH: /app/game-data/data
       TYPEORM_SYNCHRONIZE: ${TYPEORM_SYNCHRONIZE:-false}
     ports:

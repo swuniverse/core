@@ -80,6 +80,7 @@ describe('Ship-based colony orbit orders through the production application (Pos
           DATABASE_URL: process.env.INTEGRATION_DATABASE_URL,
           JWT_SECRET,
           NODE_ENV: 'production',
+          EMAIL_BLOCKLIST_PEPPER: 'integration-pepper',
           GAME_TIMEZONE: 'UTC',
         })[key],
     };

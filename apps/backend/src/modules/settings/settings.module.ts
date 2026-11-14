@@ -11,21 +11,21 @@ import { AccountToken } from '../auth/account-token.entity';
 import { AccountTokenService } from '../auth/account-token.service';
 import { MailModule } from '../mail/mail.module';
 import { UserSettingsReader } from './user-settings-reader';
-import {
-  AllowAllEmailBlocklist,
-  EMAIL_BLOCKLIST,
-} from './email-blocklist.port';
+import { EMAIL_BLOCKLIST } from './email-blocklist.port';
+import { EmailBlocklistService } from './email-blocklist.service';
+import { BlockedUser } from './entities/blocked-user.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([UserSetting, User, AccountToken, Note]), MailModule],
+  imports: [TypeOrmModule.forFeature([UserSetting, User, AccountToken, Note, BlockedUser]), MailModule],
   controllers: [SettingsController, NotesController],
   providers: [
     SettingsService,
     NotesService,
     UserSettingsReader,
     AccountTokenService,
-    { provide: EMAIL_BLOCKLIST, useClass: AllowAllEmailBlocklist },
+    EmailBlocklistService,
+    { provide: EMAIL_BLOCKLIST, useExisting: EmailBlocklistService },
   ],
-  exports: [SettingsService, UserSettingsReader],
+  exports: [SettingsService, UserSettingsReader, EmailBlocklistService],
 })
 export class SettingsModule {}
