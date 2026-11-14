@@ -29,7 +29,12 @@ import { TypeOrmAllianceStore } from '../alliance/typeorm-alliance.store';
 import { ColonizationService } from '../colonization/colonization.service';
 import { GameDataService } from '../game-data/game-data.service';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
+import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { Layer } from '../starmap/entities/layer.entity';
+import { LayerKnowledge } from '../starmap/entities/layer-knowledge.entity';
+import { MapRegion } from '../starmap/entities/map-region.entity';
+import { StarSystem } from '../starmap/entities/star-system.entity';
+import { LayerAccessService } from '../starmap/layer-access.service';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { Spacecraft } from './entities/spacecraft.entity';
 import { ShipColonyContextService } from './ship-colony-context.service';
@@ -57,6 +62,7 @@ import { StationRepairService } from './station-repair.service';
 import { StationShipyardService } from './station-shipyard.service';
 import { SpacecraftTrackerService } from './spacecraft-tracker.service';
 import { WormholePassageService } from './wormhole-passage.service';
+import { WormholeRestrictionService } from './wormhole-restriction.service';
 
 const { NONE, PRESIDENT, VICE, DIPLOMAT } = AllianceRole;
 const JWT_SECRET = 'integration-secret';
@@ -65,6 +71,7 @@ const SPACE_FIELD_TYPE_ID = 1;
 /** Controller collaborators the starmap contact routes never touch. */
 const UNRELATED_SPACECRAFT_SERVICES = [
   WormholePassageService,
+  WormholeRestrictionService,
   TransferService,
   SpacecraftScanService,
   GameDataService,
@@ -146,10 +153,13 @@ describe('starmap contact requests (Postgres, HTTP)', () => {
           provide: getRepositoryToken(Spacecraft),
           useFactory: () => dataSource.getRepository(Spacecraft),
         },
-        {
-          provide: getRepositoryToken(Layer),
-          useFactory: () => dataSource.getRepository(Layer),
-        },
+        ...[Layer, LayerKnowledge, StarSystem, MapRegion, CelestialObject].map(
+          (entity) => ({
+            provide: getRepositoryToken(entity),
+            useFactory: () => dataSource.getRepository(entity),
+          }),
+        ),
+        LayerAccessService,
         ...UNRELATED_SPACECRAFT_SERVICES.map((service) => ({
           provide: service,
           useValue: {},
@@ -243,8 +253,29 @@ describe('starmap contact requests (Postgres, HTTP)', () => {
     await store.transaction((tx) => tx.acceptRelationshipProposal(proposal.id));
 
     const layers = dataSource.getRepository(Layer);
-    const core = await layers.save({ name: 'Core', width: 50, height: 50 });
-    const outer = await layers.save({ name: 'Outer', width: 50, height: 50 });
+    const core = await layers.save({
+      name: 'Core',
+      width: 50,
+      height: 50,
+      isHidden: false,
+    });
+    const outer = await layers.save({
+      name: 'Outer',
+      width: 50,
+      height: 50,
+      isHidden: false,
+    });
+    const stranger = await player('jyn');
+    await dataSource.getRepository(LayerKnowledge).save(
+      [president, vice, diplomat, member, loner, imperial, partner].flatMap(
+        (user) =>
+          [core, outer].map((layer) => ({
+            userId: user.id,
+            layerId: layer.id,
+            knownAt: new Date(),
+          })),
+      ),
+    );
     const cell = async (layerId: number, x: number) => {
       const field = await dataSource.getRepository(GalaxyField).save({
         layerId,
@@ -290,6 +321,7 @@ describe('starmap contact requests (Postgres, HTTP)', () => {
       loner,
       imperial,
       partner,
+      stranger,
       rogue,
       core,
       outer,
@@ -500,6 +532,13 @@ describe('starmap contact requests (Postgres, HTTP)', () => {
         );
         expect([400, 404]).toContain(status);
       }
+
+      const unknown = await request(
+        app,
+        w.stranger,
+        `/spacecraft/starmap-contacts?layerId=${w.core.id}`,
+      );
+      expect(unknown.status).toBe(403);
     });
 
     it('rejects requests without a valid token', async () => {

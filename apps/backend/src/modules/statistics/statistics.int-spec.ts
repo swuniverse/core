@@ -17,6 +17,7 @@ import { JwtStrategy } from '../auth/jwt.strategy';
 import { DatabaseController } from '../database/database.controller';
 import { DatabaseService } from '../database/database.service';
 import { CommodityOverviewService } from '../database/commodity-overview.service';
+import { LayerAccessService } from '../starmap/layer-access.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { Message } from '../messaging/entities/message.entity';
 import { StatisticsService } from './statistics.service';
@@ -66,6 +67,7 @@ describe('database statistics (Postgres, HTTP)', () => {
         JwtStrategy,
         { provide: DatabaseService, useValue: {} },
         { provide: CommodityOverviewService, useValue: {} },
+        { provide: LayerAccessService, useValue: {} },
         { provide: StatisticsService, useValue: statistics },
       ],
     }).compile();
