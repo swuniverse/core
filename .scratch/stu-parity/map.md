@@ -170,11 +170,12 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-11-13 – tmw-T12a – Spieler-IDs beginnen wie in STU bei 100; Spielerhandelsnetze tragen die Eigentümer-ID und kollidieren nie mit den NPC-Netzen 1–3
 - 2026-11-13 – tmw-T12c – Statt STU `USER_NOONE` hat ein verlassener Handelsposten keinen Eigentümer (`trade_posts.ownerId` nullable); SWU legt keinen Platzhalter-Spieler an
 - 2026-11-13 – sh-AP-05b – Inhalte, die andere sehen, verlieren beim Löschen nur den Autor (`NULL`, Anzeige „Gelöschter Siedler“) statt eines Fallback-Kontos; Löschhandler können einen `prepare`-Schritt vor der Transaktion nutzen (Allianzaustritt)
+- 2026-11-14 – sc-WP-COMBAT-1c – Maintainer: „Wir halten uns an STU.“ Alarmreaktionen und Flottenflug folgen STU (`AlertReactionFacade`, `ShipMover`): alle berechtigten Parteien in zufälliger Reihenfolge, kein Flugstopp durch den Kampf, Überlebende fliegen weiter; Führungswechsel bei Leaderverlust folgt in sc-WP-FLEET-4
 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
-- sc-WP-COMBAT-1c – Alarmreaktion über den Bewegungsport (Gelb gegen Feinde, Rot gegen Nicht-Freunde, deterministisch ein Kampf pro Feld) stoppt System- und Galaxieflug; Kampfbericht im Navigationspanel – 98ad951f
+- sc-WP-COMBAT-1c – Alarmreaktion über den Bewegungsport nach STU: alle berechtigten Parteien in zufälliger Reihenfolge, Flug läuft mit Überlebenden weiter, Nachrichten an beide Seiten; Kampfberichte im Navigationspanel – 98ad951f, 88b7fbdd
 - sc-WP-COMBAT-1a – System- und Galaxieflug liefern gemeinsamen `MovementResult`; neutraler Port `MOVEMENT_REACTIONS` kann die Route nach jedem Feld stoppen – 2355ce7b
 - sh-AP-22 – Flaky `research.spec.tsx`: nach Nachmessung (40/40 einzeln, 10/10 unter Volllast) ohne weitere Änderung geschlossen; Korrektur war 14b86081
 - sh-AP-13b – Spielereignisse (Ereignisse, Nachrichten, HoloNet, Logbuch) mit In-Universe-Datum „n NSY“ (reales Jahr − 2023), sonst reale Daten – f2f18dab
