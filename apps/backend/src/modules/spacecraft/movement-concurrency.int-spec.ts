@@ -1,3 +1,4 @@
+import type { CombatReportDto } from '@swuniverse/shared';
 import 'reflect-metadata';
 import { setTimeout as pause } from 'node:timers/promises';
 import { Test } from '@nestjs/testing';
@@ -58,6 +59,12 @@ function barrier() {
   });
   return { promise, release };
 }
+
+const battleReport = (text: string): CombatReportDto => ({
+  parties: { attacker: [], defender: [] },
+  rounds: [{ number: 1, lines: [{ kind: 'INFO', text, emphasis: 'neutral' }] }],
+  outcome: { winner: 'ATTACKER', destroyedShipIds: [] },
+});
 
 async function waitForBlockedTransaction(
   dataSource: DataSource,
@@ -1818,9 +1825,9 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       { spacecraftId, category: 'HYPERDRIVE', moduleType: 'Hyperdrive', isActive: true },
       { spacecraftId, category: 'SENSORS', moduleType: 'Sensors', isActive: true },
     ];
-    const stopAt = (x: number, messages: string[] = ['Alarm Rot']): MovementReaction => ({
+    const stopAt = (x: number, text = 'Alarm Rot'): MovementReaction => ({
       afterTransition: ({ coordinate }) =>
-        coordinate.x === x ? { stop: true, report: { messages } } : undefined,
+        coordinate.x === x ? { stop: true, report: battleReport(text) } : undefined,
     });
 
     it('stops a galaxy flight on the intermediate field and keeps its cost, signature and exploration', async () => {
@@ -1843,7 +1850,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
         stopReason: 'ALERT_COMBAT',
         movedShipIds: [ship.id],
         destroyedShipIds: [],
-        combatReport: { messages: ['Alarm Rot'] },
+        combatReport: battleReport('Alarm Rot'),
       });
       expect(reached).toEqual([{ scope: 'GALAXY', x: 2, participants: [ship.id] }]);
       expect(stopped).toMatchObject({ locationId: locations[1].id, energy: 70 });
@@ -1889,7 +1896,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
           if (!target) return;
           target.status = SpacecraftStatus.DESTROYED;
           await dataSource.getRepository(Spacecraft).update(lost.id, { status: SpacecraftStatus.DESTROYED });
-          return { report: { messages: ['Lost member zerstört'] } };
+          return { report: battleReport('Lost member zerstört') };
         },
       });
 
@@ -1900,7 +1907,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
         stopReason: 'DESTROYED',
         movedShipIds: [ship.id, survivor.id],
         destroyedShipIds: [lost.id],
-        combatReport: { messages: ['Lost member zerstört'] },
+        combatReport: battleReport('Lost member zerstört'),
       });
       const rows = await dataSource.getRepository(Spacecraft).find({ order: { id: 'ASC' } });
       expect(rows.map((row) => [row.id, row.locationId, row.status])).toEqual([
@@ -1937,7 +1944,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       const scopes: string[] = [];
       fixture.reactions.push(
         { afterTransition: ({ scope, fieldId }) => { scopes.push(`${scope}:${fieldId}`); } },
-        stopAt(2, ['Abgefangen']),
+        stopAt(2, 'Abgefangen'),
       );
 
       const { movement } = await fixture.service.navigate(ship.id, ship.userId, 3, 1);
@@ -1948,7 +1955,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
         stopReason: 'ALERT_COMBAT',
         movedShipIds: [ship.id],
         destroyedShipIds: [],
-        combatReport: { messages: ['Abgefangen'] },
+        combatReport: battleReport('Abgefangen'),
       });
       expect(scopes).toEqual([`SYSTEM:${fields[1].id}`]);
       expect(

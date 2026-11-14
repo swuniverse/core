@@ -1,3 +1,4 @@
+import type { CombatReportDto } from '@swuniverse/shared';
 import { BadRequestException } from '@nestjs/common';
 import type { Spacecraft } from './entities/spacecraft.entity';
 import {
@@ -9,6 +10,12 @@ import type {
   MovementReaction,
   MovementReactionContext,
 } from './movement-reaction.port';
+
+const battleReport = (text: string): CombatReportDto => ({
+  parties: { attacker: [], defender: [] },
+  rounds: [{ number: 1, lines: [{ kind: 'INFO', text, emphasis: 'neutral' }] }],
+  outcome: { winner: 'ATTACKER', destroyedShipIds: [] },
+});
 
 type TestField = { x: number; y: number; passable: boolean };
 
@@ -162,7 +169,7 @@ describe('FieldTransitionExecutor', () => {
     const alert: MovementReaction = {
       afterTransition: ({ coordinate }) =>
         coordinate.x === 3
-          ? { stop: true, report: { messages: ['Alarm Rot: Feuergefecht'] } }
+          ? { stop: true, report: battleReport('Alarm Rot: Feuergefecht') }
           : undefined,
     };
     const route = plan();
@@ -176,7 +183,7 @@ describe('FieldTransitionExecutor', () => {
       stopReason: 'ALERT_COMBAT',
       movedShipIds: [1],
       destroyedShipIds: [],
-      combatReport: { messages: ['Alarm Rot: Feuergefecht'] },
+      combatReport: battleReport('Alarm Rot: Feuergefecht'),
     });
     expect(later.afterTransition).toHaveBeenCalledTimes(1);
   });
@@ -187,7 +194,7 @@ describe('FieldTransitionExecutor', () => {
     const destroyer: MovementReaction = {
       afterTransition: () => {
         member.destroyed = true;
-        return { stop: true, report: { messages: ['Schiff 2 zerstört'] } };
+        return { stop: true, report: battleReport('Schiff 2 zerstört') };
       },
     };
     const route = plan({ participants: [leader, member] });

@@ -8,8 +8,26 @@ export type MovementStopReason =
   | 'DESTROYED'
   | 'INSUFFICIENT_ENERGY';
 
-export interface MovementCombatReportDto {
-  messages: string[];
+export interface CombatReportPartyMemberDto {
+  id: number;
+  name: string;
+  destroyed: boolean;
+}
+
+export interface CombatReportLineDto {
+  kind: string;
+  text: string;
+  emphasis: string;
+}
+
+/** Report of one resolved battle as shown in the combat report dialog. */
+export interface CombatReportDto {
+  parties: {
+    attacker: CombatReportPartyMemberDto[];
+    defender: CombatReportPartyMemberDto[];
+  };
+  rounds: Array<{ number: number; lines: CombatReportLineDto[] }>;
+  outcome: { winner: string; destroyedShipIds: number[] };
 }
 
 /** Shared result of system and galaxy flight. */
@@ -20,5 +38,5 @@ export interface MovementResultDto {
   /** Surviving moving ships standing on the last reached field. */
   movedShipIds: number[];
   destroyedShipIds: number[];
-  combatReport: MovementCombatReportDto | null;
+  combatReport: CombatReportDto | null;
 }

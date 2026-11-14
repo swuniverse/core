@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { NavigationPanel } from './NavigationPanel';
 
 const apiMocks = vi.hoisted(() => ({
@@ -116,6 +116,41 @@ describe('NavigationPanel', () => {
         targetY: 5,
       }),
     );
+  });
+
+  it('opens the combat report and refreshes the reached state after an alert stop', async () => {
+    apiMocks.get.mockResolvedValue(map);
+    apiMocks.post.mockResolvedValue({
+      ship: { id: 2 },
+      movement: {
+        plannedSteps: 3,
+        completedSteps: 1,
+        stopReason: 'ALERT_COMBAT',
+        movedShipIds: [2],
+        destroyedShipIds: [],
+        combatReport: {
+          parties: {
+            attacker: [{ id: 9, name: 'Wache', destroyed: false }],
+            defender: [{ id: 2, name: 'X-Wing', destroyed: false }],
+          },
+          rounds: [
+            { number: 1, lines: [{ kind: 'ENERGY_HIT', text: 'Wache feuert auf X-Wing', emphasis: 'warning' }] },
+          ],
+          outcome: { winner: 'ATTACKER', destroyedShipIds: [] },
+        },
+      },
+    });
+    const onShipUpdate = vi.fn();
+    render(<NavigationPanel ship={ship} onShipUpdate={onShipUpdate} />);
+    fireEvent.click(await screen.findByRole('button', { name: /Feld 6,5/ }));
+    const mapLoads = apiMocks.get.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Flug starten' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Kampfbericht' });
+    expect(within(dialog).getByText(/Wache feuert auf X-Wing/)).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe('Flug durch Alarmreaktion gestoppt');
+    await waitFor(() => expect(onShipUpdate).toHaveBeenCalled());
+    expect(apiMocks.get.mock.calls.length).toBeGreaterThan(mapLoads);
   });
 
   it('marks planned measurement points only in cartography mode', async () => {

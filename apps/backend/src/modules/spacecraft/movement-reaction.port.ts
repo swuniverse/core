@@ -1,4 +1,4 @@
-import type { MovementCombatReportDto } from '@swuniverse/shared';
+import type { CombatReportDto } from '@swuniverse/shared';
 import type { Spacecraft } from './entities/spacecraft.entity';
 import type { FieldCoordinate } from './field-transition-executor';
 
@@ -17,12 +17,17 @@ export interface MovementReactionContext {
   leader: Spacecraft;
   /** Leader and fleet members that entered the field. */
   participants: Spacecraft[];
+  /**
+   * Ship towing the moving party, if any. Not set by flights yet; reserved
+   * for the tractor rules of sc-WP-TRACT-1a.
+   */
+  tractoringShip?: Spacecraft | null;
 }
 
 export interface MovementReactionOutcome {
   /** Stops the remaining route on the reached field. */
   stop?: boolean;
-  report?: MovementCombatReportDto | null;
+  report?: CombatReportDto | null;
 }
 
 export interface MovementReaction {

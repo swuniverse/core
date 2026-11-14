@@ -8,6 +8,7 @@ import { ColonyModule } from './modules/colony/colony.module';
 import { StarmapModule } from './modules/starmap/starmap.module';
 import { SpacecraftModule } from './modules/spacecraft/spacecraft.module';
 import { CombatModule } from './modules/combat/combat.module';
+import { AlertReactionModule } from './modules/alert-reaction/alert-reaction.module';
 import { ResearchModule } from './modules/research/research.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { HolonetModule } from './modules/holonet/holonet.module';
@@ -307,6 +308,7 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
     StarmapModule,
     SpacecraftModule,
     CombatModule,
+    AlertReactionModule,
     ResearchModule,
     MessagingModule,
     HolonetModule,

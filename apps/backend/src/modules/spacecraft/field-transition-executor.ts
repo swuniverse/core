@@ -1,5 +1,9 @@
 import { BadRequestException, Inject, Injectable, Optional } from '@nestjs/common';
-import type { MovementResultDto, MovementStopReason } from '@swuniverse/shared';
+import type {
+  CombatReportDto,
+  MovementResultDto,
+  MovementStopReason,
+} from '@swuniverse/shared';
 import {
   MOVEMENT_REACTIONS,
   type MovementReaction,
@@ -52,7 +56,7 @@ export class FieldTransitionExecutor {
   ): Promise<MovementResultDto> {
     const route = this.route(plan.start, plan.target);
     let completedSteps = 0;
-    const reports: string[] = [];
+    const reports: { combat: CombatReportDto | null } = { combat: null };
     const result = (stopReason: MovementStopReason): MovementResultDto => {
       const destroyed = plan.participants.filter((participant) => participant.isDestroyed());
       return {
@@ -66,7 +70,7 @@ export class FieldTransitionExecutor {
                 .filter((participant) => !participant.isDestroyed())
                 .map((participant) => participant.id),
         destroyedShipIds: destroyed.map((participant) => participant.id),
-        combatReport: reports.length ? { messages: reports } : null,
+        combatReport: reports.combat,
       };
     };
 
@@ -109,11 +113,11 @@ export class FieldTransitionExecutor {
   /** Runs the reactions in order; the first requested stop ends the round. */
   private async react(
     context: MovementReactionContext,
-    reports: string[],
+    reports: { combat: CombatReportDto | null },
   ): Promise<boolean> {
     for (const reaction of this.reactions) {
       const outcome = await reaction.afterTransition(context);
-      if (outcome?.report) reports.push(...outcome.report.messages);
+      if (outcome?.report) reports.combat = outcome.report;
       if (outcome?.stop) return true;
     }
     return false;

@@ -3,9 +3,13 @@ import {
   fieldEffectDefinition,
   knownFieldEffects,
   type CartographyPlanDto,
+  type CombatReportDto,
+  type MovementResultDto,
+  type MovementStopReason,
   type SpaceLocationDto,
 } from '@swuniverse/shared';
 import { api } from '../../services/api';
+import { CombatReportDialog } from './CombatReportDialog';
 import { tutorialEvent } from '../tutorial/useTutorial';
 import { DirectionalControls } from './DirectionalControls';
 import { LssMap } from './LssMap';
@@ -32,6 +36,13 @@ interface NavigationPanelProps {
   onLocalMapChange?: (localMap: LocalMapResponse | null) => void;
 }
 
+const STOP_MESSAGES: Record<MovementStopReason, string> = {
+  ARRIVED: 'Position aktualisiert',
+  ALERT_COMBAT: 'Flug durch Alarmreaktion gestoppt',
+  DESTROYED: 'Flug nach Schiffsverlusten abgebrochen',
+  INSUFFICIENT_ENERGY: 'Flug mangels Energie abgebrochen',
+};
+
 export function NavigationPanel({
   ship,
   onShipUpdate,
@@ -43,6 +54,7 @@ export function NavigationPanel({
     null,
   );
   const [navMessage, setNavMessage] = useState<string | null>(null);
+  const [combatReport, setCombatReport] = useState<CombatReportDto | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [stepSize, setStepSize] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -114,14 +126,19 @@ export function NavigationPanel({
     setNavMessage(null);
     setMoving(true);
     try {
-      if (localMap?.mode === 'system' || inSystem) {
-        await api.post(`/spacecraft/${ship.id}/navigate`, { targetX, targetY });
-      } else {
-        await api.post(`/spacecraft/${ship.id}/fly`, { targetX, targetY });
-      }
+      const path =
+        localMap?.mode === 'system' || inSystem
+          ? `/spacecraft/${ship.id}/navigate`
+          : `/spacecraft/${ship.id}/fly`;
+      const response = await api.post<{ movement?: MovementResultDto } | undefined>(path, {
+        targetX,
+        targetY,
+      });
+      const movement = response?.movement;
       await tutorialEvent('spacecraft.flight.started');
       setNavTarget(null);
-      setNavMessage('Position aktualisiert');
+      setNavMessage(STOP_MESSAGES[movement?.stopReason ?? 'ARRIVED']);
+      if (movement?.combatReport) setCombatReport(movement.combatReport);
       await onShipUpdate();
       await fetchLocalMap();
     } catch (err: unknown) {
@@ -221,7 +238,10 @@ export function NavigationPanel({
   const isDocked = ship.status === 'IDLE';
   const isFlying = ship.status === 'IN_FLIGHT';
   const isErrorMessage =
-    navMessage?.includes('fehl') || navMessage?.includes('Fehler');
+    navMessage?.includes('fehl') ||
+    navMessage?.includes('Fehler') ||
+    navMessage?.includes('gestoppt') ||
+    navMessage?.includes('abgebrochen');
 
   return (
     <section
@@ -361,6 +381,12 @@ export function NavigationPanel({
             />
           </div>
         </div>
+      )}
+      {combatReport && (
+        <CombatReportDialog
+          report={combatReport}
+          onClose={() => setCombatReport(null)}
+        />
       )}
     </section>
   );

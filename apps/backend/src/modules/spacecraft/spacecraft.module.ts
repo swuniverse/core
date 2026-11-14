@@ -94,6 +94,7 @@ import {
   FlightConsequencePipeline,
 } from './flight-consequence-pipeline';
 import { FieldTransitionExecutor } from './field-transition-executor';
+import { MOVEMENT_REACTIONS, type MovementReaction } from './movement-reaction.port';
 import {
   FieldEffectConsequence,
   STU_CLOCK_TOKEN,
@@ -254,6 +255,8 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
         }),
       inject: [MessagingService, SpacecraftDestructionService, CrewEnhancementService, GameDataService],
     },
+    // Filled at startup by reaction modules (alert combat) that import this module.
+    { provide: MOVEMENT_REACTIONS, useFactory: (): MovementReaction[] => [] },
     {
       provide: FLIGHT_CONSEQUENCES,
       useFactory: (fieldEffects: FieldEffectConsequence, anomalies: AnomalyFlightConsequence) => [fieldEffects, anomalies],
@@ -261,6 +264,7 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     },
   ],
   exports: [
+    MOVEMENT_REACTIONS,
     SpacecraftService,
     ShipColonyContextService,
     ShipClassService,
