@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { BbCodeText } from '../components/BbCodeText';
 import { useToast } from '../components/Toast';
-import { formatDateTime } from '../lib/format';
+import { formatDateTime, formatGameDate, formatGameDateTime } from '../lib/format';
 import { api } from '../services/api';
 import {
   ContactMode,
@@ -825,7 +825,7 @@ export function MessagesPage() {
     if (hrs < 24) return `vor ${hrs}h`;
     const days = Math.floor(hrs / 24);
     if (days < 7) return `vor ${days}d`;
-    return new Date(dateStr).toLocaleDateString('de-DE');
+    return formatGameDate(dateStr);
   };
 
   return (
@@ -1017,7 +1017,7 @@ export function MessagesPage() {
                     <div className="mb-1 flex justify-between gap-3 text-swu-muted">
                       <span>Von: {message.sender?.username ?? 'System'}</span>
                       <time dateTime={message.createdAt}>
-                        {formatDateTime(message.createdAt)}
+                        {formatGameDateTime(message.createdAt)}
                       </time>
                     </div>
                     <BbCodeText

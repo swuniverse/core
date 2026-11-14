@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { formatGameDateTime } from '../../lib/format';
 import type {
   SpacecraftCommunicationLogPageDto,
   SpacecraftCommunicationRecipientDto,
@@ -179,7 +180,7 @@ export function CommunicationDrawer({
             <li key={entry.id} className="border border-swu-border bg-black/20">
               <div className="flex items-center border-b border-swu-border/60">
                 <time className="flex-1 px-2 py-1 text-center font-bold text-swu-primary">
-                  {new Date(entry.createdAt).toLocaleString('de-DE')}
+                  {formatGameDateTime(entry.createdAt)}
                 </time>
                 <button
                   type="button"

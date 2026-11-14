@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { formatGameDate, formatGameDateTime } from '../lib/format';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { BbCodeText } from '../components/BbCodeText';
 import { api } from '../services/api';
@@ -541,7 +542,7 @@ export function HolonetPage() {
                         <div className="flex shrink-0 items-center gap-2 text-[10px] text-swu-muted">
                           <span>{post.author.username}</span>
                           <span className="text-red-400">
-                            {new Date(post.createdAt).toLocaleDateString('de-DE')}
+                            {formatGameDate(post.createdAt)}
                           </span>
                         </div>
                       </div>
@@ -731,9 +732,7 @@ export function HolonetPage() {
                                     </span>
                                     <div className="flex items-center gap-2 text-swu-muted">
                                       <span>
-                                        {new Date(comment.createdAt).toLocaleDateString(
-                                          'de-DE',
-                                        )}
+                                        {formatGameDate(comment.createdAt)}
                                       </span>
                                       {comment.authorId === user?.id && (
                                         <button
@@ -783,7 +782,7 @@ export function HolonetPage() {
 
                         <aside className="border-t border-swu-border/70 bg-black/30 p-3 text-center md:border-l md:border-t-0">
                           <p className="mb-3 text-[11px] font-bold text-red-400">
-                            {new Date(post.createdAt).toLocaleString('de-DE')}
+                            {formatGameDateTime(post.createdAt)}
                           </p>
                           <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center border border-swu-border bg-swu-bg text-lg font-bold text-swu-primary">
                             {post.author.username.slice(0, 2).toUpperCase()}

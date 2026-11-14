@@ -145,7 +145,7 @@ describe('STU-style Maindesk overview', () => {
     expect(screen.getByRole('link', { name: 'Neue HoloNet-Beiträge (12)' }).getAttribute('href')).toBe('/holonet/9');
     expect(screen.getByText('Aufruf an die Flotte')).toBeTruthy();
     expect(screen.getByText(/Hera/)).toBeTruthy();
-    expect(screen.getByText(/23\.10\.2026/)).toBeTruthy();
+    expect(screen.getByText(/23\.10\.3 NSY/)).toBeTruthy();
   });
 
   it('explains when there are no new HoloNet posts', () => {
@@ -206,7 +206,7 @@ describe('STU-style Maindesk overview', () => {
 
     expect(screen.getByText('Ereignis 10')).toBeTruthy();
     expect(screen.queryByText('Ereignis 11')).toBeNull();
-    expect(screen.getAllByText(/13\.10\.2026/)).toHaveLength(10);
+    expect(screen.getAllByText(/13\.10\.3 NSY/)).toHaveLength(10);
     expect(screen.getAllByText(/16:30/)).toHaveLength(10);
     expect(screen.getByText('Ebene 3 · 10|20')).toBeTruthy();
     expect(

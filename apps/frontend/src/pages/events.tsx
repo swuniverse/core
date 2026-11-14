@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { formatGameDateTime } from '../lib/format';
 import {
   GAME_EVENT_TYPES,
   type GameEventType,
@@ -84,13 +85,6 @@ function eventLocation(event: GameEvent) {
     };
   }
   return null;
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('de-DE', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
 }
 
 export function EventsPage() {
@@ -256,7 +250,7 @@ export function EventsPage() {
                         className="text-xs text-swu-muted"
                         dateTime={event.createdAt}
                       >
-                        {formatDate(event.createdAt)}
+                        {formatGameDateTime(event.createdAt)}
                       </time>
                     </div>
                     <p className="mt-1 text-sm text-swu-text">{event.text}</p>

@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { PlayerAvatar } from '../../components/PlayerAvatar';
-import { formatDateTime } from '../../lib/format';
+import { formatDateTime, formatGameDateTime } from '../../lib/format';
 import type { DashboardData } from './types';
 
 export function DashboardProfileVisitors({
@@ -66,7 +66,7 @@ export function RecentEvents({ data }: { data: DashboardData }) {
               <div key={event.id} className="px-3 py-2 text-xs">
                 <div className="flex flex-wrap gap-x-2 gap-y-0.5">
                   <time className="shrink-0 font-mono text-swu-muted">
-                    {new Date(event.createdAt).toLocaleString('de-DE')}
+                    {formatGameDateTime(event.createdAt)}
                   </time>
                   <span className="text-swu-text">{event.text}</span>
                 </div>
@@ -116,7 +116,7 @@ export function DashboardMessages({ data }: { data: DashboardData }) {
               </span>
               <span className="col-span-2 text-[9px] text-swu-muted">
                 von {post.author?.username ?? post.authorName ?? 'Unbekannt'} ·{' '}
-                {formatDateTime(post.createdAt)}
+                {formatGameDateTime(post.createdAt)}
               </span>
             </Link>
           ))}
