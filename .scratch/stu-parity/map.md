@@ -174,6 +174,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- sc-WP-COMBAT-1c – Alarmreaktion über den Bewegungsport (Gelb gegen Feinde, Rot gegen Nicht-Freunde, deterministisch ein Kampf pro Feld) stoppt System- und Galaxieflug; Kampfbericht im Navigationspanel – 98ad951f
 - sc-WP-COMBAT-1a – System- und Galaxieflug liefern gemeinsamen `MovementResult`; neutraler Port `MOVEMENT_REACTIONS` kann die Route nach jedem Feld stoppen – 2355ce7b
 - sh-AP-22 – Flaky `research.spec.tsx`: nach Nachmessung (40/40 einzeln, 10/10 unter Volllast) ohne weitere Änderung geschlossen; Korrektur war 14b86081
 - sh-AP-13b – Spielereignisse (Ereignisse, Nachrichten, HoloNet, Logbuch) mit In-Universe-Datum „n NSY“ (reales Jahr − 2023), sonst reale Daten – f2f18dab
