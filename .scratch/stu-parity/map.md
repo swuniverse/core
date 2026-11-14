@@ -174,6 +174,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- sh-AP-22 – Flaky `research.spec.tsx`: nach Nachmessung (40/40 einzeln, 10/10 unter Volllast) ohne weitere Änderung geschlossen; Korrektur war 14b86081
 - sh-AP-13b – Spielereignisse (Ereignisse, Nachrichten, HoloNet, Logbuch) mit In-Universe-Datum „n NSY“ (reales Jahr − 2023), sonst reale Daten – f2f18dab
 - sh-AP-10 – Admin-Massennachricht an alle oder eine Fraktion (ohne NPCs), idempotent per Sendungs-ID, optional E-Mail hinter `PLAYER_MAIL_NOTIFICATIONS_ENABLED` – 0cbbdb00
 - sh-AP-08b – Admin blockiert Spieler (gepfefferter E-Mail-Hash in `blocked_users`, Marke 2, Registrierung/E-Mail-Änderung gesperrt) und setzt/hebt Löschverbot (Marke 3) – 315ecbc6
