@@ -38,3 +38,4 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Comments
 
 Backend-Flottenregeln und Eigentümerprüfung in `spacecraft.service.ts`/Controller vervollständigt; Schiffskopf und NBS-Flottenbeitritt samt Shared-DTOs und Tests ergänzt. Die gruppierte Schiffsliste bleibt wie vorgesehen in sc-WP-FLEET-1b.
+- 2026-11-14: Überholt durch Maintainer-Entscheidung (sc-WP-FLEET-4, 3ccad0b7): Der Leader kann die Flotte wie in STU nicht mehr verlassen; statt Auflösung beim Verlassen bleiben ihm Auflösen und Leader wechseln.
