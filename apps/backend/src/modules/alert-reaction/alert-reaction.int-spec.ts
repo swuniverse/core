@@ -38,6 +38,7 @@ import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entit
 import { FieldTransitionExecutor } from '../spacecraft/field-transition-executor';
 import { FlightConsequencePipeline } from '../spacecraft/flight-consequence-pipeline';
 import { FlightSignatureService } from '../spacecraft/flight-signature.service';
+import { leaveFleetOnDestruction } from '../spacecraft/fleet-leadership';
 import { MOVEMENT_REACTIONS, type MovementReaction } from '../spacecraft/movement-reaction.port';
 import { ShipClassService } from '../spacecraft/ship-class.service';
 import { SpacecraftCrewService } from '../spacecraft/spacecraft-crew.service';
@@ -109,9 +110,11 @@ async function flightWithAlerts(dataSource: DataSource) {
     resolve: async (input: BattleResolutionInput): Promise<CombatReportDto> => {
       battles.push(input);
       for (const id of destroy) {
-        await dataSource
-          .getRepository(Spacecraft)
-          .update(id, { status: SpacecraftStatus.DESTROYED, fleetId: null });
+        await dataSource.transaction(async (manager) => {
+          const ship = await manager.findOneByOrFail(Spacecraft, { id });
+          await leaveFleetOnDestruction(manager, ship);
+          await manager.update(Spacecraft, id, { status: SpacecraftStatus.DESTROYED, fleetId: null });
+        });
       }
       return {
         parties: {
@@ -133,7 +136,7 @@ async function flightWithAlerts(dataSource: DataSource) {
       ),
     ),
   );
-  const messages = { sendSystem: jest.fn(async (..._args: unknown[]) => undefined) };
+  const messages = { sendSystem: jest.fn<Promise<undefined>, unknown[]>(async () => undefined) };
   new AlertReactionService(
     reactions,
     dataSource.getRepository(Spacecraft),
@@ -349,6 +352,33 @@ describe('alert reactions during flight (PostgreSQL)', () => {
     expect(await dataSource.getRepository(Spacecraft).findOneByOrFail({ id: ship.id })).toMatchObject({
       locationId: galaxy[1].id,
       status: SpacecraftStatus.DESTROYED,
+    });
+  });
+
+  it('hands the fleet to the wingman when the leader falls and flies on to the target', async () => {
+    const fleet = await dataSource.getRepository(Fleet).save({ name: 'Gold-Staffel', userId: pilot.id, leaderId: 0 });
+    const leader = await flyingShip(galaxy[0].id, 'HYPERDRIVE', fleet.id);
+    const wingman = await flyingShip(galaxy[0].id, 'HYPERDRIVE', fleet.id);
+    await dataSource.getRepository(Fleet).update(fleet.id, { leaderId: leader.id });
+    const imperial = await createUser(dataSource, { faction: Faction.GALACTIC_EMPIRE, factionId: empire });
+    await alertedShip(imperial, galaxy[1].id, AlertState.RED);
+    fixture.destroyOnBattle([leader.id]);
+
+    const { ship, movement } = await fixture.service.flyGalaxy(leader.id, pilot.id, 3, 1);
+
+    expect(movement).toMatchObject({
+      completedSteps: 2,
+      stopReason: 'ARRIVED',
+      movedShipIds: [wingman.id],
+      destroyedShipIds: [leader.id],
+    });
+    expect(ship.id).toBe(wingman.id);
+    expect(await dataSource.getRepository(Fleet).findOneByOrFail({ id: fleet.id })).toMatchObject({
+      leaderId: wingman.id,
+    });
+    expect(await dataSource.getRepository(Spacecraft).findOneByOrFail({ id: wingman.id })).toMatchObject({
+      locationId: galaxy[2].id,
+      fleetId: fleet.id,
     });
   });
 });

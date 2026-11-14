@@ -147,6 +147,31 @@ describe('FieldTransitionExecutor', () => {
     });
   });
 
+  it('refreshes the participants after a field consequence destroyed one, before reacting', async () => {
+    const order: string[] = [];
+    const leader = participant(1);
+    const route = plan({
+      participants: [leader, participant(2)],
+      enter: async (next) => {
+        route.entered.push(`${next.x}|${next.y}`);
+        if (next.x === 2) leader.destroyed = true;
+      },
+      refreshParticipants: () => {
+        order.push('refresh');
+      },
+    });
+    const reaction: MovementReaction = {
+      afterTransition: ({ coordinate }) => {
+        order.push(`react ${coordinate.x}`);
+      },
+    };
+
+    const result = await new FieldTransitionExecutor([reaction]).execute(route);
+
+    expect(order).toEqual(['refresh', 'react 2', 'react 3', 'react 4']);
+    expect(result).toMatchObject({ stopReason: 'ARRIVED', movedShipIds: [2], destroyedShipIds: [1] });
+  });
+
   it('ends the flight when the required leader is destroyed', async () => {
     const leader = participant(1, { required: true });
     const route = plan({

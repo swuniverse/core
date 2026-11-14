@@ -17,7 +17,7 @@ export interface FieldCoordinate {
 
 export interface TransitionParticipant {
   id: number;
-  /** Losing a required participant (the leader) ends the flight. */
+  /** Losing a required participant ends the flight; fleets hand over instead. */
   required?: boolean;
   canPay(): boolean | Promise<boolean>;
   pay(): void | Promise<void>;
@@ -34,7 +34,7 @@ export interface FieldTransitionPlan<TField> {
   enter(field: TField, coordinate: FieldCoordinate): void | Promise<void>;
   /** Context handed to the movement reactions after each entered field. */
   reactionContext(field: TField, coordinate: FieldCoordinate): MovementReactionContext;
-  /** Reloads moving ships after a reaction changed them. */
+  /** Reloads moving ships after losses or a reaction changed them. */
   refreshParticipants?(): void | Promise<void>;
 }
 
@@ -93,6 +93,8 @@ export class FieldTransitionExecutor {
       await plan.enter(field, coordinate);
       completedSteps += 1;
       if (lost()) return result('DESTROYED');
+      // A field consequence destroyed someone: hand over before reacting.
+      if (active().length < moving.length) await plan.refreshParticipants?.();
       const reaction = await this.react(plan.reactionContext(field, coordinate), combatReports);
       if (reaction.changed) await plan.refreshParticipants?.();
       if (lost()) return result('DESTROYED');

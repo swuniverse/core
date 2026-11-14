@@ -1,3 +1,7 @@
+import { leaveFleetOnDestruction } from './fleet-leadership';
+jest.mock('./fleet-leadership', () => ({
+  leaveFleetOnDestruction: jest.fn(async () => undefined),
+}));
 jest.mock('../auth/user.entity', () => ({ User: class User {} }));
 jest.mock('../faction/entities/faction.entity', () => ({
   FactionEntity: class FactionEntity {},
@@ -161,6 +165,31 @@ describe('SpacecraftDestructionService', () => {
       type: 'DESTROYED',
       detail: 'Durch eine Anomalie zerstört',
     });
+  });
+
+  it('hands over the fleet before the destroyed row is removed', async () => {
+    const leave = jest.mocked(leaveFleetOnDestruction);
+    leave.mockClear();
+    let fleetAtHandover: number | null | undefined;
+    leave.mockImplementationOnce(async (_manager, value) => {
+      fleetAtHandover = value.fleetId;
+    });
+    {
+      const { service, manager, ship } = setup();
+      ship.fleetId = 7;
+
+      await service.destroyInManager(manager as never, ship.id, 'ANOMALY', {
+        manager: manager as never,
+        afterCommit: [],
+      });
+
+      expect(leave).toHaveBeenCalledWith(manager, expect.objectContaining({ id: ship.id }));
+      expect(fleetAtHandover).toBe(7);
+      const removal = (manager.remove.mock.calls as unknown[][]).findIndex(([value]) => value === ship);
+      expect(leave.mock.invocationCallOrder[0]).toBeLessThan(
+        manager.remove.mock.invocationCallOrder[removal],
+      );
+    }
   });
 
   it('replaces a crewed ship with a wreck at its current field', async () => {

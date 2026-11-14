@@ -2103,6 +2103,8 @@ export class SpacecraftService {
       targetX,
       targetY,
     );
+    // The fleet leader changes when it is destroyed (STU `ChangeFleetLeader`).
+    const flight = { leader: ship };
     const result = await this.fieldTransitionExecutor.execute({
       start: { x: currentLocation.x, y: currentLocation.y },
       target: { x: targetX, y: targetY },
@@ -2113,7 +2115,6 @@ export class SpacecraftService {
       isPassable: (field) => field.isPassable,
       participants: participants.map((member) => ({
         id: member.id,
-        required: member === ship,
         canPay: () =>
           member.energy >=
           shipClass.flightEnergyCost +
@@ -2140,11 +2141,13 @@ export class SpacecraftService {
           member.status = SpacecraftStatus.IDLE;
         }
         const carried =
-          tractoredShip && ship.tractoredShipId ? [tractoredShip] : [];
+          tractoredShip && ship.tractoredShipId && !isSpacecraftDestroyed(ship)
+            ? [tractoredShip]
+            : [];
         for (const target of carried)
           await this.setCurrentLocation(target, destination);
         await this.saveMovementParticipants(
-          ship,
+          flight.leader,
           moving,
           originals,
           carried,
@@ -2157,9 +2160,9 @@ export class SpacecraftService {
             this.flightDirection(direction),
           );
         }
-        await this.flightConsequencePipeline.onEnterField(ship, field);
+        await this.flightConsequencePipeline.onEnterField(flight.leader, field);
         await this.processCartographyArrival(
-          ship,
+          flight.leader,
           currentLocation.systemId,
           field.id,
         );
@@ -2169,22 +2172,22 @@ export class SpacecraftService {
         scope: 'SYSTEM',
         fieldId: field.id,
         coordinate,
-        leader: ship,
+        leader: flight.leader,
         participants: participants.filter((member) => !isSpacecraftDestroyed(member)),
       }),
       refreshParticipants: () =>
-        this.refreshMovementParticipants(participants, originals),
+        this.refreshMovementParticipants(participants, originals, flight),
     });
     if (result.completedSteps === 0 && result.stopReason === 'INSUFFICIENT_ENERGY') {
       throw new BadRequestException('Not enough EPS for navigation');
     }
-    // A flight consequence may have destroyed and removed the ship.
-    if (isSpacecraftDestroyed(ship)) return { ship, movement: result };
-    await this.emitOrbitUpdates(currentLocation, resolveSpacecraftField(ship));
+    // Every participant may have been destroyed and removed.
+    if (isSpacecraftDestroyed(flight.leader)) return { ship: flight.leader, movement: result };
+    await this.emitOrbitUpdates(currentLocation, resolveSpacecraftField(flight.leader));
     await this.repairService.cancelForFlight(
       participants.map((member) => member.id),
     );
-    return { ship: await this.findOne(ship.id, userId), movement: result };
+    return { ship: await this.findOne(flight.leader.id, userId), movement: result };
   }
 
   private async processCartographyArrival(
@@ -2297,6 +2300,8 @@ export class SpacecraftService {
       targetY,
     );
     ship.lastGalaxyFlightDirection = direction;
+    // The fleet leader changes when it is destroyed (STU `ChangeFleetLeader`).
+    const flight = { leader: ship };
     const result = await this.fieldTransitionExecutor.execute({
       start: { x: currentLocation.x, y: currentLocation.y },
       target: { x: targetX, y: targetY },
@@ -2307,7 +2312,6 @@ export class SpacecraftService {
       isPassable: (field) => field.isPassable,
       participants: participants.map((member) => ({
         id: member.id,
-        required: member === ship,
         canPay: () => member.energy >= shipClass.flightEnergyCost,
         pay: () => {
           member.energy -= shipClass.flightEnergyCost;
@@ -2325,7 +2329,7 @@ export class SpacecraftService {
           await this.setCurrentLocation(member, destination);
           member.status = SpacecraftStatus.IDLE;
         }
-        await this.saveMovementParticipants(ship, moving, originals);
+        await this.saveMovementParticipants(flight.leader, moving, originals);
         for (const member of moving) {
           await this.flightSignatureService.createMovement(
             member,
@@ -2339,44 +2343,46 @@ export class SpacecraftService {
           );
         }
         await this.discoverGalaxyAroundShip(
-          ship,
+          flight.leader,
           currentLocation.layerId,
           coordinate.x,
           coordinate.y,
           'FLIGHT',
         );
-        await this.flightConsequencePipeline.onEnterField(ship, field);
+        await this.flightConsequencePipeline.onEnterField(flight.leader, field);
         await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT);
       },
       reactionContext: (field, coordinate) => ({
         scope: 'GALAXY',
         fieldId: field.id,
         coordinate,
-        leader: ship,
+        leader: flight.leader,
         participants: participants.filter((member) => !isSpacecraftDestroyed(member)),
       }),
       refreshParticipants: () =>
-        this.refreshMovementParticipants(participants, originals),
+        this.refreshMovementParticipants(participants, originals, flight),
     });
     if (result.completedSteps === 0 && result.stopReason === 'INSUFFICIENT_ENERGY') {
       throw new BadRequestException('Not enough EPS for galaxy flight');
     }
-    // A flight consequence may have destroyed and removed the ship.
-    if (isSpacecraftDestroyed(ship)) return { ship, movement: result };
+    // Every participant may have been destroyed and removed.
+    if (isSpacecraftDestroyed(flight.leader)) return { ship: flight.leader, movement: result };
     await this.repairService.cancelForFlight(
       participants.map((member) => member.id),
     );
-    return { ship: await this.findOne(ship.id, userId), movement: result };
+    return { ship: await this.findOne(flight.leader.id, userId), movement: result };
   }
 
   /**
-   * After a reaction (alert combat) changed moving ships: destroyed ones drop
-   * out of the flight and the fleet expectation, survivors continue with
-   * their persisted damage as the new original state.
+   * After losses or a reaction (alert combat) changed moving ships: destroyed
+   * ones drop out of the flight and the fleet expectation, survivors continue
+   * with their persisted damage as the new original state. A destroyed leader
+   * is replaced by the fleet's new leader chosen on destruction.
    */
   private async refreshMovementParticipants(
     participants: Spacecraft[],
     originals: MovementOriginals,
+    flight: { leader: Spacecraft },
   ): Promise<void> {
     const rows = await this.shipRepo.findBy({
       id: In(participants.map((member) => member.id)),
@@ -2404,6 +2410,20 @@ export class SpacecraftService {
         });
       }
       originals.set(member, captureMovementState(member));
+    }
+    if (!isSpacecraftDestroyed(flight.leader)) return;
+    const survivors = participants
+      .filter((member) => !isSpacecraftDestroyed(member))
+      .sort((a, b) => a.id - b.id);
+    if (!survivors.length) return;
+    const fleet = originals.fleet
+      ? await this.fleetRepo.findOneBy({ id: originals.fleet.id })
+      : null;
+    flight.leader =
+      survivors.find((member) => member.id === fleet?.leaderId) ?? survivors[0];
+    if (originals.fleet) {
+      if (fleet) originals.fleet.leaderId = fleet.leaderId;
+      else originals.fleet = null;
     }
   }
 

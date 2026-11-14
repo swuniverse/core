@@ -44,6 +44,7 @@ import {
   assertMovementState,
   type MovementState,
 } from './movement-state';
+import { leaveFleetOnDestruction } from './fleet-leadership';
 
 /**
  * Canonical terminal-state transition for destroyed ships.
@@ -285,6 +286,7 @@ export class SpacecraftDestructionService {
       ship.id,
       'ein beteiligtes Schiff wurde zerstört',
     );
+    await leaveFleetOnDestruction(manager, ship);
     await this.trackerService.clearTrackingTarget(manager, ship.id);
     const [cargo, torpedoes, installedModules] = await Promise.all([
       manager.find(CargoItem, { where: { spacecraftId: ship.id } }),
