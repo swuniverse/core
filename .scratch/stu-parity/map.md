@@ -175,6 +175,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- sc-WP-UI-3a2 – Feldkontext zeigt flottenweiten Orbitauftrag mit serverseitiger Verfügbarkeit (gleiche Policy wie Mutation, Port `ORBIT_ORDER_VIEW`), Aktionen im `FieldContextPanel` – bf07459c
 - sc-WP-NAV-3b – Zeitbasierter Hyperraumsprung samt `IN_FLIGHT`, Ankunfts-Cron und Flugspalten entfernt; laufende Flüge per Migration auf den Ausgangsort zurückgesetzt – e093e694
 - sc-WP-FLEET-4 – Führungswechsel wie STU bei Zerstörung des Flottenleaders (Nachfolger niedrigste ID, sonst Flotte löschen, Orbitauftrag zieht mit), Migration verwaister Flotten, Flug fliegt mit neuem Leader weiter – 9a5ed1e2
 - sc-WP-COMBAT-1c – Alarmreaktion über den Bewegungsport nach STU: alle berechtigten Parteien in zufälliger Reihenfolge, Flug läuft mit Überlebenden weiter, Nachrichten an beide Seiten; Kampfberichte im Navigationspanel – 98ad951f, 88b7fbdd
