@@ -179,6 +179,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-K5e – Erkundete Ebenen nach Nebellöschung vollständig dargestellt, Systementdeckung unverändert; ADR-0008 und CONTEXT-Begriffe – 15425192
 - tmw-K1b3 – Statt Routenvorschau wie STU: Sektorscan meldet Energiekosten, Spezial- und Deflektorausfall-Schaden des Feldtyps – 7015b894
 - tmw-K1b2 – Deflektor als Standardsystem, STU-Spezialschaden je Feldtyp, Deflektorkosten/Feldschaden mit Zerstörung; Flugfolgen für jedes Flottenschiff und sofort persistiert – 346aeb89
 - tmw-FA1b2 – Statt dynamischer Schiffsmultiplikatoren wie STU keine fraktionsabhängigen Schiffswerte; ungenutzte Hüllen-/Schild-/Frachtfaktoren entfernt – c1f305ad

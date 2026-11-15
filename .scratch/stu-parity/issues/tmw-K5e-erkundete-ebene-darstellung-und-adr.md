@@ -1,6 +1,6 @@
 # Erkundete Ebene: vollständige Darstellung und ADR
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-K5b, tmw-K5d
@@ -73,3 +73,7 @@ Eine Spieler-Ebene im Status `EXPLORED` wird nach dem Löschen ihrer persönlich
 - Scope verification at bookkeeping start: executable implementation and corrected ADR are byte-identical to accepted commit `1010af0`; only this issue file is changed in the new tracker delta. No product/source changes or tests were made.
 - Validation limitations remain: backend and frontend `tsc --noEmit` both failed, exit 2; no successful full typecheck, build, or full-suite claim. ESLint exited 0 with 5 warnings (0 errors). Runtime evidence transfers on exact unchanged executable bytes. Docs gate took 0.605s and passed its two assertion phases plus Prettier; no tests rerun.
 - Historical ticket comments, report inaccuracies, failed checkpoints, and earlier evidence remain preserved. Exact metadata corrections are in the appended correction report and prior append-only clarification; no historical lines were rewritten in this bookkeeping update.
+
+### 2026-11-15 — Abschluss
+
+- Implementierung (`15425192`) und ADR-Korrektur (`1010af03`) sind auf `stu-parity` integriert. Auf dem aktuellen Stand erneut geprüft: `layer-access-http.int-spec.ts` 52/52, `starmap.spec.tsx` 38/38. Versioniert ist ADR-0008; eine lokale, nicht versionierte `0007-ebenenkenntnis-und-kartenzyklus.md` ist ein Überbleibsel. Status `resolved`.
