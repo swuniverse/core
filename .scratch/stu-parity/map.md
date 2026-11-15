@@ -180,6 +180,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-D4 – Datenbankkategorie „Regionen“ aus persönlichen Regionsentdeckungen, `???`-Maskierung, Ebenenfilter und Katalogfortschritt – 5a671a69
 - tmw-K8b2 – Regionskartographie wie STU: 25 % zufällige Messpunkte, Messpunkte im Galaxieflug, Finalisierung mit genau einer Regionsentdeckung, 5 Prestige und Nachricht in einer Transaktion – d10ac298
 - tmw-K8b1 – Kartographiepläne mit typisiertem Ziel SYSTEM/REGION (Exactly-one-Constraint, partielle Eindeutigkeit), persistente `RegionDiscovery` mit idempotentem Service – f610cf46
 - tmw-K5e – Erkundete Ebenen nach Nebellöschung vollständig dargestellt, Systementdeckung unverändert; ADR-0008 und CONTEXT-Begriffe – 15425192

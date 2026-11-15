@@ -1,6 +1,6 @@
 # Datenbankkategorie „Regionen“
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-K8a, tmw-K8b2
@@ -26,10 +26,10 @@ Der Platzhalter „Regionen – Kartierung wird aufgebaut“ im Datenbank-Hub wi
 
 ## Akzeptanzkriterien
 
-- [ ] Die Kategorie liest die persönliche Regionsentdeckung aus tmw-K8b; es gibt keine weitere Entdeckungsquelle (insbesondere kein Betreten). Prestige wird nicht hier, sondern in tmw-K8b vergeben.
-- [ ] `GET database/regions?layerId=` liefert alle Regionen der Ebene. Nicht entdeckte Regionen erscheinen als `???`, ohne Beschreibung.
-- [ ] Der Hub-Eintrag „Regionen“ ist verlinkt, und die Kategorie folgt dem Muster der Sternensystemtypen (Liste, Zähler „x von y entdeckt“).
-- [ ] Backend-Tests: Maskierung, Anzeige entdeckter Regionen (Name, Beschreibung, Ebene). Frontend-Test: Maskierung und Detailanzeige.
+- [x] Die Kategorie liest die persönliche Regionsentdeckung aus tmw-K8b; es gibt keine weitere Entdeckungsquelle (insbesondere kein Betreten). Prestige wird nicht hier, sondern in tmw-K8b vergeben.
+- [x] `GET database/regions?layerId=` liefert alle Regionen der Ebene. Nicht entdeckte Regionen erscheinen als `???`, ohne Beschreibung.
+- [x] Der Hub-Eintrag „Regionen“ ist verlinkt, und die Kategorie folgt dem Muster der Sternensystemtypen (Liste, Zähler „x von y entdeckt“).
+- [x] Backend-Tests: Maskierung, Anzeige entdeckter Regionen (Name, Beschreibung, Ebene). Frontend-Test: Maskierung und Detailanzeige.
 
 ## Entscheidung
 
@@ -38,3 +38,4 @@ Vorgabe: Variante (b), wie STU. Der Regionseintrag entsteht ausschließlich durc
 ## Comments
 
 - 2026-10-21 Product Owner: Option b – Der Regions-Datenbankeintrag entsteht wie in STU ausschließlich durch den Abschluss einer Regionskartographie (tmw-K8b); das Issue ist deshalb zusätzlich von tmw-K8b blockiert.
+- 2026-11-15: Umgesetzt wie STU (Variante b). `GET database/regions?layerId=` (`DatabaseRegionCatalogService`) listet alle Regionen der bekannten beziehungsweise gewählten Ebene. Grundlage ist ausschließlich die persönliche `RegionDiscovery` aus tmw-K8b2: kein Betreten, keine Prestigevergabe hier. Nicht entdeckte Regionen erscheinen als `???` ohne Beschreibung und Ebene, entdeckte mit Name, Beschreibung, Ebene und Entdeckungszeit. Im Hub ist „Regionen“ jetzt verlinkt; die Ansicht folgt den Sternensystemtypen (Ebenenauswahl, „Katalogfortschritt: x / y“). Tests: Backend (Maskierung, entdeckte Region, ohne Ebenen) und Frontend (Hub-Link, Maskierung, Detailanzeige, Ebenenfilter).
