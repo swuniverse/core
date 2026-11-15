@@ -170,6 +170,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-11-13 – tmw-T12a – Spieler-IDs beginnen wie in STU bei 100; Spielerhandelsnetze tragen die Eigentümer-ID und kollidieren nie mit den NPC-Netzen 1–3
 - 2026-11-13 – tmw-T12c – Statt STU `USER_NOONE` hat ein verlassener Handelsposten keinen Eigentümer (`trade_posts.ownerId` nullable); SWU legt keinen Platzhalter-Spieler an
 - 2026-11-13 – sh-AP-05b – Inhalte, die andere sehen, verlieren beim Löschen nur den Autor (`NULL`, Anzeige „Gelöschter Siedler“) statt eines Fallback-Kontos; Löschhandler können einen `prepare`-Schritt vor der Transaktion nutzen (Allianzaustritt)
+- 2026-11-15 – tmw-K8b2 – Maintainer: Regionsmesspunkte wie STU zufällig ceil(25 %) der geeigneten Regionsfelder statt höchstens fünf deterministischer Punkte
 - 2026-11-15 – tmw-K1b3 – Maintainer: Wie STU keine Routenvorschau für Feldkosten und Schaden; Kosten und Schaden zeigt nur der Sektorscan des aktuellen Felds (Feldtypwerte)
 - 2026-11-15 – tmw-K1b2 – Wie STU (`ShipMover`/`FlightRoute`) laufen die PostFlight-Folgen für jedes aktive Schiff der Flotte statt nur für den Leader, in STU-Reihenfolge Deflektor → Feldeffekte → Anomalien; ihre Änderungen werden direkt nach dem Feld per Compare-and-set gespeichert, auch auf dem letzten Feld. `DEFLECTOR` ist wie `LIFE_SUPPORT` Standardsystem jedes Schiffs (SWU kennt keine Shuttles)
 - 2026-11-15 – tmw-FA1b2 – Maintainer: Wie STU keine Fraktionsfaktoren für Schiffswerte; `hullMultiplier`, `shieldMultiplier`, `cargoMultiplier` entfernt
@@ -179,6 +180,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-K8b2 – Regionskartographie wie STU: 25 % zufällige Messpunkte, Messpunkte im Galaxieflug, Finalisierung mit genau einer Regionsentdeckung, 5 Prestige und Nachricht in einer Transaktion – d10ac298
 - tmw-K8b1 – Kartographiepläne mit typisiertem Ziel SYSTEM/REGION (Exactly-one-Constraint, partielle Eindeutigkeit), persistente `RegionDiscovery` mit idempotentem Service – f610cf46
 - tmw-K5e – Erkundete Ebenen nach Nebellöschung vollständig dargestellt, Systementdeckung unverändert; ADR-0008 und CONTEXT-Begriffe – 15425192
 - tmw-K1b3 – Statt Routenvorschau wie STU: Sektorscan meldet Energiekosten, Spezial- und Deflektorausfall-Schaden des Feldtyps – 7015b894
