@@ -523,8 +523,9 @@ export class DatabaseService {
         where: { isHidden: false, ...(layerIds ? { id: In(layerIds) } : {}) },
         order: { id: 'ASC' },
       }),
+      // Only the explicitly maintained catalog counts (tmw-D5c).
       this.systemRepo.find({
-        ...(layerIds ? { where: { layerId: In(layerIds) } } : {}),
+        where: { inDatabaseCatalog: true, ...(layerIds ? { layerId: In(layerIds) } : {}) },
         order: { layerId: 'ASC', cx: 'ASC', cy: 'ASC', id: 'ASC' },
       }),
       this.systemExplorationRepo.find({ where: { userId } }),

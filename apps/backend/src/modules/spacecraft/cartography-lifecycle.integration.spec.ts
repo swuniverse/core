@@ -344,7 +344,10 @@ function createHarness() {
     shipRepo as never,
     moduleRepo as never,
     {} as never,
-    { findOne: jest.fn(async () => ({ id: 42, maxX: 3, maxY: 3 })) } as never,
+    {
+      findOne: jest.fn(async () => ({ id: 42, maxX: 3, maxY: 3 })),
+      findOneBy: jest.fn(async () => ({ id: 42, layerId: 3, name: 'Kessel', inDatabaseCatalog: true })),
+    } as never,
     {} as never,
     {} as never,
     {} as never,
@@ -390,7 +393,11 @@ function createHarness() {
       return ship;
     });
   jest.spyOn(service as any, 'getSensorRange').mockResolvedValue(1);
+  const databaseDiscovery = { notify: jest.fn(async () => undefined) };
+  (service as unknown as { databaseDiscovery: typeof databaseDiscovery }).databaseDiscovery =
+    databaseDiscovery;
   return {
+    databaseDiscovery,
     service,
     ships,
     modules,
@@ -471,6 +478,15 @@ describe('cartography lifecycle integration (in-process)', () => {
       10,
       'Kartographie eines Sternensystems abgeschlossen',
     );
+    // The charted catalog system is one new database entry of its layer (tmw-D5c).
+    expect(harness.databaseDiscovery.notify).toHaveBeenCalledTimes(1);
+    expect(harness.databaseDiscovery.notify).toHaveBeenCalledWith({
+      userId: 11,
+      category: 'SYSTEMS',
+      layerId: 3,
+      name: 'Kessel',
+      prestige: 10,
+    });
   });
 
   it('aborts finalization without prestige when the finalizer is no longer in the planned system', async () => {

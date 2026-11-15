@@ -114,6 +114,23 @@ describe('StarmapAdminService createLayer', () => {
   });
 });
 
+describe('StarmapAdminService database catalog', () => {
+  it('includes or excludes a system from the database catalog', async () => {
+    const { service } = createService();
+    const update = jest.fn(async () => ({ affected: 1 }));
+    const systemRepo = Object.assign(
+      repo({ findOneBy: jest.fn(async ({ id }) => (id === 5 ? { id: 5, inDatabaseCatalog: true } : null)) }),
+      { update },
+    );
+    (service as unknown as { systemRepo: typeof systemRepo }).systemRepo = systemRepo;
+
+    await expect(service.setSystemDatabaseCatalog(5, false)).resolves.toEqual({ id: 5, inDatabaseCatalog: false });
+    expect(update).toHaveBeenCalledWith(5, { inDatabaseCatalog: false });
+    await expect(service.setSystemDatabaseCatalog(6, true)).rejects.toThrow('Star system not found');
+    await expect(service.setSystemDatabaseCatalog(5, 'nein' as never)).rejects.toThrow('inDatabaseCatalog');
+  });
+});
+
 describe('StarmapAdminService importLayer colony bindings', () => {
   it('restores existing colony system/object references after replacing layer content', async () => {
     const layerRepo = repo({

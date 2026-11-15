@@ -1072,6 +1072,7 @@ export class StarmapAdminService {
         cx: input.cx,
         cy: input.cy,
         systemTypeId: input.systemTypeId,
+        inDatabaseCatalog: input.inDatabaseCatalog ?? true,
         maxX: input.maxX ?? 22,
         maxY: input.maxY ?? 22,
         bonusFields: this.rollBonusFieldAmount(),
@@ -1985,6 +1986,20 @@ export class StarmapAdminService {
    * ganz normal auf der Karte angelegt worden sein (z.B. per createStarSystem),
    * diese Methode ersetzt danach nur seinen Inhalt.
    */
+  /** Includes or excludes a system from the database catalog (tmw-D5c). */
+  async setSystemDatabaseCatalog(
+    systemId: number,
+    inDatabaseCatalog: boolean,
+  ): Promise<{ id: number; inDatabaseCatalog: boolean }> {
+    if (typeof inDatabaseCatalog !== 'boolean') {
+      throw new BadRequestException('inDatabaseCatalog muss true oder false sein');
+    }
+    const system = await this.systemRepo.findOneBy({ id: systemId });
+    if (!system) throw new NotFoundException('Star system not found');
+    await this.systemRepo.update(system.id, { inDatabaseCatalog });
+    return { id: system.id, inDatabaseCatalog };
+  }
+
   async regenerateSwuTestSystem(
     systemId: number,
   ): Promise<StarmapOperationResultDto> {
@@ -1999,6 +2014,8 @@ export class StarmapAdminService {
     system.maxY = layout.height;
     system.isLandmark = true;
     system.landmarkKey = SWU_TEST_SYSTEM_KEY;
+    // A test system never counts towards the database catalog.
+    system.inDatabaseCatalog = false;
     await this.systemRepo.save(system);
 
     await this.persistGeneratedLayout(system, layout);

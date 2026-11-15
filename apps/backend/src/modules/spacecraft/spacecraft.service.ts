@@ -145,6 +145,10 @@ import { DOCK_EPS_COST } from './docking.constants';
 import { FieldTransitionExecutor } from './field-transition-executor';
 import { ORBIT_ORDER_VIEW, type OrbitOrderViewPort } from './orbit-order-view.port';
 import { ORBIT_ORDER_LIFECYCLE, type OrbitOrderLifecyclePort } from './orbit-order-lifecycle.port';
+import {
+  DATABASE_DISCOVERY,
+  type DatabaseDiscoveryPort,
+} from '../database/database-discovery.port';
 import { applyLssSensorEffects } from './lss-sensor-effects';
 
 /** Ship after a field-by-field flight and how the flight ended. */
@@ -264,6 +268,9 @@ export class SpacecraftService {
     @Optional()
     @Inject(ORBIT_ORDER_LIFECYCLE)
     private readonly orbitOrders?: OrbitOrderLifecyclePort,
+    @Optional()
+    @Inject(DATABASE_DISCOVERY)
+    private readonly databaseDiscovery?: DatabaseDiscoveryPort,
   ) {}
 
   /**
@@ -4703,6 +4710,20 @@ export class SpacecraftService {
           'Die Systemkartographie wurde erfolgreich abgeschlossen.',
           `cartography-completed:${finalization.userId}:${finalization.starSystemId}`,
         );
+        // STU `FinishedAstroMappingHandler`: a charted catalog system is a
+        // new database entry and may complete its layer (tmw-D5c).
+        const { userId: chartedBy, starSystemId: chartedId } = finalization;
+        const charted =
+          chartedId == null ? null : await this.systemRepo.findOneBy({ id: chartedId });
+        if (chartedBy != null && charted?.inDatabaseCatalog) {
+          await this.databaseDiscovery?.notify?.({
+            userId: chartedBy,
+            category: 'SYSTEMS',
+            layerId: charted.layerId,
+            name: charted.name,
+            prestige: 10,
+          });
+        }
       }
     }
 

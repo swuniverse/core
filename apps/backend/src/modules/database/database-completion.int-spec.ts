@@ -345,4 +345,37 @@ describe('database category completion (PostgreSQL)', () => {
       expect(await awardsOf(npc)).toEqual([]);
     });
   });
+
+  describe('star system catalog (tmw-D5c)', () => {
+    it('counts only catalogued systems of a layer and completes the layer without excluded ones', async () => {
+      await dataSource.getRepository(StarSystem).save({
+        name: 'Testsystem',
+        layerId: core.id,
+        cx: 9,
+        cy: 9,
+        systemTypeId: 1,
+        inDatabaseCatalog: false,
+      });
+      await explore(player, coreSystems);
+
+      const progress = await service.progress(player.id);
+
+      expect(progress.find((row) => row.layerId === core.id)).toMatchObject({ discovered: 2, total: 2, completed: true });
+      await expect(service.checkCompletion(player.id, 'SYSTEMS', core.id)).resolves.toEqual([`DATABASE_SYSTEMS_L${core.id}`]);
+    });
+
+    it('announces a charted system and grants only its layer award, once', async () => {
+      await explore(player, coreSystems);
+      const notice = { userId: player.id, category: 'SYSTEMS' as const, layerId: core.id, name: 'Kern 2', prestige: 10 };
+
+      await port.notify?.(notice);
+      await port.notify?.(notice);
+
+      expect(emitToUser).toHaveBeenCalledWith(player.id, WsEventType.DATABASE_ENTRY_DISCOVERED, expect.objectContaining({
+        text: 'Neuer Datenbankeintrag: Kern 2 (+10 Prestige)',
+      }));
+      expect(await awardsOf(player)).toEqual([`DATABASE_SYSTEMS_L${core.id}`]);
+      expect(emitToUser.mock.calls.filter(([, type]) => type === WsEventType.AWARD_GRANTED)).toHaveLength(1);
+    });
+  });
 });

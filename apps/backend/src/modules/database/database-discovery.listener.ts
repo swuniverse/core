@@ -23,7 +23,7 @@ export class DatabaseDiscoveryListener implements OnModuleInit {
     this.port.notify = (discovery) => this.onDiscovered(discovery);
   }
 
-  async onDiscovered({ userId, category, name, prestige }: DatabaseDiscovery): Promise<void> {
+  async onDiscovered({ userId, category, layerId, name, prestige }: DatabaseDiscovery): Promise<void> {
     const event: DatabaseEntryDiscoveredEventDto = {
       category,
       name,
@@ -32,7 +32,7 @@ export class DatabaseDiscoveryListener implements OnModuleInit {
     };
     this.gateway.emitToUser(userId, WsEventType.DATABASE_ENTRY_DISCOVERED, event);
     try {
-      await this.completion.checkCompletion(userId, category);
+      await this.completion.checkCompletion(userId, category, layerId);
     } catch (error) {
       // A failed award check never undoes the discovery.
       this.logger.error(

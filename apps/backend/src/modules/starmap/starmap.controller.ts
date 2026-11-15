@@ -36,6 +36,7 @@ import type {
   StarmapCreateLayerDto,
   StarmapCreateMapRegionDto,
   StarmapCreateSystemDto,
+  StarmapUpdateSystemCatalogDto,
   StarmapCreateWormholeDto,
   StarmapDiscoverFieldDto,
   StarmapExportDto,
@@ -443,6 +444,16 @@ export class StarmapController {
     body: StarmapCreateSystemDto,
   ): Promise<StarmapSystemListItemDto> {
     return this.starmapAdminService.createStarSystem(body);
+  }
+
+  @Patch('admin/systems/:id/database-catalog')
+  @UseGuards(PermissionGuard)
+  @RequirePermission(Permission.MAP_EDITOR)
+  setSystemDatabaseCatalog(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: StarmapUpdateSystemCatalogDto,
+  ) {
+    return this.starmapAdminService.setSystemDatabaseCatalog(id, body?.inDatabaseCatalog);
   }
 
   @Post('admin/systems/:id/regenerate-swu-test')

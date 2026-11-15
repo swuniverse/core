@@ -44,6 +44,13 @@ export class StarSystem {
   @Column({ default: false })
   isLandmark: boolean;
 
+  /**
+   * Counts towards the database star system catalog per layer (tmw-D5c).
+   * Test and admin experiment systems are excluded explicitly.
+   */
+  @Column({ default: true })
+  inDatabaseCatalog: boolean;
+
   @Column({ type: 'varchar', length: 64, nullable: true })
   landmarkKey: string | null;
 

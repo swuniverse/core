@@ -12,6 +12,8 @@ export const DATABASE_DISCOVERY = Symbol('DATABASE_DISCOVERY');
 export interface DatabaseDiscovery {
   userId: number;
   category: DatabaseAwardCategory;
+  /** Layer of a star system entry; checks only that layer's award. */
+  layerId?: number | null;
   name: string;
   prestige: number;
 }

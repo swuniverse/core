@@ -327,6 +327,12 @@ export interface StarmapCreateSystemDto {
   maxX?: number;
   maxY?: number;
   seed?: string;
+  /** Counts towards the database catalog; default true (tmw-D5c). */
+  inDatabaseCatalog?: boolean;
+}
+
+export interface StarmapUpdateSystemCatalogDto {
+  inDatabaseCatalog: boolean;
 }
 
 export interface StarmapUpdateGalaxyFieldDto {
