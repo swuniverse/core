@@ -247,9 +247,6 @@ Ergänzen:
 
 - `id`
 - `factionId`
-- `hullMultiplier`
-- `shieldMultiplier`
-- `cargoMultiplier`
 - `researchMultiplier`
 - `colonyGrowthMultiplier`
 

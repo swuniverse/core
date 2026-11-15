@@ -22,15 +22,6 @@ export class FactionModifier {
   faction: FactionEntity;
 
   @Column({ type: 'float', default: 1 })
-  hullMultiplier: number;
-
-  @Column({ type: 'float', default: 1 })
-  shieldMultiplier: number;
-
-  @Column({ type: 'float', default: 1 })
-  cargoMultiplier: number;
-
-  @Column({ type: 'float', default: 1 })
   researchMultiplier: number;
 
   @Column({ type: 'float', default: 1 })

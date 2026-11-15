@@ -19,9 +19,6 @@ const DEFAULT_FACTIONS: Array<{
   startBuildingId: number;
   modifiers: Pick<
     FactionModifier,
-    | 'hullMultiplier'
-    | 'shieldMultiplier'
-    | 'cargoMultiplier'
     | 'researchMultiplier'
     | 'colonyGrowthMultiplier'
   >;
@@ -37,9 +34,6 @@ const DEFAULT_FACTIONS: Array<{
     startResearchTechId: 1001,
     startBuildingId: 82010100,
     modifiers: {
-      hullMultiplier: 1,
-      shieldMultiplier: 1.1,
-      cargoMultiplier: 1,
       researchMultiplier: 1.1,
       colonyGrowthMultiplier: 1,
     },
@@ -55,9 +49,6 @@ const DEFAULT_FACTIONS: Array<{
     startResearchTechId: 1003,
     startBuildingId: 82010300,
     modifiers: {
-      hullMultiplier: 1.1,
-      shieldMultiplier: 1,
-      cargoMultiplier: 1,
       researchMultiplier: 1,
       colonyGrowthMultiplier: 1.1,
     },

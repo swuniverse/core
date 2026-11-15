@@ -1,14 +1,13 @@
 # Faction modifiers
 
-Status as of 2026-11-13. Persisted faction modifiers are seeded and returned by the faction module. Gameplay consumers are listed below.
+Status as of 2026-11-15. Persisted faction modifiers are seeded and returned by the faction module. Gameplay consumers are listed below.
 
 | Modifier | Effective today | Reader |
 |---|---|---|
-| `hullMultiplier` | No | None outside the faction module |
-| `shieldMultiplier` | No | None outside the faction module |
-| `cargoMultiplier` | No | None outside the faction module |
 | `researchMultiplier` | Yes | `ResearchService.processTick` applies it once to the current tick's authoritative commodity production before queue consumption |
 | `colonyGrowthMultiplier` | Yes | `ColonyTickProcessorService.growPopulation` applies it once to positive base growth before population and housing capacity limits |
+
+`hullMultiplier`, `shieldMultiplier` and `cargoMultiplier` were removed on 2026-11-15 (tmw-FA1b2, migration `20261115160000-drop-faction-ship-multipliers`). STU has no faction-dependent ship values (its faction only carries start data and commodity effects; maximum hull and shields are stored per ship at build), and the multipliers were never read, so SWU follows STU instead of introducing them.
 
 `tradeModifier` was removed on 2026-11-13 (tmw-T13, migration `20261113110000-drop-faction-trade-modifier`). It was never read; trade effects between players come from active trade agreements via `mayTradeFavorably` (see `docs/alliance-relationship-effects.md`).
 

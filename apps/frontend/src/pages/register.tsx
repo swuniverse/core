@@ -7,17 +7,11 @@ import { LegalLinks } from '../components/legal/LegalLinks';
 import type { AuthResponse } from '@swuniverse/shared';
 
 interface FactionModifiers {
-  hullMultiplier: number;
-  shieldMultiplier: number;
-  cargoMultiplier: number;
   researchMultiplier: number;
   colonyGrowthMultiplier: number;
 }
 
 const MODIFIER_LABELS: Record<keyof FactionModifiers, string> = {
-  hullMultiplier: 'Hülle',
-  shieldMultiplier: 'Schilde',
-  cargoMultiplier: 'Fracht',
   researchMultiplier: 'Forschung',
   colonyGrowthMultiplier: 'Koloniewachstum',
 };
