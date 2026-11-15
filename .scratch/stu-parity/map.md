@@ -176,6 +176,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-D5c – Sternensystemkatalog (`inDatabaseCatalog`, Testsystem ausgeschlossen, Admin-Schalter) als Nenner je Ebene; abgeschlossene Kartographie meldet Datenbankeintrag und prüft den Ebenen-Award – 4f34d57f
 - tmw-D5b – Neue Entdeckung von Rumpf, Planetentyp oder Systemtyp meldet „Neuer Datenbankeintrag“ an den Spieler und prüft den Kategorie-Award (Port `DATABASE_DISCOVERY`), NPC ohne Prestige – 0b5782a0
 - tmw-D5a – STU-Datenbank-Awards (Rümpfe, Planetentypen, Systemtypen, Sternensysteme je Ebene) mit Zuordnungstabelle und kategorieneutralem Completion-Service, Fortschritt per `GET /database/category-progress` – ba2dfc6a
 - sc-WP-UI-3a3 – Orbitauftrag hält die Flotte wie STU fest (Flugsperre unter Flottensperre), zentraler Abbruch mit Nachrichten bei Auflösen/letzter Zerstörung/Traktor, Auftrag folgt dem Führer, Migration verwaister Aufträge – 71011cdd
