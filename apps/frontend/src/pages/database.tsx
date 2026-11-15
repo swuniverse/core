@@ -25,6 +25,7 @@ import type {
   DatabaseLayerChoiceDto,
   DatabaseSystemTypesDto,
   DatabasePlanetTypesDto,
+  DatabaseRegionsDto,
   Faction,
 } from '@swuniverse/shared';
 
@@ -60,6 +61,7 @@ type View =
   | 'settlers'
   | 'rankings'
   | 'system-types'
+  | 'regions'
   | 'systems'
   | 'ship-classes'
   | 'station-classes'
@@ -201,7 +203,7 @@ const groups: Array<{
   {
     title: 'Wichtige Orte',
     entries: [
-      { label: 'Regionen', note: 'Kartierung wird aufgebaut' },
+      { label: 'Regionen', view: 'regions' },
       { label: 'Handelsstationen', view: 'trade-posts' },
     ],
   },
@@ -288,7 +290,7 @@ export function DatabasePage() {
   const view = params.get('view') as View | null;
   const ranking = params.get('ranking') as RankingKey | null;
   const layerId = params.get('layerId');
-  const isLayerCatalog = view === 'system-types' || view === 'planet-types';
+  const isLayerCatalog = view === 'system-types' || view === 'planet-types' || view === 'regions';
   const [data, setData] = useState<unknown>(null);
   const [layerChoices, setLayerChoices] = useState<DatabaseLayerChoiceDto[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -302,7 +304,7 @@ export function DatabasePage() {
       ? '/database/commodities/overview'
       : `/database/${view}${view === 'rankings' && ranking ? `/${ranking}` : ''}${isLayerCatalog && layerId ? `?layerId=${encodeURIComponent(layerId)}` : ''}`;
     const response = isLayerCatalog
-      ? api.get<DatabaseSystemTypesDto | DatabasePlanetTypesDto>(path).then((catalog) => {
+      ? api.get<DatabaseSystemTypesDto | DatabasePlanetTypesDto | DatabaseRegionsDto>(path).then((catalog) => {
           setLayerChoices(catalog.layers);
           return catalog;
         })
@@ -622,6 +624,7 @@ function Hub({
 function Detail({ view, data }: { view: View; data: unknown }) {
   if (view === 'system-types')
     return <SystemTypes data={data as SystemTypes} />;
+  if (view === 'regions') return <Regions data={data as DatabaseRegionsDto} />;
   if (view === 'systems') return <Systems data={data as SystemCatalog} />;
   if (view === 'settlers') return <Settlers data={data as Settler[]} />;
   if (view === 'npcs') return <NpcsAndAdmins data={data as NpcsAndAdmins} />;
@@ -1039,6 +1042,53 @@ function SystemTypes({ data }: { data: SystemTypes }) {
     </div>
   );
 }
+/** STU `regioninfo`: only a completed region cartography reveals a region. */
+function Regions({ data }: { data: DatabaseRegionsDto }) {
+  return (
+    <div className="max-w-3xl border border-swu-border bg-black/30">
+      <h1 className="border-b border-swu-border px-2 py-1 font-bold text-swu-primary">
+        Regionen
+      </h1>
+      <p className="border-b border-swu-border px-2 py-1 text-xs text-swu-muted">
+        Katalogfortschritt: {data.discovered} / {data.total}
+      </p>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-swu-muted">
+            <th className="p-2">Name</th>
+            <th>Beschreibung</th>
+            <th>Ebene</th>
+            <th>Entdeckung</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.entries.map((entry) => (
+            <tr key={entry.regionId} className="border-t border-swu-border/60">
+              {entry.discovered ? (
+                <>
+                  <td className="p-2">{entry.name}</td>
+                  <td>{entry.description || '—'}</td>
+                  <td>{entry.layerName ?? `Ebene ${entry.layerId}`}</td>
+                  <td className="font-mono text-xs">
+                    {entry.discoveredAt ? new Date(entry.discoveredAt).toLocaleString('de-DE') : '—'}
+                  </td>
+                </>
+              ) : (
+                <>
+                  <td className="p-2">???</td>
+                  <td>???</td>
+                  <td>???</td>
+                  <td>---</td>
+                </>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function NpcsAndAdmins({ data }: { data: NpcsAndAdmins }) {
   const section = (title: string, entries: NpcAdminEntry[]) => (
     <section className="space-y-2">
@@ -1242,6 +1292,7 @@ function titleFor(view: View) {
       settlers: 'Siedlerliste',
       rankings: 'Ranglisten',
       'system-types': 'Sternensystemtypen',
+      regions: 'Regionen',
       systems: 'Sternensysteme',
       'ship-classes': 'Schiffsrümpfe',
       'station-classes': 'Stationsrümpfe',

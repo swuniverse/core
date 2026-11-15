@@ -1,3 +1,4 @@
+import { DatabaseRegionCatalogService } from './database-region-catalog.service';
 import {
   BadRequestException,
   Controller,
@@ -14,7 +15,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { DatabaseService } from './database.service';
-import { STATISTIC_UNITS, type StatisticUnit, type DatabaseSystemTypesDto, type DatabasePlanetTypesDto } from '@swuniverse/shared';
+import { STATISTIC_UNITS, type StatisticUnit, type DatabaseRegionsDto, type DatabaseSystemTypesDto, type DatabasePlanetTypesDto } from '@swuniverse/shared';
 import { StatisticsService } from '../statistics/statistics.service';
 import { CommodityOverviewService } from './commodity-overview.service';
 import { LayerAccessGuard } from '../starmap/layer-access.guard';
@@ -27,6 +28,7 @@ export class DatabaseController {
     private readonly statisticsService: StatisticsService,
     private readonly commodityOverviewService: CommodityOverviewService,
     private readonly layerAccess: LayerAccessService,
+    private readonly regionCatalog: DatabaseRegionCatalogService,
   ) {}
 
   private async catalogLayers(user: LayerReader, layerId?: number) {
@@ -91,6 +93,20 @@ export class DatabaseController {
     const { layers, layerIds } = await this.catalogLayers(req.user, layerId);
     return {
       ...await this.databaseService.getSystemTypes(req.user.sub, layerIds),
+      layers: layers.map(({ id, name }) => ({ id, name })),
+    };
+  }
+
+  @Get('regions')
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'))
+  async getRegions(
+    @Request() req: { user: LayerReader },
+    @Query('layerId', new ParseIntPipe({ optional: true })) layerId?: number,
+  ): Promise<DatabaseRegionsDto> {
+    const { layers, layerIds } = await this.catalogLayers(req.user, layerId);
+    return {
+      ...await this.regionCatalog.getRegions(req.user.sub, layerIds),
       layers: layers.map(({ id, name }) => ({ id, name })),
     };
   }

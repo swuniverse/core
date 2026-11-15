@@ -29,7 +29,19 @@ export interface DatabasePlanetTypeEntryDto {
   discoveredAt: string | null;
 }
 
+/** STU `regioninfo`: undiscovered regions stay masked as `???`. */
+export interface DatabaseRegionEntryDto {
+  regionId: number;
+  discovered: boolean;
+  name: string | null;
+  description: string | null;
+  layerId: number | null;
+  layerName: string | null;
+  discoveredAt: string | null;
+}
+
 export type DatabaseSystemTypesDto = DatabaseTypeCatalogDto<DatabaseSystemTypeEntryDto>;
+export type DatabaseRegionsDto = DatabaseTypeCatalogDto<DatabaseRegionEntryDto>;
 export type DatabasePlanetTypesDto = DatabaseTypeCatalogDto<DatabasePlanetTypeEntryDto>;
 
 export interface ProfileFriendDto {

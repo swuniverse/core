@@ -53,7 +53,7 @@ describe('DatabasePage', () => {
     });
   });
 
-  it.each(['system-types', 'planet-types'])('uses only backend layer choices and sends the selected filter: %s', async (view) => {
+  it.each(['system-types', 'planet-types', 'regions'])('uses only backend layer choices and sends the selected filter: %s', async (view) => {
     apiMocks.get.mockImplementation((url: string) => {
       if (url === `/database/${view}` || url === `/database/${view}?layerId=8`) {
         return Promise.resolve({
@@ -69,6 +69,42 @@ describe('DatabasePage', () => {
     expect(Array.from(select.querySelectorAll('option')).map((option) => option.textContent)).toEqual(['Alle bekannten Ebenen', 'Known core', 'Known rim']);
     fireEvent.change(select, { target: { value: '8' } });
     await waitFor(() => expect(apiMocks.get).toHaveBeenCalledWith(`/database/${view}?layerId=8`));
+  });
+
+  it('opens the region catalog from the hub and masks undiscovered regions', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/database/regions') {
+        return Promise.resolve({
+          layers: [{ id: 1, name: 'Äußerer Rand' }],
+          discovered: 1,
+          total: 2,
+          entries: [
+            {
+              regionId: 3,
+              discovered: true,
+              name: 'Hutt-Raum',
+              description: 'Schmuggler und Kartelle',
+              layerId: 1,
+              layerName: 'Äußerer Rand',
+              discoveredAt: '2026-11-15T10:00:00.000Z',
+            },
+            { regionId: 4, discovered: false, name: null, description: null, layerId: null, layerName: null, discoveredAt: null },
+          ],
+        });
+      }
+      return Promise.resolve({ settlers: 0, colonies: 0, ships: 0, totalTechs: 0, sections: [] });
+    });
+    render(<MemoryRouter initialEntries={['/database']}><DatabasePage /></MemoryRouter>);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Regionen' }));
+
+    expect(await screen.findByText('Katalogfortschritt: 1 / 2')).toBeTruthy();
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(within(rows[0]).getByText('Hutt-Raum')).toBeTruthy();
+    expect(within(rows[0]).getByText('Schmuggler und Kartelle')).toBeTruthy();
+    expect(within(rows[0]).getByText('Äußerer Rand')).toBeTruthy();
+    expect(within(rows[1]).getAllByText('???')).toHaveLength(3);
+    expect(screen.queryByText('Kartierung wird aufgebaut')).toBeNull();
   });
 
   it('groups all available highscores and opens the RPG and Aurodium rankings', async () => {

@@ -19,6 +19,7 @@ describe('DatabaseController commodities', () => {
       {} as never,
       commodityOverview as never,
       {} as never,
+      {} as never,
     );
 
     await controller.getCommodityOverview({ user: { sub: 42 } });
@@ -31,7 +32,7 @@ describe('DatabaseController commodities', () => {
 
 describe('DatabaseController rankings', () => {
   const controllerWith = (getRanking: jest.Mock) =>
-    new DatabaseController({ getRanking } as never, {} as never, {} as never, {} as never);
+    new DatabaseController({ getRanking } as never, {} as never, {} as never, {} as never, {} as never);
 
   it.each(['rpg', 'aurodium', 'trade-posts'])('serves the %s ranking', async (key) => {
     const getRanking = jest.fn(async () => ({ entries: [] }));

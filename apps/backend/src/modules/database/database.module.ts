@@ -1,3 +1,6 @@
+import { MapRegion } from '../starmap/entities/map-region.entity';
+import { RegionDiscovery } from '../starmap/entities/region-discovery.entity';
+import { DatabaseRegionCatalogService } from './database-region-catalog.service';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -92,6 +95,8 @@ import { StarmapModule } from '../starmap/starmap.module';
       ExplorationState,
       HolonetRating,
       DatabaseCategoryAward,
+      MapRegion,
+      RegionDiscovery,
     ]),
     FactionModule,
     GameDataModule,
@@ -108,6 +113,7 @@ import { StarmapModule } from '../starmap/starmap.module';
   controllers: [DatabaseController, DatabaseProgressController],
   providers: [
     DatabaseService,
+    DatabaseRegionCatalogService,
     DatabaseCompletionService,
     DatabaseDiscoveryListener,
     ColonyScanProjectionService,
