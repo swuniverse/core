@@ -1,4 +1,5 @@
 import {
+  Check,
   Column,
   CreateDateColumn,
   Entity,
@@ -14,13 +15,24 @@ export enum CartographyPlanStatus {
   DONE = 'DONE',
 }
 
+/** STU `AstronomicalEntry`: a plan charts a star system or a map region. */
+export enum CartographyTargetType {
+  SYSTEM = 'SYSTEM',
+  REGION = 'REGION',
+}
+
 export enum CartographyCompletionOutcome {
   SUCCESS = 'SUCCESS',
   INVALIDATED = 'INVALIDATED',
 }
 
 @Entity('cartography_plans')
-@Index(['userId', 'starSystemId'], { unique: true })
+@Check(
+  'CHK_cartography_plans_target',
+  `("targetType" = 'SYSTEM' AND "starSystemId" IS NOT NULL AND "mapRegionId" IS NULL) OR ("targetType" = 'REGION' AND "mapRegionId" IS NOT NULL AND "starSystemId" IS NULL)`,
+)
+@Index(['userId', 'starSystemId'], { unique: true, where: '"starSystemId" IS NOT NULL' })
+@Index(['userId', 'mapRegionId'], { unique: true, where: '"mapRegionId" IS NOT NULL' })
 @Index(['userId'])
 @Index(['starSystemId', 'status'])
 @Index(['finalizingSpacecraftId'], {
@@ -34,8 +46,16 @@ export class CartographyPlan {
   @Column()
   userId: number;
 
-  @Column()
-  starSystemId: number;
+  @Column({ type: 'varchar', length: 16, default: CartographyTargetType.SYSTEM })
+  targetType: CartographyTargetType;
+
+  /** Set exactly for `SYSTEM` plans. */
+  @Column({ type: 'int', nullable: true })
+  starSystemId: number | null;
+
+  /** Set exactly for `REGION` plans. */
+  @Column({ type: 'int', nullable: true })
+  mapRegionId: number | null;
 
   @Column({
     type: 'varchar',

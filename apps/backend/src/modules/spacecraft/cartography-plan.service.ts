@@ -11,7 +11,59 @@ import {
   CartographyCompletionOutcome,
   CartographyPlan,
   CartographyPlanStatus,
+  CartographyTargetType,
 } from './entities/cartography-plan.entity';
+
+/** Exactly one chart target: a star system or a map region. */
+export type CartographyTarget =
+  | { type: CartographyTargetType.SYSTEM; starSystemId: number }
+  | { type: CartographyTargetType.REGION; mapRegionId: number };
+
+export const systemTarget = (starSystemId: number): CartographyTarget => ({
+  type: CartographyTargetType.SYSTEM,
+  starSystemId,
+});
+
+export const regionTarget = (mapRegionId: number): CartographyTarget => ({
+  type: CartographyTargetType.REGION,
+  mapRegionId,
+});
+
+/** Query and column values of a target; rejects anything but one valid id. */
+export function cartographyTargetColumns(target: CartographyTarget): Pick<
+  CartographyPlan,
+  'targetType' | 'starSystemId' | 'mapRegionId'
+> {
+  const id =
+    target.type === CartographyTargetType.SYSTEM
+      ? target.starSystemId
+      : target.type === CartographyTargetType.REGION
+        ? target.mapRegionId
+        : undefined;
+  if (!Number.isInteger(id) || (id as number) <= 0) {
+    throw new BadRequestException('Ungültiges Kartographieziel');
+  }
+  return target.type === CartographyTargetType.SYSTEM
+    ? { targetType: target.type, starSystemId: target.starSystemId, mapRegionId: null }
+    : { targetType: target.type, starSystemId: null, mapRegionId: target.mapRegionId };
+}
+
+/** Lookup condition of a target; the partial unique indexes cover it. */
+function cartographyTargetWhere(target: CartographyTarget) {
+  const columns = cartographyTargetColumns(target);
+  return columns.targetType === CartographyTargetType.SYSTEM
+    ? { targetType: columns.targetType, starSystemId: columns.starSystemId as number }
+    : { targetType: columns.targetType, mapRegionId: columns.mapRegionId as number };
+}
+
+/** The target a stored plan charts. */
+export function cartographyPlanTarget(
+  plan: Pick<CartographyPlan, 'targetType' | 'starSystemId' | 'mapRegionId'>,
+): CartographyTarget {
+  return plan.targetType === CartographyTargetType.REGION
+    ? regionTarget(plan.mapRegionId as number)
+    : systemTarget(plan.starSystemId as number);
+}
 
 function isUniqueViolation(error: unknown): boolean {
   return (
@@ -30,17 +82,17 @@ export class CartographyPlanService {
 
   async createPlan(
     userId: number,
-    starSystemId: number,
+    target: CartographyTarget,
     remainingFieldIds: number[],
   ): Promise<CartographyPlan> {
-    const existing = await this.planRepo.findOne({
-      where: { userId, starSystemId },
-    });
+    const columns = cartographyTargetColumns(target);
+    const where = { userId, ...cartographyTargetWhere(target) };
+    const existing = await this.planRepo.findOne({ where });
     if (existing) return existing;
 
     const plan = this.planRepo.create({
       userId,
-      starSystemId,
+      ...columns,
       status:
         remainingFieldIds.length === 0
           ? CartographyPlanStatus.MEASURED
@@ -57,9 +109,7 @@ export class CartographyPlanService {
       return await this.planRepo.save(plan);
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
-      const concurrent = await this.planRepo.findOne({
-        where: { userId, starSystemId },
-      });
+      const concurrent = await this.planRepo.findOne({ where });
       if (concurrent) return concurrent;
       throw error;
     }
@@ -67,9 +117,11 @@ export class CartographyPlanService {
 
   async getPlan(
     userId: number,
-    starSystemId: number,
+    target: CartographyTarget,
   ): Promise<CartographyPlan | null> {
-    return this.planRepo.findOne({ where: { userId, starSystemId } });
+    return this.planRepo.findOne({
+      where: { userId, ...cartographyTargetWhere(target) },
+    });
   }
 
   async getPlanForFinalizingSpacecraft(
@@ -91,7 +143,7 @@ export class CartographyPlanService {
     return this.planRepo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(CartographyPlan);
       const plan = await repo.findOne({
-        where: { userId, starSystemId },
+        where: { userId, ...cartographyTargetWhere(systemTarget(starSystemId)) },
         lock: { mode: 'pessimistic_write' },
       });
       if (!plan || plan.status !== CartographyPlanStatus.PLANNED) {
@@ -149,9 +201,9 @@ export class CartographyPlanService {
 
   async transitionToMeasured(
     userId: number,
-    starSystemId: number,
+    target: CartographyTarget,
   ): Promise<CartographyPlan> {
-    const plan = await this.requirePlan(userId, starSystemId);
+    const plan = await this.requirePlan(userId, target);
     if (plan.status === CartographyPlanStatus.DONE) return plan;
     if (plan.status === CartographyPlanStatus.FINISHING) {
       throw new BadRequestException(
@@ -196,7 +248,8 @@ export class CartographyPlanService {
         },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!plan) {
+      // Region plans complete through the region flow (tmw-K8b2).
+      if (!plan || plan.targetType === CartographyTargetType.REGION || plan.starSystemId == null) {
         return { completed: false, userId: null, starSystemId: null };
       }
 
@@ -247,11 +300,11 @@ export class CartographyPlanService {
 
   async startFinalization(
     userId: number,
-    starSystemId: number,
+    target: CartographyTarget,
     spacecraftId: number,
     startedAt = new Date(),
   ): Promise<CartographyPlan> {
-    const plan = await this.requirePlan(userId, starSystemId);
+    const plan = await this.requirePlan(userId, target);
     if (plan.status === CartographyPlanStatus.FINISHING) {
       throw new BadRequestException(
         'Die Kartographie wird bereits finalisiert',
@@ -291,11 +344,9 @@ export class CartographyPlanService {
 
   private async requirePlan(
     userId: number,
-    starSystemId: number,
+    target: CartographyTarget,
   ): Promise<CartographyPlan> {
-    const plan = await this.planRepo.findOne({
-      where: { userId, starSystemId },
-    });
+    const plan = await this.getPlan(userId, target);
     if (!plan) throw new NotFoundException('Kein Kartographieplan vorhanden');
     return plan;
   }

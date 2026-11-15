@@ -166,8 +166,8 @@ function createHarness() {
   const prestige = { change: jest.fn() };
   const messages = { sendSystem: jest.fn() };
   const cartography = {
-    getPlan: jest.fn(async (userId: number, systemId: number) =>
-      plan?.userId === userId && plan.starSystemId === systemId ? plan : null,
+    getPlan: jest.fn(async (userId: number, target: { starSystemId: number }) =>
+      plan?.userId === userId && plan.starSystemId === target.starSystemId ? plan : null,
     ),
     getPlanForFinalizingSpacecraft: jest.fn(async (spacecraftId: number) =>
       plan?.status === 'FINISHING' &&
@@ -176,11 +176,11 @@ function createHarness() {
         : null,
     ),
     createPlan: jest.fn(
-      async (userId: number, systemId: number, fieldIds: number[]) => {
+      async (userId: number, target: { starSystemId: number }, fieldIds: number[]) => {
         plan ??= {
           id: 1,
           userId,
-          starSystemId: systemId,
+          starSystemId: target.starSystemId,
           status: fieldIds.length ? 'PLANNED' : 'MEASURED',
           remainingFieldIds: [...fieldIds],
           finalizationStartedAt: null,
@@ -210,7 +210,7 @@ function createHarness() {
       },
     ),
     startFinalization: jest.fn(
-      async (_userId: number, _systemId: number, spacecraftId: number) => {
+      async (_userId: number, _target: unknown, spacecraftId: number) => {
         if (!plan || plan.status !== 'MEASURED')
           throw new Error('not measured');
         plan.status = 'FINISHING';

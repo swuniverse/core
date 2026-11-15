@@ -189,7 +189,9 @@ describe('NavigationPanel', () => {
     };
     const cartography = {
       id: 4,
+      targetType: 'SYSTEM' as const,
       starSystemId: 8,
+      mapRegionId: null,
       status: 'PLANNED' as const,
       remainingFieldIds: [2],
       remainingCoordinates: [{ x: 2, y: 1 }],

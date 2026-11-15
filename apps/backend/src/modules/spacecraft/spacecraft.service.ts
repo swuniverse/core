@@ -101,7 +101,7 @@ import {
   isVacationEffective,
 } from '@swuniverse/shared';
 import { Colony } from '../colony/entities/colony.entity';
-import { CartographyPlanStatus } from './entities/cartography-plan.entity';
+import { CartographyPlanStatus, CartographyTargetType } from './entities/cartography-plan.entity';
 import { MessagingService } from '../messaging/messaging.service';
 import { MessageFolder } from '../messaging/message-folder';
 import { PrestigeService } from '../prestige/prestige.service';
@@ -119,7 +119,7 @@ import {
 } from './nearby-interaction';
 import { HyperdriveDisruptionService } from './hyperdrive-disruption.service';
 import { SpacecraftAlertService } from './spacecraft-alert.service';
-import { CartographyPlanService } from './cartography-plan.service';
+import { CartographyPlanService, systemTarget } from './cartography-plan.service';
 import {
   projectSpacecraftLocationToGalaxy,
   resolveContextualCelestialObject,
@@ -680,7 +680,7 @@ export class SpacecraftService {
 
     const [explored, plan] = await Promise.all([
       this.explorationService.isSystemExplored(userId, location.systemId),
-      this.cartographyPlanService.getPlan(userId, location.systemId),
+      this.cartographyPlanService.getPlan(userId, systemTarget(location.systemId)),
     ]);
     if (explored && !plan) {
       return this.toCartographyStateDto('DONE', location.systemId);
@@ -730,7 +730,7 @@ export class SpacecraftService {
 
     const plan = await this.cartographyPlanService.startFinalization(
       userId,
-      location.systemId,
+      systemTarget(location.systemId),
       ship.id,
     );
     ship.energy -= 15;
@@ -762,7 +762,7 @@ export class SpacecraftService {
 
     const existing = await this.cartographyPlanService.getPlan(
       userId,
-      location.systemId,
+      systemTarget(location.systemId),
     );
     if (existing) {
       return this.toCartographyPlanDto(
@@ -805,7 +805,7 @@ export class SpacecraftService {
     );
     const plan = await this.cartographyPlanService.createPlan(
       userId,
-      location.systemId,
+      systemTarget(location.systemId),
       remainingFieldIds,
     );
     ship.lssMode = SpacecraftLssMode.CARTOGRAPHY;
@@ -970,7 +970,9 @@ export class SpacecraftService {
   ): CartographyPlanDto {
     return {
       id: null,
+      targetType: starSystemId == null ? null : 'SYSTEM',
       starSystemId,
+      mapRegionId: null,
       status,
       remainingFieldIds: [],
       remainingCoordinates: [],
@@ -995,7 +997,9 @@ export class SpacecraftService {
   private toCartographyPlanDto(
     plan: {
       id: number;
-      starSystemId: number;
+      targetType: CartographyTargetType;
+      starSystemId: number | null;
+      mapRegionId: number | null;
       status: CartographyPlanStatus;
       remainingFieldIds: number[];
       finalizationStartedAt: Date | null;
@@ -1012,7 +1016,9 @@ export class SpacecraftService {
   ): CartographyPlanDto {
     return {
       id: plan.id,
+      targetType: plan.targetType,
       starSystemId: plan.starSystemId,
+      mapRegionId: plan.mapRegionId,
       status: plan.status,
       remainingFieldIds: plan.remainingFieldIds,
       remainingCoordinates,

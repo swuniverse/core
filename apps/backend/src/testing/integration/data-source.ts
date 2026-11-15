@@ -31,6 +31,7 @@ import { LayerKnowledge } from '../../modules/starmap/entities/layer-knowledge.e
 import { LayerExploredEvent } from '../../modules/starmap/entities/layer-explored-event.entity';
 import { ExplorationState } from '../../modules/starmap/entities/exploration-state.entity';
 import { SystemExploration } from '../../modules/starmap/entities/system-exploration.entity';
+import { RegionDiscovery } from '../../modules/starmap/entities/region-discovery.entity';
 import { StarSystem } from '../../modules/starmap/entities/star-system.entity';
 import { CelestialObject } from '../../modules/starmap/entities/celestial-object.entity';
 import { GalaxyFieldType } from '../../modules/starmap/entities/galaxy-field-type.entity';
@@ -120,6 +121,7 @@ export const INTEGRATION_ENTITIES = [
   LayerExploredEvent,
   ExplorationState,
   SystemExploration,
+  RegionDiscovery,
   StarSystem,
   CelestialObject,
   GalaxyFieldType,

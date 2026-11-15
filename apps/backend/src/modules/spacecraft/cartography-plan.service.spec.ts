@@ -4,6 +4,7 @@ jest.mock('./entities/cartography-plan.entity', () => ({
     SUCCESS: 'SUCCESS',
     INVALIDATED: 'INVALIDATED',
   },
+  CartographyTargetType: { SYSTEM: 'SYSTEM', REGION: 'REGION' },
   CartographyPlanStatus: {
     PLANNED: 'PLANNED',
     MEASURED: 'MEASURED',
@@ -20,7 +21,12 @@ jest.mock('../starmap/entities/system-exploration.entity', () => ({
 
 import { BadRequestException } from '@nestjs/common';
 import { CartographyPlanStatus } from './entities/cartography-plan.entity';
-import { CartographyPlanService } from './cartography-plan.service';
+import {
+  CartographyPlanService,
+  cartographyPlanTarget,
+  regionTarget,
+  systemTarget,
+} from './cartography-plan.service';
 
 describe('CartographyPlanService', () => {
   it('returns the existing player/system plan without replacing its persisted measurement fields', async () => {
@@ -38,7 +44,7 @@ describe('CartographyPlanService', () => {
     };
     const service = new CartographyPlanService(repo as never);
 
-    await expect(service.createPlan(11, 42, [1, 2, 3])).resolves.toBe(existing);
+    await expect(service.createPlan(11, systemTarget(42), [1, 2, 3])).resolves.toBe(existing);
 
     expect(repo.create).not.toHaveBeenCalled();
     expect(repo.save).not.toHaveBeenCalled();
@@ -61,7 +67,7 @@ describe('CartographyPlanService', () => {
     };
     const service = new CartographyPlanService(repo as never);
 
-    await expect(service.createPlan(11, 42, [1, 2, 3])).resolves.toBe(existing);
+    await expect(service.createPlan(11, systemTarget(42), [1, 2, 3])).resolves.toBe(existing);
 
     expect(repo.create).not.toHaveBeenCalled();
     expect(repo.save).not.toHaveBeenCalled();
@@ -87,12 +93,14 @@ describe('CartographyPlanService', () => {
     };
     const service = new CartographyPlanService(repo as never);
 
-    await expect(service.createPlan(11, 42, [1, 2])).resolves.toBe(
+    await expect(service.createPlan(11, systemTarget(42), [1, 2])).resolves.toBe(
       concurrentPlan,
     );
     expect(repo.create).toHaveBeenCalledWith({
       userId: 11,
+      targetType: 'SYSTEM',
       starSystemId: 42,
+      mapRegionId: null,
       status: CartographyPlanStatus.PLANNED,
       remainingFieldIds: [1, 2],
       finalizationStartedAt: null,
@@ -111,7 +119,7 @@ describe('CartographyPlanService', () => {
     };
     const service = new CartographyPlanService(repo as never);
 
-    await expect(service.createPlan(11, 42, [])).resolves.toMatchObject({
+    await expect(service.createPlan(11, systemTarget(42), [])).resolves.toMatchObject({
       status: CartographyPlanStatus.MEASURED,
       remainingFieldIds: [],
     });
@@ -141,7 +149,7 @@ describe('CartographyPlanService', () => {
     };
     const service = new CartographyPlanService(repo as never);
 
-    await expect(service.createPlan(11, 42, [99])).resolves.toBe(persisted);
+    await expect(service.createPlan(11, systemTarget(42), [99])).resolves.toBe(persisted);
     expect(persisted.remainingFieldIds).toEqual([3, 4]);
   });
 
@@ -303,7 +311,7 @@ describe('CartographyPlanService', () => {
     const startedAt = new Date('2026-10-16T12:00:00.000Z');
 
     await expect(
-      service.startFinalization(11, 42, 9, startedAt),
+      service.startFinalization(11, systemTarget(42), 9, startedAt),
     ).resolves.toMatchObject({
       status: CartographyPlanStatus.FINISHING,
       finalizingSpacecraftId: 9,
@@ -312,7 +320,7 @@ describe('CartographyPlanService', () => {
     });
 
     await expect(
-      service.startFinalization(11, 42, 10, startedAt),
+      service.startFinalization(11, systemTarget(42), 10, startedAt),
     ).rejects.toEqual(
       new BadRequestException('Die Kartographie wird bereits finalisiert'),
     );
@@ -337,7 +345,7 @@ describe('CartographyPlanService', () => {
     const restartedAt = new Date('2026-10-17T12:00:00.000Z');
 
     await expect(
-      service.startFinalization(11, 42, 10, restartedAt),
+      service.startFinalization(11, systemTarget(42), 10, restartedAt),
     ).resolves.toMatchObject({
       status: CartographyPlanStatus.FINISHING,
       finalizingSpacecraftId: 10,
@@ -474,5 +482,39 @@ describe('CartographyPlanService', () => {
       finalizationStartedAt: null,
       completedAt: expect.any(Date),
     });
+  });
+
+  it.each([0, -1, 1.5, Number.NaN])('rejects an invalid target id %p without querying', async (id) => {
+    const repo = { findOne: jest.fn(), create: jest.fn(), save: jest.fn() };
+    const service = new CartographyPlanService(repo as never);
+
+    await expect(service.createPlan(11, systemTarget(id), [])).rejects.toThrow(BadRequestException);
+    await expect(service.getPlan(11, regionTarget(id))).rejects.toThrow(BadRequestException);
+    expect(repo.findOne).not.toHaveBeenCalled();
+  });
+
+  it('creates region plans with exactly the region reference', async () => {
+    const repo = {
+      findOne: jest.fn(async () => null),
+      create: jest.fn((value) => value),
+      save: jest.fn(async (value) => ({ id: 5, ...value })),
+    };
+    const service = new CartographyPlanService(repo as never);
+
+    const plan = await service.createPlan(11, regionTarget(3), [4]);
+
+    expect(repo.findOne).toHaveBeenCalledWith({ where: { userId: 11, targetType: 'REGION', mapRegionId: 3 } });
+    expect(plan).toMatchObject({ targetType: 'REGION', mapRegionId: 3, starSystemId: null });
+    expect(cartographyPlanTarget(plan)).toEqual(regionTarget(3));
+  });
+
+  it('leaves a finalizing region plan to the region flow', async () => {
+    const plan = { id: 6, userId: 11, targetType: 'REGION', mapRegionId: 3, starSystemId: null, status: 'FINISHING', finalizationTick: 2 };
+    const repo = { findOne: jest.fn(async () => plan), save: jest.fn() };
+    const service = new CartographyPlanService({ manager: { transaction: (work: (m: unknown) => unknown) => work({ getRepository: () => repo }) } } as never);
+
+    await expect(service.progressFinalization(9)).resolves.toEqual({ completed: false, userId: null, starSystemId: null });
+    expect(repo.save).not.toHaveBeenCalled();
+    expect(plan.finalizationTick).toBe(2);
   });
 });

@@ -19,6 +19,8 @@ import { MapRegion } from './entities/map-region.entity';
 import { BorderType } from './entities/border-type.entity';
 import { ExplorationState } from './entities/exploration-state.entity';
 import { SystemExploration } from './entities/system-exploration.entity';
+import { RegionDiscovery } from './entities/region-discovery.entity';
+import { RegionDiscoveryService } from './region-discovery.service';
 import { SystemTypeDiscovery } from './entities/system-type-discovery.entity';
 import { CelestialClassDiscovery } from './entities/celestial-class-discovery.entity';
 import { PlanetField } from './entities/planet-field.entity';
@@ -62,6 +64,7 @@ import { LayerAccessGuard } from './layer-access.guard';
       BorderType,
       ExplorationState,
       SystemExploration,
+      RegionDiscovery,
       SystemTypeDiscovery,
       CelestialClassDiscovery,
       PlanetField,
@@ -82,6 +85,7 @@ import { LayerAccessGuard } from './layer-access.guard';
   controllers: [StarmapController, PlanetSurfacesController],
   providers: [
     StarmapService,
+    RegionDiscoveryService,
     StarmapAdminService,
     StarmapQueryService,
     ExplorationService,
@@ -99,6 +103,7 @@ import { LayerAccessGuard } from './layer-access.guard';
   ],
   exports: [
     StarmapService,
+    RegionDiscoveryService,
     StarmapAdminService,
     StarmapQueryService,
     ExplorationService,

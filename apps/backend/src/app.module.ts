@@ -56,6 +56,7 @@ import { MapRegion } from './modules/starmap/entities/map-region.entity';
 import { BorderType } from './modules/starmap/entities/border-type.entity';
 import { ExplorationState } from './modules/starmap/entities/exploration-state.entity';
 import { SystemExploration } from './modules/starmap/entities/system-exploration.entity';
+import { RegionDiscovery } from './modules/starmap/entities/region-discovery.entity';
 import { SystemTypeDiscovery } from './modules/starmap/entities/system-type-discovery.entity';
 import { CelestialClassDiscovery } from './modules/starmap/entities/celestial-class-discovery.entity';
 import { PlanetField } from './modules/starmap/entities/planet-field.entity';
@@ -207,6 +208,7 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
           BorderType,
           ExplorationState,
           SystemExploration,
+          RegionDiscovery,
           SystemTypeDiscovery,
           CelestialClassDiscovery,
           PlanetField,

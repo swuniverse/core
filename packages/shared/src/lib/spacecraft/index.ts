@@ -293,9 +293,14 @@ export interface CartographyActionAvailabilityDto {
   reason: string | null;
 }
 
+export type CartographyTargetType = 'SYSTEM' | 'REGION';
+
 export interface CartographyPlanDto {
   id: number | null;
+  /** Chart target; `null` while no plan exists. */
+  targetType: CartographyTargetType | null;
   starSystemId: number | null;
+  mapRegionId: number | null;
   status: CartographyState;
   remainingFieldIds: number[];
   remainingCoordinates: Array<{ x: number; y: number }>;
