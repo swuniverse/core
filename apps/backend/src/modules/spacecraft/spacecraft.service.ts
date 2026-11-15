@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { stationBatteryReload } from './station-battery-reload';
 import {
   Inject,
@@ -20,6 +21,7 @@ import {
   assertMovementState,
   captureMovementState,
   captureMovementOriginals,
+  consequenceChanges,
   refreshMovementFields,
   type MovementOriginals,
 } from './movement-state';
@@ -136,7 +138,10 @@ import { SpacecraftRepairService } from './spacecraft-repair.service';
 import type { FlightDirection } from './entities/flight-signature.entity';
 import { COLONY_FUNCTION_IDS } from '../colony/colony.constants';
 import { CrewEnhancementService } from './crew-enhancement.service';
-import { FlightConsequencePipeline } from './flight-consequence-pipeline';
+import {
+  FlightConsequencePipeline,
+  type FlightConsequenceField,
+} from './flight-consequence-pipeline';
 import { CrewEnhancementEvent } from './crew-expertise';
 import { FieldEffectQuery } from '../starmap/field-effect-query';
 import { EscapePodService } from './escape-pod.service';
@@ -1236,6 +1241,7 @@ export class SpacecraftService {
       MATRIX_SCANNER: 'Matrixsensoren',
       TRACKER: 'Peilsender',
       LIFE_SUPPORT: 'Lebenserhaltung',
+      DEFLECTOR: 'Deflektor',
     };
     this.gameGateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, {
       shipId: ship.id,
@@ -2185,7 +2191,7 @@ export class SpacecraftService {
             this.flightDirection(direction),
           );
         }
-        await this.flightConsequencePipeline.onEnterField(flight.leader, field);
+        await this.applyFieldConsequences(moving, field, originals);
         await this.processCartographyArrival(
           flight.leader,
           currentLocation.systemId,
@@ -2373,7 +2379,7 @@ export class SpacecraftService {
           coordinate.y,
           'FLIGHT',
         );
-        await this.flightConsequencePipeline.onEnterField(flight.leader, field);
+        await this.applyFieldConsequences(moving, field, originals);
         await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT);
       },
       reactionContext: (field, coordinate) => ({
@@ -2403,6 +2409,64 @@ export class SpacecraftService {
    * with their persisted damage as the new original state. A destroyed leader
    * is replaced by the fleet's new leader chosen on destruction.
    */
+  /**
+   * STU runs the post-flight consequences for every active ship of the flight
+   * and keeps their effects; the step itself is already committed.
+   */
+  private async applyFieldConsequences(
+    moving: Spacecraft[],
+    field: FlightConsequenceField,
+    originals: MovementOriginals,
+  ): Promise<void> {
+    for (const member of moving) {
+      if (isSpacecraftDestroyed(member)) continue;
+      await this.flightConsequencePipeline.onEnterField(member, field);
+    }
+    const changed = moving.filter((member) => {
+      const original = originals.get(member);
+      return (
+        original &&
+        !isSpacecraftDestroyed(member) &&
+        !isDeepStrictEqual(captureMovementState(member), original)
+      );
+    });
+    if (!changed.length) return;
+    await this.dataSource.transaction('READ COMMITTED', async (manager) => {
+      let rows: Spacecraft[];
+      try {
+        rows = await manager
+          .createQueryBuilder(Spacecraft, 'ship')
+          .where({ id: In(changed.map((member) => member.id)) })
+          .orderBy('ship.id', 'ASC')
+          .setLock('pessimistic_write')
+          .setOnLocked('nowait')
+          .getMany();
+      } catch (error) {
+        if (
+          error instanceof QueryFailedError &&
+          error.driverError.code === '55P03'
+        ) {
+          throw new BadRequestException(
+            'Bewegungszustand ist gesperrt; bitte erneut versuchen',
+          );
+        }
+        throw error;
+      }
+      for (const member of changed) {
+        const row = rows.find((candidate) => candidate.id === member.id);
+        const original = originals.get(member);
+        if (!row || !original || row.status === SpacecraftStatus.DESTROYED) continue;
+        const changes = consequenceChanges(member, original, row);
+        if (Object.keys(changes).length) {
+          await manager.save(Object.assign(row, changes));
+        }
+      }
+    });
+    for (const member of changed) {
+      originals.set(member, captureMovementState(member));
+    }
+  }
+
   private async refreshMovementParticipants(
     participants: Spacecraft[],
     originals: MovementOriginals,
@@ -2741,7 +2805,7 @@ export class SpacecraftService {
       ship.location,
       this.flightDirection(ship.lastGalaxyFlightDirection ?? 'TOP'),
     );
-    await this.flightConsequencePipeline.onEnterField(ship, entryField);
+    await this.applyFieldConsequences([ship, ...fleetMembers], entryField, originals);
     await this.repairService.cancelForFlight([
       ship.id,
       ...fleetMembers.map((member) => member.id),
@@ -2892,7 +2956,7 @@ export class SpacecraftService {
       this.flightDirection(ship.lastGalaxyFlightDirection ?? 'TOP'),
     );
     if (galaxyField) {
-      await this.flightConsequencePipeline.onEnterField(ship, galaxyField);
+      await this.applyFieldConsequences([ship, ...fleetMembers], galaxyField, originals);
     }
     await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
     await this.repairService.cancelForFlight([

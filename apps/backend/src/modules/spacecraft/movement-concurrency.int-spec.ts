@@ -19,8 +19,12 @@ import { MOVEMENT_REACTIONS, type MovementReaction } from './movement-reaction.p
 import {
   FlightConsequencePipeline,
   FLIGHT_CONSEQUENCES,
+  type FlightConsequence,
 } from './flight-consequence-pipeline';
 import { FieldEffectConsequence } from './field-effect-consequence';
+import { DeflectorConsequence } from './deflector-consequence';
+import { GalaxyFieldType } from '../starmap/entities/galaxy-field-type.entity';
+import type { CrewEnhancementService } from './crew-enhancement.service';
 import { FlightSignatureService } from './flight-signature.service';
 import { StatisticsService } from '../statistics/statistics.service';
 import { GameGateway } from '../websocket/game.gateway';
@@ -118,6 +122,7 @@ async function movementService(dataSource: DataSource) {
     () => 0,
   );
   const reactions: MovementReaction[] = [];
+  const consequences: FlightConsequence[] = [effect];
   const module = await Test.createTestingModule({
     providers: [
       ...dependencies.map((provide) => ({ provide, useValue: {} })),
@@ -129,7 +134,7 @@ async function movementService(dataSource: DataSource) {
       { provide: 'BuoyRepository', useValue: {} },
       { provide: 'CrewSkillRepository', useValue: {} },
       ...realServices,
-      { provide: FLIGHT_CONSEQUENCES, useValue: [effect] },
+      { provide: FLIGHT_CONSEQUENCES, useValue: consequences },
       { provide: DataSource, useValue: dataSource },
       { provide: GameDataService, useValue: gameData },
       { provide: ShipClassService, useValue: classes },
@@ -153,6 +158,8 @@ async function movementService(dataSource: DataSource) {
     gateway,
     messaging,
     reactions,
+    consequences,
+    effect,
     close: () => module.close(),
   };
 }
@@ -189,6 +196,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
     await resetDatabase(dataSource);
     fixture.messaging.sendSystem.mockClear();
     fixture.reactions.length = 0;
+    fixture.consequences.splice(0, fixture.consequences.length, fixture.effect);
     fixture.gateway.emitToUser.mockClear();
     fixture.gateway.emitToAll.mockClear();
     const owner = await createUser(dataSource);
@@ -1849,6 +1857,86 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
         await dataSource.getRepository(Spacecraft).findOneByOrFail({ id: ship.id }),
       ).toMatchObject({ locationId: systemLocations[1].id, energy: 70 });
       expect(await dataSource.getRepository(FlightSignature).count()).toBe(2);
+    });
+
+    describe('deflector and field damage (tmw-K1b2)', () => {
+      const useNebula = async (fieldIds: number[], type: Partial<GalaxyFieldType> = {}) => {
+        // Field types survive the reset; each test gets its own row.
+        const nebula = await dataSource.getRepository(GalaxyFieldType).save({
+          key: `deflector_test_nebula_${Date.now()}_${Math.random()}`,
+          name: 'Testnebel',
+          energyCost: 3,
+          damage: 10,
+          specialDamage: 0,
+          ...type,
+        });
+        await dataSource.getRepository(GalaxyField).update(fieldIds, { fieldTypeId: nebula.id });
+        fixture.consequences.unshift(
+          new DeflectorConsequence(
+            dataSource,
+            fixture.messaging as unknown as MessagingService,
+            fixture.gateway as unknown as GameGateway,
+            { destroyInManager: jest.fn() } as unknown as SpacecraftDestructionService,
+            { enhanceSpacecraft: jest.fn() } as unknown as CrewEnhancementService,
+            () => 0,
+          ),
+        );
+      };
+      const fieldIds = () => locations.slice(1).map((location) => location.galaxyFieldId as number);
+
+      it('charges the deflector exactly once per field for every fleet ship and keeps the last field', async () => {
+        const fleet = await dataSource
+          .getRepository(Fleet)
+          .save({ name: 'Nebula fleet', userId: ship.userId, leaderId: ship.id });
+        await dataSource.getRepository(Spacecraft).update(ship.id, { fleetId: fleet.id });
+        const member = await dataSource.getRepository(Spacecraft).save({
+          name: 'Nebula member',
+          userId: ship.userId,
+          shipClassId: ship.shipClassId,
+          fleetId: fleet.id,
+          locationId: locations[0].id,
+          energy: 50,
+          status: SpacecraftStatus.IDLE,
+          runtimeSystems: {},
+        });
+        await dataSource.getRepository(SpacecraftModule).save([...warpModules(ship.id), ...warpModules(member.id)]);
+        await useNebula(fieldIds());
+
+        const { movement } = await fixture.service.flyGalaxy(ship.id, ship.userId, 3, 1);
+
+        expect(movement).toMatchObject({ completedSteps: 2, stopReason: 'ARRIVED' });
+        const rows = await dataSource.getRepository(Spacecraft).find({ order: { id: 'ASC' } });
+        // Two fields: 1 flight EPS plus 3 deflector EPS each.
+        expect(rows.map((row) => [row.id, row.locationId, row.energy])).toEqual([
+          [ship.id, locations[2].id, 63],
+          [member.id, locations[2].id, 42],
+        ]);
+        expect(rows[0].runtimeSystems).toHaveProperty('DEFLECTOR');
+      });
+
+      it('persists field damage of a ship without deflector energy', async () => {
+        await dataSource.getRepository(Spacecraft).update(ship.id, { energy: 5, hull: 200, hullMax: 200 });
+        await dataSource.getRepository(SpacecraftModule).save(warpModules(ship.id));
+        await useNebula(fieldIds());
+
+        const { movement } = await fixture.service.flyGalaxy(ship.id, ship.userId, 3, 1);
+
+        expect(movement).toMatchObject({ completedSteps: 2, stopReason: 'ARRIVED' });
+        // Field 1: 1 flight EPS, 3 deflector EPS (1 left). Field 2: flight EPS
+        // empties the store, the deflector fails: 10 % of 200 hull.
+        expect(await dataSource.getRepository(Spacecraft).findOneByOrFail({ id: ship.id })).toMatchObject({
+          locationId: locations[2].id,
+          energy: 0,
+          hull: 180,
+        });
+        expect(fixture.messaging.sendSystem).toHaveBeenCalledWith(
+          ship.userId,
+          'Feldschaden',
+          expect.stringContaining('Nicht genug Energie für den Deflektor.'),
+          undefined,
+          expect.anything(),
+        );
+      });
     });
   });
 });

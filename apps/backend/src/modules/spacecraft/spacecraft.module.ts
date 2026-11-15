@@ -94,6 +94,7 @@ import {
   FlightConsequencePipeline,
 } from './flight-consequence-pipeline';
 import { FieldTransitionExecutor } from './field-transition-executor';
+import { DeflectorConsequence } from './deflector-consequence';
 import { MOVEMENT_REACTIONS, type MovementReaction } from './movement-reaction.port';
 import { ORBIT_ORDER_VIEW, type OrbitOrderViewPort } from './orbit-order-view.port';
 import { ORBIT_ORDER_LIFECYCLE, type OrbitOrderLifecyclePort } from './orbit-order-lifecycle.port';
@@ -235,6 +236,7 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     SpacecraftTrackerService,
     FieldTransitionExecutor,
     FieldEffectConsequence,
+    DeflectorConsequence,
     { provide: STU_RANDOM_TOKEN, useValue: Math.random },
     { provide: STU_CLOCK_TOKEN, useValue: () => new Date() },
     FlightConsequencePipeline,
@@ -264,8 +266,13 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     { provide: ORBIT_ORDER_LIFECYCLE, useFactory: (): OrbitOrderLifecyclePort => ({ lifecycle: null }) },
     {
       provide: FLIGHT_CONSEQUENCES,
-      useFactory: (fieldEffects: FieldEffectConsequence, anomalies: AnomalyFlightConsequence) => [fieldEffects, anomalies],
-      inject: [FieldEffectConsequence, AnomalyFlightConsequence],
+      // STU PostFlight order: deflector, field type effects, anomalies.
+      useFactory: (
+        deflector: DeflectorConsequence,
+        fieldEffects: FieldEffectConsequence,
+        anomalies: AnomalyFlightConsequence,
+      ) => [deflector, fieldEffects, anomalies],
+      inject: [DeflectorConsequence, FieldEffectConsequence, AnomalyFlightConsequence],
     },
   ],
   exports: [

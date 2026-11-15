@@ -21,6 +21,10 @@ export class GalaxyFieldType {
   @Column({ default: 0 })
   damage: number;
 
+  /** STU `x_damage`: absolute hull damage when entering the field. */
+  @Column({ default: 0 })
+  specialDamage: number;
+
   @Column({ default: false })
   isSystem: boolean;
 

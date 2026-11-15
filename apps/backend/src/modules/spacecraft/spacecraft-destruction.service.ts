@@ -248,13 +248,15 @@ export class SpacecraftDestructionService {
 
   /**
    * Destroys a spacecraft inside the caller's transaction, e.g. through an
-   * anomaly. Notifications follow the commit when a transaction is given.
+   * anomaly or field damage. Notifications follow the commit when a
+   * transaction is given; `detail` replaces the default destruction notice.
    */
   async destroyInManager(
     manager: EntityManager,
     shipId: number,
-    reason: 'ANOMALY',
+    reason: 'ANOMALY' | 'FIELD_DAMAGE',
     transaction?: TransactionalNotifications,
+    detail?: string,
   ): Promise<{ evacuatedCrew: number } | null> {
     const ship = await manager.findOne(Spacecraft, {
       where: { id: shipId },
@@ -266,7 +268,11 @@ export class SpacecraftDestructionService {
     const ownerId = ship.userId;
     const { notifyAfterCommit, ...result } = await this.finalizeInManager(manager, ship, reason);
     const notify = () => {
-      this.emitDestroyed(ownerId, shipId, 'Durch eine Anomalie zerstört');
+      this.emitDestroyed(
+        ownerId,
+        shipId,
+        detail ?? (reason === 'FIELD_DAMAGE' ? 'Durch Feldschaden zerstört' : 'Durch eine Anomalie zerstört'),
+      );
       void notifyAfterCommit();
     };
     if (transaction) transaction.afterCommit.push(notify);
@@ -295,7 +301,7 @@ export class SpacecraftDestructionService {
   async finalizeInManager(
     manager: EntityManager,
     ship: Spacecraft,
-    reason: 'COMBAT' | 'SELF_DESTRUCT' | 'ANOMALY',
+    reason: 'COMBAT' | 'SELF_DESTRUCT' | 'ANOMALY' | 'FIELD_DAMAGE',
   ): Promise<{ evacuatedCrew: number; notifyAfterCommit: () => Promise<void> }> {
     await this.takeoverService.cancelForShip(
       ship.id,
@@ -359,7 +365,9 @@ export class SpacecraftDestructionService {
         ? EscapePodLaunchReason.COMBAT_DESTRUCTION
         : reason === 'ANOMALY'
           ? EscapePodLaunchReason.ANOMALY_DESTRUCTION
-          : EscapePodLaunchReason.SELF_DESTRUCTION,
+          : reason === 'FIELD_DAMAGE'
+            ? EscapePodLaunchReason.FIELD_DAMAGE_DESTRUCTION
+            : EscapePodLaunchReason.SELF_DESTRUCTION,
     );
     await manager.save(
       manager.create(SpacecraftWreck, {

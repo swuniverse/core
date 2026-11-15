@@ -127,3 +127,34 @@ export function refreshMovementFields(
     Object.fromEntries(MOVEMENT_STATE_KEYS.map((key) => [key, persisted[key]])),
   );
 }
+
+/** Stored values compare as JSON: undefined keys and Date instances drop out. */
+function sameStoredValue(left: unknown, right: unknown): boolean {
+  const normalize = (value: unknown) =>
+    value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+  return isDeepStrictEqual(normalize(left), normalize(right));
+}
+
+/**
+ * Field consequences change a ship after its step was committed. Returns the
+ * changed movement fields to persist; a field that someone else changed to a
+ * different value in the meantime makes the movement stale.
+ */
+export function consequenceChanges(
+  moving: Spacecraft,
+  original: MovementState,
+  persisted: Spacecraft,
+): Partial<Spacecraft> {
+  const changes: Record<string, unknown> = {};
+  for (const key of MOVEMENT_STATE_KEYS) {
+    if (sameStoredValue(moving[key], original[key])) continue;
+    if (sameStoredValue(persisted[key], moving[key])) continue;
+    if (!sameStoredValue(persisted[key], original[key])) {
+      throw new BadRequestException(
+        'Bewegungszustand ist veraltet; bitte erneut versuchen',
+      );
+    }
+    changes[key] = moving[key];
+  }
+  return changes as Partial<Spacecraft>;
+}

@@ -113,6 +113,13 @@ export const SHIP_SYSTEMS: ShipSystemPresentation[] = [
     '♥',
     'border-lime-400/60 bg-lime-500/10 text-lime-100',
   ),
+  system(
+    'DEFLECTOR',
+    'Deflektor',
+    'Schützt beim Flug durch Nebel und gefährliche Felder',
+    '⛉',
+    'border-sky-400/60 bg-sky-500/10 text-sky-100',
+  ),
 ];
 
 export const SHIP_SYSTEM_PRESENTATION = new Map(

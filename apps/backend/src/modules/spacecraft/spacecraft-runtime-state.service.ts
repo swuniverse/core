@@ -132,6 +132,7 @@ export function initializeSpacecraftRuntimeSystems(
           key !== 'TRACTOR_BEAM' &&
           key !== 'TRACKER' &&
           (key === 'LIFE_SUPPORT' ||
+            key === 'DEFLECTOR' ||
             backingModules.length === 0 ||
             backingModules.some((module) => module.isActive !== false)),
         cooldown: Math.max(
@@ -183,9 +184,10 @@ export function initializeSpacecraftRuntimeSystems(
 function getAvailableSystems(
   modules: SpacecraftModule[] | undefined,
 ): Set<SpacecraftRuntimeSystemKey> {
-  // Life support is a universal ship system. All other runtime systems must
-  // be backed by an installed module, matching STU's system creation model.
-  const systems = new Set<SpacecraftRuntimeSystemKey>(['LIFE_SUPPORT']);
+  // Life support and the deflector are default systems of every ship (STU
+  // `getDefaultSystems`; SWU knows no shuttles). All other runtime systems
+  // must be backed by an installed module, matching STU's system creation.
+  const systems = new Set<SpacecraftRuntimeSystemKey>(['LIFE_SUPPORT', 'DEFLECTOR']);
   if (!modules) {
     for (const key of SPACECRAFT_RUNTIME_SYSTEM_KEYS) {
       if (

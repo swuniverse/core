@@ -7,12 +7,21 @@ import type { TransactionalNotifications } from '../messaging/messaging.service'
 export type FlightConsequenceField = GalaxyField | SystemField;
 const DESTROYED_STATUS = 'DESTROYED';
 
+/**
+ * Per-ship context of a field entry. A towed ship (sc-WP-TRACT-1a) runs the
+ * consequences again without its own flight or deflector costs.
+ */
+export interface FlightConsequenceContext {
+  towed?: boolean;
+}
+
 export interface FlightConsequence {
   onEnterField(
     ship: Spacecraft,
     field: FlightConsequenceField,
     messages: string[],
     transaction?: TransactionalNotifications,
+    context?: FlightConsequenceContext,
   ): Promise<void> | void;
   onTick(ship: Spacecraft, field: FlightConsequenceField): Promise<void> | void;
 }
@@ -31,11 +40,12 @@ export class FlightConsequencePipeline {
     ship: Spacecraft,
     field: FlightConsequenceField,
     transaction?: TransactionalNotifications,
+    context?: FlightConsequenceContext,
   ): Promise<string[]> {
     const messages: string[] = [];
     for (const consequence of this.consequences) {
       if (ship.status === DESTROYED_STATUS) break;
-      await consequence.onEnterField(ship, field, messages, transaction);
+      await consequence.onEnterField(ship, field, messages, transaction, context);
     }
     return messages;
   }

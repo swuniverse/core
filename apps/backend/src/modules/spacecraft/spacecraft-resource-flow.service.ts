@@ -25,6 +25,7 @@ const SYSTEM_EPS_USAGE: Partial<Record<SpacecraftRuntimeSystemKey, number>> = {
   SUBSPACE_SCANNER: 15,
   MATRIX_SCANNER: 0,
   LIFE_SUPPORT: 1,
+  DEFLECTOR: 0,
 };
 
 export const SPACECRAFT_REACTOR_FUEL_COMMODITY_ID = 5;
@@ -44,6 +45,7 @@ const SYSTEM_LABELS: Partial<Record<SpacecraftRuntimeSystemKey, string>> = {
   SUBSPACE_SCANNER: 'Hyperraumfeldscanner',
   MATRIX_SCANNER: 'Matrixsensoren',
   LIFE_SUPPORT: 'Lebenserhaltung',
+  DEFLECTOR: 'Deflektor',
 };
 
 @Injectable()

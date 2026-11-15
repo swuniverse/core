@@ -134,6 +134,7 @@ export const SPACECRAFT_RUNTIME_SYSTEM_KEYS = [
   'MATRIX_SCANNER',
   'TRACKER',
   'LIFE_SUPPORT',
+  'DEFLECTOR',
 ] as const;
 
 export type SpacecraftRuntimeSystemKey =
