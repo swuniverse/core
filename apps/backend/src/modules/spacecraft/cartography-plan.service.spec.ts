@@ -507,14 +507,4 @@ describe('CartographyPlanService', () => {
     expect(plan).toMatchObject({ targetType: 'REGION', mapRegionId: 3, starSystemId: null });
     expect(cartographyPlanTarget(plan)).toEqual(regionTarget(3));
   });
-
-  it('leaves a finalizing region plan to the region flow', async () => {
-    const plan = { id: 6, userId: 11, targetType: 'REGION', mapRegionId: 3, starSystemId: null, status: 'FINISHING', finalizationTick: 2 };
-    const repo = { findOne: jest.fn(async () => plan), save: jest.fn() };
-    const service = new CartographyPlanService({ manager: { transaction: (work: (m: unknown) => unknown) => work({ getRepository: () => repo }) } } as never);
-
-    await expect(service.progressFinalization(9)).resolves.toEqual({ completed: false, userId: null, starSystemId: null });
-    expect(repo.save).not.toHaveBeenCalled();
-    expect(plan.finalizationTick).toBe(2);
-  });
 });

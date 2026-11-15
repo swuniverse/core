@@ -101,10 +101,15 @@ import {
   isVacationEffective,
 } from '@swuniverse/shared';
 import { Colony } from '../colony/entities/colony.entity';
-import { CartographyPlanStatus, CartographyTargetType } from './entities/cartography-plan.entity';
+import {
+  CartographyPlan,
+  CartographyPlanStatus,
+  CartographyTargetType,
+} from './entities/cartography-plan.entity';
 import { MessagingService } from '../messaging/messaging.service';
 import { MessageFolder } from '../messaging/message-folder';
 import { PrestigeService } from '../prestige/prestige.service';
+import { STU_PRESTIGE } from '../prestige/prestige.constants';
 import { assertSpacecraftNotInStandby } from './spacecraft-mode.util';
 import { ShipColonyContextService } from './ship-colony-context.service';
 import { findShieldedColonyObjectIds } from './shielded-colonies.util';
@@ -119,7 +124,14 @@ import {
 } from './nearby-interaction';
 import { HyperdriveDisruptionService } from './hyperdrive-disruption.service';
 import { SpacecraftAlertService } from './spacecraft-alert.service';
-import { CartographyPlanService, systemTarget } from './cartography-plan.service';
+import {
+  CartographyPlanService,
+  regionTarget,
+  systemTarget,
+  type CartographyTarget,
+} from './cartography-plan.service';
+import { RegionDiscovery } from '../starmap/entities/region-discovery.entity';
+import { MapRegion } from '../starmap/entities/map-region.entity';
 import {
   projectSpacecraftLocationToGalaxy,
   resolveContextualCelestialObject,
@@ -129,6 +141,7 @@ import {
   sameSpacecraftLocation,
 } from './spacecraft-field';
 import { FLOWN_FIELDS_EVENT } from '../statistics/statistic-events';
+
 import { StatisticsService } from '../statistics/statistics.service';
 import { FlightSignatureService } from './flight-signature.service';
 import { StationConstructionService } from './station-construction.service';
@@ -155,6 +168,9 @@ import {
   type DatabaseDiscoveryPort,
 } from '../database/database-discovery.port';
 import { applyLssSensorEffects } from './lss-sensor-effects';
+
+/** STU `PlanAstroMapping::REGION_MAP_PERCENTAGE`. */
+const REGION_MEASUREMENT_PERCENTAGE = 25;
 
 /** Ship after a field-by-field flight and how the flight ended. */
 export interface SpacecraftMovement {
@@ -675,27 +691,27 @@ export class SpacecraftService {
     userId: number,
   ): Promise<CartographyPlanDto> {
     const ship = await this.findOne(shipId, userId);
-    const location = resolveSpacecraftLocation(ship);
-    if (location?.scope !== 'SYSTEM') return this.toCartographyStateDto('NONE');
+    const target = this.cartographyTargetAt(ship);
+    if (!target) return this.toCartographyStateDto('NONE');
 
-    const [explored, plan] = await Promise.all([
-      this.explorationService.isSystemExplored(userId, location.systemId),
-      this.cartographyPlanService.getPlan(userId, systemTarget(location.systemId)),
+    const [discovered, plan] = await Promise.all([
+      this.isCartographyTargetDiscovered(userId, target),
+      this.cartographyPlanService.getPlan(userId, target),
     ]);
-    if (explored && !plan) {
-      return this.toCartographyStateDto('DONE', location.systemId);
+    if (discovered && !plan) {
+      return this.toCartographyStateDto('DONE', target);
     }
     if (!plan) {
       return this.toCartographyStateDto(
         'PLANNABLE',
-        location.systemId,
+        target,
         await this.getCartographyPlanAction(ship),
       );
     }
     return this.toCartographyPlanDto(
       plan,
       await this.getCartographyPlanActions(ship, plan.status),
-      await this.getRemainingCartographyCoordinates(plan.remainingFieldIds),
+      await this.getRemainingCartographyCoordinates(plan),
     );
   }
 
@@ -704,10 +720,10 @@ export class SpacecraftService {
     userId: number,
   ): Promise<CartographyPlanDto> {
     const ship = await this.findOne(shipId, userId);
-    const location = resolveSpacecraftLocation(ship);
-    if (location?.scope !== 'SYSTEM') {
+    const target = this.cartographyTargetAt(ship);
+    if (!target) {
       throw new BadRequestException(
-        'Kartographie-Finalisierung erfordert ein Sternensystem',
+        'Kartographie-Finalisierung erfordert ein Sternensystem oder eine Region',
       );
     }
     if (ship.operatingMode === SpacecraftOperatingMode.STANDBY) {
@@ -730,21 +746,26 @@ export class SpacecraftService {
 
     const plan = await this.cartographyPlanService.startFinalization(
       userId,
-      systemTarget(location.systemId),
+      target,
       ship.id,
     );
     ship.energy -= 15;
     await this.shipRepo.save(ship);
+    const isSystem = target.type === CartographyTargetType.SYSTEM;
     await this.messagingService.sendSystem(
       userId,
       'Kartographie',
-      'Die Finalisierung der Systemkartographie hat begonnen.',
-      `cartography-finalization-started:${userId}:${location.systemId}`,
+      isSystem
+        ? 'Die Finalisierung der Systemkartographie hat begonnen.'
+        : 'Die Finalisierung der Regionskartographie hat begonnen.',
+      isSystem
+        ? `cartography-finalization-started:${userId}:${target.starSystemId}`
+        : `cartography-region-finalization-started:${userId}:${target.mapRegionId}`,
     );
     return this.toCartographyPlanDto(
       plan,
       actions,
-      await this.getRemainingCartographyCoordinates(plan.remainingFieldIds),
+      await this.getRemainingCartographyCoordinates(plan),
     );
   }
 
@@ -754,31 +775,27 @@ export class SpacecraftService {
   ): Promise<CartographyPlanDto> {
     const ship = await this.findOne(shipId, userId);
     const location = resolveSpacecraftLocation(ship);
-    if (location?.scope !== 'SYSTEM') {
+    const target = this.cartographyTargetAt(ship);
+    if (!location || !target) {
       throw new BadRequestException(
-        'Kartographieplanung erfordert ein Sternensystem',
+        'Kartographieplanung erfordert ein Sternensystem oder eine Region',
       );
     }
 
-    const existing = await this.cartographyPlanService.getPlan(
-      userId,
-      systemTarget(location.systemId),
-    );
+    const existing = await this.cartographyPlanService.getPlan(userId, target);
     if (existing) {
       return this.toCartographyPlanDto(
         existing,
         await this.getCartographyPlanActions(ship, existing.status),
-        await this.getRemainingCartographyCoordinates(
-          existing.remainingFieldIds,
-        ),
+        await this.getRemainingCartographyCoordinates(existing),
       );
     }
 
-    if (
-      await this.explorationService.isSystemExplored(userId, location.systemId)
-    ) {
+    if (await this.isCartographyTargetDiscovered(userId, target)) {
       throw new BadRequestException(
-        'Das Sternensystem wurde bereits persönlich entdeckt',
+        target.type === CartographyTargetType.SYSTEM
+          ? 'Das Sternensystem wurde bereits persönlich entdeckt'
+          : 'Die Region wurde bereits persönlich entdeckt',
       );
     }
 
@@ -789,23 +806,31 @@ export class SpacecraftService {
     if (!actions.plan.available)
       throw new BadRequestException(actions.plan.reason!);
 
-    const fields = await this.systemFieldRepo.find({
-      where: { starSystemId: location.systemId },
-      relations: ['celestialObject', 'fieldType'],
-      order: { id: 'ASC' },
-    });
-    const colonies = await this.dataSource.getRepository(Colony).find({
-      where: { starSystemId: location.systemId },
-    });
-    const remainingFieldIds = this.selectCartographyFields(
-      fields,
-      colonies,
-      location.x,
-      location.y,
-    );
+    let remainingFieldIds: number[];
+    if (target.type === CartographyTargetType.SYSTEM) {
+      const fields = await this.systemFieldRepo.find({
+        where: { starSystemId: target.starSystemId },
+        relations: ['celestialObject', 'fieldType'],
+        order: { id: 'ASC' },
+      });
+      const colonies = await this.dataSource.getRepository(Colony).find({
+        where: { starSystemId: target.starSystemId },
+      });
+      remainingFieldIds = this.selectCartographyFields(
+        fields,
+        colonies,
+        location.x,
+        location.y,
+      );
+    } else {
+      remainingFieldIds = await this.selectRegionCartographyFields(
+        target.mapRegionId,
+        ship.location.galaxyFieldId,
+      );
+    }
     const plan = await this.cartographyPlanService.createPlan(
       userId,
-      systemTarget(location.systemId),
+      target,
       remainingFieldIds,
     );
     ship.lssMode = SpacecraftLssMode.CARTOGRAPHY;
@@ -813,18 +838,68 @@ export class SpacecraftService {
     return this.toCartographyPlanDto(
       plan,
       actions,
-      await this.getRemainingCartographyCoordinates(plan.remainingFieldIds),
+      await this.getRemainingCartographyCoordinates(plan),
     );
+  }
+
+  /**
+   * STU `PlanAstroMapping`: inside a system the system is charted, on a
+   * galaxy field with a map region the region.
+   */
+  private cartographyTargetAt(ship: Spacecraft): CartographyTarget | null {
+    const location = resolveSpacecraftLocation(ship);
+    if (location?.scope === 'SYSTEM') return systemTarget(location.systemId);
+    const regionId = ship.location?.galaxyField?.regionId;
+    return location?.scope === 'GALAXY' && regionId != null
+      ? regionTarget(regionId)
+      : null;
+  }
+
+  private async isCartographyTargetDiscovered(
+    userId: number,
+    target: CartographyTarget,
+  ): Promise<boolean> {
+    return target.type === CartographyTargetType.SYSTEM
+      ? this.explorationService.isSystemExplored(userId, target.starSystemId)
+      : this.dataSource
+          .getRepository(RegionDiscovery)
+          .existsBy({ userId, mapRegionId: target.mapRegionId });
+  }
+
+  /**
+   * STU `MapRepository::getRandomMapIdsForAstroMeasurement`: a random 25 %
+   * (rounded up) of the passable region fields without `NO_MEASUREPOINT`,
+   * except the current field.
+   */
+  private async selectRegionCartographyFields(
+    mapRegionId: number,
+    currentFieldId: number | null,
+  ): Promise<number[]> {
+    const fields = await this.galaxyFieldRepo.find({
+      where: { regionId: mapRegionId },
+      relations: ['fieldType'],
+      order: { id: 'ASC' },
+    });
+    const eligible = fields.filter(
+      (field) =>
+        field.id !== currentFieldId &&
+        field.isPassable &&
+        field.fieldType?.passable !== false &&
+        !this.fieldEffectQuery.has(field, FieldEffect.NO_MEASUREPOINT),
+    );
+    const amount = Math.ceil((eligible.length * REGION_MEASUREMENT_PERCENTAGE) / 100);
+    return this.shuffle(eligible)
+      .slice(0, amount)
+      .map((field) => field.id);
   }
 
   private async getCartographyPlanAction(
     ship: Spacecraft,
   ): Promise<{ available: boolean; reason: string | null }> {
-    const location = resolveSpacecraftLocation(ship);
-    if (location?.scope !== 'SYSTEM') {
+    if (!this.cartographyTargetAt(ship)) {
       return {
         available: false,
-        reason: 'Kartographieplanung erfordert ein Sternensystem',
+        reason: 'Kartographieplanung erfordert ein Sternensystem oder eine Region',
       };
     }
     if (ship.status === SpacecraftStatus.DESTROYED) {
@@ -947,12 +1022,14 @@ export class SpacecraftService {
   }
 
   private async getRemainingCartographyCoordinates(
-    fieldIds: number[],
+    plan: Pick<CartographyPlan, 'targetType' | 'remainingFieldIds'>,
   ): Promise<Array<{ x: number; y: number }>> {
+    const fieldIds = plan.remainingFieldIds;
     if (fieldIds.length === 0) return [];
-    const fields = await this.systemFieldRepo.findByIds(fieldIds);
     const coordinates = new Map(
-      fields.map((field) => [field.id, { x: field.sx, y: field.sy }]),
+      plan.targetType === CartographyTargetType.REGION
+        ? (await this.galaxyFieldRepo.findByIds(fieldIds)).map((field) => [field.id, { x: field.cx, y: field.cy }] as const)
+        : (await this.systemFieldRepo.findByIds(fieldIds)).map((field) => [field.id, { x: field.sx, y: field.sy }] as const),
     );
     return fieldIds.flatMap((fieldId) => {
       const coordinate = coordinates.get(fieldId);
@@ -962,7 +1039,7 @@ export class SpacecraftService {
 
   private toCartographyStateDto(
     status: 'NONE' | 'PLANNABLE' | 'DONE',
-    starSystemId: number | null = null,
+    target: CartographyTarget | null = null,
     planAction: { available: boolean; reason: string | null } = {
       available: false,
       reason: 'Die Kartographie kann nicht geplant werden',
@@ -970,9 +1047,9 @@ export class SpacecraftService {
   ): CartographyPlanDto {
     return {
       id: null,
-      targetType: starSystemId == null ? null : 'SYSTEM',
-      starSystemId,
-      mapRegionId: null,
+      targetType: target?.type ?? null,
+      starSystemId: target?.type === CartographyTargetType.SYSTEM ? target.starSystemId : null,
+      mapRegionId: target?.type === CartographyTargetType.REGION ? target.mapRegionId : null,
       status,
       remainingFieldIds: [],
       remainingCoordinates: [],
@@ -2266,6 +2343,45 @@ export class SpacecraftService {
     }
   }
 
+  private async processRegionCartographyArrival(
+    ship: Spacecraft,
+    mapRegionId: number,
+    fieldId: number,
+  ): Promise<void> {
+    if (!(await this.isQualifiedForCartography(ship))) return;
+
+    const result = await this.cartographyPlanService.claimArrivedRegionField(
+      ship.userId,
+      mapRegionId,
+      fieldId,
+    );
+    if (!result.claimed) return;
+
+    await this.crewEnhancementService.enhanceSpacecraft(
+      ship.id,
+      CrewEnhancementEvent.REACH_ASTRO_WAYPOINT,
+    );
+    await this.prestigeService.change(
+      ship.userId,
+      STU_PRESTIGE.CARTOGRAPHY_MEASUREMENT_POINT,
+      'Kartographie-Messpunkt erreicht',
+    );
+    await this.messagingService.sendSystem(
+      ship.userId,
+      'Kartographie',
+      'Ein Messpunkt der Regionskartographie wurde erreicht.',
+      `cartography-region-measurement:${ship.userId}:${mapRegionId}:${fieldId}`,
+    );
+    if (result.completed) {
+      await this.messagingService.sendSystem(
+        ship.userId,
+        'Kartographie',
+        'Alle Messpunkte wurden erreicht. Die Kartographie kann finalisiert werden.',
+        `cartography-region-measured:${ship.userId}:${mapRegionId}`,
+      );
+    }
+  }
+
   private async isQualifiedForCartography(ship: Spacecraft): Promise<boolean> {
     if (ship.status === SpacecraftStatus.DESTROYED) return false;
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
@@ -2287,6 +2403,8 @@ export class SpacecraftService {
     targetY: number,
   ): Promise<SpacecraftMovement> {
     await this.assertNoOrbitOrderFlightLock(shipId);
+    // Moving ends a region cartography finalization (STU flight consequence).
+    await this.cartographyPlanService.resetFinishingForSpacecraft(shipId);
     const ship = await this.findOne(shipId, userId);
     const originals = captureMovementOriginals(ship);
     if (ship.kind === 'STATION')
@@ -2386,6 +2504,9 @@ export class SpacecraftService {
           'FLIGHT',
         );
         await this.applyFieldConsequences(moving, field, originals);
+        if (field.regionId != null && !isSpacecraftDestroyed(flight.leader)) {
+          await this.processRegionCartographyArrival(flight.leader, field.regionId, field.id);
+        }
         await this.statisticsService.countEvent(FLOWN_FIELDS_EVENT);
       },
       reactionContext: (field, coordinate) => ({
@@ -2716,6 +2837,7 @@ export class SpacecraftService {
   // Enter a star system from the galaxy map
   async enterSystem(shipId: number, userId: number): Promise<Spacecraft> {
     await this.assertNoOrbitOrderFlightLock(shipId);
+    await this.cartographyPlanService.resetFinishingForSpacecraft(shipId);
     const ship = await this.findOne(shipId, userId);
     const originals = captureMovementOriginals(ship);
     if (ship.kind === 'STATION') {
@@ -4609,6 +4731,35 @@ export class SpacecraftService {
     };
   }
 
+  /**
+   * STU `FinishedAstroMappingHandler` for a region: prestige and the
+   * completion message commit together with the region discovery.
+   */
+  private async bookRegionCartography(
+    manager: EntityManager,
+    afterCommit: Array<() => void>,
+    charted: { userId: number; mapRegionId: number },
+  ): Promise<void> {
+    const region = await manager.getRepository(MapRegion).findOneBy({ id: charted.mapRegionId });
+    const name = region?.name ?? `#${charted.mapRegionId}`;
+    await this.prestigeService.change(
+      charted.userId,
+      STU_PRESTIGE.CARTOGRAPHY_REGION,
+      `Kartographie der Region ${name} abgeschlossen`,
+      manager,
+    );
+    await this.messagingService.sendSystem(
+      charted.userId,
+      'Kartographie',
+      `Die Kartographie der Region ${name} wurde erfolgreich abgeschlossen.`,
+      `cartography-region-completed:${charted.userId}:${charted.mapRegionId}`,
+      undefined,
+      undefined,
+      false,
+      { manager, afterCommit },
+    );
+  }
+
   private async abortCartographyFinalization(
     ship: Spacecraft,
     message: string,
@@ -4745,30 +4896,42 @@ export class SpacecraftService {
         );
       }
     }
-    const location = resolveSpacecraftLocation(ship);
+    const finalizingPlan =
+      await this.cartographyPlanService.getPlanForFinalizingSpacecraft(ship.id);
+    const target = this.cartographyTargetAt(ship);
+    const atPlanTarget =
+      finalizingPlan != null &&
+      target != null &&
+      (target.type === CartographyTargetType.SYSTEM
+        ? finalizingPlan.targetType !== CartographyTargetType.REGION &&
+          finalizingPlan.starSystemId === target.starSystemId
+        : finalizingPlan.targetType === CartographyTargetType.REGION &&
+          finalizingPlan.mapRegionId === target.mapRegionId);
     if (
       ship.status === SpacecraftStatus.DESTROYED ||
       !this.isAstrometryLaborOperational(ship, systems) ||
-      location?.scope !== 'SYSTEM' ||
-      location.systemId !==
-        (
-          await this.cartographyPlanService.getPlanForFinalizingSpacecraft(
-            ship.id,
-          )
-        )?.starSystemId
+      !atPlanTarget
     ) {
       await this.abortCartographyFinalization(
         ship,
         'Die Kartographie-Finalisierung wurde abgebrochen, weil das Schiff die Voraussetzungen nicht mehr erfüllt.',
       );
     } else {
+      const afterCommit: Array<() => void> = [];
       const finalization =
-        await this.cartographyPlanService.progressFinalization(ship.id);
+        await this.cartographyPlanService.progressFinalization(
+          ship.id,
+          (manager, charted) =>
+            this.bookRegionCartography(manager, afterCommit, charted),
+        );
+      for (const notify of afterCommit) notify();
       if (finalization.completed) {
         await this.crewEnhancementService.enhanceSpacecraft(
           ship.id,
           CrewEnhancementEvent.FINISH_ASTRO_MAPPING,
         );
+      }
+      if (finalization.completed && finalization.mapRegionId == null) {
         await this.prestigeService.change(
           finalization.userId!,
           10,

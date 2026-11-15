@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, Repository } from 'typeorm';
+import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
+import { RegionDiscovery, RegionDiscoverySource } from '../starmap/entities/region-discovery.entity';
 import { SystemField } from '../starmap/entities/system-field.entity';
 import { SystemExploration } from '../starmap/entities/system-exploration.entity';
 import {
@@ -55,6 +57,12 @@ function cartographyTargetWhere(target: CartographyTarget) {
     ? { targetType: columns.targetType, starSystemId: columns.starSystemId as number }
     : { targetType: columns.targetType, mapRegionId: columns.mapRegionId as number };
 }
+
+/** Books the reward of a charted region inside the completing transaction. */
+export type RegionChartedHandler = (
+  manager: EntityManager,
+  charted: { userId: number; mapRegionId: number },
+) => Promise<void>;
 
 /** The target a stored plan charts. */
 export function cartographyPlanTarget(
@@ -140,31 +148,46 @@ export class CartographyPlanService {
     starSystemId: number,
     fieldId: number,
   ): Promise<{ claimed: boolean; completed: boolean }> {
+    return this.claimArrived(userId, systemTarget(starSystemId), fieldId);
+  }
+
+  /** STU `AstroMappingConsequence` on the galaxy map: a region measure point. */
+  async claimArrivedRegionField(
+    userId: number,
+    mapRegionId: number,
+    fieldId: number,
+  ): Promise<{ claimed: boolean; completed: boolean }> {
+    return this.claimArrived(userId, regionTarget(mapRegionId), fieldId);
+  }
+
+  private async claimArrived(
+    userId: number,
+    target: CartographyTarget,
+    fieldId: number,
+  ): Promise<{ claimed: boolean; completed: boolean }> {
     return this.planRepo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(CartographyPlan);
       const plan = await repo.findOne({
-        where: { userId, ...cartographyTargetWhere(systemTarget(starSystemId)) },
+        where: { userId, ...cartographyTargetWhere(target) },
         lock: { mode: 'pessimistic_write' },
       });
       if (!plan || plan.status !== CartographyPlanStatus.PLANNED) {
         return { claimed: false, completed: false };
       }
-      const alreadyExplored = await manager
-        .getRepository(SystemExploration)
-        .findOne({
-          where: { userId, starSystemId },
-        });
-      if (alreadyExplored) {
+      if (await this.isDiscovered(manager, userId, target)) {
         this.completeWithoutReward(plan);
         await repo.save(plan);
         return { claimed: false, completed: false };
       }
 
       const validFields = new Set(
-        (
-          await manager
-            .getRepository(SystemField)
-            .find({ where: { starSystemId, id: In(plan.remainingFieldIds) } })
+        (target.type === CartographyTargetType.SYSTEM
+          ? await manager
+              .getRepository(SystemField)
+              .find({ where: { starSystemId: target.starSystemId, id: In(plan.remainingFieldIds) } })
+          : await manager
+              .getRepository(GalaxyField)
+              .find({ where: { regionId: target.mapRegionId, id: In(plan.remainingFieldIds) } })
         ).map((field) => field.id),
       );
       const remainingFieldIds = plan.remainingFieldIds.filter((id) =>
@@ -197,6 +220,18 @@ export class CartographyPlanService {
         completed: arrivalIsRemaining && completed,
       };
     });
+  }
+
+  private async isDiscovered(
+    manager: EntityManager,
+    userId: number,
+    target: CartographyTarget,
+  ): Promise<boolean> {
+    const discovery =
+      target.type === CartographyTargetType.SYSTEM
+        ? await manager.getRepository(SystemExploration).findOne({ where: { userId, starSystemId: target.starSystemId } })
+        : await manager.getRepository(RegionDiscovery).findOne({ where: { userId, mapRegionId: target.mapRegionId } });
+    return discovery != null;
   }
 
   async transitionToMeasured(
@@ -234,10 +269,19 @@ export class CartographyPlanService {
     await repository.save(plan);
   }
 
-  async progressFinalization(spacecraftId: number): Promise<{
+  /**
+   * One finalization tick; the third completes the plan. A region completes
+   * with exactly one `RegionDiscovery`, and `onRegionCharted` books its
+   * reward in the same transaction.
+   */
+  async progressFinalization(
+    spacecraftId: number,
+    onRegionCharted?: RegionChartedHandler,
+  ): Promise<{
     completed: boolean;
     userId: number | null;
     starSystemId: number | null;
+    mapRegionId?: number;
   }> {
     return this.planRepo.manager.transaction(async (manager) => {
       const repo = manager.getRepository(CartographyPlan);
@@ -248,8 +292,13 @@ export class CartographyPlanService {
         },
         lock: { mode: 'pessimistic_write' },
       });
-      // Region plans complete through the region flow (tmw-K8b2).
-      if (!plan || plan.targetType === CartographyTargetType.REGION || plan.starSystemId == null) {
+      if (!plan) {
+        return { completed: false, userId: null, starSystemId: null };
+      }
+      if (plan.targetType === CartographyTargetType.REGION && plan.mapRegionId != null) {
+        return this.progressRegionFinalization(manager, plan, plan.mapRegionId, onRegionCharted);
+      }
+      if (plan.starSystemId == null) {
         return { completed: false, userId: null, starSystemId: null };
       }
 
@@ -331,6 +380,45 @@ export class CartographyPlanService {
       }
       throw error;
     }
+  }
+
+  private async progressRegionFinalization(
+    manager: EntityManager,
+    plan: CartographyPlan,
+    mapRegionId: number,
+    onRegionCharted?: RegionChartedHandler,
+  ): Promise<{ completed: boolean; userId: number | null; starSystemId: null; mapRegionId?: number }> {
+    const repo = manager.getRepository(CartographyPlan);
+    const notCompleted = { completed: false, userId: null, starSystemId: null } as const;
+    if (await this.isDiscovered(manager, plan.userId, regionTarget(mapRegionId))) {
+      this.completeWithoutReward(plan);
+      await repo.save(plan);
+      return notCompleted;
+    }
+    plan.finalizationTick = (plan.finalizationTick ?? 0) + 1;
+    if (plan.finalizationTick < 3) {
+      await repo.save(plan);
+      return notCompleted;
+    }
+    const inserted = await manager
+      .getRepository(RegionDiscovery)
+      .createQueryBuilder()
+      .insert()
+      .values({ userId: plan.userId, mapRegionId, source: RegionDiscoverySource.CARTOGRAPHY })
+      .orIgnore()
+      .execute();
+    if ((inserted.raw as unknown[]).length === 0) {
+      this.completeWithoutReward(plan);
+      await repo.save(plan);
+      return notCompleted;
+    }
+    plan.status = CartographyPlanStatus.DONE;
+    plan.completionOutcome = CartographyCompletionOutcome.SUCCESS;
+    plan.finalizingSpacecraftId = null;
+    plan.completedAt = new Date();
+    await repo.save(plan);
+    await onRegionCharted?.(manager, { userId: plan.userId, mapRegionId });
+    return { completed: true, userId: plan.userId, starSystemId: null, mapRegionId };
   }
 
   private completeWithoutReward(plan: CartographyPlan): void {

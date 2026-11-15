@@ -23,6 +23,10 @@ import {
 } from './flight-consequence-pipeline';
 import { FieldEffectConsequence } from './field-effect-consequence';
 import { DeflectorConsequence } from './deflector-consequence';
+import { MapRegion } from '../starmap/entities/map-region.entity';
+import { FieldEffectQuery } from '../starmap/field-effect-query';
+import { CartographyPlan, CartographyPlanStatus } from './entities/cartography-plan.entity';
+import { regionTarget } from './cartography-plan.service';
 import { GalaxyFieldType } from '../starmap/entities/galaxy-field-type.entity';
 import type { CrewEnhancementService } from './crew-enhancement.service';
 import { FlightSignatureService } from './flight-signature.service';
@@ -1937,6 +1941,124 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
           expect.anything(),
         );
       });
+    });
+  });
+
+  describe('region cartography in galaxy flight (tmw-K8b2)', () => {
+    let regionId: number;
+    let prestige: { change: jest.Mock };
+    const internals = () =>
+      fixture.service as unknown as {
+        prestigeService: { change: jest.Mock };
+        crewEnhancementService: { enhanceSpacecraft: jest.Mock };
+        fieldEffectQuery: FieldEffectQuery;
+        selectRegionCartographyFields(regionId: number, currentFieldId: number | null): Promise<number[]>;
+        bookRegionCartography(
+          manager: unknown,
+          afterCommit: Array<() => void>,
+          charted: { userId: number; mapRegionId: number },
+        ): Promise<void>;
+      };
+    const plans = () => new CartographyPlanService(dataSource.getRepository(CartographyPlan));
+    const cartographer = async () => {
+      await dataSource.getRepository(SpacecraftModule).save([
+        { spacecraftId: ship.id, category: 'HYPERDRIVE', moduleType: 'Hyperdrive', isActive: true },
+        { spacecraftId: ship.id, category: 'SENSORS', moduleType: 'Sensors', isActive: true },
+        { spacecraftId: ship.id, category: 'SPECIAL', moduleType: 'Astrometrie-Labor', isActive: true },
+      ]);
+      await dataSource.getRepository(Spacecraft).update(ship.id, {
+        runtimeSystems: { ASTROMETRY_LAB: { active: true, cooldown: 0, integrity: 100 } },
+      });
+    };
+
+    beforeEach(async () => {
+      const layerId = (await dataSource.getRepository(GalaxyField).findOneByOrFail({ id: locations[0].galaxyFieldId as number })).layerId;
+      regionId = (await dataSource.getRepository(MapRegion).save({ layerId, name: 'Corellia-Sektor' })).id;
+      await dataSource
+        .getRepository(GalaxyField)
+        .update(locations.map((location) => location.galaxyFieldId as number), { regionId });
+      prestige = { change: jest.fn(async () => undefined) };
+      internals().prestigeService = prestige;
+      internals().crewEnhancementService = { enhanceSpacecraft: jest.fn(async () => undefined) };
+      internals().fieldEffectQuery = new FieldEffectQuery();
+    });
+
+    it('picks a random 25 % of passable region fields without NO_MEASUREPOINT, excluding the current field (STU)', async () => {
+      const layerId = (await dataSource.getRepository(GalaxyField).findOneByOrFail({ id: locations[0].galaxyFieldId as number })).layerId;
+      const extra = async (cx: number, values: Partial<GalaxyField> = {}) =>
+        (await dataSource.getRepository(GalaxyField).save({ layerId, cx, cy: 3, fieldTypeId: 1, regionId, ...values })).id;
+      const eligible = [locations[1].galaxyFieldId as number, locations[2].galaxyFieldId as number];
+      for (const cx of [1, 2, 3, 4, 5, 6]) eligible.push(await extra(cx));
+      await extra(7, { isPassable: false });
+      await extra(8, { effects: [FieldEffect.NO_MEASUREPOINT] });
+      await extra(9, { regionId: null });
+
+      const selected = await internals().selectRegionCartographyFields(regionId, locations[0].galaxyFieldId);
+
+      // 8 eligible fields → ceil(25 %) = 2.
+      expect(selected).toHaveLength(2);
+      expect(new Set(selected).size).toBe(2);
+      for (const id of selected) expect(eligible).toContain(id);
+    });
+
+    it('claims region measure points on arrival and ends a region finalization on movement', async () => {
+      await cartographer();
+      await plans().createPlan(ship.userId, regionTarget(regionId), [locations[2].galaxyFieldId as number]);
+
+      await fixture.service.flyGalaxy(ship.id, ship.userId, 3, 1);
+
+      await expect(plans().getPlan(ship.userId, regionTarget(regionId))).resolves.toMatchObject({
+        status: CartographyPlanStatus.MEASURED,
+        remainingFieldIds: [],
+      });
+      expect(prestige.change).toHaveBeenCalledWith(ship.userId, 1, 'Kartographie-Messpunkt erreicht');
+      expect(fixture.messaging.sendSystem).toHaveBeenCalledWith(
+        ship.userId,
+        'Kartographie',
+        'Ein Messpunkt der Regionskartographie wurde erreicht.',
+        expect.stringContaining('cartography-region-measurement'),
+      );
+
+      await plans().startFinalization(ship.userId, regionTarget(regionId), ship.id);
+      await fixture.service.flyGalaxy(ship.id, ship.userId, 2, 1);
+
+      await expect(plans().getPlan(ship.userId, regionTarget(regionId))).resolves.toMatchObject({
+        status: CartographyPlanStatus.MEASURED,
+        finalizingSpacecraftId: null,
+      });
+    });
+
+    it('rejects planning on a galaxy field without region', async () => {
+      await dataSource.getRepository(GalaxyField).update(locations[0].galaxyFieldId as number, { regionId: null });
+
+      await expect(fixture.service.createCartographyPlan(ship.id, ship.userId)).rejects.toThrow(
+        'Kartographieplanung erfordert ein Sternensystem oder eine Region',
+      );
+    });
+
+    it('books 5 prestige and the region message inside the completing transaction', async () => {
+      const afterCommit: Array<() => void> = [];
+
+      await dataSource.transaction((manager) =>
+        internals().bookRegionCartography(manager, afterCommit, { userId: ship.userId, mapRegionId: regionId }),
+      );
+
+      expect(prestige.change).toHaveBeenCalledWith(
+        ship.userId,
+        5,
+        'Kartographie der Region Corellia-Sektor abgeschlossen',
+        expect.anything(),
+      );
+      expect(fixture.messaging.sendSystem).toHaveBeenCalledWith(
+        ship.userId,
+        'Kartographie',
+        'Die Kartographie der Region Corellia-Sektor wurde erfolgreich abgeschlossen.',
+        `cartography-region-completed:${ship.userId}:${regionId}`,
+        undefined,
+        undefined,
+        false,
+        expect.objectContaining({ afterCommit }),
+      );
     });
   });
 });
