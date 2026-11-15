@@ -170,12 +170,14 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-11-13 – tmw-T12a – Spieler-IDs beginnen wie in STU bei 100; Spielerhandelsnetze tragen die Eigentümer-ID und kollidieren nie mit den NPC-Netzen 1–3
 - 2026-11-13 – tmw-T12c – Statt STU `USER_NOONE` hat ein verlassener Handelsposten keinen Eigentümer (`trade_posts.ownerId` nullable); SWU legt keinen Platzhalter-Spieler an
 - 2026-11-13 – sh-AP-05b – Inhalte, die andere sehen, verlieren beim Löschen nur den Autor (`NULL`, Anzeige „Gelöschter Siedler“) statt eines Fallback-Kontos; Löschhandler können einen `prepare`-Schritt vor der Transaktion nutzen (Allianzaustritt)
+- 2026-11-15 – tmw-FA1b2 – Maintainer: Wie STU keine Fraktionsfaktoren für Schiffswerte; `hullMultiplier`, `shieldMultiplier`, `cargoMultiplier` entfernt
 - 2026-11-15 – tmw-D5a – Datenbank-Awards wie STU: Rümpfe 25 („Raumfahrt gemeistert“), Planetentypen 50, Systemtypen 75, Sternensysteme je Ebene ein eigener Award (25)
 - 2026-11-14 – sc-WP-COMBAT-1c – Maintainer: „Wir halten uns an STU.“ Alarmreaktionen und Flottenflug folgen STU (`AlertReactionFacade`, `ShipMover`): alle berechtigten Parteien in zufälliger Reihenfolge, kein Flugstopp durch den Kampf, Überlebende fliegen weiter; Führungswechsel bei Leaderverlust folgt in sc-WP-FLEET-4
 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-FA1b2 – Statt dynamischer Schiffsmultiplikatoren wie STU keine fraktionsabhängigen Schiffswerte; ungenutzte Hüllen-/Schild-/Frachtfaktoren entfernt – c1f305ad
 - tmw-D5d – Datenbank-Hub zeigt Entdeckungsfortschritt je Kategorie (Sternensysteme je bekannter Ebene), globale Meldungen für neue Einträge und Awards – 32f9a833
 - tmw-D5c – Sternensystemkatalog (`inDatabaseCatalog`, Testsystem ausgeschlossen, Admin-Schalter) als Nenner je Ebene; abgeschlossene Kartographie meldet Datenbankeintrag und prüft den Ebenen-Award – 4f34d57f
 - tmw-D5b – Neue Entdeckung von Rumpf, Planetentyp oder Systemtyp meldet „Neuer Datenbankeintrag“ an den Spieler und prüft den Kategorie-Award (Port `DATABASE_DISCOVERY`), NPC ohne Prestige – 0b5782a0
