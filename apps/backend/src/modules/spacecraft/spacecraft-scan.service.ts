@@ -154,9 +154,10 @@ export class SpacecraftScanService {
           key: field.fieldType.key,
           name: field.fieldType.name,
         },
-        movementEnergyCost: field.energyCost,
-        damage: field.damage,
-        specialDamage: 0,
+        // STU `sectorScan`: costs and damage of the field type.
+        movementEnergyCost: field.fieldType.energyCost,
+        damage: field.fieldType.damage,
+        specialDamage: field.fieldType.specialDamage,
         effects: field.effects ?? [],
         celestialObject: object
           ? {

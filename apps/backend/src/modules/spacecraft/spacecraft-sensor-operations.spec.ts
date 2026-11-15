@@ -167,6 +167,29 @@ describe('Spacecraft sensor operations', () => {
     expect(result.id).toBe(9);
   });
 
+  it('reports energy cost, special damage and deflector-failure damage of the field type like STU', async () => {
+    const { service, scanRepo, galaxyFieldRepo } = setup();
+    galaxyFieldRepo.findOne.mockResolvedValue({
+      cx: 8,
+      cy: 9,
+      // Per-field copies are not authoritative; STU reads the field type.
+      energyCost: 1,
+      damage: 0,
+      effects: [],
+      fieldType: { id: 165, key: 'brennender_nebel_165', name: 'Brennender Nebel', energyCost: 5, damage: 100, specialDamage: 30 },
+    });
+
+    await service.sectorScan(2, 1);
+
+    expect(scanRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: expect.objectContaining({
+          field: expect.objectContaining({ movementEnergyCost: 5, damage: 100, specialDamage: 30 }),
+        }),
+      }),
+    );
+  });
+
   it('starts targeted subspace analysis from a sector scan for 100 EPS', async () => {
     const { service, ship, shipRepo } = setup();
     ship.energy = 150;
