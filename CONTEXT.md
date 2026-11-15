@@ -75,7 +75,7 @@ Das konkrete aktivierbare Schiffssystem `Astrometrie-Labor`. Ein eigenes Schiff 
 _Avoid_: generischer Spezialslot, Astrometrie-Fähigkeit
 
 **Kartographieplan**:
-Der persistierte Fortschritt eines Spielers für ein konkretes Sternensystem. Er gehört weder einem bestimmten Schiff noch einer **Allianz** und durchläuft `PLANNABLE → PLANNED → MEASURED → FINISHING → DONE`.
+Der persistierte Fortschritt eines Spielers für genau ein Ziel: ein Sternensystem oder eine Kartenregion (**Regionskartographie**). Er gehört weder einem bestimmten Schiff noch einer **Allianz** und durchläuft `PLANNABLE → PLANNED → MEASURED → FINISHING → DONE`.
 _Avoid_: Schiffsauftrag, Kartographiejob
 
 **Messpunkt**:
@@ -85,6 +85,14 @@ _Avoid_: Wegpunkt, Scanpunkt
 **Finalisierung**:
 Der kostenpflichtige, drei Hauptticks dauernde Abschluss eines **Kartographieplans** nach allen **Messpunkten**. Erst eine erfolgreiche Finalisierung erzeugt die persönliche **Systementdeckung** und 10 Prestige. Währenddessen ist nur das finalisierende Schiff für Navigation und Reparaturen gesperrt; ein Abbruch setzt den Plan auf `MEASURED` zurück.
 _Avoid_: Sofortabschluss, Systemscan
+
+**Regionskartographie**:
+Ein **Kartographieplan**, dessen Ziel die Kartenregion des aktuellen Galaxiefelds ist (wie STU `AstronomicalEntry` mit `region_id`). Er nutzt denselben Lebenszyklus wie die Systemkartographie. Seine **Messpunkte** sind zufällig 25 % (aufgerundet) der passierbaren Felder der Region ohne `NO_MEASUREPOINT`, ohne das aktuelle Feld. Die erfolgreiche **Finalisierung** erzeugt die **Regionsentdeckung** und 5 Prestige.
+_Avoid_: Sektorscan, Regionsscan
+
+**Regionsentdeckung**:
+Das persönliche, dauerhafte Wissen eines Spielers über eine Kartenregion. Es entsteht ausschließlich durch eine erfolgreich abgeschlossene **Regionskartographie**, höchstens einmal je Spieler und Region, nie durch bloßes Betreten. Es schaltet den Regionseintrag in der Datenbankkategorie „Regionen“ frei.
+_Avoid_: Regionsbesuch, Regionskenntnis
 
 **Systemeintrag**:
 Die nicht-taktische, geschützte Datenbankansicht eines persönlich entdeckten Sternensystems. Sie zeigt aktuelle Systemdaten und die jeweils neuesten zugänglichen **Kolonie-Scans**, erlaubt aber keine Fernaktionen.

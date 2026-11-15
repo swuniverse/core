@@ -193,8 +193,10 @@ export function NavigationPanel({
   const lssActive = ship.runtimeSystems?.LONG_RANGE_SENSORS?.active === true;
   const cartographyPoints =
     ship.lssMode === 'CARTOGRAPHY' &&
-    localMap?.mode === 'system' &&
-    cartography?.status === 'PLANNED'
+    cartography?.status === 'PLANNED' &&
+    (cartography.targetType === 'REGION'
+      ? localMap?.mode !== 'system'
+      : localMap?.mode === 'system')
       ? cartography.remainingCoordinates
       : [];
   const blindX = shipX;

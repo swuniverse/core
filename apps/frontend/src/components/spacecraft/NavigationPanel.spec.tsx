@@ -240,6 +240,39 @@ describe('NavigationPanel', () => {
     expect(field.getAttribute('aria-label')).not.toContain('Messpunkt');
   });
 
+  it('marks remaining region measure points on the galaxy map (tmw-K8b3)', async () => {
+    apiMocks.get.mockResolvedValue(map);
+    render(
+      <NavigationPanel
+        ship={{ ...ship, lssMode: 'CARTOGRAPHY' }}
+        cartography={{
+          id: 6,
+          targetType: 'REGION',
+          starSystemId: null,
+          mapRegionId: 3,
+          status: 'PLANNED',
+          remainingFieldIds: [7],
+          remainingCoordinates: [{ x: 6, y: 5 }],
+          finalizationStartedAt: null,
+          finalizationTick: null,
+          finalizingSpacecraftId: null,
+          completedAt: null,
+          completionOutcome: null,
+          actions: {
+            plan: { available: false, reason: null },
+            finalize: { available: false, reason: null },
+          },
+        }}
+        onShipUpdate={vi.fn()}
+      />,
+    );
+
+    expect(
+      await screen.findByRole('button', { name: /Feld 6,5.*verbleibender Messpunkt/ }),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Feld 4,4/ }).getAttribute('aria-label')).not.toContain('Messpunkt');
+  });
+
   it('uses blind navigation until long-range sensors are activated', async () => {
     apiMocks.post.mockResolvedValue({});
     apiMocks.patch.mockResolvedValue({});

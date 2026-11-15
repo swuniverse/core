@@ -114,7 +114,7 @@ export function FieldContextPanel({
 
   useEffect(() => {
     setCartographyDialog(null);
-    if (!context?.starSystem) {
+    if (!context?.starSystem && !context?.region) {
       setCartography(null);
       setCartographyLoading(false);
       return;
@@ -147,7 +147,8 @@ export function FieldContextPanel({
     return () => {
       current = false;
     };
-  }, [shipId, context?.starSystem?.id]);
+    // Reload per field so reached measure points show without a manual reload.
+  }, [shipId, context?.starSystem?.id, context?.region?.id, context?.coordinates.x, context?.coordinates.y]);
 
   useEffect(() => {
     const availableIds =
@@ -481,7 +482,7 @@ export function FieldContextPanel({
                 Anomalie: {formatAnomaly(anomaly)}
               </span>
             ))}
-            {context.starSystem && (
+            {(context.starSystem || context.region) && (
               <CartographyStatus
                 plan={cartography}
                 loading={cartographyLoading}
@@ -780,6 +781,7 @@ export function FieldContextPanel({
       {cartographyDialog && (
         <CartographyDialog
           mode={cartographyDialog}
+          region={cartography?.targetType === 'REGION'}
           onClose={() => setCartographyDialog(null)}
           onConfirm={() => void confirmCartographyAction()}
         />
@@ -800,7 +802,7 @@ export function FieldContextPanel({
             </p>
           )}
           <Link
-            to={`/database/regions/${context.region.id}`}
+            to="/database?view=regions"
             className="mt-3 inline-block text-swu-primary hover:text-swu-accent hover:underline"
           >
             Datenbankeintrag öffnen
@@ -879,15 +881,23 @@ function CartographyStatus({
     return <span className="text-swu-muted">Kartographie wird geladen…</span>;
   if (!plan) return null;
   if (plan.status === 'NONE') return null;
+  const region = plan.targetType === 'REGION';
   if (plan.status === 'PLANNABLE') {
-    return qualified ? (
-      <button
-        type="button"
-        onClick={onPlan}
-        className="text-swu-primary hover:text-swu-accent"
-      >
-        Kartographie planen
-      </button>
+    if (qualified)
+      return (
+        <button
+          type="button"
+          onClick={onPlan}
+          className="text-swu-primary hover:text-swu-accent"
+        >
+          {region ? 'Region kartographieren' : 'Kartographie planen'}
+        </button>
+      );
+    return region ? (
+      <span className="text-swu-muted">
+        Region nicht kartographiert
+        {plan.actions.plan.reason ? `: ${plan.actions.plan.reason}` : ''}
+      </span>
     ) : (
       <span className="text-swu-muted">System nicht kartographiert</span>
     );
@@ -900,7 +910,8 @@ function CartographyStatus({
           alt=""
           className="size-5 shrink-0"
         />
-        Verbleibende Messpunkte: {plan.remainingFieldIds.length}
+        {region ? 'Regionskartographie – verbleibende Messpunkte' : 'Verbleibende Messpunkte'}:{' '}
+        {plan.remainingFieldIds.length}
       </div>
     );
   if (plan.status === 'MEASURED')
@@ -913,7 +924,7 @@ function CartographyStatus({
             onClick={onFinalize}
             className="text-swu-primary hover:text-swu-accent"
           >
-            Kartographie finalisieren
+            {region ? 'Regionskartographie finalisieren' : 'Kartographie finalisieren'}
           </button>
         )}
       </div>
@@ -926,7 +937,7 @@ function CartographyStatus({
           alt=""
           className="size-5 shrink-0"
         />
-        Kartographie: {plan.finalizationTick ?? 0}/3
+        {region ? 'Regionskartographie' : 'Kartographie'}: {plan.finalizationTick ?? 0}/3
       </div>
     );
   if (plan.status === 'DONE' && plan.completionOutcome === 'INVALIDATED')
@@ -943,7 +954,7 @@ function CartographyStatus({
           alt=""
           className="size-5 shrink-0"
         />
-        System ist kartographiert
+        {region ? 'Region ist kartographiert' : 'System ist kartographiert'}
       </div>
     );
   return <span className="text-swu-muted">Kartographiestatus unbekannt</span>;
@@ -951,20 +962,28 @@ function CartographyStatus({
 
 function CartographyDialog({
   mode,
+  region = false,
   onClose,
   onConfirm,
 }: {
   mode: 'PLAN' | 'FINALIZE';
+  region?: boolean;
   onClose: () => void;
   onConfirm: () => void;
 }) {
   const title =
-    mode === 'PLAN' ? 'Kartographie planen' : 'Kartographie finalisieren';
+    mode === 'PLAN'
+      ? region
+        ? 'Region kartographieren'
+        : 'Kartographie planen'
+      : 'Kartographie finalisieren';
   return (
     <Dialog title={title} label={title} onClose={onClose}>
       <p>
         {mode === 'PLAN'
-          ? 'Kartographie für dieses System planen?'
+          ? region
+            ? 'Kartographie für diese Region planen?'
+            : 'Kartographie für dieses System planen?'
           : 'Kartographie jetzt für 15 EPS finalisieren?'}
       </p>
       <div className="mt-3 flex justify-end gap-2">

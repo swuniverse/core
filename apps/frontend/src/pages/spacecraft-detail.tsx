@@ -96,7 +96,8 @@ export function SpacecraftDetailPage() {
   }, [ship?.id, locationKey]);
 
   useEffect(() => {
-    if (!ship || ship.location.scope !== 'SYSTEM') {
+    // Systems and map regions share the cartography contract (tmw-K8b3).
+    if (!ship) {
       setCartography(null);
       return;
     }

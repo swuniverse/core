@@ -91,3 +91,7 @@ Der Umfang umfasst ausschließlich Sternensysteme. STU-Kartenregionen bleiben au
 ## Dokumentation
 
 Die Ablösung des bisherigen Ein-Tick-Auftrags, die systemgebundene persönliche Plansemantik, der stets ausgeschlossene Startpunkt und die fehlende Crew-XP-Belohnung werden in ADR und `CONTEXT.md` festgehalten.
+
+## Nachtrag 2026-11-15: Regionskartographie
+
+Das Kartographiemodell wurde in tmw-K8b1/K8b2 verallgemeinert: Ein Kartographieplan zielt auf ein Sternensystem **oder** eine Kartenregion (ADR-0009). Die obigen Akzeptanzkriterien bleiben als historische Systemakzeptanz unverändert gültig und werden nicht umgedeutet. Regionspläne folgen demselben Lebenszyklus. Sie wählen ihre Messpunkte jedoch wie STU zufällig zu 25 % aus den geeigneten Regionsfeldern, erzeugen eine persönliche Regionsentdeckung statt einer Systementdeckung und vergeben 5 statt 10 Prestige.

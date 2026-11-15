@@ -351,12 +351,15 @@ export function LssMap({
                       type="button"
                       onClick={() => onFieldClick(x, y)}
                       style={{ width: cellSize, height: cellSize }}
-                      aria-label={`Feld ${x},${y}: ${field.fieldType.name}${field.starSystem ? `, ${field.starSystem.name}` : ''}${field.regionName ? `, Region: ${field.regionName}` : ''}${isShip ? ', aktuelles Schiff' : ''}${isTarget ? ', Ziel' : ''}${signatureLabel}${anomalyText(field)}${fieldEffectText(field)}`}
+                      aria-label={`Feld ${x},${y}: ${field.fieldType.name}${field.starSystem ? `, ${field.starSystem.name}` : ''}${field.regionName ? `, Region: ${field.regionName}` : ''}${isShip ? ', aktuelles Schiff' : ''}${isTarget ? ', Ziel' : ''}${isCartographyPoint ? ', verbleibender Messpunkt' : ''}${signatureLabel}${anomalyText(field)}${fieldEffectText(field)}`}
                       className={[
                         'relative border text-[10px] flex items-center justify-center transition-all',
                         getGalaxyFieldStyle(field.fieldType.key),
                         isShip ? 'ring-2 ring-emerald-400 z-10' : '',
                         isTarget ? 'ring-2 ring-swu-accent z-10' : '',
+                        isCartographyPoint
+                          ? 'ring-2 ring-red-400/70 ring-inset z-10'
+                          : '',
                         field.starSystemId
                           ? 'shadow-[0_0_8px_rgba(255,220,120,0.3)]'
                           : '',

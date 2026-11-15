@@ -1573,4 +1573,101 @@ describe('FieldContextPanel', () => {
     expect(button.getAttribute('title')).toBe('Kolonie ist nicht feindlich');
   });
 
+
+  describe('region cartography (tmw-K8b3)', () => {
+    const regionContext = (x = 4) => ({
+      wormholePassages: [],
+      coordinates: { x, y: 9 },
+      region: { id: 3, name: 'Hutt-Raum', description: null } as { id: number; name: string; description: string | null } | null,
+      starSystem: null,
+      colony: null,
+      information: { canSectorScan: false, cartographyKnown: false },
+    });
+    const regionPlan = (overrides: object) => ({
+      id: 6,
+      targetType: 'REGION',
+      starSystemId: null,
+      mapRegionId: 3,
+      status: 'PLANNABLE',
+      remainingFieldIds: [],
+      remainingCoordinates: [],
+      finalizationStartedAt: null,
+      finalizationTick: null,
+      finalizingSpacecraftId: null,
+      completedAt: null,
+      completionOutcome: null,
+      actions: {
+        plan: { available: true, reason: null },
+        finalize: { available: false, reason: null },
+      },
+      ...overrides,
+    });
+    const renderRegion = (context = regionContext()) =>
+      render(
+        <MemoryRouter>
+          <FieldContextPanel shipId={1} context={context} onUpdate={vi.fn()} />
+        </MemoryRouter>,
+      );
+
+    it('offers "Region kartographieren" on a region field and plans after confirmation', async () => {
+      apiMocks.get.mockResolvedValue(regionPlan({ id: null }));
+      apiMocks.post.mockResolvedValue(regionPlan({ status: 'PLANNED', remainingFieldIds: [11, 12] }));
+      renderRegion();
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Region kartographieren' }));
+      expect(screen.getByText('Kartographie für diese Region planen?')).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: 'Bestätigen' }));
+
+      await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/1/cartography', {}));
+      expect(await screen.findByText(/Regionskartographie – verbleibende Messpunkte/)).toBeTruthy();
+      expect(screen.getByText(/2$/)).toBeTruthy();
+    });
+
+    it('explains the server rejection instead of offering the action', async () => {
+      apiMocks.get.mockResolvedValue(
+        regionPlan({
+          id: null,
+          actions: {
+            plan: { available: false, reason: 'Nicht genug Crew für die Kartographie' },
+            finalize: { available: false, reason: null },
+          },
+        }),
+      );
+      renderRegion();
+
+      expect(
+        await screen.findByText('Region nicht kartographiert: Nicht genug Crew für die Kartographie'),
+      ).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Region kartographieren' })).toBeNull();
+    });
+
+    it('hides cartography outside of systems and regions', async () => {
+      renderRegion({ ...regionContext(), region: null });
+
+      await waitFor(() => expect(apiMocks.get).not.toHaveBeenCalledWith('/spacecraft/1/cartography', expect.anything()));
+      expect(screen.queryByText(/kartograph/i)).toBeNull();
+    });
+
+    it('starts the finalization and shows progress and completion', async () => {
+      apiMocks.get.mockResolvedValue(
+        regionPlan({ status: 'MEASURED', actions: { plan: { available: false, reason: null }, finalize: { available: true, reason: null } } }),
+      );
+      apiMocks.post.mockResolvedValue(regionPlan({ status: 'FINISHING', finalizationTick: 1 }));
+      const view = renderRegion();
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Regionskartographie finalisieren' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Bestätigen' }));
+      await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/1/cartography/finalize', {}));
+      expect(await screen.findByText('Regionskartographie: 1/3')).toBeTruthy();
+
+      // A field change reloads the status without a manual reload.
+      apiMocks.get.mockResolvedValue(regionPlan({ status: 'DONE', completionOutcome: 'SUCCESS' }));
+      view.rerender(
+        <MemoryRouter>
+          <FieldContextPanel shipId={1} context={regionContext(5)} onUpdate={vi.fn()} />
+        </MemoryRouter>,
+      );
+      expect(await screen.findByText('Region ist kartographiert')).toBeTruthy();
+    });
+  });
 });
