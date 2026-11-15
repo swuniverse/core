@@ -12,6 +12,7 @@ import {
   type SystemRasterDetail,
 } from '../components/database/SystemRasterMap';
 import { StatisticsView } from '../components/database/StatisticsView';
+import { DatabaseProgress } from '../components/database/DatabaseProgress';
 import { PageHeader } from '../components/PageHeader';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { PmLink } from '../components/PmLink';
@@ -580,6 +581,7 @@ function Hub({
   return (
     <section className="space-y-4 p-4 sm:p-6">
       <PageHeader segments={[{ label: 'Datenbank' }]} />
+      <DatabaseProgress />
       <div className="grid max-w-5xl gap-4 md:grid-cols-3">
         {groups.map((group) => (
           <div

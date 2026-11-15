@@ -33,8 +33,11 @@ export class DatabaseCompletionService {
     private readonly gateway: GameGateway,
   ) {}
 
-  /** Progress of every award category for the hub; star systems per visible layer. */
-  async progress(userId: number): Promise<DatabaseCategoryProgressDto[]> {
+  /**
+   * Progress of every award category for the hub; star systems only for the
+   * given (known) layers, all visible layers when omitted.
+   */
+  async progress(userId: number, layerIds?: number[]): Promise<DatabaseCategoryProgressDto[]> {
     const mappings = await this.mappingRepo.find();
     const awardKey = (category: DatabaseAwardCategory, layerId: number | null) =>
       mappings.find((mapping) => mapping.category === category && mapping.layerId === layerId)
@@ -51,7 +54,7 @@ export class DatabaseCompletionService {
         awardKey: awardKey(category, null),
       });
     }
-    for (const layer of (await this.database.getSystems(userId)).layers) {
+    for (const layer of (await this.database.getSystems(userId, layerIds)).layers) {
       const progress = systemsProgress(layer.entries);
       rows.push({
         category: 'SYSTEMS',

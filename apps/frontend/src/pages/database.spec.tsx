@@ -3,6 +3,7 @@ import { afterEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { DatabasePage, DatabaseSystemDetailPage } from './database';
+vi.mock('../components/database/DatabaseProgress', () => ({ DatabaseProgress: () => null }));
 
 const apiMocks = vi.hoisted(() => ({
   get: vi.fn(),

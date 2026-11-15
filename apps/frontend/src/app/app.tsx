@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from '../components/Toast';
+import { DatabaseNotices } from '../components/database/DatabaseNotices';
 import { useAuthStore } from '../stores/auth.store';
 import { AppShell } from '../components/layout/app-shell';
 import { LoginPage } from '../pages/login';
@@ -88,6 +89,7 @@ function MapEditorRoute({ children }: { children: React.ReactNode }) {
 export function App() {
   return (
     <ToastProvider>
+      <DatabaseNotices />
       <BrowserRouter>
         <Routes>
           <Route path="/impressum" element={<ImprintPage />} />

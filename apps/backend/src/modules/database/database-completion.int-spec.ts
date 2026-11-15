@@ -378,4 +378,11 @@ describe('database category completion (PostgreSQL)', () => {
       expect(emitToUser.mock.calls.filter(([, type]) => type === WsEventType.AWARD_GRANTED)).toHaveLength(1);
     });
   });
+
+  it('lists star system progress only for the given known layers (tmw-D5d)', async () => {
+    const progress = await service.progress(player.id, [core.id]);
+
+    expect(progress.filter((row) => row.category === 'SYSTEMS').map((row) => row.layerId)).toEqual([core.id]);
+    expect(progress.filter((row) => row.layerId != null).every((row) => row.category === 'SYSTEMS')).toBe(true);
+  });
 });
