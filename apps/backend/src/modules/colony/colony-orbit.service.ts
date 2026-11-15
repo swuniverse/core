@@ -53,6 +53,13 @@ import {
   ORBIT_ORDER_VIEW,
   type OrbitOrderViewPort,
 } from '../spacecraft/orbit-order-view.port';
+import {
+  ORBIT_ORDER_LIFECYCLE,
+  type OrbitOrderLifecyclePort,
+  type OrbitOrderTractorCause,
+} from '../spacecraft/orbit-order-lifecycle.port';
+import { MessagingService } from '../messaging/messaging.service';
+import { MessageFolder } from '../messaging/message-folder';
 import { Fleet } from '../spacecraft/entities/fleet.entity';
 import { reactorFuelProfile } from '../spacecraft/reactor-fuel-profile';
 import {
@@ -110,6 +117,11 @@ export class ColonyOrbitService implements OnModuleInit {
     @Optional()
     @Inject(ORBIT_ORDER_VIEW)
     private readonly orbitOrderView?: OrbitOrderViewPort,
+    @Optional()
+    @Inject(ORBIT_ORDER_LIFECYCLE)
+    private readonly orbitOrderLifecycle?: OrbitOrderLifecyclePort,
+    @Optional()
+    private readonly messaging?: MessagingService,
   ) {}
 
   onModuleInit(): void {
@@ -117,6 +129,80 @@ export class ColonyOrbitService implements OnModuleInit {
       this.orbitOrderView.view = (shipId, userId) =>
         this.getOrbitOrderView(shipId, userId);
     }
+    if (this.orbitOrderLifecycle) {
+      this.orbitOrderLifecycle.lifecycle = {
+        flightBlockReason: (manager, fleetId) =>
+          this.flightBlockReason(manager, fleetId),
+        cancelForFleet: (manager, fleetId, tractor) =>
+          this.cancelForFleet(manager, fleetId, tractor),
+      };
+    }
+  }
+
+  /** STU `AbstractDirectedMovement`: a running order holds its fleet in orbit. */
+  async flightBlockReason(
+    manager: EntityManager,
+    fleetId: number,
+  ): Promise<string | null> {
+    const order = await manager
+      .getRepository(ColonyOrbitAssignment)
+      .findOne({ where: { fleetId } });
+    if (!order) return null;
+    return order.mode === ColonyOrbitAssignmentMode.DEFEND
+      ? ORBIT_ORDER_REASONS.flightDuringDefense
+      : ORBIT_ORDER_REASONS.flightDuringBlockade;
+  }
+
+  /**
+   * STU `CancelColonyBlockOrDefend`: ends the fleet's order inside the
+   * caller's transaction (blockade state included) and returns the owner
+   * event, plus the tractor message for the towed fleet's owner, to send
+   * after the commit.
+   */
+  async cancelForFleet(
+    manager: EntityManager,
+    fleetId: number,
+    tractor?: OrbitOrderTractorCause,
+  ): Promise<() => Promise<void>> {
+    const repository = manager.getRepository(ColonyOrbitAssignment);
+    const order = await repository.findOne({ where: { fleetId } });
+    if (!order) return async () => undefined;
+    const fleet = await manager.findOne(Fleet, {
+      where: { id: fleetId },
+      relations: ['user'],
+    });
+    const colony = await manager.findOne(Colony, { where: { id: order.colonyId } });
+    await repository.remove(order);
+    await this.syncColonyBlockadeState(order.colonyId, manager);
+
+    const blockade = order.mode === ColonyOrbitAssignmentMode.BLOCKADE;
+    const task = blockade ? 'Blockade' : 'Verteidigung';
+    const fleetName = fleet?.name ?? `#${fleetId}`;
+    const colonyName = colony?.name ?? `#${order.colonyId}`;
+    return async () => {
+      if (colony && isOwnedColony(colony)) {
+        await this.colonyEventService.createActionEvent({
+          colonyId: colony.id,
+          userId: colony.userId,
+          type: blockade
+            ? ColonyEventType.ORBIT_BLOCKADE_STOPPED
+            : ColonyEventType.ORBIT_DEFENSE_STOPPED,
+          severity: ColonyEventSeverity.INFO,
+          title: blockade ? 'Blockade beendet' : 'Verteidigung beendet',
+          message: `Die Flotte ${fleetName} von Spieler ${fleet?.user?.username ?? 'Unbekannt'} hat die ${task} der Kolonie ${colonyName} aufgehoben`,
+          payload: { fleetId, mode: order.mode },
+        });
+      }
+      if (tractor && fleet) {
+        await this.messaging?.sendSystem(
+          fleet.userId,
+          'Traktorstrahl',
+          `Die ${tractor.towedShipName} wurde mit dem Traktorstrahl gezogen, daher hat die Flotte ${fleetName} die ${task} der Kolonie ${colonyName} eingestellt`,
+          undefined,
+          MessageFolder.SHIP,
+        );
+      }
+    };
   }
 
   async getManagement(colonyId: number, userId: number) {
@@ -522,11 +608,20 @@ export class ColonyOrbitService implements OnModuleInit {
             })
           : null;
         const assignments = manager.getRepository(ColonyOrbitAssignment);
+        // Position and status after the fleet lock: a flight of the fleet
+        // holds the same lock, so exactly one of both wins.
+        const lockedShip = await manager.getRepository(Spacecraft).findOne({
+          where: { id: ship.id },
+          relations: ['location', 'location.systemField'],
+        });
+        if (!lockedShip) throw new NotFoundException('Spacecraft not found');
+        const stillInOrbit =
+          lockedColony != null && this.isShipInColonyOrbit(lockedColony, lockedShip);
         const { context } = await this.orbitOrderStartContext(
           manager,
-          ship,
+          lockedShip,
           fleet,
-          lockedColony,
+          stillInOrbit ? lockedColony : null,
           colony,
         );
         const decision = evaluateOrbitOrderStart(mode, context);

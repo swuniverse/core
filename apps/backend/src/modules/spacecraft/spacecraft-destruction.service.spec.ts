@@ -1,6 +1,6 @@
 import { leaveFleetOnDestruction } from './fleet-leadership';
 jest.mock('./fleet-leadership', () => ({
-  leaveFleetOnDestruction: jest.fn(async () => undefined),
+  leaveFleetOnDestruction: jest.fn(async () => async () => undefined),
 }));
 jest.mock('../auth/user.entity', () => ({ User: class User {} }));
 jest.mock('../faction/entities/faction.entity', () => ({
@@ -172,6 +172,7 @@ describe('SpacecraftDestructionService', () => {
     let fleetAtHandover: number | null | undefined;
     leave.mockImplementationOnce(async (_manager, value) => {
       fleetAtHandover = value.fleetId;
+      return async () => undefined;
     });
     {
       const { service, manager, ship } = setup();
@@ -182,7 +183,7 @@ describe('SpacecraftDestructionService', () => {
         afterCommit: [],
       });
 
-      expect(leave).toHaveBeenCalledWith(manager, expect.objectContaining({ id: ship.id }));
+      expect(leave).toHaveBeenCalledWith(manager, expect.objectContaining({ id: ship.id }), undefined);
       expect(fleetAtHandover).toBe(7);
       const removal = (manager.remove.mock.calls as unknown[][]).findIndex(([value]) => value === ship);
       expect(leave.mock.invocationCallOrder[0]).toBeLessThan(

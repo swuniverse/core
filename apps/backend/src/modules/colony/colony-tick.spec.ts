@@ -152,6 +152,8 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
           return fleetRepo;
         case 'ColonyOrbitAssignment':
           return orbitAssignmentRepo;
+        case 'Spacecraft':
+          return shipRepo;
         default:
           return statsRepo;
       }

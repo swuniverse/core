@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Optional } from '@nestjs/common';
 import { isDeepStrictEqual, types } from 'node:util';
 import { DataSource, In, QueryFailedError } from 'typeorm';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
@@ -31,6 +31,7 @@ import { CartographyPlanService } from './cartography-plan.service';
 import { SpacecraftTakeoverService } from './spacecraft-takeover.service';
 import { GameDataService } from '../game-data/game-data.service';
 import { FieldTransitionExecutor } from './field-transition-executor';
+import { ORBIT_ORDER_LIFECYCLE, type OrbitOrderLifecyclePort } from './orbit-order-lifecycle.port';
 
 export const WORMHOLE_ACCESS_POLICY = Symbol('WORMHOLE_ACCESS_POLICY');
 export const WORMHOLE_RANDOM = Symbol('WORMHOLE_RANDOM');
@@ -77,6 +78,9 @@ export class WormholePassageService {
     @Inject(WORMHOLE_ACCESS_POLICY)
     private readonly accessPolicy: WormholeAccessPolicy,
     @Inject(WORMHOLE_RANDOM) private readonly random: () => number,
+    @Optional()
+    @Inject(ORBIT_ORDER_LIFECYCLE)
+    private readonly orbitOrders?: OrbitOrderLifecyclePort,
   ) {}
 
   async enter(shipId: number, userId: number, wormholeId?: number) {
@@ -88,6 +92,13 @@ export class WormholePassageService {
         const ships = locked.fleet ? locked.members : [locked.ship];
         if (locked.fleet && locked.fleet.leaderId !== shipId)
           throw new BadRequestException('Only the fleet leader can fly');
+        if (locked.fleet) {
+          const blocked = await this.orbitOrders?.lifecycle?.flightBlockReason(
+            manager,
+            locked.fleet.id,
+          );
+          if (blocked) throw new BadRequestException(blocked);
+        }
         // Additional carried ships/fleets never wait while fleet/ship locks are
         // held. Every secondary lock is NOWAIT, so inverse ordering refuses
         // contention instead of creating a fleet/ship wait cycle.
@@ -139,6 +150,15 @@ export class WormholePassageService {
               throw new BadRequestException(
                 'Flottenmitgliedschaft hat sich geändert; bitte erneut versuchen',
               );
+            // STU `TractorConsequence`: a towed leader ends its fleet's order.
+            if (fleet.leaderId === target.id) {
+              const notify = await this.orbitOrders?.lifecycle?.cancelForFleet(
+                manager,
+                fleet.id,
+                { towedShipName: target.name },
+              );
+              if (notify) afterCommit.push(() => void notify());
+            }
             const candidates = await manager.findBy(Spacecraft, {
               fleetId: fleet.id,
             });

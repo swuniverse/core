@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
   Optional,
@@ -45,6 +46,7 @@ import {
   type MovementState,
 } from './movement-state';
 import { leaveFleetOnDestruction } from './fleet-leadership';
+import { ORBIT_ORDER_LIFECYCLE, type OrbitOrderLifecyclePort } from './orbit-order-lifecycle.port';
 
 /**
  * Canonical terminal-state transition for destroyed ships.
@@ -74,6 +76,9 @@ export class SpacecraftDestructionService {
       clearTrackingTarget: async () => undefined,
     } as unknown as SpacecraftTrackerService,
     @Optional() private readonly playerTradePosts?: PlayerTradePostService,
+    @Optional()
+    @Inject(ORBIT_ORDER_LIFECYCLE)
+    private readonly orbitOrders?: OrbitOrderLifecyclePort,
   ) {}
 
   async selfDestruct(
@@ -81,6 +86,7 @@ export class SpacecraftDestructionService {
     userId: number,
   ): Promise<SpacecraftSelfDestructResultDto> {
     let evacuatedCrew = 0;
+    let afterCommit: () => Promise<void> = async () => undefined;
     const result = await this.dataSource.transaction(async (manager) => {
       const ship = await manager.findOne(Spacecraft, {
         where: { id: shipId, userId },
@@ -103,15 +109,16 @@ export class SpacecraftDestructionService {
           'At least one assigned crew member is required to self-destruct',
         );
       }
-      evacuatedCrew = (
-        await this.finalizeInManager(manager, ship, 'SELF_DESTRUCT')
-      ).evacuatedCrew;
+      const finalized = await this.finalizeInManager(manager, ship, 'SELF_DESTRUCT');
+      evacuatedCrew = finalized.evacuatedCrew;
+      afterCommit = finalized.notifyAfterCommit;
       return {
         spacecraftId: ship.id,
         status: 'DESTROYED' as const,
         alreadyDestroyed: false,
       };
     });
+    await afterCommit();
 
     if (!result.alreadyDestroyed) {
       const ship = await this.dataSource
@@ -176,22 +183,25 @@ export class SpacecraftDestructionService {
     shipId: number,
     destroyerUserId?: number,
   ): Promise<void> {
+    let afterCommit: () => Promise<void> = async () => undefined;
     const result = await this.dataSource.transaction(async (manager) => {
       const ship = await manager.findOne(Spacecraft, {
         where: { id: shipId },
         relations: ['shipClass'],
-        lock: { mode: 'pessimistic_write' },
+        // Lock the ship row only; Postgres refuses FOR UPDATE on the outer join.
+        lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
       });
       if (!ship || ship.status === SpacecraftStatus.DESTROYED) return null;
       const destroyer =
         destroyerUserId == null
           ? null
           : await manager.findOne(User, { where: { id: destroyerUserId } });
-      const { evacuatedCrew } = await this.finalizeInManager(
+      const { evacuatedCrew, notifyAfterCommit } = await this.finalizeInManager(
         manager,
         ship,
         'COMBAT',
       );
+      afterCommit = notifyAfterCommit;
       if (destroyerUserId != null) {
         const destroyerShip = await manager.findOne(Spacecraft, {
           where: { userId: destroyerUserId },
@@ -220,6 +230,7 @@ export class SpacecraftDestructionService {
         evacuatedCrew,
       };
     });
+    await afterCommit();
     if (result) {
       await this.gameEvents.recordSpacecraft(
         GameEventType.SHIP,
@@ -248,12 +259,16 @@ export class SpacecraftDestructionService {
     const ship = await manager.findOne(Spacecraft, {
       where: { id: shipId },
       relations: ['shipClass'],
-      lock: { mode: 'pessimistic_write' },
+      // Lock the ship row only; Postgres refuses FOR UPDATE on the outer join.
+      lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
     });
     if (!ship || ship.status === SpacecraftStatus.DESTROYED) return null;
     const ownerId = ship.userId;
-    const result = await this.finalizeInManager(manager, ship, reason);
-    const notify = () => this.emitDestroyed(ownerId, shipId, 'Durch eine Anomalie zerstört');
+    const { notifyAfterCommit, ...result } = await this.finalizeInManager(manager, ship, reason);
+    const notify = () => {
+      this.emitDestroyed(ownerId, shipId, 'Durch eine Anomalie zerstört');
+      void notifyAfterCommit();
+    };
     if (transaction) transaction.afterCommit.push(notify);
     else notify();
     return result;
@@ -281,12 +296,16 @@ export class SpacecraftDestructionService {
     manager: EntityManager,
     ship: Spacecraft,
     reason: 'COMBAT' | 'SELF_DESTRUCT' | 'ANOMALY',
-  ): Promise<{ evacuatedCrew: number }> {
+  ): Promise<{ evacuatedCrew: number; notifyAfterCommit: () => Promise<void> }> {
     await this.takeoverService.cancelForShip(
       ship.id,
       'ein beteiligtes Schiff wurde zerstört',
     );
-    await leaveFleetOnDestruction(manager, ship);
+    const orbitOrderNotify = await leaveFleetOnDestruction(
+      manager,
+      ship,
+      this.orbitOrders?.lifecycle,
+    );
     await this.trackerService.clearTrackingTarget(manager, ship.id);
     const [cargo, torpedoes, installedModules] = await Promise.all([
       manager.find(CargoItem, { where: { spacecraftId: ship.id } }),
@@ -395,7 +414,10 @@ export class SpacecraftDestructionService {
       await manager.save(distress);
     }
     await manager.remove(ship);
-    return { evacuatedCrew: evacuation?.crewCount ?? 0 };
+    return {
+      evacuatedCrew: evacuation?.crewCount ?? 0,
+      notifyAfterCommit: orbitOrderNotify,
+    };
   }
 
   private async loadLocation(

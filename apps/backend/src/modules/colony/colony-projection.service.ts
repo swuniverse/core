@@ -344,6 +344,16 @@ export class ColonyProjectionService {
           })
         ).filter((ship) => matchesColonyOrbit(ship, colony))
       : [];
+    // The policy sees a fleet's order at any colony, exactly like the mutation.
+    const orbitFleetIds = [
+      ...new Set(orbitShips.flatMap((ship) => (ship.fleetId == null ? [] : [ship.fleetId]))),
+    ];
+    const fleetOrderByFleetId = new Map(
+      (orbitFleetIds.length
+        ? await this.orbitAssignmentRepo.find({ where: { fleetId: In(orbitFleetIds) } })
+        : []
+      ).map((assignment) => [assignment.fleetId, assignment]),
+    );
     const orbitShipModules = orbitShips.length
       ? await this.spacecraftModuleRepo.find({
           where: { spacecraftId: In(orbitShips.map((ship) => ship.id)) },
@@ -843,7 +853,8 @@ export class ColonyProjectionService {
               ship.fleetId != null && ship.fleet?.leaderId === ship.id,
             shipIdle: ship.status === SpacecraftStatus.IDLE,
             colonyOccupied: isOwnedColony(colony),
-            fleetOrder: orbitAssignment ?? null,
+            fleetOrder:
+              (ship.fleetId != null ? fleetOrderByFleetId.get(ship.fleetId) : null) ?? null,
             colonyDefended: otherOrders.some(
               (assignment) =>
                 assignment.mode === ColonyOrbitAssignmentMode.DEFEND,

@@ -34,6 +34,9 @@ import {
 import { Fleet } from '../spacecraft/entities/fleet.entity';
 import { Colony } from './entities/colony.entity';
 import { ColonyOrbitService } from './colony-orbit.service';
+import { SpacecraftDestructionService } from '../spacecraft/spacecraft-destruction.service';
+import { RepairOrphanedOrbitOrders20261115100000 } from '../../database/migrations/20261115100000-repair-orphaned-orbit-orders';
+import { SpacecraftModule as InstalledModule } from '../spacecraft/entities/spacecraft-module.entity';
 import { ColonyChangeable } from './entities/colony-changeable.entity';
 import {
   ColonyOrbitAssignment,
@@ -209,7 +212,7 @@ describe('Ship-based colony orbit orders through the production application (Pos
   }
 
   async function call(
-    method: 'GET' | 'POST' | 'DELETE',
+    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
     path: string,
     body?: unknown,
     userId = actorId,
@@ -514,6 +517,224 @@ describe('Ship-based colony orbit orders through the production application (Pos
         name: 'Streuner', userId: actorId, shipClassId, locationId, runtimeSystems: {},
       });
       await expect(view(loner.id)).resolves.toBeNull();
+    });
+  });
+
+  describe('orbit order lifecycle (sc-WP-UI-3a3)', () => {
+    const LOCK = {
+      DEFEND: 'Flug während Kolonie-Verteidigung nicht möglich',
+      BLOCKADE: 'Flug während Kolonie-Blockierung nicht möglich',
+    } as const;
+    const ownerEvents = (colonyId: number) =>
+      source.getRepository(Message).find({
+        where: { recipientId: ownerId, originColonyId: colonyId },
+        order: { id: 'ASC' },
+      });
+    const flyable = async (shipId: number) => {
+      await source.getRepository(Spacecraft).update(shipId, { energy: 50 });
+      await source.getRepository(InstalledModule).save({
+        spacecraftId: shipId,
+        category: 'SUBLIGHT_DRIVE',
+        moduleType: 'Sublight',
+        isActive: true,
+      });
+    };
+    const findOrbitShips = (value: unknown): Array<Record<string, unknown>> | null => {
+      if (!value || typeof value !== 'object') return null;
+      if (Array.isArray((value as { orbitShips?: unknown }).orbitShips)) {
+        return (value as { orbitShips: Array<Record<string, unknown>> }).orbitShips;
+      }
+      for (const child of Object.values(value)) {
+        const found = findOrbitShips(child);
+        if (found) return found;
+      }
+      return null;
+    };
+
+    it.each(['DEFEND', 'BLOCKADE'] as const)(
+      'refuses every flight entry of the leader during a %s order without changing state',
+      async (mode) => {
+        const target = await colony(3, 4);
+        const { leader, member } = await fleetAt(target);
+        expect((await start(leader.id, mode)).status).toBe(201);
+        const before = await source.getRepository(Spacecraft).findOneByOrFail({ id: leader.id });
+
+        for (const [path, body] of [
+          [`spacecraft/${leader.id}/navigate`, { targetX: 3, targetY: 5 }],
+          [`spacecraft/${leader.id}/fly`, { targetX: 2, targetY: 1 }],
+          [`spacecraft/${leader.id}/enter-system`, {}],
+          [`spacecraft/${leader.id}/leave-system`, {}],
+          [`spacecraft/${leader.id}/wormhole/enter`, {}],
+        ] as const) {
+          await expect(call('POST', path, body)).resolves.toEqual({
+            status: 400,
+            body: expect.objectContaining({ message: LOCK[mode] }),
+          });
+        }
+        expect(await source.getRepository(Spacecraft).findOneByOrFail({ id: leader.id })).toMatchObject({
+          locationId: before.locationId,
+          energy: before.energy,
+          status: before.status,
+        });
+        // Members are not held in orbit (STU): the lock binds the leader only.
+        expect((await call('POST', `spacecraft/${member.id}/navigate`, { targetX: 3, targetY: 5 })).body.message).not.toBe(LOCK[mode]);
+      },
+    );
+
+    it('ends the order with blockade state and owner event when the fleet is dissolved', async () => {
+      const target = await colony(3, 4);
+      const { fleet, leader } = await fleetAt(target);
+      expect((await start(leader.id, 'BLOCKADE')).status).toBe(201);
+      expect(await blockaded(target.id)).toBe(true);
+
+      expect((await call('DELETE', `spacecraft/fleets/${fleet.id}`)).status).toBe(200);
+
+      expect(await orders()).toEqual([]);
+      expect(await blockaded(target.id)).toBe(false);
+      expect((await ownerEvents(target.id)).at(-1)).toMatchObject({
+        originEventType: 'ORBIT_BLOCKADE_STOPPED',
+        body: expect.stringMatching(
+          new RegExp(`^Die Flotte ${fleet.name} von Spieler .+ hat die Blockade der Kolonie ${target.name} aufgehoben$`),
+        ),
+      });
+    });
+
+    it('keeps the order with the fleet on a leader change and frees the former leader', async () => {
+      const target = await colony(3, 4);
+      const { fleet, leader, member } = await fleetAt(target);
+      expect((await start(leader.id, 'DEFEND')).status).toBe(201);
+
+      expect((await call('PATCH', `spacecraft/fleets/${fleet.id}/leader`, { leaderId: member.id })).status).toBe(200);
+      expect(await orders()).toEqual([
+        expect.objectContaining({ fleetId: fleet.id, spacecraftId: member.id, mode: 'DEFEND' }),
+      ]);
+      expect((await call('POST', `spacecraft/${leader.id}/leave-fleet`)).status).toBe(201);
+      const created = await call('POST', 'spacecraft/fleets/create', { name: 'Neue Flotte', leaderId: leader.id });
+      expect(created.status).toBe(201);
+
+      expect((await start(leader.id, 'DEFEND')).status).toBe(201);
+      expect((await orders()).map((order) => order.fleetId).sort()).toEqual([fleet.id, created.body.id].sort());
+    });
+
+    it('lets the order follow a successor on leader destruction and ends it with the last ship', async () => {
+      const target = await colony(3, 4);
+      const { fleet, leader, member } = await fleetAt(target);
+      expect((await start(leader.id, 'BLOCKADE')).status).toBe(201);
+      const destruction = app.get(SpacecraftDestructionService);
+
+      await destruction.destroyFromCombat(leader.id);
+      expect(await orders()).toEqual([
+        expect.objectContaining({ fleetId: fleet.id, spacecraftId: member.id, mode: 'BLOCKADE' }),
+      ]);
+      expect(await blockaded(target.id)).toBe(true);
+
+      await destruction.destroyFromCombat(member.id);
+      expect(await orders()).toEqual([]);
+      expect(await blockaded(target.id)).toBe(false);
+      expect((await ownerEvents(target.id)).at(-1)).toMatchObject({ originEventType: 'ORBIT_BLOCKADE_STOPPED' });
+    });
+
+    it('ends the order with a tractor message when the leader is towed away', async () => {
+      const target = await colony(3, 4);
+      await field(3, 5);
+      const { fleet, leader } = await fleetAt(target, { members: 1 });
+      expect((await start(leader.id, 'DEFEND')).status).toBe(201);
+      const tower = await source.getRepository(Spacecraft).save({
+        name: 'Schlepper',
+        userId: actorId,
+        shipClassId,
+        locationId: leader.locationId,
+        tractoredShipId: leader.id,
+        runtimeSystems: { TRACTOR_BEAM: { active: true, integrity: 100, cooldown: 0 } },
+      });
+      await flyable(tower.id);
+      await source.getRepository(InstalledModule).save({
+        spacecraftId: tower.id,
+        category: 'TRACTOR_BEAM',
+        moduleType: 'Tractor',
+        isActive: true,
+      });
+
+      const towed = await call('POST', `spacecraft/${tower.id}/navigate`, { targetX: 3, targetY: 5 });
+
+      expect(towed.status).toBe(201);
+      expect(await orders()).toEqual([]);
+      expect((await ownerEvents(target.id)).at(-1)).toMatchObject({ originEventType: 'ORBIT_DEFENSE_STOPPED' });
+      const tractorMessages = await source.getRepository(Message).find({
+        where: { recipientId: actorId, subject: 'Traktorstrahl' },
+      });
+      expect(tractorMessages.map((message) => message.body)).toEqual([
+        `Die ${leader.name} wurde mit dem Traktorstrahl gezogen, daher hat die Flotte ${fleet.name} die Verteidigung der Kolonie ${target.name} eingestellt`,
+      ]);
+    });
+
+    it('rejects orders at another colony in the view exactly like the mutation', async () => {
+      const elsewhere = await colony(1, 1);
+      const home = await colony(3, 4, { userId: actorId });
+      const { fleet, leader } = await fleetAt(home, { members: 1 });
+      await source.getRepository(ColonyOrbitAssignment).save({
+        colonyId: elsewhere.id,
+        spacecraftId: leader.id,
+        fleetId: fleet.id,
+        mode: ColonyOrbitAssignmentMode.DEFEND,
+      });
+
+      const detail = await call('GET', `colonies/${home.id}`);
+      const ship = findOrbitShips(detail.body)?.find((entry) => entry.id === leader.id);
+      expect(ship).toMatchObject({ canDefend: false, canBlock: false });
+      await expect(start(leader.id, 'DEFEND')).resolves.toEqual({
+        status: 400,
+        body: expect.objectContaining({ message: 'Die Flotte hat bereits einen Orbitauftrag.' }),
+      });
+    });
+
+    it('repairs orphaned orders and stale blockade flags (migration)', async () => {
+      const target = await colony(3, 4);
+      const kept = await fleetAt(target);
+      const strayed = await fleetAt(target);
+      await source.getRepository(ColonyOrbitAssignment).save([
+        { colonyId: target.id, spacecraftId: kept.member.id, fleetId: kept.fleet.id, mode: ColonyOrbitAssignmentMode.DEFEND },
+        { colonyId: target.id, spacecraftId: strayed.leader.id, fleetId: strayed.fleet.id, mode: ColonyOrbitAssignmentMode.BLOCKADE },
+      ]);
+      const { locationId: away } = await field(9, 9);
+      await source.getRepository(Spacecraft).update(strayed.leader.id, { locationId: away });
+      await source.getRepository(ColonyChangeable).update({ colonyId: target.id }, { isBlockaded: true });
+
+      const runner = source.createQueryRunner();
+      try {
+        await new RepairOrphanedOrbitOrders20261115100000().up(runner);
+        await new RepairOrphanedOrbitOrders20261115100000().up(runner);
+      } finally {
+        await runner.release();
+      }
+
+      expect(await orders()).toEqual([
+        expect.objectContaining({ fleetId: kept.fleet.id, spacecraftId: kept.leader.id, mode: 'DEFEND' }),
+      ]);
+      expect(await blockaded(target.id)).toBe(false);
+    });
+
+    it('lets exactly one of a concurrent flight and order start win', async () => {
+      const target = await colony(3, 4);
+      await field(3, 5);
+      const { leader } = await fleetAt(target, { members: 1 });
+      await flyable(leader.id);
+
+      const [flight, order] = await Promise.all([
+        call('POST', `spacecraft/${leader.id}/navigate`, { targetX: 3, targetY: 5 }),
+        start(leader.id, 'DEFEND'),
+      ]);
+
+      expect([flight.status < 300, order.status < 300].filter(Boolean)).toHaveLength(1);
+      const ship = await source.getRepository(Spacecraft).findOneByOrFail({ id: leader.id });
+      const placed = await orders();
+      if (order.status < 300) {
+        expect(placed).toHaveLength(1);
+        expect(ship.locationId).toBe(leader.locationId);
+      } else {
+        expect(placed).toEqual([]);
+        expect(ship.locationId).not.toBe(leader.locationId);
+      }
     });
   });
 });

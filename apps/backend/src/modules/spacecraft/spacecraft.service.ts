@@ -144,6 +144,7 @@ import { DockingPrivilegeService } from './docking-privilege.service';
 import { DOCK_EPS_COST } from './docking.constants';
 import { FieldTransitionExecutor } from './field-transition-executor';
 import { ORBIT_ORDER_VIEW, type OrbitOrderViewPort } from './orbit-order-view.port';
+import { ORBIT_ORDER_LIFECYCLE, type OrbitOrderLifecyclePort } from './orbit-order-lifecycle.port';
 import { applyLssSensorEffects } from './lss-sensor-effects';
 
 /** Ship after a field-by-field flight and how the flight ended. */
@@ -260,7 +261,29 @@ export class SpacecraftService {
     @Optional()
     @Inject(ORBIT_ORDER_VIEW)
     private readonly orbitOrderView?: OrbitOrderViewPort,
+    @Optional()
+    @Inject(ORBIT_ORDER_LIFECYCLE)
+    private readonly orbitOrders?: OrbitOrderLifecyclePort,
   ) {}
+
+  /**
+   * STU flight lock: the leader of a fleet holding a colony orbit order stays
+   * in orbit. Early check before a flight changes anything; the binding check
+   * runs again under the fleet lock in `saveMovementParticipants`.
+   */
+  private async assertNoOrbitOrderFlightLock(
+    shipId: number,
+    manager: EntityManager = this.dataSource.manager,
+  ): Promise<void> {
+    const lifecycle = this.orbitOrders?.lifecycle;
+    if (!lifecycle) return;
+    const ship = await manager.findOneBy(Spacecraft, { id: shipId });
+    if (ship?.fleetId == null) return;
+    const fleet = await manager.findOneBy(Fleet, { id: ship.fleetId });
+    if (fleet?.leaderId !== shipId) return;
+    const reason = await lifecycle.flightBlockReason(manager, fleet.id);
+    if (reason) throw new BadRequestException(reason);
+  }
 
   async getTorpedoStorage(shipId: number, userId: number) {
     const ship = await this.findOne(shipId, userId);
@@ -2012,6 +2035,7 @@ export class SpacecraftService {
     targetX: number,
     targetY: number,
   ): Promise<SpacecraftMovement> {
+    await this.assertNoOrbitOrderFlightLock(shipId);
     await this.cartographyPlanService.resetFinishingForSpacecraft(shipId);
     await this.takeoverService.cancelForShip(shipId);
     const ship = await this.findOne(shipId, userId);
@@ -2145,6 +2169,7 @@ export class SpacecraftService {
           originals,
           carried,
         );
+        for (const target of carried) await this.cancelTowedOrbitOrder(target);
         for (const member of moving) {
           await this.flightSignatureService.createMovement(
             member,
@@ -2242,6 +2267,7 @@ export class SpacecraftService {
     targetX: number,
     targetY: number,
   ): Promise<SpacecraftMovement> {
+    await this.assertNoOrbitOrderFlightLock(shipId);
     const ship = await this.findOne(shipId, userId);
     const originals = captureMovementOriginals(ship);
     if (ship.kind === 'STATION')
@@ -2470,6 +2496,15 @@ export class SpacecraftService {
             'Bewegungszustand ist veraltet; bitte erneut versuchen',
           );
         }
+        // STU flight lock under the fleet lock: exactly one of a flight and
+        // an orbit order start of the same fleet wins.
+        if (fleet && fleet.leaderId === leader.id) {
+          const blocked = await this.orbitOrders?.lifecycle?.flightBlockReason(
+            manager,
+            fleet.id,
+          );
+          if (blocked) throw new BadRequestException(blocked);
+        }
         const expectedFleet = originals.fleet;
         if (
           fleet
@@ -2603,6 +2638,7 @@ export class SpacecraftService {
 
   // Enter a star system from the galaxy map
   async enterSystem(shipId: number, userId: number): Promise<Spacecraft> {
+    await this.assertNoOrbitOrderFlightLock(shipId);
     const ship = await this.findOne(shipId, userId);
     const originals = captureMovementOriginals(ship);
     if (ship.kind === 'STATION') {
@@ -2765,6 +2801,7 @@ export class SpacecraftService {
 
   // Leave a star system back to the galaxy map
   async leaveSystem(shipId: number, userId: number): Promise<Spacecraft> {
+    await this.assertNoOrbitOrderFlightLock(shipId);
     const ship = await this.findOne(shipId, userId);
     const originals = captureMovementOriginals(ship);
     if (ship.kind === 'STATION') {
@@ -3150,19 +3187,42 @@ export class SpacecraftService {
     return this.findOne(shipId, userId);
   }
 
+  /** STU `TractorConsequence`: towing a fleet leader away ends its order. */
+  private async cancelTowedOrbitOrder(target: Spacecraft): Promise<void> {
+    const lifecycle = this.orbitOrders?.lifecycle;
+    if (!lifecycle || target.fleetId == null) return;
+    const notify = await this.dataSource.transaction(async (manager) => {
+      const fleet = await manager.findOne(Fleet, {
+        where: { id: target.fleetId ?? undefined },
+        lock: { mode: 'for_no_key_update' },
+      });
+      if (fleet?.leaderId !== target.id) return null;
+      return lifecycle.cancelForFleet(manager, fleet.id, {
+        towedShipName: target.name,
+      });
+    });
+    await notify?.();
+  }
+
+  /** Returns the orbit order notifications to send after the commit. */
   private async dissolveLockedFleet(
     manager: EntityManager,
     fleet: Fleet,
     members: Spacecraft[],
-  ): Promise<void> {
+  ): Promise<() => Promise<void>> {
+    // STU `DeleteFleet`: a running orbit order ends before the fleet goes.
+    const notify =
+      (await this.orbitOrders?.lifecycle?.cancelForFleet(manager, fleet.id)) ??
+      (async () => undefined);
     for (const member of members) {
       await manager.update(Spacecraft, member.id, { fleetId: null });
     }
     await manager.delete(Fleet, fleet.id);
+    return notify;
   }
 
   async dissolveFleet(userId: number, fleetId: number): Promise<void> {
-    await this.dataSource.transaction(async (manager) => {
+    const notify = await this.dataSource.transaction(async (manager) => {
       const hint = await manager.findOneBy(Fleet, { id: fleetId, userId });
       if (!hint) throw new NotFoundException('Flotte nicht gefunden');
       const { fleet, members } = await lockFleetParticipants(
@@ -3172,8 +3232,9 @@ export class SpacecraftService {
         fleetId,
       );
       if (!fleet) throw new NotFoundException('Flotte nicht gefunden');
-      await this.dissolveLockedFleet(manager, fleet, members);
+      return this.dissolveLockedFleet(manager, fleet, members);
     });
+    await notify();
   }
 
   async renameFleet(
@@ -3260,6 +3321,11 @@ export class SpacecraftService {
         );
       }
       await manager.update(Fleet, fleet.id, { leaderId });
+      // The fleet keeps its orbit order (STU); it now hangs on the new leader.
+      await manager.query(
+        'UPDATE "colony_orbit_assignments" SET "spacecraftId" = $1 WHERE "fleetId" = $2',
+        [leaderId, fleet.id],
+      );
       fleet.leaderId = leaderId;
       return fleet;
     });

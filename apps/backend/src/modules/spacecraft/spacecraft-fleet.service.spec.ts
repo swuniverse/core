@@ -138,6 +138,7 @@ function createService() {
   const statistics = { countEvent: jest.fn(async () => undefined) };
   const manager = {
     queryRunner: { isTransactionActive: true },
+    query: jest.fn(async () => []),
     findOneBy: jest.fn((entity, where) =>
       entity === Fleet
         ? fleetRepo.findOne({ where })

@@ -22,6 +22,8 @@ export const ORBIT_ORDER_REASONS = {
   orbitalDefense:
     'Aktion nicht möglich, die Kolonie verfügt über aktive Orbitalverteidigung',
   noOrder: 'Die Flotte hat keinen Orbitauftrag.',
+  flightDuringDefense: 'Flug während Kolonie-Verteidigung nicht möglich',
+  flightDuringBlockade: 'Flug während Kolonie-Blockierung nicht möglich',
 } as const;
 
 export type OrbitOrderReason =
