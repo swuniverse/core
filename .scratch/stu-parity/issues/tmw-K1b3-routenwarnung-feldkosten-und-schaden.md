@@ -1,6 +1,6 @@
 # Routenwarnung für Feldkosten und Schadensrisiken
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** tmw-K1b1, tmw-K1b2
@@ -28,3 +28,7 @@ Vor der Bewegung zeigt die Oberfläche die tatsächlichen Grund- und Deflektorko
 ## Entscheidung
 
 Warnungen folgen dem autoritativen Transition- und Deflektormodell; es gibt keine separate Frontend-Berechnung.
+
+## Comments
+
+- 2026-11-15: Maintainer-Entscheidung „wie STU“: STU kennt keine Routenvorschau; Feldkosten stehen nur im Sektorscan des aktuellen Felds (`sectorScan.twig`: Energiekosten, „Spezialschaden (Schaden bei Deflektorausfall)“). Keine Routenvorschau gebaut. Der SWU-Sektorscan lieferte statt der Feldtypwerte die feldweisen Kopien und einen Platzhalter `specialDamage: 0`; er meldet jetzt `energyCost`, `damage` und `specialDamage` des Feldtyps (Frontend-Anzeige entsprach bereits STU). Commit 7015b894.
