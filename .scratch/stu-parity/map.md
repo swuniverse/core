@@ -170,11 +170,13 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-11-13 – tmw-T12a – Spieler-IDs beginnen wie in STU bei 100; Spielerhandelsnetze tragen die Eigentümer-ID und kollidieren nie mit den NPC-Netzen 1–3
 - 2026-11-13 – tmw-T12c – Statt STU `USER_NOONE` hat ein verlassener Handelsposten keinen Eigentümer (`trade_posts.ownerId` nullable); SWU legt keinen Platzhalter-Spieler an
 - 2026-11-13 – sh-AP-05b – Inhalte, die andere sehen, verlieren beim Löschen nur den Autor (`NULL`, Anzeige „Gelöschter Siedler“) statt eines Fallback-Kontos; Löschhandler können einen `prepare`-Schritt vor der Transaktion nutzen (Allianzaustritt)
+- 2026-11-15 – tmw-D5a – Datenbank-Awards wie STU: Rümpfe 25 („Raumfahrt gemeistert“), Planetentypen 50, Systemtypen 75, Sternensysteme je Ebene ein eigener Award (25)
 - 2026-11-14 – sc-WP-COMBAT-1c – Maintainer: „Wir halten uns an STU.“ Alarmreaktionen und Flottenflug folgen STU (`AlertReactionFacade`, `ShipMover`): alle berechtigten Parteien in zufälliger Reihenfolge, kein Flugstopp durch den Kampf, Überlebende fliegen weiter; Führungswechsel bei Leaderverlust folgt in sc-WP-FLEET-4
 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-D5a – STU-Datenbank-Awards (Rümpfe, Planetentypen, Systemtypen, Sternensysteme je Ebene) mit Zuordnungstabelle und kategorieneutralem Completion-Service, Fortschritt per `GET /database/category-progress` – ba2dfc6a
 - sc-WP-UI-3a3 – Orbitauftrag hält die Flotte wie STU fest (Flugsperre unter Flottensperre), zentraler Abbruch mit Nachrichten bei Auflösen/letzter Zerstörung/Traktor, Auftrag folgt dem Führer, Migration verwaister Aufträge – 71011cdd
 - sc-WP-UI-3a2 – Feldkontext zeigt flottenweiten Orbitauftrag mit serverseitiger Verfügbarkeit (gleiche Policy wie Mutation, Port `ORBIT_ORDER_VIEW`), Aktionen im `FieldContextPanel` – bf07459c
 - sc-WP-NAV-3b – Zeitbasierter Hyperraumsprung samt `IN_FLIGHT`, Ankunfts-Cron und Flugspalten entfernt; laufende Flüge per Migration auf den Ausgangsort zurückgesetzt – e093e694
