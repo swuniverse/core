@@ -27,6 +27,7 @@ import { InviteKey } from './modules/auth/invite-key.entity';
 import { InviteQuota } from './modules/auth/invite-quota.entity';
 import { UserLock } from './modules/auth/user-lock.entity';
 import { BlockedUser } from './modules/settings/entities/blocked-user.entity';
+import { DatabaseCategoryAward } from './modules/awards/entities/database-category-award.entity';
 import { Colony } from './modules/colony/entities/colony.entity';
 import { ColonyField } from './modules/colony/entities/colony-field.entity';
 import { ColonyStorage } from './modules/colony/entities/colony-storage.entity';
@@ -177,6 +178,7 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
           InviteQuota,
           UserLock,
           BlockedUser,
+          DatabaseCategoryAward,
           Colony,
           ColonyField,
           ColonyStorage,

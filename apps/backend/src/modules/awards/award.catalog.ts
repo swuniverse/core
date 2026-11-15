@@ -2,6 +2,10 @@ export const AWARD_CATALOG = [
   { key: 'RESEARCH_STATIONS', description: 'Stationsforschung abgeschlossen', prestige: 10, isNpc: false },
   { key: 'RESEARCH_INTERSTELLAR', description: 'Interstellare Forschung abgeschlossen', prestige: 10, isNpc: false },
   { key: 'DATABASE_COMPLETE', description: 'Eine Datenbankkategorie vervollständigt', prestige: 10, isNpc: false },
+  // STU database category awards (layered star system awards: database-category-award.ts).
+  { key: 'DATABASE_SHIP_HULLS', description: 'Der Spieler hat die Raumfahrt gemeistert', prestige: 25, isNpc: false },
+  { key: 'DATABASE_PLANET_TYPES', description: 'Der Spieler hat alle Planetentypen entdeckt', prestige: 50, isNpc: false },
+  { key: 'DATABASE_SYSTEM_TYPES', description: 'Der Spieler hat alle Sternensystemtypen entdeckt', prestige: 75, isNpc: false },
   { key: 'LAYER_EXPLORED', description: 'Eine Galaxieebene vollständig erkundet', prestige: 20, isNpc: false },
   { key: 'LOTTERY_WINNER', description: 'Gewinner der Hutten-Lotterie', prestige: 5, isNpc: false },
   { key: 'RPG_DISTINGUISHED_ROLE', description: 'Herausragende Rolle im Rollenspiel', prestige: 10, isNpc: false },

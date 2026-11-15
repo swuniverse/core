@@ -65,3 +65,30 @@ export interface CommodityOverviewEntryDto {
   commodityName: string;
   total: number;
 }
+
+/** Database categories whose completion grants an award (regions follow later). */
+export const DATABASE_AWARD_CATEGORIES = [
+  'SHIP_HULLS',
+  'PLANET_TYPES',
+  'SYSTEM_TYPES',
+  'SYSTEMS',
+] as const;
+export type DatabaseAwardCategory = (typeof DATABASE_AWARD_CATEGORIES)[number];
+
+/** Progress of one category (per layer for star systems) towards its award. */
+export interface DatabaseCategoryProgressDto {
+  category: DatabaseAwardCategory;
+  layerId: number | null;
+  layerName: string | null;
+  discovered: number;
+  total: number;
+  completed: boolean;
+  awardKey: string | null;
+  awarded: boolean;
+}
+
+/** Payload of `WsEventType.AWARD_GRANTED`. */
+export interface AwardGrantedEventDto {
+  awardKey: string;
+  description: string;
+}

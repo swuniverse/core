@@ -87,7 +87,10 @@ function createService(
 
 describe('StarmapAdminService createLayer', () => {
   it('persists and returns an optional layer award key', async () => {
-    const layerRepo = repo();
+    const query = jest.fn(async () => []);
+    const layerRepo = Object.assign(repo({ save: jest.fn(async (value) => ({ ...value, id: 4 })) }), {
+      manager: { query },
+    });
     const { service } = createService({ layerRepo });
 
     const result = await service.createLayer({
@@ -102,6 +105,11 @@ describe('StarmapAdminService createLayer', () => {
     );
     expect(result).toEqual(
       expect.objectContaining({ awardKey: 'LAYER_EXPLORED' }),
+    );
+    // Every new layer gets its own star system database award (tmw-D5a).
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO "database_category_awards"'),
+      [4, 'DATABASE_SYSTEMS_L4'],
     );
   });
 });

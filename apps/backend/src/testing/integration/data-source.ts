@@ -22,6 +22,10 @@ import { ForumPost } from '../../modules/alliance/entities/forum-post.entity';
 import { Message } from '../../modules/messaging/entities/message.entity';
 import { Layer } from '../../modules/starmap/entities/layer.entity';
 import { Contact } from '../../modules/contacts/entities/contact.entity';
+import { DatabaseCategoryAward } from '../../modules/awards/entities/database-category-award.entity';
+import { SystemTypeDiscovery } from '../../modules/starmap/entities/system-type-discovery.entity';
+import { ShipClassDiscovery } from '../../modules/spacecraft/entities/ship-class-discovery.entity';
+import { CelestialClassDiscovery } from '../../modules/starmap/entities/celestial-class-discovery.entity';
 import { UserSetting } from '../../modules/settings/entities/user-setting.entity';
 import { LayerKnowledge } from '../../modules/starmap/entities/layer-knowledge.entity';
 import { LayerExploredEvent } from '../../modules/starmap/entities/layer-explored-event.entity';
@@ -109,6 +113,10 @@ export const INTEGRATION_ENTITIES = [
   LayerKnowledge,
   UserSetting,
   Contact,
+  DatabaseCategoryAward,
+  SystemTypeDiscovery,
+  ShipClassDiscovery,
+  CelestialClassDiscovery,
   LayerExploredEvent,
   ExplorationState,
   SystemExploration,

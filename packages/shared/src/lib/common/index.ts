@@ -55,6 +55,7 @@ export interface WebSocketEvent<T = unknown> {
 
 export enum WsEventType {
   TICK = 'TICK',
+  AWARD_GRANTED = 'AWARD_GRANTED',
   COLONY_UPDATED = 'COLONY_UPDATED',
   COLONY_TICK_REPORT = 'COLONY_TICK_REPORT',
   RESEARCH_COMPLETED = 'RESEARCH_COMPLETED',

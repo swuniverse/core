@@ -86,6 +86,7 @@ import {
   createSwuTestSystemLayout,
   SWU_TEST_SYSTEM_KEY,
 } from './generator/swu-system-generator';
+import { ensureLayerSystemsAward } from '../awards/database-category-award';
 
 interface StarWarsSystemCatalogEntry {
   name: string;
@@ -354,6 +355,7 @@ export class StarmapAdminService {
       awardKey: input.awardKey?.trim() || null,
     });
     const createdLayer = await this.layerRepo.save(layer);
+    await ensureLayerSystemsAward(this.layerRepo.manager, createdLayer);
     return this.toLayerDto(createdLayer);
   }
 
@@ -378,6 +380,7 @@ export class StarmapAdminService {
         }),
       );
       createdLayer = true;
+      await ensureLayerSystemsAward(this.layerRepo.manager, layer);
     } else if (
       layer.width !== 120 ||
       layer.height !== 120 ||

@@ -14,6 +14,10 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { FactionModule } from '../faction/faction.module';
 import { GameDataModule } from '../game-data/game-data.module';
 import { WebsocketModule } from '../websocket/websocket.module';
+import { AwardsModule } from '../awards/awards.module';
+import { DatabaseCategoryAward } from '../awards/entities/database-category-award.entity';
+import { DatabaseCompletionService } from './database-completion.service';
+import { DatabaseProgressController } from './database-progress.controller';
 import { PrestigeHistoryEntry } from '../prestige/entities/prestige-history-entry.entity';
 import { CelestialClassDiscovery } from '../starmap/entities/celestial-class-discovery.entity';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
@@ -86,6 +90,7 @@ import { StarmapModule } from '../starmap/starmap.module';
       TradeTransaction,
       ExplorationState,
       HolonetRating,
+      DatabaseCategoryAward,
     ]),
     FactionModule,
     GameDataModule,
@@ -97,10 +102,12 @@ import { StarmapModule } from '../starmap/starmap.module';
     SettingsModule,
     RpgModule,
     StarmapModule,
+    AwardsModule,
   ],
-  controllers: [DatabaseController],
+  controllers: [DatabaseController, DatabaseProgressController],
   providers: [
     DatabaseService,
+    DatabaseCompletionService,
     ColonyScanProjectionService,
     CommodityOverviewService,
     OwnedStorageCommodityLocationSource,
@@ -140,6 +147,6 @@ import { StarmapModule } from '../starmap/starmap.module';
       ],
     },
   ],
-  exports: [DatabaseService, ColonyScanProjectionService],
+  exports: [DatabaseService, ColonyScanProjectionService, DatabaseCompletionService],
 })
 export class DatabaseModule {}
