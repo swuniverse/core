@@ -22,6 +22,7 @@ function createService(raw: Array<{ id: number }>) {
   };
   const manager = {
     findOneByOrFail: jest.fn().mockResolvedValue({ id: 4, name: 'Ikarus' }),
+    findOneBy: jest.fn().mockResolvedValue({ id: 7, isNpc: false }),
     createQueryBuilder: jest.fn().mockReturnValue(query),
   };
   const prestigeService = { change: jest.fn().mockResolvedValue(undefined) };

@@ -18,7 +18,10 @@ describe('CelestialClassDiscoveryService', () => {
       returning: jest.fn().mockReturnThis(),
       execute: jest.fn().mockResolvedValue({ raw: [] }),
     };
-    const manager = { createQueryBuilder: jest.fn().mockReturnValue(query) };
+    const manager = {
+      createQueryBuilder: jest.fn().mockReturnValue(query),
+      findOneBy: jest.fn().mockResolvedValue({ id: 7, isNpc: false }),
+    };
     const prestigeService = { change: jest.fn().mockResolvedValue(undefined) };
     const service = new CelestialClassDiscoveryService(
       { transaction: (work: (entityManager: unknown) => unknown) => work(manager) } as never,
@@ -49,8 +52,9 @@ describe('CelestialClassDiscoveryService', () => {
       returning: jest.fn().mockReturnThis(),
       execute: jest.fn().mockResolvedValue({ raw: [{ id: 1 }] }),
     };
-    const manager: { createQueryBuilder: jest.Mock } = {
+    const manager: { createQueryBuilder: jest.Mock; findOneBy: jest.Mock } = {
       createQueryBuilder: jest.fn().mockReturnValue(query),
+      findOneBy: jest.fn().mockResolvedValue({ id: 1, isNpc: false }),
     };
     const prestigeService = { change: jest.fn().mockResolvedValue(undefined) };
     const service = new CelestialClassDiscoveryService(

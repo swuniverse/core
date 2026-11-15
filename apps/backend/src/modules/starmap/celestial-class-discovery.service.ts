@@ -1,6 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { isNpcUser } from '../auth/non-npc-users';
+import {
+  DATABASE_DISCOVERY,
+  type DatabaseDiscoveryPort,
+} from '../database/database-discovery.port';
 import { STU_PRESTIGE } from '../prestige/prestige.constants';
 import { PrestigeService } from '../prestige/prestige.service';
 import {
@@ -16,6 +21,9 @@ export class CelestialClassDiscoveryService {
     @InjectRepository(CelestialClassDiscovery)
     private readonly discoveryRepo: Repository<CelestialClassDiscovery>,
     private readonly prestigeService: PrestigeService,
+    @Optional()
+    @Inject(DATABASE_DISCOVERY)
+    private readonly databaseDiscovery?: DatabaseDiscoveryPort,
   ) {}
 
   async discover(input: {
@@ -26,7 +34,7 @@ export class CelestialClassDiscoveryService {
     const definition = resolveSwuPlanetType(input.object);
     if (!definition) return null;
 
-    return this.dataSource.transaction(async (manager) => {
+    const outcome = await this.dataSource.transaction(async (manager) => {
       const result = await manager
         .createQueryBuilder()
         .insert()
@@ -45,6 +53,9 @@ export class CelestialClassDiscoveryService {
       if (!result.raw.length) {
         return { discovered: false, prestigeAwarded: 0, name: definition.name };
       }
+      if (await isNpcUser(manager, input.userId)) {
+        return { discovered: true, prestigeAwarded: 0, name: definition.name };
+      }
       await this.prestigeService.change(
         input.userId,
         STU_PRESTIGE.DISCOVER_PLANET_CLASS,
@@ -57,6 +68,16 @@ export class CelestialClassDiscoveryService {
         name: definition.name,
       };
     });
+    // First discovery by a player: notice and database award check (tmw-D5b).
+    if (outcome.discovered && outcome.prestigeAwarded > 0) {
+      await this.databaseDiscovery?.notify?.({
+        userId: input.userId,
+        category: 'PLANET_TYPES',
+        name: outcome.name,
+        prestige: outcome.prestigeAwarded,
+      });
+    }
+    return outcome;
   }
 
   getDiscoveries(userId: number) {

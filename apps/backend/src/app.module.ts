@@ -9,6 +9,7 @@ import { StarmapModule } from './modules/starmap/starmap.module';
 import { SpacecraftModule } from './modules/spacecraft/spacecraft.module';
 import { CombatModule } from './modules/combat/combat.module';
 import { AlertReactionModule } from './modules/alert-reaction/alert-reaction.module';
+import { DatabaseDiscoveryPortModule } from './modules/database/database-discovery.port';
 import { ResearchModule } from './modules/research/research.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { HolonetModule } from './modules/holonet/holonet.module';
@@ -311,6 +312,7 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
     SpacecraftModule,
     CombatModule,
     AlertReactionModule,
+    DatabaseDiscoveryPortModule,
     ResearchModule,
     MessagingModule,
     HolonetModule,

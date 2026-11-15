@@ -32,10 +32,19 @@ import { SYSTEM_TYPE_DEFINITIONS } from '../starmap/starmap-system-types';
 import { GameGateway } from '../websocket/game.gateway';
 import { DatabaseCompletionService } from './database-completion.service';
 import { DatabaseService } from './database.service';
+import { DatabaseDiscoveryListener } from './database-discovery.listener';
+import { DATABASE_DISCOVERY, type DatabaseDiscoveryPort } from './database-discovery.port';
+import { ShipClassDiscoveryService } from '../spacecraft/ship-class-discovery.service';
+import { CelestialClassDiscoveryService } from '../starmap/celestial-class-discovery.service';
+import { SystemTypeDiscoveryService } from '../starmap/system-type-discovery.service';
 
 describe('database category completion (PostgreSQL)', () => {
   let dataSource: DataSource;
   let service: DatabaseCompletionService;
+  let hulls: ShipClassDiscoveryService;
+  let planets: CelestialClassDiscoveryService;
+  let systemTypes: SystemTypeDiscoveryService;
+  const port: DatabaseDiscoveryPort = { notify: null };
   let close: () => Promise<void>;
   const emitToUser = jest.fn();
   const prestige = { change: jest.fn(async () => undefined) };
@@ -77,9 +86,19 @@ describe('database category completion (PostgreSQL)', () => {
         },
         DatabaseService,
         DatabaseCompletionService,
+        { provide: PrestigeService, useValue: prestige },
+        { provide: DATABASE_DISCOVERY, useValue: port },
+        ShipClassDiscoveryService,
+        CelestialClassDiscoveryService,
+        SystemTypeDiscoveryService,
+        DatabaseDiscoveryListener,
       ],
     }).compile();
+    await module.init();
     service = module.get(DatabaseCompletionService);
+    hulls = module.get(ShipClassDiscoveryService);
+    planets = module.get(CelestialClassDiscoveryService);
+    systemTypes = module.get(SystemTypeDiscoveryService);
     close = () => module.close();
   });
   afterAll(async () => {
@@ -254,6 +273,76 @@ describe('database category completion (PostgreSQL)', () => {
       completed: false,
       awardKey: 'DATABASE_SYSTEM_TYPES',
       awarded: false,
+    });
+  });
+
+  describe('discoveries (tmw-D5b)', () => {
+    const notices = (user: User) =>
+      emitToUser.mock.calls
+        .filter(([userId, type]) => userId === user.id && type === WsEventType.DATABASE_ENTRY_DISCOVERED)
+        .map(([, , payload]) => (payload as { text: string }).text);
+    const discoverType = (user: User, systemTypeId: number) =>
+      systemTypes.discover({ userId: user.id, systemTypeId, source: 'SECTOR_SCAN' });
+
+    it('announces a new system type once and grants the category award with the last one', async () => {
+      const [first, ...rest] = SYSTEM_TYPE_DEFINITIONS;
+      await dataSource.getRepository(SystemTypeDiscovery).save(
+        rest.map((definition) => ({ userId: player.id, systemTypeId: definition.id, source: 'SECTOR_SCAN' as const })),
+      );
+
+      await discoverType(player, first.id);
+      await discoverType(player, first.id);
+
+      expect(notices(player)).toEqual([expect.stringMatching(new RegExp(`^Neuer Datenbankeintrag: ${first.name} \\(\\+\\d+ Prestige\\)$`))]);
+      expect(await awardsOf(player)).toEqual(['DATABASE_SYSTEM_TYPES']);
+      expect(emitToUser).toHaveBeenCalledWith(player.id, WsEventType.AWARD_GRANTED, expect.objectContaining({ awardKey: 'DATABASE_SYSTEM_TYPES' }));
+    });
+
+    it('reports parallel discoveries of the same entry only once', async () => {
+      const type = SYSTEM_TYPE_DEFINITIONS[0];
+
+      await Promise.all([discoverType(player, type.id), discoverType(player, type.id), discoverType(player, type.id)]);
+
+      expect(notices(player)).toHaveLength(1);
+      expect(prestige.change).toHaveBeenCalledTimes(1);
+    });
+
+    it('announces planet types and completes ship hulls', async () => {
+      await expect(
+        planets.discover({ userId: player.id, object: { id: 3, classId: 201, name: null, objectType: 1 }, spacecraftId: 1 }),
+      ).resolves.toMatchObject({ discovered: true });
+      expect(notices(player)).toHaveLength(1);
+
+      const hull = await dataSource
+        .getRepository(ShipClassDef)
+        .save({ key: 'A_WING', name: 'A-Wing', category: 'FIGHTER', role: 'FIGHTER' });
+      const fieldTypeId = (await dataSource.getRepository(GalaxyFieldType).findOneByOrFail({})).id;
+      const field = await dataSource.getRepository(GalaxyField).save({ layerId: core.id, cx: 6, cy: 6, fieldTypeId });
+      const { id: locationId } = await dataSource.getRepository(SpaceLocation).findOneByOrFail({ galaxyFieldId: field.id });
+      const [scanner, target] = await dataSource.getRepository(Spacecraft).save([
+        { name: 'Scanner', userId: player.id, shipClassId: hull.id, locationId, runtimeSystems: {} },
+        { name: 'Ziel', userId: npc.id, shipClassId: hull.id, locationId, runtimeSystems: {} },
+      ]);
+      await hulls.discover({ userId: player.id, shipClassId: hull.id, sourceSpacecraftId: scanner.id, targetSpacecraftId: target.id });
+
+      expect(notices(player)).toEqual([
+        expect.stringMatching(/^Neuer Datenbankeintrag: .+ \(\+\d+ Prestige\)$/),
+        expect.stringMatching(/^Neuer Datenbankeintrag: A-Wing \(\+\d+ Prestige\)$/),
+      ]);
+      expect(await awardsOf(player)).toEqual(['DATABASE_SHIP_HULLS']);
+    });
+
+    it('records NPC discoveries without prestige, notice or award', async () => {
+      const [first, ...rest] = SYSTEM_TYPE_DEFINITIONS;
+      await dataSource.getRepository(SystemTypeDiscovery).save(
+        rest.map((definition) => ({ userId: npc.id, systemTypeId: definition.id, source: 'SECTOR_SCAN' as const })),
+      );
+
+      await expect(discoverType(npc, first.id)).resolves.toEqual({ discovered: true, prestigeAwarded: 0, name: first.name });
+
+      expect(prestige.change).not.toHaveBeenCalled();
+      expect(notices(npc)).toEqual([]);
+      expect(await awardsOf(npc)).toEqual([]);
     });
   });
 });

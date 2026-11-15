@@ -92,3 +92,12 @@ export interface AwardGrantedEventDto {
   awardKey: string;
   description: string;
 }
+
+/** Payload of `WsEventType.DATABASE_ENTRY_DISCOVERED` (STU achievement notice). */
+export interface DatabaseEntryDiscoveredEventDto {
+  category: DatabaseAwardCategory;
+  name: string;
+  prestige: number;
+  /** "Neuer Datenbankeintrag: <Name> (+x Prestige)" */
+  text: string;
+}

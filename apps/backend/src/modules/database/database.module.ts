@@ -17,6 +17,7 @@ import { WebsocketModule } from '../websocket/websocket.module';
 import { AwardsModule } from '../awards/awards.module';
 import { DatabaseCategoryAward } from '../awards/entities/database-category-award.entity';
 import { DatabaseCompletionService } from './database-completion.service';
+import { DatabaseDiscoveryListener } from './database-discovery.listener';
 import { DatabaseProgressController } from './database-progress.controller';
 import { PrestigeHistoryEntry } from '../prestige/entities/prestige-history-entry.entity';
 import { CelestialClassDiscovery } from '../starmap/entities/celestial-class-discovery.entity';
@@ -108,6 +109,7 @@ import { StarmapModule } from '../starmap/starmap.module';
   providers: [
     DatabaseService,
     DatabaseCompletionService,
+    DatabaseDiscoveryListener,
     ColonyScanProjectionService,
     CommodityOverviewService,
     OwnedStorageCommodityLocationSource,
