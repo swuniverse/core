@@ -176,6 +176,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 ## Erledigt
 
 <!-- Eine Zeile je resolved Issue: ID – Kurzbeschreibung – Commit -->
+- tmw-D5d – Datenbank-Hub zeigt Entdeckungsfortschritt je Kategorie (Sternensysteme je bekannter Ebene), globale Meldungen für neue Einträge und Awards – 32f9a833
 - tmw-D5c – Sternensystemkatalog (`inDatabaseCatalog`, Testsystem ausgeschlossen, Admin-Schalter) als Nenner je Ebene; abgeschlossene Kartographie meldet Datenbankeintrag und prüft den Ebenen-Award – 4f34d57f
 - tmw-D5b – Neue Entdeckung von Rumpf, Planetentyp oder Systemtyp meldet „Neuer Datenbankeintrag“ an den Spieler und prüft den Kategorie-Award (Port `DATABASE_DISCOVERY`), NPC ohne Prestige – 0b5782a0
 - tmw-D5a – STU-Datenbank-Awards (Rümpfe, Planetentypen, Systemtypen, Sternensysteme je Ebene) mit Zuordnungstabelle und kategorieneutralem Completion-Service, Fortschritt per `GET /database/category-progress` – ba2dfc6a
