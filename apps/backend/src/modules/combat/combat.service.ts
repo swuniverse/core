@@ -1,3 +1,7 @@
+import type { SpacecraftRuntimeSystemsDto } from '@swuniverse/shared';
+import { canDetectCloakedTarget } from '../spacecraft/spacecraft-tachyon-scan';
+import { isCloaked } from '../spacecraft/spacecraft-cloak';
+import { initializeSpacecraftRuntimeSystems } from '../spacecraft/spacecraft-runtime-state.service';
 import { InteractionContextService } from '../spacecraft/interaction-context.service';
 import { SpacecraftTrackerService } from '../spacecraft/spacecraft-tracker.service';
 import {
@@ -115,15 +119,20 @@ export class CombatService {
     if (attacker.status !== SpacecraftStatus.IDLE) {
       throw new BadRequestException('Ship must be idle to initiate combat');
     }
+    initializeSpacecraftRuntimeSystems(attacker);
+    const context = await this.interactionContext.load(attacker.id, defender.id, [
+      'targetOnVacation',
+      'sourceCloaked',
+      'targetCloaked',
+    ]);
     const vacation = checkInteraction(
-      await this.interactionContext.load(attacker.id, defender.id, [
-        'targetOnVacation',
-        'sourceCloaked',
-        'targetCloaked',
-      ]),
+      {
+        ...context,
+        targetCloakDetected: canDetectCloakedTarget(attacker, defender),
+      },
       [
         InteractionRule.SOURCE_UNCLOAKED,
-        InteractionRule.TARGET_UNCLOAKED,
+        InteractionRule.TARGET_DETECTED,
         InteractionRule.TARGET_VACATION,
       ],
     );
@@ -165,6 +174,18 @@ export class CombatService {
       attackers.push(attacker);
     if (!defenders.some((ship) => ship.id === defender.id))
       defenders.push(defender);
+
+    // The target becomes visible when the accepted attack starts, before the
+    // engine runs. Update the party instance; the resolver persists survivors.
+    if (isCloaked(defender)) {
+      if (!canDetectCloakedTarget(attacker, defender)) {
+        throw new BadRequestException('Das Ziel ist nicht erreichbar');
+      }
+      for (const target of defenders.filter((ship) => ship.id === defender.id)) {
+        const systems = target.runtimeSystems as SpacecraftRuntimeSystemsDto;
+        if (systems.CLOAK) systems.CLOAK.active = false;
+      }
+    }
 
     return this.battleResolver.resolve({
       attackers,
@@ -393,6 +414,7 @@ export class CombatService {
   }
 
   private readonly combatLocationRelations = [
+    'modules',
     'location',
     'location.galaxyField',
     'location.galaxyField.fieldType',

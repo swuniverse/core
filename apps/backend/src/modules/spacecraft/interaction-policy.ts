@@ -6,6 +6,7 @@ export enum InteractionRule {
   TARGET_UNHYPERSPACED = 'TARGET_UNHYPERSPACED',
   SOURCE_UNCLOAKED = 'SOURCE_UNCLOAKED',
   TARGET_UNCLOAKED = 'TARGET_UNCLOAKED',
+  TARGET_DETECTED = 'TARGET_DETECTED',
   SOURCE_UNSHIELDED = 'SOURCE_UNSHIELDED',
   TARGET_UNSHIELDED = 'TARGET_UNSHIELDED',
   TARGET_VACATION = 'TARGET_VACATION',
@@ -25,6 +26,8 @@ export interface InteractionContext {
   targetInHyperspace: boolean;
   sourceCloaked: boolean;
   targetCloaked: boolean;
+  /** A fresh scan permits an attack on this foreign target at the same field. */
+  targetCloakDetected?: boolean;
   sourceShieldsActive: boolean;
   targetShieldsActive: boolean;
   targetOnVacation: boolean;
@@ -76,6 +79,10 @@ const CHECKS: Record<InteractionRule, InteractionCheck> = {
   },
   [InteractionRule.TARGET_UNCLOAKED]: {
     rejected: (context) => context.targetCloaked,
+    reason: 'Das Ziel ist nicht erreichbar',
+  },
+  [InteractionRule.TARGET_DETECTED]: {
+    rejected: (context) => context.targetCloaked && !context.targetCloakDetected,
     reason: 'Das Ziel ist nicht erreichbar',
   },
   [InteractionRule.SOURCE_UNSHIELDED]: {

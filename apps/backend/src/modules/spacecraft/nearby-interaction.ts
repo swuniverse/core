@@ -27,9 +27,9 @@ export type NearbyInteraction =
  * Every caller derives permission and reason from `decideNearbyInteraction`.
  *
  * Extension hooks (not yet active, see INTERACTION_HOOKS):
- * - Cloaking (Tarnung): the cloaked-source and cloaked-target rules below
- *   mirror STU's EXPECT_SOURCE/TARGET_UNCLOAKED; NBS hides foreign cloaked
- *   ships entirely, so the target rule is a defence for direct API calls.
+ * - Cloaking (Tarnung): foreign cloaked contacts appear only after a fresh
+ *   scan. ATTACK accepts a detected cloak; other actions retain their
+ *   uncloaked-target requirement, including protection for direct API calls.
  * - Tractor beam (Traktorstrahl): a hook rejects MESSAGE and SALVAGE (and
  *   transfer) while the source is towed or towing, as in STU's tractor checks.
  * - Ion storm: a hook returns a rejection while the shared position carries an
@@ -49,7 +49,7 @@ export const NEARBY_INTERACTION_RULES: Record<
   ],
   ATTACK: [
     InteractionRule.SOURCE_UNCLOAKED,
-    InteractionRule.TARGET_UNCLOAKED,
+    InteractionRule.TARGET_DETECTED,
     InteractionRule.TARGET_VACATION,
     InteractionRule.SOURCE_UNHYPERSPACED,
     InteractionRule.TARGET_UNHYPERSPACED,
@@ -126,6 +126,7 @@ export function buildNearbyInteractionContext(
   target: SpacecraftLocationSource,
   targetSystems: SpacecraftRuntimeSystems,
   targetOnVacation = false,
+  targetCloakDetected = false,
 ): InteractionContext {
   return {
     samePosition: sameSpacecraftLocation(source, target),
@@ -138,6 +139,7 @@ export function buildNearbyInteractionContext(
     sourceShieldsActive: sourceSystems.SHIELDS?.active === true,
     targetShieldsActive: targetSystems.SHIELDS?.active === true,
     targetOnVacation,
+    targetCloakDetected,
     sourceDestroyed: false,
     targetDestroyed: false,
     sourceBlocked: false,

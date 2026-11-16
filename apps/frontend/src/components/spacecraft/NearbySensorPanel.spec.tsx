@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { NearbySensorPanel } from './NearbySensorPanel';
 
@@ -50,6 +50,36 @@ describe('NearbySensorPanel', () => {
     apiMocks.patch.mockReset();
     apiMocks.delete.mockReset();
   });
+  it('labels a detected cloak and attacks it through the regular combat API', async () => {
+    apiMocks.get.mockResolvedValue({ ...nearby, ships: [{ ...nearby.ships[0], cloaked: true }] });
+    apiMocks.post.mockResolvedValue({ rounds: [], outcome: { winner: 'draw' } });
+    const onUpdate = vi.fn();
+    render(<NearbySensorPanel shipId={2} locationKey="galaxy:1:5:5" systems={{ SHORT_RANGE_SENSORS: { active: true }, TRACKER: { active: false } }} onUpdate={onUpdate} />);
+    expect(await screen.findByText('Getarnt (aufgedeckt)')).toBeTruthy();
+    expect(screen.queryByTitle('Ziel mit Peilsender markieren')).toBeNull();
+    fireEvent.click(screen.getByTitle('Getarntes Ziel angreifen'));
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/combat/attack', { attackerId: 2, targetId: 3 }));
+    expect(onUpdate).toHaveBeenCalled();
+  });
+
+  it('removes detected contacts when the scan expires', async () => {
+    vi.useFakeTimers();
+    try {
+      apiMocks.get.mockResolvedValueOnce({ ...nearby, tachyonScanExpiresAt: Date.now() + 300_000, ships: [{ ...nearby.ships[0], cloaked: true }] }).mockResolvedValue({ ...nearby, ships: [] });
+      const view = render(<NearbySensorPanel shipId={2} locationKey="galaxy:1:5:5" systems={{ SHORT_RANGE_SENSORS: { active: true } }} onUpdate={vi.fn()} />);
+      await act(async () => { await Promise.resolve(); });
+      expect(screen.getByTitle('Getarntes Ziel angreifen')).toBeTruthy();
+      await act(async () => { vi.advanceTimersByTime(299_999); });
+      expect(apiMocks.get).toHaveBeenCalledTimes(1);
+      await act(async () => { vi.advanceTimersByTime(1); });
+      expect(apiMocks.get).toHaveBeenCalledTimes(2);
+      expect(screen.queryByTitle('Getarntes Ziel angreifen')).toBeNull();
+      view.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('uses active NBS and shows STU actions', async () => {
     apiMocks.get.mockImplementation((path: string) =>
       Promise.resolve(path.endsWith('/nearby') ? nearby : []),

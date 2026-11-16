@@ -549,6 +549,31 @@ describe('spacecraft core detail controls', () => {
     });
   });
 
+  it('shows detected NBS contacts only until expiry and offers only the attack action', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-11-16T12:00:00Z'));
+    try {
+      const { service, ship } = createService();
+      const location = { id: 100, kind: 'GALAXY_FIELD', galaxyField: { layerId: 1, cx: 1, cy: 1 } };
+      Object.assign(ship, { locationId: 100, location, runtimeSystems: {
+        TACHYON_SCANNER: { active: true, cooldown: 0, integrity: 100, lastScanAt: Date.now(), lastScanLocationId: 100 },
+      } });
+      const target = { id: 8, userId: 5, name: 'Getarnt', kind: 'SHIP', status: 'IDLE', locationId: 100, location, runtimeSystems: { CLOAK: { active: true } } };
+      const query: any = { getMany: jest.fn(async () => [target]) };
+      for (const method of ['leftJoinAndSelect', 'where', 'andWhere', 'leftJoin']) query[method] = jest.fn(() => query);
+      (service as any).shipRepo.createQueryBuilder = jest.fn(() => query);
+      (service as any).dataSource = { getRepository: () => ({ createQueryBuilder: () => ({ ...query, getMany: async () => [] }), find: async () => [] }) };
+      (service as any).escapePodService = { listNearby: async () => [] };
+      jest.spyOn(service, 'findOne').mockResolvedValue(ship as any);
+      const result = await service.getNearby(2, 1);
+      expect(result.ships).toHaveLength(1);
+      expect(result.ships[0]).toMatchObject({ id: 8, cloaked: true, actions: { attack: true, scan: false, contact: false, transfer: false, energyTransfer: false, boarding: false } });
+      jest.advanceTimersByTime(300_000);
+      expect((await service.getNearby(2, 1)).ships).toEqual([]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   describe('nearby sensors and cloak', () => {
     it('lists foreign cloaked ships for nobody but their owner', async () => {
       const { service, ship } = createService();

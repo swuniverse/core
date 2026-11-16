@@ -171,6 +171,71 @@ function createService() {
   };
 }
 
+describe('CombatService detected cloak attack', () => {
+  const now = new Date('2026-11-16T12:00:00Z');
+  beforeEach(() => jest.useFakeTimers().setSystemTime(now));
+  afterEach(() => jest.useRealTimers());
+
+  function setup() {
+    const fixture = createService();
+    const location = { id: 40, kind: 'GALAXY_FIELD', galaxyField: { layerId: 1, cx: 5, cy: 5 } };
+    const attacker: any = {
+      id: 2, userId: 1, status: 'IDLE', operatingMode: 'NORMAL', locationId: 40, location, fleetId: null,
+      modules: [{ moduleType: 'Gravitationswellenscanner', category: 'SPECIAL', isActive: true }],
+      runtimeSystems: { TACHYON_SCANNER: { active: true, integrity: 100, cooldown: 0, lastScanAt: now.getTime(), lastScanLocationId: 40 } },
+    };
+    const defender: any = {
+      id: 3, userId: 2, status: 'IDLE', operatingMode: 'NORMAL', locationId: 40, location, fleetId: null,
+      runtimeSystems: { CLOAK: { active: true, integrity: 100, cooldown: 0 } },
+    };
+    const partyDefender = { ...defender, runtimeSystems: { CLOAK: { ...defender.runtimeSystems.CLOAK } } };
+    fixture.shipRepo.findOne.mockResolvedValueOnce(attacker).mockResolvedValueOnce(defender);
+    fixture.shipRepo.find.mockResolvedValue([attacker, partyDefender]);
+    fixture.interactionContext.load.mockResolvedValue({ targetOnVacation: false, sourceCloaked: false, targetCloaked: true });
+    return { ...fixture, attacker, defender, partyDefender };
+  }
+
+  it('reveals the actual battle participant before fighting and persists the uncloaked survivor', async () => {
+    const { service, partyDefender, engine, shipRepo } = setup();
+    engine.resolveBattle.mockImplementation(async (attackers, defenders) => {
+      expect(defenders[0].ship.runtimeSystems.CLOAK.active).toBe(false);
+      return { rounds: [], winner: 'draw', destroyedShipIds: [], attackerShipIds: [2], defenderShipIds: [3] };
+    });
+    jest.advanceTimersByTime(299_999);
+    await service.attack(2, 3, 1);
+    expect(partyDefender.runtimeSystems.CLOAK.active).toBe(false);
+    expect(shipRepo.save).toHaveBeenCalledWith(expect.objectContaining({ id: 3, runtimeSystems: expect.objectContaining({ CLOAK: expect.objectContaining({ active: false }) }) }));
+  });
+
+  it.each(['absent', 'expired', 'inactive', 'damaged', 'removed', 'moved', 'remote', 'own', 'vacation', 'crew', 'source cloak'])('rejects %s detection without revealing the target', async (guard) => {
+    const { service, attacker, defender, partyDefender, engine, shipRepo, interactionContext, spacecraftCrewService } = setup();
+    if (guard === 'absent') delete attacker.runtimeSystems.TACHYON_SCANNER.lastScanAt;
+    if (guard === 'expired') jest.advanceTimersByTime(300_000);
+    if (guard === 'inactive') attacker.runtimeSystems.TACHYON_SCANNER.active = false;
+    if (guard === 'damaged') attacker.runtimeSystems.TACHYON_SCANNER.integrity = 0;
+    if (guard === 'removed') attacker.modules = [];
+    if (guard === 'moved') attacker.runtimeSystems.TACHYON_SCANNER.lastScanLocationId = 99;
+    if (guard === 'remote') { defender.locationId = 41; defender.location = { id: 41, kind: 'GALAXY_FIELD', galaxyField: { layerId: 1, cx: 6, cy: 5 } }; }
+    if (guard === 'own') defender.userId = attacker.userId;
+    if (guard === 'vacation') interactionContext.load.mockResolvedValue({ targetOnVacation: true, sourceCloaked: false, targetCloaked: true });
+    if (guard === 'source cloak') interactionContext.load.mockResolvedValue({ targetOnVacation: false, sourceCloaked: true, targetCloaked: true });
+    if (guard === 'crew') spacecraftCrewService.hasEnoughCrew.mockResolvedValue(false);
+    await expect(service.attack(2, 3, 1)).rejects.toThrow();
+    expect(engine.resolveBattle).not.toHaveBeenCalled();
+    expect(shipRepo.save).not.toHaveBeenCalled();
+    expect(defender.runtimeSystems.CLOAK.active).toBe(true);
+    expect(partyDefender.runtimeSystems.CLOAK.active).toBe(true);
+  });
+
+  it('rechecks the detection deadline after asynchronous preparation', async () => {
+    const { service, shipRepo, engine, partyDefender } = setup();
+    shipRepo.find.mockImplementation(async () => { jest.advanceTimersByTime(300_000); return []; });
+    await expect(service.attack(2, 3, 1)).rejects.toThrow('Das Ziel ist nicht erreichbar');
+    expect(engine.resolveBattle).not.toHaveBeenCalled();
+    expect(partyDefender.runtimeSystems.CLOAK.active).toBe(true);
+  });
+});
+
 describe('CombatService tracked attack', () => {
   it('requires the requested target to be marked by the attacker', async () => {
     const { service, shipRepo, trackerService } = createService();

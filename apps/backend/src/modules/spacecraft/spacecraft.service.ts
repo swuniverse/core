@@ -1,4 +1,4 @@
-import { tachyonScanExpiresAt } from './spacecraft-tachyon-scan';
+import { canDetectCloakedTarget, tachyonScanExpiresAt } from './spacecraft-tachyon-scan';
 import { isDeepStrictEqual } from 'node:util';
 import { stationBatteryReload } from './station-battery-reload';
 import {
@@ -4067,11 +4067,12 @@ export class SpacecraftService {
       );
     return {
       actionsAvailable: !hyperdriveActive,
+      tachyonScanExpiresAt: tachyonScanExpiresAt(ship),
       hyperdriveActive,
       ships: ships
         .filter(
           (target) =>
-            target.id !== ship.id && !isHiddenFromViewer(target, userId),
+            target.id !== ship.id && (!isHiddenFromViewer(target, userId) || canDetectCloakedTarget(ship, target)),
         )
         .map((target) => {
           const targetSystems =
@@ -4086,9 +4087,12 @@ export class SpacecraftService {
             target,
             targetSystems,
             targetOnVacation,
+            canDetectCloakedTarget(ship, target),
           );
           const interactionDecision = (interaction: NearbyInteraction) =>
-            decideNearbyInteraction(interaction, interactionContext);
+            isHiddenFromViewer(target, userId) && interaction !== 'ATTACK'
+              ? { allowed: false, reason: 'Das Ziel ist nicht erreichbar' }
+              : decideNearbyInteraction(interaction, interactionContext);
           const attackDecision = interactionDecision('ATTACK');
           return {
             id: target.id,
@@ -4098,6 +4102,7 @@ export class SpacecraftService {
             hull: target.hull,
             hullMax: target.hullMax,
             shields: target.shields,
+            cloaked: targetSystems.CLOAK?.active === true,
             shieldsActive: targetSystems.SHIELDS?.active === true,
             hyperdriveActive: targetHyperdriveActive,
             isOwn: target.userId === ship.userId,

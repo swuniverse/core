@@ -1,3 +1,5 @@
+import { sameSpacecraftLocation } from './spacecraft-field';
+import { isCloaked } from './spacecraft-cloak';
 import type { Spacecraft } from './entities/spacecraft.entity';
 import type { SpacecraftRuntimeSystemsDto } from '@swuniverse/shared';
 
@@ -23,4 +25,18 @@ export function tachyonScanExpiresAt(
   )
     return null;
   return scannedAt + TACHYON_SCAN_DURATION_MS;
+}
+
+/** A scan authorizes attacks only on foreign cloaks at the scanner's own field. */
+export function canDetectCloakedTarget(
+  source: Pick<Spacecraft, 'runtimeSystems' | 'locationId' | 'location' | 'userId'>,
+  target: Pick<Spacecraft, 'runtimeSystems' | 'locationId' | 'location' | 'userId'>,
+  now = Date.now(),
+): boolean {
+  return (
+    source.userId !== target.userId &&
+    isCloaked(target) &&
+    sameSpacecraftLocation(source, target) &&
+    tachyonScanExpiresAt(source, now) !== null
+  );
 }

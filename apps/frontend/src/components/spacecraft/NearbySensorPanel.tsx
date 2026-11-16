@@ -90,6 +90,13 @@ export function NearbySensorPanel({
     void refreshNearby();
   }, [locationKey, refreshKey, refreshNearby]);
 
+  useEffect(() => {
+    const expiresAt = nearby?.tachyonScanExpiresAt;
+    if (expiresAt == null) return;
+    const timer = setTimeout(() => void refreshNearby(), Math.max(0, expiresAt - Date.now()));
+    return () => clearTimeout(timer);
+  }, [nearby?.tachyonScanExpiresAt, refreshNearby]);
+
   useSocket(WsEventType.SPACECRAFT_EVENT, (payload) => {
     const event = payload as { shipId?: number; type?: string };
     if (event.type?.startsWith('HYPERSPACE_')) void refreshNearby();
@@ -318,19 +325,19 @@ export function NearbySensorPanel({
                         type="button"
                         onClick={() => void attack(target)}
                         title={
-                          target.actions.attackReason ?? `${target.name} angreifen`
+                          target.actions.attackReason ?? (target.cloaked ? 'Getarntes Ziel angreifen' : `${target.name} angreifen`)
                         }
                         className="mr-1 disabled:opacity-40"
                         disabled={!target.actions.attack}
                       >
                         <img
                           src="/assets/buttons/act_phaser1.png"
-                          alt="Angreifen"
+                          alt={target.cloaked ? 'Getarntes Ziel angreifen' : 'Angreifen'}
                           className="inline size-4"
                         />
                       </button>
                     )}
-                    {trackerAvailable && !target.isOwn && !target.inHyperspace && (
+                    {trackerAvailable && !target.isOwn && !target.inHyperspace && !target.cloaked && (
                       <button
                         type="button"
                         onClick={() => void track(target)}
@@ -495,6 +502,7 @@ export function NearbySensorPanel({
                     ) : (
                       target.name
                     )}
+                    {target.cloaked && <span className="ml-1 text-swu-muted">Getarnt (aufgedeckt)</span>}
                   </td>
                   <td className="border border-swu-border p-1 font-mono">
                     {target.hull}/{target.hullMax}

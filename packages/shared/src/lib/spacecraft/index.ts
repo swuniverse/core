@@ -765,6 +765,8 @@ export interface SpacecraftTargetScanDto {
 }
 
 export interface SpacecraftNearbyTargetDto {
+  /** Still cloaked, but this contact is visible to its owner or a fresh scan. */
+  cloaked?: boolean;
   id: number;
   name: string;
   shipClassId: number;
@@ -958,6 +960,7 @@ export interface SpacecraftNearbyEscapePodDto {
 }
 
 export interface SpacecraftNearbyDto {
+  tachyonScanExpiresAt?: number | null;
   actionsAvailable: boolean;
   hyperdriveActive: boolean;
   ships: SpacecraftNearbyTargetDto[];

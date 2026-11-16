@@ -25,6 +25,19 @@ const systems = (warp = false, shields = false) =>
 describe('nearby interaction decisions', () => {
   afterEach(() => (INTERACTION_HOOKS.length = 0));
 
+  it('permits only an attack on a detected cloak and keeps vacation protection', () => {
+    const context = buildNearbyInteractionContext(ship(1), systems(), ship(1), systems());
+    context.targetCloaked = true;
+    expect(decideNearbyInteraction('ATTACK', context).allowed).toBe(false);
+    context.targetCloakDetected = true;
+    expect(decideNearbyInteraction('ATTACK', context).allowed).toBe(true);
+    for (const action of ['SCAN', 'CONTACT', 'TRANSFER', 'BOARDING'] as const) {
+      expect(decideNearbyInteraction(action, context).allowed).toBe(false);
+    }
+    context.targetOnVacation = true;
+    expect(decideNearbyInteraction('ATTACK', context).allowed).toBe(false);
+  });
+
   it('rejects scan and intercept on different positions', () => {
     const context = buildNearbyInteractionContext(
       ship(1),
