@@ -238,7 +238,8 @@ export class DatabaseService {
       where: { id: In(onlineUserIds), ...NON_NPC_USER_WHERE },
       select: ['id', 'username', 'faction', 'avatar'],
     });
-    return users.map((u) => ({
+    const visible = await this.settingsReader.getManyBoolean(users.map(u => u.id), 'show_online_status');
+    return users.filter(u => visible.get(u.id)).map((u) => ({
       id: u.id,
       username: u.username,
       faction: u.faction,

@@ -1,6 +1,6 @@
 # Online-Status: öffentliche Online-Liste und Opt-out
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -26,9 +26,9 @@ SWU zeigt die Online-Spieler allen (Dashboard-Widget „Zufällige Spieler (onli
 
 ## Akzeptanzkriterien
 
-- [ ] Einstellung `show_online_status` (Default `'1'`); Spieler mit `'0'` erscheinen nicht in öffentlichen Online-Listen (`GET database/online`, Dashboard-Widget, sh-AP-18).
-- [ ] `CONTEXT.md` (Online-Status) wird angepasst: öffentlich sichtbar, sofern der Spieler ihn nicht abschaltet; in der Mitgliederübersicht der Allianz weiterhin sichtbar.
-- [ ] Backend- und Frontend-Tests.
+- [x] Einstellung `show_online_status` (Default `'1'`); Spieler mit `'0'` erscheinen nicht in öffentlichen Online-Listen (`GET database/online`, Dashboard-Widget, sh-AP-18).
+- [x] `CONTEXT.md` (Online-Status) wird angepasst: öffentlich sichtbar, sofern der Spieler ihn nicht abschaltet; in der Mitgliederübersicht der Allianz weiterhin sichtbar.
+- [x] Backend- und Frontend-Tests.
 
 ## Entscheidung
 
@@ -39,3 +39,13 @@ Vorgabe: Variante (a). Öffentliche Online-Listen bleiben; Einstellung `show_onl
 - 2026-10-21 Product Owner: Option a – Die öffentliche Online-Liste bleibt mit STU-Opt-out `show_online_status`; `CONTEXT.md` wird entsprechend angepasst.
 - 2026-10-29 Agent: Produktcode nach zwei ernsthaften Prüfläufen verworfen. `npx nx affected -t lint typecheck test --base=HEAD` scheitert reproduzierbar ausschließlich an `frontend:typecheck`: bestehender Fehler `apps/frontend/src/pages/database.tsx:1015` (`'REBEL' | 'EMPIRE' | null` ist nicht `Faction | null | undefined`) löst anschließend zahlreiche TS6305-Folgefehler aus. Die gezielten Backend-Tests (23/23), der neue Frontend-Test (2/2), Backend-Typecheck und `npx nx run-many --targets=build` waren grün. Bitte den unabhängigen Frontend-Typecheck-Blocker beheben oder bestätigen, dass dieser bekannte Fehler für den Abschluss ausgenommen werden darf.
 - 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Frontend-Faction-/TS6305-Gate); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.
+
+## Answer
+
+`show_online_status` ist standardmäßig aktiv und filtert bei Opt-out die öffentliche Online-Liste einschließlich Dashboard. Das Dashboard ergänzt ausgeblendete Spieler nicht mehr lokal. Allianz-Mitgliederstatus bleibt unabhängig. Die Einstellung ist im UI schaltbar; gemeinsame Schalter sind jetzt tastaturbedienbar und semantisch als Switch zugänglich. CONTEXT dokumentiert die Einstellung.
+
+## Validation
+
+Alle lint/typecheck/test- und Build-Gates grün: Backend 240 Suites / 2318 Tests, Frontend 123 Dateien / 846 Tests; Fokusprüfung des Opt-out-Schalters grün.
+
+- 2026-11-16: Vollständig umgesetzt und geprüft.

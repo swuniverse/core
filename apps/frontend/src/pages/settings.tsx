@@ -446,6 +446,17 @@ function GameplayTab() {
     await api.patch('/user/settings', { default_view: value });
   };
 
+  const setOnlineStatus = async (enabled: boolean) => {
+    const value = enabled ? '1' : '0';
+    const previous = settings.show_online_status ?? '1';
+    setSettings(current => ({ ...current, show_online_status: value }));
+    try { await api.patch('/user/settings', { show_online_status: value }); }
+    catch (error: unknown) {
+      setSettings(current => ({ ...current, show_online_status: previous }));
+      setError(getErrorMessage(error, 'Online-Status konnte nicht gespeichert werden.'));
+    }
+  };
+
   const setProfileVisitOptOut = async (enabled: boolean) => {
     const value = enabled ? '1' : '0';
     setSettings((current) => ({ ...current, profile_visit_optout: value }));
@@ -572,6 +583,10 @@ function GameplayTab() {
         {colorError && <p role="alert" className="mt-2 text-xs text-red-300">{colorError}</p>}
       </Section>
       <Section title="Datenschutz">
+        <Toggle label="Online-Status öffentlich anzeigen"
+          description="In deiner Allianz bleibt der Online-Status sichtbar."
+          checked={settings.show_online_status !== '0'}
+          onChange={() => void setOnlineStatus(settings.show_online_status === '0')} />
         <label className="flex items-center gap-2 text-sm text-swu-primary">
           <input
             type="checkbox"
@@ -990,14 +1005,18 @@ function Toggle({
   onChange: () => void;
 }) {
   return (
-    <label className="flex items-center justify-between gap-4 py-2 cursor-pointer">
+    <div className="flex items-center justify-between gap-4 py-2">
       <span>
         <span className="block text-sm text-swu-primary">{label}</span>
         {description && (
           <span className="block text-xs text-swu-muted">{description}</span>
         )}
       </span>
-      <div
+      <button
+        type="button"
+        role="switch"
+        aria-label={label}
+        aria-checked={checked}
         onClick={onChange}
         className={`w-10 h-5 rounded-full transition-colors relative ${
           checked ? 'bg-swu-accent' : 'bg-swu-border'
@@ -1008,7 +1027,7 @@ function Toggle({
             checked ? 'translate-x-5' : 'translate-x-0.5'
           }`}
         />
-      </div>
-    </label>
+      </button>
+    </div>
   );
 }

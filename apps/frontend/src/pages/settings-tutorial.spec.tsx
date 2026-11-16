@@ -89,3 +89,18 @@ describe('SettingsPage tutorial controls', () => {
     await waitFor(() => expect(apiMocks.post).toHaveBeenLastCalledWith('/tutorial/reset', {}));
   });
 });
+
+
+describe('Public online-status privacy', () => {
+  it('shows the default and saves opting out', async () => {
+    apiMocks.get.mockReset().mockResolvedValue({ show_online_status: '1' });
+    apiMocks.patch.mockReset().mockResolvedValue({});
+    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Gameplay' }));
+    const toggle = await screen.findByRole('switch', { name: 'Online-Status öffentlich anzeigen' });
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(toggle);
+    await waitFor(() => expect(apiMocks.patch).toHaveBeenCalledWith('/user/settings', { show_online_status: '0' }));
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+  });
+});

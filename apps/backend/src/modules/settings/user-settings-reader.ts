@@ -5,6 +5,7 @@ import { UserSetting } from './entities/user-setting.entity';
 import { RpgBehavior } from '@swuniverse/shared';
 
 export const BOOLEAN_SETTING_DEFAULTS = {
+  show_online_status: true,
   email_notification: true,
   storage_notification: false,
   show_pm_read_receipt: true,
@@ -15,6 +16,7 @@ export const BOOLEAN_SETTING_DEFAULTS = {
 export type BooleanSettingKey = keyof typeof BOOLEAN_SETTING_DEFAULTS;
 
 const SETTING_DEFAULTS: Record<string, string> = {
+  show_online_status: '1',
   email_notification: '1',
   storage_notification: '0',
   show_pm_read_receipt: '1',

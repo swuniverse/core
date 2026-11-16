@@ -40,7 +40,7 @@ function createService() {
     getMemberIds: jest.fn().mockResolvedValue([]),
   };
   const contacts = { incomingFriendIds: jest.fn().mockResolvedValue([]) };
-  const settingsReader = { getSettings: jest.fn().mockResolvedValue({ rpg_behavior: '0' }) };
+  const settingsReader = { getManyBoolean: jest.fn(async (ids: number[]) => new Map(ids.map(id => [id, true]))), getSettings: jest.fn().mockResolvedValue({ rpg_behavior: '0' }) };
   const rpgPlotService = { membershipsForUser: jest.fn().mockResolvedValue([]) };
   const userAwardRepo = { find: jest.fn().mockResolvedValue([]) };
   const profileVisitorService = { registerVisit: jest.fn() };
@@ -467,4 +467,14 @@ describe('DatabaseService settlers', () => {
 
     await expect(service.getSettler(1, 404)).rejects.toThrow(NotFoundException);
   });
+});
+
+
+it('excludes opted-out accounts from the public online list', async () => {
+  const { service, userRepo } = createService();
+  (service as unknown as { gameGateway: { onlineUserIds: number[] } }).gameGateway.onlineUserIds.push(1, 2);
+  userRepo.find.mockResolvedValue([{ id: 1, username: 'Leia' }, { id: 2, username: 'Han' }]);
+  const reader = (service as unknown as { settingsReader: { getManyBoolean: jest.Mock } }).settingsReader;
+  reader.getManyBoolean.mockResolvedValue(new Map([[1, true], [2, false]]));
+  expect(await service.getOnlinePlayers()).toEqual([expect.objectContaining({ id: 1 })]);
 });

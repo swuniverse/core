@@ -23,6 +23,7 @@ import {
 import { RpgBehavior } from '@swuniverse/shared';
 
 const SETTING_DEFAULTS: Record<string, string> = {
+  show_online_status: '1',
   email_notification: '1',
   storage_notification: '0',
   show_pm_read_receipt: '1',
@@ -40,6 +41,7 @@ const RPG_BEHAVIORS = new Set(
 );
 
 const BOOLEAN_SETTINGS = new Set([
+  'show_online_status',
   'email_notification',
   'storage_notification',
   'show_pm_read_receipt',

@@ -437,3 +437,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - soc-A4 – PM-Mail nach Zustellung hinter Betreiber-Flag und Empfänger-Opt-in, ohne Inhalt und ohne Blockieren der Nachricht umgesetzt; alle Pflicht-Gates grün – siehe [Ticket](issues/soc-A4-email-bei-neuer-pm.md).
 
 - soc-A7 – Eigene persönliche Nachrichtenordner als zweite Ebene mit atomarem Verschieben, Sortieren und Rückverschiebung beim Löschen umgesetzt. Feste Zähler unverändert; alle Pflicht-Gates und 5 PostgreSQL-Tests grün – siehe [Ticket](issues/soc-A7-eigene-nachrichtenordner.md).
+
+- soc-F3a – Öffentliche Online-Listen berücksichtigen das standardmäßig aktive `show_online_status`-Opt-out, Allianzstatus bleibt sichtbar. UI und alle Pflicht-Gates geprüft – siehe [Ticket](issues/soc-F3a-online-status-sichtbarkeit.md).

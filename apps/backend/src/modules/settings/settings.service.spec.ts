@@ -328,3 +328,12 @@ describe('SettingsService vacation cooldown', () => {
     expect(userRepo.save).toHaveBeenCalledWith(user);
   });
 });
+
+
+it('defaults public online visibility to on and only accepts boolean strings', async () => {
+  const { service, settingRepo } = createService();
+  expect((await service.getSettings(1)).show_online_status).toBe('1');
+  await service.updateSettings(1, { show_online_status: '0' });
+  expect(settingRepo.upsert).toHaveBeenCalledWith({ userId: 1, key: 'show_online_status', value: '0' }, ['userId', 'key']);
+  await expect(service.updateSettings(1, { show_online_status: 'false' })).rejects.toThrow(BadRequestException);
+});
