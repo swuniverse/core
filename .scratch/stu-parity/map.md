@@ -51,6 +51,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Entscheidungen
 
+- sc-WP-RES-2 – Das STU-Aggregationssystem heißt in SWU **Molekular-Raffinerie** (Ware 19012, SPECIAL-Fertigung mit Antriebsmodule Stufe I). Originale zehn Chargen und Rohwarenreferenzen bleiben erhalten; Rohwaren 63–72 erhalten SW-Namen und ergänzen unveränderte Standard-Nebel-/Asteroidenressourcen. Produzierbarkeit bedeutet wie STU einen durch eigene Forschung freigeschalteten Gebäudetyp mit positiver Zielwarenausgabe; ein vorhandenes Gebäude ist nicht erforderlich. Schiffe und Stationen teilen Auswahl, Laufzeitsystem und atomare Tickumwandlung; 15 EPS Aktivierung, 10 EPS je aktivem Tick – siehe [Ticket](issues/sc-WP-RES-2-umwandlungssystem.md).
+
 - sc-WP-RES-1 – Der Bussard-Kollektor heißt in SWU **Ressourcen-Kollektor** (Ware 19011, Fertigung mit Antriebsmodule Stufe I). Feldtyp-Raten sind im Karteneditor konfigurierbar: Nebel liefern standardmäßig Tibanna-Gas, Asteroidenfelder Phrik-/Cortosis-Erz mit je 100 Einheiten/Tick. Aktivierung 15 EPS, laufend 10 EPS; volles Lager, Bewegung und ungültige Systemvoraussetzungen beenden die Förderung – siehe [Ticket](issues/sc-WP-RES-1-ressourcen-sammeln-mining.md).
 
 - sc-WP-NAV-5b – Der Navicomputer-Sprung ist die einzige Langstreckensprung-Fähigkeit: freie passierbare Koordinate auf jeder persönlich bekannten, nicht verborgenen Ebene, ohne Route/Distanzkosten. Die vollständig vorvalidierte nicht fixierte Flotte springt atomar für 55 EPS je Schiff mit 300 Sekunden Spulen-Cooldown; Ziel-Feldeffekte gelten, Deflektor-Fluggebühren entfallen. Umsetzung und Prüfungen: [Ticket](issues/sc-WP-NAV-5b-transwarp-pendant.md).
@@ -415,3 +417,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-NAV-5b – Hyperraum-Spule, Fertigung und Navicomputer-Zielwahl mit atomarem Flottensprung, richtungslosen Signaturen, Sperr-/Rollback-Tests und zeitbasiertem Cooldown umgesetzt; alle Pflicht-Gates grün – siehe [Ticket](issues/sc-WP-NAV-5b-transwarp-pendant.md).
 
 - sc-WP-RES-1 – Ressourcen-Kollektor mit Fertigung, editierbaren Feldtyp-Ressourcen, Ressourcenwahl/Status in der Schiffskontrolle und atomarer lagerbegrenzter Tickförderung samt Flugabbruch umgesetzt. Migration auch in der lokalen Dev-DB eingespielt; vollständige Pflicht-Gates und 20 PostgreSQL-Tests grün – siehe [Ticket](issues/sc-WP-RES-1-ressourcen-sammeln-mining.md).
+
+- sc-WP-RES-2 – Molekular-Raffinerie mit Fertigung, auswählbaren STU-Chargen, erneutem Produktionsfreigabecheck je Tick und gemeinsamer Schiff-/Stationsumwandlung umgesetzt. Rohwaren sammelbar, Datenmigration lokal angewendet; vollständige Pflicht-Gates und 48 gemeinsame PostgreSQL-Tests grün – siehe [Ticket](issues/sc-WP-RES-2-umwandlungssystem.md).

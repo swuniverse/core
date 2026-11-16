@@ -1,3 +1,4 @@
+import { Research } from '../../modules/research/entities/research.entity';
 import { ColonySandbox } from '../../modules/colony/entities/colony-sandbox.entity';
 import { join } from 'node:path';
 import { DataSource } from 'typeorm';
@@ -92,6 +93,7 @@ import { BasicTradeRate } from '../../modules/trade/entities/basic-trade-rate.en
 
 /** Entities used by integration tests. Add more as suites need them. */
 export const INTEGRATION_ENTITIES = [
+  Research,
   User,
   Award,
   UserAward,

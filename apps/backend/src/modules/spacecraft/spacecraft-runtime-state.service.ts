@@ -47,6 +47,7 @@ export function getRuntimeSystemsForModule(
     if (name === 'hyperraumfeldscanner') return ['SUBSPACE_SCANNER'];
     if (name === 'matrixsensoren') return ['MATRIX_SCANNER'];
     if (name === 'gravitationswellenscanner') return ['TACHYON_SCANNER'];
+    if (name === 'molekular-raffinerie') return ['RESOURCE_CONVERTER'];
     if (name === 'ressourcen-kollektor') return ['RESOURCE_COLLECTOR'];
     if (name === 'hyperraum-spule') return ['HYPERSPACE_COIL'];
     if (name === 'peilsender') return ['TRACKER'];
@@ -136,6 +137,7 @@ export function initializeSpacecraftRuntimeSystems(
           key !== 'TRACKER' &&
           key !== 'HYPERSPACE_COIL' &&
           key !== 'RESOURCE_COLLECTOR' &&
+          key !== 'RESOURCE_CONVERTER' &&
           (key === 'LIFE_SUPPORT' ||
             key === 'DEFLECTOR' ||
             backingModules.length === 0 ||
@@ -159,7 +161,8 @@ export function initializeSpacecraftRuntimeSystems(
         key === 'CLOAK' ||
         key === 'TACHYON_SCANNER' ||
         key === 'HYPERSPACE_COIL' ||
-        key === 'RESOURCE_COLLECTOR'
+        key === 'RESOURCE_COLLECTOR' ||
+        key === 'RESOURCE_CONVERTER'
       )
         continue;
       systems[key] ??= { active: true, cooldown: 0, integrity: 100 };
@@ -212,6 +215,7 @@ function getAvailableSystems(
           'TRACKER',
           'HYPERSPACE_COIL',
           'RESOURCE_COLLECTOR',
+          'RESOURCE_CONVERTER',
         ].includes(key)
       )
         systems.add(key);

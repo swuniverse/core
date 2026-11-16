@@ -136,6 +136,7 @@ export const SPACECRAFT_RUNTIME_SYSTEM_KEYS = [
   'TRACKER',
   'HYPERSPACE_COIL',
   'RESOURCE_COLLECTOR',
+  'RESOURCE_CONVERTER',
   'LIFE_SUPPORT',
   'DEFLECTOR',
 ] as const;
@@ -1181,6 +1182,24 @@ export interface ResourceCollectionDto {
   selectedCommodityId: number | null;
   options: Array<FieldMiningResourceDto & { name: string }>;
   freeCargo: number;
+  activationEps: number;
+  epsPerTick: number;
+  blockReason: string | null;
+}
+
+export interface ResourceConversionDto {
+  active: boolean;
+  selectedCommodityId: number | null;
+  options: Array<{
+    sourceCommodityId: number;
+    targetCommodityId: number;
+    sourceName: string;
+    targetName: string;
+    inputAmount: number;
+    outputAmount: number;
+    mode: 'COMPRESSOR' | 'SUBLIMATOR';
+    producible: boolean;
+  }>;
   activationEps: number;
   epsPerTick: number;
   blockReason: string | null;

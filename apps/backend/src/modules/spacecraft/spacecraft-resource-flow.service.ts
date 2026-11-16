@@ -28,6 +28,7 @@ const SYSTEM_EPS_USAGE: Partial<Record<SpacecraftRuntimeSystemKey, number>> = {
   LIFE_SUPPORT: 1,
   DEFLECTOR: 0,
   RESOURCE_COLLECTOR: 10,
+  RESOURCE_CONVERTER: 10,
 };
 
 export const SPACECRAFT_REACTOR_FUEL_COMMODITY_ID = 5;
@@ -51,6 +52,7 @@ const SYSTEM_LABELS: Partial<Record<SpacecraftRuntimeSystemKey, string>> = {
   DEFLECTOR: 'Deflektor',
   HYPERSPACE_COIL: 'Hyperraum-Spule',
   RESOURCE_COLLECTOR: 'Ressourcen-Kollektor',
+      RESOURCE_CONVERTER: 'Molekular-Raffinerie',
 };
 
 @Injectable()
@@ -192,6 +194,7 @@ export class SpacecraftResourceFlowService {
       'CLOAK',
       'ASTROMETRY_LAB',
       'RESOURCE_COLLECTOR',
+      'RESOURCE_CONVERTER',
       'SPECIAL',
       'TORPEDO_BANK',
       'WEAPONS',

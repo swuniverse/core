@@ -1,3 +1,4 @@
+import { ResourceConversionService } from './resource-conversion.service';
 import { ResourceCollectionService } from './resource-collection.service';
 import { canDetectCloakedTarget, tachyonScanExpiresAt } from './spacecraft-tachyon-scan';
 import { isDeepStrictEqual } from 'node:util';
@@ -295,6 +296,7 @@ export class SpacecraftService {
     @Inject(DATABASE_DISCOVERY)
     private readonly databaseDiscovery?: DatabaseDiscoveryPort,
     @Optional() private readonly resourceCollection?: ResourceCollectionService,
+    @Optional() private readonly resourceConversion?: ResourceConversionService,
   ) {}
 
   /**
@@ -1179,6 +1181,7 @@ export class SpacecraftService {
     systemKey: SpacecraftRuntimeSystemKey,
     active: boolean,
   ): Promise<{ systems: unknown }> {
+    if (systemKey === 'RESOURCE_CONVERTER') throw new BadRequestException('Bitte das Raffinerie-Fenster verwenden');
     if (systemKey === 'RESOURCE_COLLECTOR') throw new BadRequestException('Bitte das Ressourcensammel-Fenster verwenden');
     const ship = await this.findOne(shipId, userId);
     if (active && systemKey !== 'LIFE_SUPPORT') {
@@ -1332,6 +1335,7 @@ export class SpacecraftService {
       TRACKER: 'Peilsender',
       HYPERSPACE_COIL: 'Hyperraum-Spule',
       RESOURCE_COLLECTOR: 'Ressourcen-Kollektor',
+      RESOURCE_CONVERTER: 'Molekular-Raffinerie',
       LIFE_SUPPORT: 'Lebenserhaltung',
       DEFLECTOR: 'Deflektor',
     };
@@ -5029,5 +5033,6 @@ export class SpacecraftService {
     await this.trackerService.processTick(ship);
     await this.shipRepo.save(ship);
     await this.resourceCollection?.processTick(ship.id);
+    await this.resourceConversion?.processTick(ship.id);
   }
 }

@@ -1,3 +1,5 @@
+import { ResourceConversionService } from './resource-conversion.service';
+import { ResourceConversionController } from './resource-conversion.controller';
 import { ResourceCollectionService } from './resource-collection.service';
 import { ResourceCollectionController, FieldMiningController } from './resource-collection.controller';
 import { NavicomputerJumpService } from './navicomputer-jump.service';
@@ -184,7 +186,7 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     forwardRef(() => TradeModule),
     AccountDeletionModule,
   ],
-  controllers: [SpacecraftController, NavicomputerJumpController, ResourceCollectionController, FieldMiningController],
+  controllers: [ResourceConversionController, SpacecraftController, NavicomputerJumpController, ResourceCollectionController, FieldMiningController],
   providers: [
     SpacecraftDeletionHandler,
     TradeDealFulfillmentAdapter,
@@ -192,6 +194,7 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     WormholePassageService,
     NavicomputerJumpService,
     ResourceCollectionService,
+    ResourceConversionService,
     WormholeRestrictionService,
     WormholeRestrictionAccessPolicy,
     { provide: WORMHOLE_ACCESS_POLICY, useExisting: WormholeRestrictionAccessPolicy },
