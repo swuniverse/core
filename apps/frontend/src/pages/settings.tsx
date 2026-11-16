@@ -1,3 +1,4 @@
+import { applyInterfaceTheme } from '../hooks/use-interface-theme';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AccountDeletionMark, VACATION_DELAY_MS, type AuthFeaturesDto } from '@swuniverse/shared';
@@ -440,6 +441,19 @@ function GameplayTab() {
     };
   }, []);
 
+  const setColorScheme = async (value: string) => {
+    const previous = settings.css_color_sheet ?? 'default';
+    const faction = useAuthStore.getState().user?.faction;
+    setSettings(current => ({ ...current, css_color_sheet: value }));
+    applyInterfaceTheme(value, faction);
+    try { await api.patch('/user/settings', { css_color_sheet: value }); }
+    catch (error: unknown) {
+      setSettings(current => ({ ...current, css_color_sheet: previous }));
+      applyInterfaceTheme(previous, faction);
+      setError(getErrorMessage(error, 'Farbschema konnte nicht gespeichert werden.'));
+    }
+  };
+
   const setDefault = async (value: string) => {
     const updated = { ...settings, default_view: value };
     setSettings(updated);
@@ -558,6 +572,16 @@ function GameplayTab() {
           <option value="messages">Nachrichten</option>
           <option value="research">Forschung</option>
           <option value="holonet">HoloNet</option>
+        </select>
+      </Section>
+      <Section title="Farbschema">
+        <label htmlFor="interface-color-scheme" className="text-xs text-swu-muted">Oberfläche</label>
+        <select id="interface-color-scheme" value={settings.css_color_sheet ?? 'default'}
+          onChange={event => void setColorScheme(event.target.value)}
+          className="bg-swu-bg border border-swu-border rounded p-2 text-sm text-swu-primary w-full">
+          <option value="default">Standard</option>
+          <option value="contrast">Kontrast (hell)</option>
+          <option value="faction">Fraktionsakzent</option>
         </select>
       </Section>
       <Section title="Territorialfarbe">

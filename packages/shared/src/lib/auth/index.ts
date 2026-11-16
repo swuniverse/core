@@ -99,3 +99,7 @@ export enum Faction {
   REBEL_ALLIANCE = 'REBEL_ALLIANCE',
   GALACTIC_EMPIRE = 'GALACTIC_EMPIRE',
 }
+
+/** Supported interface token palettes. */
+export const INTERFACE_COLOR_SCHEMES = ['default', 'contrast', 'faction'] as const;
+export type InterfaceColorScheme = typeof INTERFACE_COLOR_SCHEMES[number];

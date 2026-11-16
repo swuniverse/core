@@ -1,3 +1,4 @@
+import { useInterfaceTheme } from '../../hooks/use-interface-theme';
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import type { ColonyTickReportPayload, TutorialView } from '@swuniverse/shared';
@@ -53,6 +54,7 @@ export function AppShell() {
   const [tickReports, setTickReports] = useState<string[]>([]);
   const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
   const user = useAuthStore((state) => state.user);
+  useInterfaceTheme(user?.id, user?.faction);
   const setUser = useAuthStore((state) => state.setUser);
   const location = useLocation();
   const navigate = useNavigate();

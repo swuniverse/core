@@ -120,3 +120,38 @@ body {
     animation: none;
   }
 }
+
+
+:root[data-theme='contrast'] {
+  --color-swu-bg: #f4f6fb;
+  --color-swu-surface: #ffffff;
+  --color-swu-border: #67758d;
+  --color-swu-primary: #172b4d;
+  --color-swu-accent: #684800;
+  --color-swu-text: #111827;
+  --color-swu-muted: #46536a;
+  --color-swu-header: #e1e7f0;
+  --color-swu-danger: #a00000;
+  --color-swu-success: #00648a;
+  --color-swu-warning: #925000;
+  --color-swu-positive: #147231;
+  --color-swu-negative: #b91c1c;
+  --color-swu-orbit: #4338ca;
+  --color-swu-underground: #52525b;
+}
+
+:root[data-theme='faction'][data-faction='GALACTIC_EMPIRE'] {
+  --color-swu-bg: #111318;
+  --color-swu-surface: #20242c;
+  --color-swu-border: #596271;
+  --color-swu-primary: #d5dbe5;
+  --color-swu-accent: #ff8585;
+  --color-swu-header: #22252c;
+}
+
+:root[data-theme='faction'][data-faction='REBEL_ALLIANCE'] {
+  --color-swu-border: #8d5838;
+  --color-swu-primary: #c2d6ed;
+  --color-swu-accent: #ffb46b;
+  --color-swu-header: #30231f;
+}

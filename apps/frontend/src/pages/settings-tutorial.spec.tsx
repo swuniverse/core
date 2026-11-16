@@ -104,3 +104,17 @@ describe('Public online-status privacy', () => {
     expect(toggle.getAttribute('aria-checked')).toBe('false');
   });
 });
+
+
+describe('Interface palette', () => {
+  it('applies a palette immediately and saves it', async () => {
+    apiMocks.get.mockReset().mockResolvedValue({ css_color_sheet: 'default' });
+    apiMocks.patch.mockReset().mockResolvedValue({});
+    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Gameplay' }));
+    const selector = await screen.findByLabelText('Oberfläche');
+    fireEvent.change(selector, { target: { value: 'contrast' } });
+    expect(document.documentElement.dataset.theme).toBe('contrast');
+    await waitFor(() => expect(apiMocks.patch).toHaveBeenCalledWith('/user/settings', { css_color_sheet: 'contrast' }));
+  });
+});

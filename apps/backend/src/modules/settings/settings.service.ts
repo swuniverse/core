@@ -20,7 +20,7 @@ import {
   EMAIL_BLOCKLIST,
   type EmailBlocklistPort,
 } from './email-blocklist.port';
-import { RpgBehavior } from '@swuniverse/shared';
+import { INTERFACE_COLOR_SCHEMES, RpgBehavior } from '@swuniverse/shared';
 
 const SETTING_DEFAULTS: Record<string, string> = {
   show_online_status: '1',
@@ -29,6 +29,7 @@ const SETTING_DEFAULTS: Record<string, string> = {
   show_pm_read_receipt: '1',
   profile_visit_optout: '0',
   inbox_messenger_style: '0',
+  css_color_sheet: 'default',
   rgb_code: '',
   default_view: 'maindesk',
   rpg_behavior: String(RpgBehavior.NOT_SET),
@@ -94,6 +95,9 @@ export class SettingsService {
         throw new BadRequestException(`Invalid setting key: ${key}`);
       }
       if (BOOLEAN_SETTINGS.has(key) && value !== '0' && value !== '1') {
+        throw new BadRequestException(`Invalid setting value: ${key}`);
+      }
+      if (key === 'css_color_sheet' && !INTERFACE_COLOR_SCHEMES.some(scheme => scheme === value)) {
         throw new BadRequestException(`Invalid setting value: ${key}`);
       }
       if (key === 'default_view' && !DEFAULT_VIEWS.has(value)) {

@@ -337,3 +337,12 @@ it('defaults public online visibility to on and only accepts boolean strings', a
   expect(settingRepo.upsert).toHaveBeenCalledWith({ userId: 1, key: 'show_online_status', value: '0' }, ['userId', 'key']);
   await expect(service.updateSettings(1, { show_online_status: 'false' })).rejects.toThrow(BadRequestException);
 });
+
+
+it('accepts only the interface palette allowlist with a default palette', async () => {
+  const { service, settingRepo } = createService();
+  expect((await service.getSettings(1)).css_color_sheet).toBe('default');
+  for (const value of ['default', 'contrast', 'faction']) await service.updateSettings(1, { css_color_sheet: value });
+  expect(settingRepo.upsert).toHaveBeenCalledTimes(3);
+  for (const value of ['custom', '<style>', '', 'CONTRAST']) await expect(service.updateSettings(1, { css_color_sheet: value })).rejects.toThrow(BadRequestException);
+});
