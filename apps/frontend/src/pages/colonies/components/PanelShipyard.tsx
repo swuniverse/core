@@ -1222,34 +1222,66 @@ export function PanelShipyard({
                 Keine passenden demontierbaren Schiffe im Orbit.
               </div>
             )}
-            {disassemblableShipsForSelectedShipyard.map((ship) => (
-              <div
-                key={ship.id}
-                className="flex items-center justify-between gap-3 border-b border-swu-border/20 pb-2 last:border-0 last:pb-0"
-              >
-                <div>
-                  <div className="font-bold text-swu-primary">{ship.name}</div>
-                  <div className="text-[10px] text-swu-muted">
-                    {ship.shipClassName ?? `Klasse #${ship.shipClassId}`} · Crew{' '}
-                    {ship.crew}/{ship.crewMax} · Cargo/Module werden
-                    zurückgeführt, Rückbau ist endgültig.
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    if (!window.confirm(`${ship.name} wirklich demontieren?`))
-                      return;
-                    void runShipyardAction(`disassemble-${ship.id}`, () =>
-                      onDisassembleShip(ship.id),
-                    );
-                  }}
-                  disabled={busyShipyardAction === `disassemble-${ship.id}`}
-                  className="rounded border border-red-500/50 bg-red-900/20 px-3 py-1 text-[10px] font-semibold text-red-300 disabled:opacity-40"
+            {disassemblableShipsForSelectedShipyard.map((ship) => {
+              const formatReturns = (
+                items: Array<{ commodityId: number; amount: number }> = [],
+              ) =>
+                items.length > 0
+                  ? items
+                      .map(
+                        (item) =>
+                          `${item.amount} ${commodityMap[item.commodityId]?.name ?? `Ware #${item.commodityId}`}`,
+                      )
+                      .join(', ')
+                  : 'keine';
+              const reactorReturn = `Reaktorladung: ${formatReturns(ship.disassemblyReturns?.reactorFuel)}`;
+              const torpedoReturn = `Torpedos: ${formatReturns(ship.disassemblyReturns?.torpedoes)}`;
+              return (
+                <div
+                  key={ship.id}
+                  className="flex items-center justify-between gap-3 border-b border-swu-border/20 pb-2 last:border-0 last:pb-0"
                 >
-                  Demontieren
-                </button>
-              </div>
-            ))}
+                  <div>
+                    <div className="font-bold text-swu-primary">
+                      {ship.name}
+                    </div>
+                    <div className="text-[10px] text-swu-muted">
+                      {ship.shipClassName ?? `Klasse #${ship.shipClassId}`} ·
+                      Crew {ship.crew}/{ship.crewMax} · Fracht und einige
+                      eingebaute Module werden zurückgeführt.
+                    </div>
+                    <div className="text-[10px] text-swu-muted">
+                      {reactorReturn}
+                    </div>
+                    <div className="text-[10px] text-swu-muted">
+                      {torpedoReturn}
+                    </div>
+                    <div className="text-[10px] text-swu-muted">
+                      Rückgaben sind auf den freien Lagerplatz begrenzt. Keine
+                      Rumpfkostenerstattung. Demontage ist endgültig (20
+                      Energie).
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (
+                        !window.confirm(
+                          `${ship.name} wirklich demontieren?\nEinige eingebaute Module und Fracht.\n${reactorReturn}\n${torpedoReturn}\nBegrenzt auf freien Lagerplatz; keine Rumpfkostenerstattung. Kosten: 20 Energie.`,
+                        )
+                      )
+                        return;
+                      void runShipyardAction(`disassemble-${ship.id}`, () =>
+                        onDisassembleShip(ship.id),
+                      );
+                    }}
+                    disabled={busyShipyardAction === `disassemble-${ship.id}`}
+                    className="rounded border border-red-500/50 bg-red-900/20 px-3 py-1 text-[10px] font-semibold text-red-300 disabled:opacity-40"
+                  >
+                    Demontieren
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

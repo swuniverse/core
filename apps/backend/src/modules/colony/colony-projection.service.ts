@@ -9,6 +9,8 @@ import {
   Spacecraft,
   SpacecraftStatus,
 } from '../spacecraft/entities/spacecraft.entity';
+import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
+import { recoverableReactorFuel } from '../spacecraft/reactor-fuel-profile';
 import { matchesColonyOrbit } from '../spacecraft/spacecraft-field';
 import {
   GameDataService,
@@ -222,6 +224,7 @@ export class ColonyProjectionService {
     private readonly colonyDefenseService: ColonyDefenseService,
     private readonly colonySocialService: ColonySocialService,
     private readonly colonyOrbitService: ColonyOrbitService,
+    private readonly spacecraftTorpedoService: SpacecraftTorpedoService,
   ) {}
 
   /**
@@ -353,6 +356,17 @@ export class ColonyProjectionService {
         ? await this.orbitAssignmentRepo.find({ where: { fleetId: In(orbitFleetIds) } })
         : []
       ).map((assignment) => [assignment.fleetId, assignment]),
+    );
+    const torpedoesByShipId = new Map(
+      await Promise.all(
+        orbitShips.map(
+          async (ship) =>
+            [
+              ship.id,
+              await this.spacecraftTorpedoService.getStorage(ship.id),
+            ] as const,
+        ),
+      ),
     );
     const orbitShipModules = orbitShips.length
       ? await this.spacecraftModuleRepo.find({
@@ -905,6 +919,15 @@ export class ColonyProjectionService {
             hasEnoughCrew: crewRequired <= 0 || ship.crew >= crewRequired,
             canLand: landReason == null,
             landReason,
+            disassemblyReturns: {
+              reactorFuel: recoverableReactorFuel(ship.reactorFuel, modules),
+              torpedoes: (torpedoesByShipId.get(ship.id) ?? [])
+                .filter((item) => item.amount > 0)
+                .map((item) => ({
+                  commodityId: item.commodityId,
+                  amount: item.amount,
+                })),
+            },
             canDisassemble:
               canManage &&
               getColonyChangeable(colony).energy >= 20 &&

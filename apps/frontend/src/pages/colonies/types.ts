@@ -379,6 +379,7 @@ export interface ColonyDetailV2 {
     hasEnoughCrew: boolean;
     canLand?: boolean;
     landReason?: string | null;
+    disassemblyReturns?: import('@swuniverse/shared').ShipDisassemblyReturns;
     canDisassemble?: boolean;
     canRepair?: boolean;
     canRetrofit?: boolean;

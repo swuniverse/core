@@ -1174,6 +1174,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     colonyStorageService as any,
   );
   const spacecraftTorpedoService = {
+    getStorage: jest.fn<Promise<any[]>, any[]>(async () => []),
     loadFromColony: jest.fn(async () => undefined),
   };
   const colonyCrewService = {
@@ -1317,6 +1318,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     colonyDefenseService as any,
     colonySocialService as any,
     orbitService as any,
+    spacecraftTorpedoService as any,
   );
   const messagingService = { sendSystem: jest.fn() };
   // Occupied BUILD/RETROFIT slots seen by the transactional slot check.
@@ -6218,7 +6220,162 @@ describe('orbit ship operations', () => {
     );
   });
 
-  it('disassembles ships with energy cost and refund', async () => {
+  describe('disassembly returns', () => {
+    function setup(storageMax = 100) {
+      const context = createColonyService();
+      const colony = {
+        id: 1,
+        userId: 1,
+        ...orbitColonyLocation,
+        colonyClassId: 999,
+        energy: 50,
+        storageMax,
+        fields: [{ id: 1, buildingId: 85130100, isBuilding: false, isActive: true }],
+        storage: [],
+        stats: { workless: 0, trainedCrew: 0 },
+      };
+      context.colonyRepo.findOne.mockResolvedValue(colony);
+      context.shipRepo.findOne.mockResolvedValue({
+        id: 8,
+        userId: 1,
+        shipClassId: 1,
+        ...orbitShipLocation,
+        crew: 1,
+        cargoUsed: 4,
+        reactorFuel: 61,
+      });
+      context.shipClassRepo.findOneBy.mockResolvedValue({
+        id: 1,
+        category: 'CORVETTE',
+      });
+      context.spacecraftModuleRepo.find.mockResolvedValue([
+        { moduleType: 'good', category: 'HULL', level: 1, integrity: 100 },
+        { moduleType: 'damaged', category: 'HULL', level: 1, integrity: 20 },
+        { moduleType: 'broken', category: 'HULL', level: 1, integrity: 0 },
+        { moduleType: 'unknown', category: 'HULL', level: 1, integrity: 100 },
+      ]);
+      context.gameData.getAllFabricationItems.mockReturnValue(
+        ['good', 'damaged', 'broken'].map((moduleType, index) => ({
+          queueType: 'MODULE',
+          moduleType,
+          shipyardType: 'HULL',
+          moduleLevel: 1,
+          outputCommodityId: 100 + index,
+          buildingFunctionIds: [],
+        })),
+      );
+      context.spacecraftTorpedoService.getStorage.mockResolvedValue([
+        { commodityId: 81, amount: 3 },
+        { commodityId: 82, amount: 5 },
+      ]);
+      context.cargoRepo.find.mockResolvedValue([{ commodityId: 2, amount: 4 }]);
+      const stored = new Map<number, number>();
+      context.storageRepo.findOne.mockImplementation(async ({ where }) =>
+        stored.has(where.commodityId)
+          ? {
+              commodityId: where.commodityId,
+              amount: stored.get(where.commodityId),
+            }
+          : null,
+      );
+      context.storageRepo.save.mockImplementation(async (item) => {
+        stored.set(item.commodityId, item.amount);
+        return item;
+      });
+      context.storageRepo.createQueryBuilder.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn(async () => ({
+          total: [...stored.values()].reduce((a, b) => a + b, 0),
+        })),
+      });
+      return { ...context, colony, stored };
+    }
+
+    afterEach(() => jest.restoreAllMocks());
+
+    it('recovers modules by integrity, whole reactor loads, every torpedo type and cargo without hull refunds', async () => {
+      const { service, colony, stored, shipRepo } = setup();
+      jest.spyOn(Math, 'random').mockReturnValue(0.49);
+      await service.disassembleShip(1, 1, 8);
+      expect([...stored]).toEqual([
+        [2, 4],
+        [100, 1],
+        [8, 2],
+        [6, 4],
+        [5, 4],
+        [81, 3],
+        [82, 5],
+      ]);
+      expect(colony.energy).toBe(30);
+      expect(shipRepo.remove).toHaveBeenCalled();
+    });
+
+    it('previews the same whole reactor loads and all loaded torpedo commodities', async () => {
+      const { service, shipRepo, shipClassRepo, spacecraftModuleRepo } = setup();
+      shipRepo.find.mockResolvedValue([{ id: 8, userId: 1, shipClassId: 1, ...orbitShipLocation, reactorFuel: 61, crew: 1 } as never]);
+      shipClassRepo.findBy.mockResolvedValue([{ id: 1, category: 'CORVETTE' } as never]);
+      spacecraftModuleRepo.find.mockResolvedValue([]);
+      const detail = await service.findOne(1, 1);
+      expect((detail as unknown as { detailV2: { orbitShips: Array<{ disassemblyReturns: unknown }> } }).detailV2.orbitShips[0].disassemblyReturns).toEqual({
+        reactorFuel: [{ commodityId: 8, amount: 2 }, { commodityId: 6, amount: 4 }, { commodityId: 5, amount: 4 }],
+        torpedoes: [{ commodityId: 81, amount: 3 }, { commodityId: 82, amount: 5 }],
+      });
+    });
+
+    it('caps all recovered supplies together to the remaining colony storage', async () => {
+      const { service, stored } = setup(8);
+      jest.spyOn(Math, 'random').mockReturnValue(0.49);
+      await service.disassembleShip(1, 1, 8);
+      expect([...stored]).toEqual([
+        [2, 4],
+        [100, 1],
+        [8, 2],
+        [6, 1],
+      ]);
+    });
+
+    it('returns only whole light reactor loads and allows every module roll to fail', async () => {
+      const { service, shipRepo, spacecraftModuleRepo, stored } = setup();
+      shipRepo.findOne.mockResolvedValue({
+        id: 8,
+        userId: 1,
+        shipClassId: 1,
+        ...orbitShipLocation,
+        crew: 0,
+        reactorFuel: 5,
+      });
+      spacecraftModuleRepo.find.mockResolvedValue([
+        {
+          moduleType: 'Leichter Hypermaterie-Reaktor',
+          isActive: true,
+          integrity: 100,
+        },
+      ]);
+      jest.spyOn(Math, 'random').mockReturnValue(0.99);
+      await service.disassembleShip(1, 1, 8);
+      expect(stored.get(5)).toBe(2);
+      expect(stored.has(100)).toBe(false);
+    });
+
+    it('rejects an inactive shipyard before moving cargo or crew', async () => {
+      const { service, colony, gameData, cargoRepo, colonyCrewService, shipRepo } =
+        setup();
+      colony.fields[0].isActive = false;
+      gameData.getShipClassSlotRule.mockReturnValue({
+        allowedBuildingFunctionIds: [6],
+        slots: [],
+      });
+      await expect(service.disassembleShip(1, 1, 8)).rejects.toThrow();
+      expect(cargoRepo.save).not.toHaveBeenCalled();
+      expect(
+        colonyCrewService.transferCrewFromShipToColony,
+      ).not.toHaveBeenCalled();
+      expect(shipRepo.remove).not.toHaveBeenCalled();
+    });
+  });
+
+  it('disassembles ships with energy cost and recovered supplies', async () => {
     const {
       service,
       colonyRepo,

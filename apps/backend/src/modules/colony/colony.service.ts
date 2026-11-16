@@ -47,6 +47,7 @@ import { ColonyStorageService } from './colony-storage.service';
 import { ColonyCrewService } from './colony-crew.service';
 import { ColonyDefenseService } from './colony-defense.service';
 import { ColonyEventService } from '../messaging/colony-event.service';
+import { recoverableReactorFuel } from '../spacecraft/reactor-fuel-profile';
 import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
 import { ColonyOwnershipService } from './colony-ownership.service';
 import { ColonyAbandonmentService } from './colony-abandonment.service';
@@ -1191,13 +1192,6 @@ export class ColonyService {
       throw new BadRequestException('Not enough colony crew capacity');
     }
 
-    await this.transferShipCargoToColony(colony, ship);
-    await this.colonyCrewService.transferCrewFromShipToColony(
-      colony,
-      ship,
-      ship.crew,
-    );
-
     const shipClass = await this.shipClassRepo.findOneBy({
       id: ship.shipClassId,
     });
@@ -1208,20 +1202,55 @@ export class ColonyService {
       shipClass,
       this.getActiveShipyardFunctionIds(colony),
     );
-    if (shipClass) {
-      const maxStorage =
-        this.colonyStatsService.calculateSummary(colony).effectiveStorageMax;
-      for (const cost of this.calculateShipBuildCosts(shipClass)) {
-        const refund = Math.floor(cost.amount / 2);
-        if (refund > 0) {
-          await this.colonyStorageService.upperStorage(
-            colony,
-            cost.commodityId,
-            refund,
-            maxStorage,
-          );
-        }
+
+    const [modules, torpedoes] = await Promise.all([
+      this.spacecraftModuleRepo.find({
+        where: { spacecraftId: ship.id },
+        order: { id: 'ASC' },
+      }),
+      this.spacecraftTorpedoService.getStorage(ship.id),
+    ]);
+    await this.transferShipCargoToColony(colony, ship);
+    await this.colonyCrewService.transferCrewFromShipToColony(
+      colony,
+      ship,
+      ship.crew,
+    );
+
+    const maxStorage =
+      this.colonyStatsService.calculateSummary(colony).effectiveStorageMax;
+    const fabricationItems = this.gameData.getAllFabricationItems();
+    for (const module of modules) {
+      const item = fabricationItems.find(
+        (candidate) =>
+          candidate.queueType === ColonyFabricationQueueType.MODULE &&
+          candidate.moduleType === module.moduleType &&
+          (candidate.shipyardType ?? module.category) === module.category &&
+          (candidate.moduleLevel ?? module.level) === module.level,
+      );
+      // STU uses a 1..100 roll against ceil(50 * system health / 100).
+      const chance = Math.ceil(
+        (50 * Math.max(0, Math.min(100, module.integrity))) / 100,
+      );
+      if (item && Math.floor(Math.random() * 100) + 1 <= chance) {
+        await this.colonyStorageService.upperStorage(
+          colony,
+          item.outputCommodityId,
+          1,
+          maxStorage,
+        );
       }
+    }
+    for (const item of [
+      ...recoverableReactorFuel(ship.reactorFuel, modules),
+      ...torpedoes,
+    ]) {
+      await this.colonyStorageService.upperStorage(
+        colony,
+        item.commodityId,
+        item.amount,
+        maxStorage,
+      );
     }
 
     deductColonyEnergy(colony, 20);
@@ -1581,37 +1610,6 @@ export class ColonyService {
       warpdriveMax: shipClass.warpdriveBase,
       evadeChance: 0,
     });
-  }
-
-  private calculateShipBuildCosts(
-    shipClass: ShipClassDef,
-  ): Array<{ commodityId: number; amount: number }> {
-    return [
-      {
-        commodityId: 1,
-        amount: Math.max(100, Math.round(shipClass.hullBase * 4)),
-      },
-      {
-        commodityId: 2,
-        amount: Math.max(50, Math.round(shipClass.hullBase * 1.5)),
-      },
-      {
-        commodityId: 3,
-        amount: Math.max(20, Math.round(shipClass.shieldBase * 0.5)),
-      },
-      {
-        commodityId: 4,
-        amount: Math.max(0, Math.round(shipClass.epsBase * 0.1)),
-      },
-      {
-        commodityId: 6,
-        amount: Math.max(20, Math.round(shipClass.cargoCapacity * 0.25)),
-      },
-      {
-        commodityId: 7,
-        amount: Math.max(20, Math.round(shipClass.epsBase * 0.4)),
-      },
-    ].filter((c) => c.amount > 0);
   }
 
   private getColonyTrainableCrewNow(

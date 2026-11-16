@@ -1103,3 +1103,9 @@ export interface SpacecraftDistressSignalDto {
   locationLabel: string;
 }
 export * from './movement-result.js';
+
+/** Potential disassembly returns before the colony storage limit is applied. */
+export interface ShipDisassemblyReturns {
+  reactorFuel: Array<{ commodityId: number; amount: number }>;
+  torpedoes: Array<{ commodityId: number; amount: number }>;
+}

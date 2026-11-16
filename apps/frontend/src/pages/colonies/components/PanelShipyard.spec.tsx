@@ -44,7 +44,9 @@ describe('PanelShipyard passive repair', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Werft öffnen' }));
     fireEvent.click(screen.getByRole('button', { name: /Schiffsreparatur/ }));
 
-    expect(screen.getByText(/Material wird je Reparaturschritt verbraucht/)).toBeTruthy();
+    expect(
+      screen.getByText(/Material wird je Reparaturschritt verbraucht/),
+    ).toBeTruthy();
     expect(screen.getByText(/fehlende Ersatzteile pausieren/)).toBeTruthy();
   });
 });
@@ -114,6 +116,8 @@ describe('PanelShipyard EPS cost and function occupation', () => {
     queue: unknown[],
     onBuildShip = vi.fn(),
     availableEnergy = 20,
+    orbitShips: unknown[] = [],
+    onDisassembleShip = noop,
   ) =>
     render(
       <PanelShipyard
@@ -125,10 +129,10 @@ describe('PanelShipyard EPS cost and function occupation', () => {
         availableCrew={0}
         availableEnergy={availableEnergy}
         commodityMap={{}}
-        orbitShips={[]}
+        orbitShips={orbitShips as never}
         buildplans={[]}
         onBuildShip={onBuildShip}
-        onDisassembleShip={noop}
+        onDisassembleShip={onDisassembleShip}
         onQueueShipRepair={noop}
         onQueueShipRetrofit={noop}
         onCancelShipyardQueue={noop}
@@ -144,6 +148,44 @@ describe('PanelShipyard EPS cost and function occupation', () => {
     fireEvent.click(screen.getByRole('button', { name: /Schiffbau/ }));
     fireEvent.click(screen.getByRole('button', { name: /Test Corvette/ }));
   };
+
+  it('previews recovered supplies and confirms before disassembly', () => {
+    const disassemble = vi.fn();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderPanel(
+      [],
+      vi.fn(),
+      50,
+      [
+        {
+          id: 8,
+          name: 'Alpha',
+          shipClassId: 1,
+          canDisassemble: true,
+          crew: 1,
+          crewMax: 2,
+          disassemblyReturns: {
+            reactorFuel: [{ commodityId: 5, amount: 2 }],
+            torpedoes: [{ commodityId: 81, amount: 3 }],
+          },
+        },
+      ],
+      disassemble,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Werft öffnen' }));
+    fireEvent.click(screen.getByRole('button', { name: /Schiffdemontage/ }));
+    expect(screen.getByText(/einige eingebaute Module/i)).toBeTruthy();
+    expect(screen.getByText(/Reaktorladung: 2/)).toBeTruthy();
+    expect(screen.getByText(/Torpedos: 3/)).toBeTruthy();
+    expect(screen.getByText(/freien Lagerplatz/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Demontieren' }));
+    expect(disassemble).not.toHaveBeenCalled();
+    expect(confirm.mock.calls[0][0]).toContain('Reaktorladung: 2');
+    confirm.mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Demontieren' }));
+    expect(disassemble).toHaveBeenCalledWith(8);
+    confirm.mockRestore();
+  });
 
   it('shows EPS cost against available energy and sends the selected function', () => {
     const onBuildShip = vi.fn();

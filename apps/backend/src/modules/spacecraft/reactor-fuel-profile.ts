@@ -37,3 +37,18 @@ export function reactorFuelProfile(
   }
   return REACTOR_FUEL_PROFILES.HYPERMATTER;
 }
+
+/** Recover the input mix for whole remaining loads, as on STU disassembly. */
+export function recoverableReactorFuel(
+  fuel: number,
+  modules: SpacecraftModule[],
+): Array<{ commodityId: number; amount: number }> {
+  const profile = reactorFuelProfile(modules);
+  const loads = Math.floor(Math.max(0, fuel ?? 0) / profile.loadUnits);
+  return loads > 0
+    ? profile.costs.map((cost) => ({
+        commodityId: cost.commodityId,
+        amount: loads * cost.amount,
+      }))
+    : [];
+}
