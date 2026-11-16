@@ -308,6 +308,7 @@ function routeGet(routes: Record<string, unknown>) {
         ? Promise.reject(value)
         : Promise.resolve(value);
     }
+    if (/^\/alliances\/\d+\/depots$/.test(url)) return Promise.resolve([]);
     return Promise.reject(new Error(`Unexpected URL ${url}`));
   });
 }
@@ -1704,6 +1705,18 @@ describe('AllianceEditPage', () => {
       editDetails: true,
       manageApplications: true,
     });
+
+  it('includes the permitted depot stocks in the alliance administration', async () => {
+    routeGet({ '/alliances/1': editable(), '/alliances/1/depots': [{
+      stationId: 7, name: 'Depot', owner: { id: 2, name: 'Besitzer' },
+      locationLabel: 'Basis (2|3)', cargoUsed: 9, cargoMax: 100,
+      cargo: [{ commodityId: 5, name: 'Tibanna-Gas', amount: 9 }],
+    }] });
+    renderAt('/alliances/1/edit');
+    await screen.findByText('Besitzer: Besitzer');
+    expect(screen.getByText('Tibanna-Gas: 9')).toBeTruthy();
+    expect(apiMocks.get).toHaveBeenCalledWith('/alliances/1/depots');
+  });
 
   it('offers all permitted administration from the edit page', async () => {
     const alliance = withViewer(

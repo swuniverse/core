@@ -654,3 +654,19 @@ export interface AllianceColonyStockDto {
   colonyId: number;
   items: AllianceColonyStockItemDto[];
 }
+
+export interface StationAllianceDepotDto {
+  alliance: { id: number; name: string } | null;
+  ownAlliance: { id: number; name: string } | null;
+  blockReason: string | null;
+}
+
+export interface AllianceDepotDto {
+  stationId: number;
+  name: string;
+  owner: { id: number; name: string };
+  locationLabel: string;
+  cargoUsed: number;
+  cargoMax: number;
+  cargo: Array<{ commodityId: number; name: string; amount: number }>;
+}

@@ -18,6 +18,7 @@ import { ShipModulesPanel } from '../components/spacecraft/ShipModulesPanel';
 import { ShipOperationsPanel } from '../components/spacecraft/ShipOperationsPanel';
 import { SelfDestructPanel } from '../components/spacecraft/SelfDestructPanel';
 import { StationScrappingPanel } from '../components/spacecraft/StationScrappingPanel';
+import { AllianceDepotPanel } from '../components/spacecraft/AllianceDepotPanel';
 import { SensorOperationsPanel } from '../components/spacecraft/SensorOperationsPanel';
 import { DockingPanel } from '../components/spacecraft/DockingPanel';
 import { StationShipManagementPanel } from '../components/spacecraft/StationShipManagementPanel';
@@ -303,6 +304,9 @@ export function SpacecraftDetailPage() {
         refreshKey={shipRefreshVersion}
         onChanged={refreshShipAndStorage}
         onRemoved={() => navigate('/spacecraft')}
+      />}
+      {ship.kind === 'STATION' && ['DEPOT_SMALL', 'DEPOT_LARGE'].includes(ship.stationRole ?? '') && <AllianceDepotPanel
+        stationId={ship.id} refreshKey={shipRefreshVersion} onChanged={refreshShipAndStorage}
       />}
 
       <NearbySensorPanel

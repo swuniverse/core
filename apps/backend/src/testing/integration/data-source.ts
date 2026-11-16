@@ -9,6 +9,7 @@ import { UserAward } from '../../modules/awards/entities/user-award.entity';
 import { FactionEntity } from '../../modules/faction/entities/faction.entity';
 import { FactionModifier } from '../../modules/faction/entities/faction-modifier.entity';
 import { Alliance } from '../../modules/alliance/entities/alliance.entity';
+import { AllianceDepot } from '../../modules/alliance/entities/alliance-depot.entity';
 import { AllianceMembership } from '../../modules/alliance/entities/alliance-membership.entity';
 import { AllianceApplication } from '../../modules/alliance/entities/alliance-application.entity';
 import { AllianceRelationship } from '../../modules/alliance/entities/alliance-relationship.entity';
@@ -101,6 +102,7 @@ export const INTEGRATION_ENTITIES = [
   FactionEntity,
   FactionModifier,
   Alliance,
+  AllianceDepot,
   AllianceMembership,
   AllianceApplication,
   DiplomacyParty,

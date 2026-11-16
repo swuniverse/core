@@ -1,4 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
+import { AllianceDepot } from './entities/alliance-depot.entity';
+import { AllianceDepotService } from './alliance-depot.service';
+import { AllianceDepotController } from './alliance-depot.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { GameGateway } from '../websocket/game.gateway';
@@ -57,6 +60,7 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
   imports: [
     TypeOrmModule.forFeature([
       Alliance,
+      AllianceDepot,
       AllianceMembership,
       AllianceApplication,
       DiplomacyParty,
@@ -78,9 +82,10 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
     ContactModule,
     AccountDeletionModule,
   ],
-  controllers: [AllianceController, AllianceBannerController],
+  controllers: [AllianceController, AllianceBannerController, AllianceDepotController],
   providers: [
     AllianceService,
+    AllianceDepotService,
     AllianceDeletionHandler,
     AllianceBannerService,
     AllianceResetService,

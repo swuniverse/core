@@ -1,3 +1,4 @@
+import { AllianceDepotsPanel } from '../components/alliance/AllianceDepotsPanel';
 import {
   useCallback,
   useEffect,
@@ -2423,6 +2424,7 @@ export function AllianceEditPage() {
       <BackLink to={`/alliances/${alliance.id}`} label={alliance.name} />
       <PageTitle>Allianz bearbeiten</PageTitle>
       <ErrorMessage message={error} />
+      <AllianceDepotsPanel allianceId={alliance.id} role={alliance.viewer.role} />
       {alliance.viewer.actions.editDetails && (
         <form
           onSubmit={submit}

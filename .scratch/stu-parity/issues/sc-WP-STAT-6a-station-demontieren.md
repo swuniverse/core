@@ -22,7 +22,7 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Akzeptanzkriterien
 
 - [x] Demontage nur unbemannt und mit korrektem Code; Zustand und Restdauer sichtbar.
-- [x] Abschluss im Tick: Rückgabe gemäß STU, Station gelöscht, angedockte Schiffe abgedockt, Allianzzuordnung gelöst (kaskadierender Löschvertrag für die noch ausstehende Depot-Entity aus sc-WP-STAT-6b).
+- [x] Abschluss im Tick: Rückgabe gemäß STU, Station gelöscht, angedockte Schiffe abgedockt, Allianzzuordnung gelöst (FK-Cascade aus sc-WP-STAT-6b).
 - [x] Backend-Tests, Frontend-Test.
 - [x] `lint`, `typecheck`, `test` und `build` sind grün.
 
@@ -57,3 +57,4 @@ Allianzdepot-Zuordnungen existieren vor `sc-WP-STAT-6b` noch nicht. Die endgült
 ## Abschlussnotiz
 
 - 2026-11-16 Agent: Stationsdemontage mit eigener Fortschritts-Entity, API, Tickverarbeitung und Stationspanel umgesetzt. Depotzuordnungs-Cascade bleibt Bestandteil von sc-WP-STAT-6b; der Stationslöschpfad ist dafür vorbereitet. Vollständige Pflichtprüfungen und PostgreSQL-Fälle grün.
+- 2026-11-16 Agent, sc-WP-STAT-6b: Depot-Entity und kaskadierende Stationsreferenz sind jetzt umgesetzt. Tatsächlicher Demontage-Tick und Rollback der Zuordnung bei fehlgeschlagener Abschlussnachricht wurden mit PostgreSQL geprüft.

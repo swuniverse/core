@@ -177,7 +177,7 @@ Die Angabe, ob ein Spieler zuletzt kürzlich aktiv war. Sie ist öffentlich sich
 _Avoid_: Präsenz
 
 **Allianzdepot**:
-Eine geeignete Depotstation, die ihr Eigentümer organisatorisch seiner **Allianz** zuordnet. Die Zuordnung überträgt weder Eigentum noch Entnahmerechte.
+Ein betriebsbereites **Versorgungsdepot** oder **Logistikzentrum**, das sein Eigentümer organisatorisch seiner aktuellen **Allianz** zuordnet. **Präsident** und **Vize** sehen Besitzer, Standort und Bestand. Austritt, Rauswurf, Auflösung und Stationslöschung lösen die Zuordnung; sie überträgt weder Eigentum noch Lade-, Steuerungs- oder Entnahmerechte.
 _Avoid_: Allianz-Lager
 
 ## Stationen
