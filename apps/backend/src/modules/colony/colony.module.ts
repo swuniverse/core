@@ -1,3 +1,4 @@
+import { ColonySandboxPlanningService } from './colony-sandbox-planning.service';
 import { ColonySandboxService } from './colony-sandbox.service';
 import { ColonySandboxController } from './colony-sandbox.controller';
 import { ColonySandbox } from './entities/colony-sandbox.entity';
@@ -112,6 +113,7 @@ import { Layer } from '../starmap/entities/layer.entity';
   controllers: [ColonySandboxController, ColonyController, SpacecraftOrbitOrderController],
   providers: [
     ColonySandboxService,
+    ColonySandboxPlanningService,
     ColonyDeletionHandler,
     ColonyService,
     ColonySeedService,

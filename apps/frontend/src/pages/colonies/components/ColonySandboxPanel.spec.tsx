@@ -36,7 +36,16 @@ const sandbox = {
 } as ColonySandboxDto;
 
 const buildingMap = {
-  7: { id: 7, name: 'Wohnanlage', nameShort: 'Wohnanlage' },
+  7: {
+    id: 7,
+    name: 'Wohnanlage',
+    nameShort: 'Wohnanlage',
+    costs: { buildTime: 60 },
+    allowedFieldTypes: [101],
+    production: [],
+    bonuses: { storage: 0, energy: 0 },
+    bmCol: 1,
+  },
 };
 
 describe('ColonySandboxPanel', () => {
@@ -46,7 +55,9 @@ describe('ColonySandboxPanel', () => {
       Promise.resolve(
         url === '/colonies/sandboxes'
           ? { limit: 3, sandboxes: [sandbox] }
-          : sandbox,
+          : url.endsWith('/options')
+            ? { buildingIds: [7], upgrades: [], terraformingIds: [] }
+            : sandbox,
       ),
     );
     mocks.post.mockResolvedValue({ ...sandbox, id: 8, name: 'Plan B' });
@@ -54,22 +65,190 @@ describe('ColonySandboxPanel', () => {
     mocks.delete.mockResolvedValue(undefined);
   });
 
-  it('lists planning copies and renders the selected copied map without live colony actions', async () => {
+  it('edits only the selected planning copy and exposes free sandbox actions', async () => {
+    mocks.post.mockResolvedValue({
+      ...sandbox,
+      snapshot: {
+        ...sandbox.snapshot,
+        fields: [{ ...sandbox.snapshot.fields[0], isActive: true }],
+      },
+    });
     render(
       <ColonySandboxPanel colonyId={1} buildingMap={buildingMap as never} />,
     );
     fireEvent.click(await screen.findByRole('button', { name: /Plan A/ }));
-    const field = await screen.findByRole('button', {
-      name: 'Feld 20: Wohnanlage (deaktiviert)',
-    });
-    expect((field as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(field);
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Feld 20: Wohnanlage (deaktiviert)',
+      }),
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Aktivieren' }));
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith('/colonies/sandboxes/7/actions', {
+        action: 'toggle',
+        fieldIndex: 20,
+      }),
+    );
+    expect(screen.queryByText('Akademie')).toBeNull();
+    expect(screen.getByText(/Sofort und kostenlos/)).toBeTruthy();
     expect(
-      screen.queryByRole('button', { name: /Bauen|Abreißen|Schalten/ }),
-    ).toBeNull();
-    expect(screen.queryByText('Energie')).toBeNull();
-    expect(mocks.post).not.toHaveBeenCalled();
-    expect(screen.getByText(/Schreibgeschützte Planungskopie/)).toBeTruthy();
+      mocks.post.mock.calls.every(([url]) => url.includes('/sandboxes/')),
+    ).toBe(true);
+  });
+
+  it('builds in the selected sandbox field and sends selected mass switches', async () => {
+    const empty = {
+      ...sandbox,
+      snapshot: {
+        ...sandbox.snapshot,
+        fields: [{ ...sandbox.snapshot.fields[0], buildingId: null }],
+      },
+    };
+    mocks.get.mockImplementation((url: string) =>
+      Promise.resolve(
+        url === '/colonies/sandboxes'
+          ? { limit: 3, sandboxes: [empty] }
+          : url.endsWith('/options')
+            ? { buildingIds: [7], upgrades: [], terraformingIds: [] }
+            : empty,
+      ),
+    );
+    mocks.post.mockResolvedValue(sandbox);
+    render(
+      <ColonySandboxPanel colonyId={1} buildingMap={buildingMap as never} />,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: /Plan A/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Feld 20' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Wohnanlage' }));
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith('/colonies/sandboxes/7/actions', {
+        action: 'build',
+        fieldIndex: 20,
+        buildingId: 7,
+        activate: true,
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Dialog schließen' }),
+    );
+    fireEvent.click(screen.getByLabelText('Feld 20 auswählen'));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Auswahl deaktivieren' }),
+    );
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith('/colonies/sandboxes/7/actions', {
+        action: 'mass-toggle',
+        mode: 2,
+        fieldIndexes: [20],
+        activate: false,
+      }),
+    );
+  });
+
+  it('runs free upgrades and shows activation errors inside the planning dialog', async () => {
+    const map = {
+      ...buildingMap,
+      8: { ...buildingMap[7], id: 8, name: 'Große Wohnanlage' },
+    };
+    mocks.get.mockImplementation((url: string) =>
+      Promise.resolve(
+        url === '/colonies/sandboxes'
+          ? { limit: 3, sandboxes: [sandbox] }
+          : url.endsWith('/options')
+            ? {
+                buildingIds: [],
+                upgrades: [
+                  {
+                    id: 3,
+                    fromBuildingId: 7,
+                    toBuildingId: 8,
+                    description: 'Erweitern',
+                    energyCost: 999,
+                    costs: [],
+                  },
+                ],
+                terraformingIds: [],
+              }
+            : sandbox,
+      ),
+    );
+    mocks.post.mockResolvedValue(sandbox);
+    render(<ColonySandboxPanel colonyId={1} buildingMap={map as never} />);
+    fireEvent.click(await screen.findByRole('button', { name: /Plan A/ }));
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Feld 20: Wohnanlage (deaktiviert)',
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Upgrade auf Große Wohnanlage',
+      }),
+    );
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith('/colonies/sandboxes/7/actions', {
+        action: 'upgrade',
+        fieldIndex: 20,
+        upgradeId: 3,
+      }),
+    );
+    mocks.post.mockRejectedValue(new Error('Nicht genug Energie'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Aktivieren' }));
+    expect(await screen.findByRole('alert')).toHaveProperty(
+      'textContent',
+      'Nicht genug Energie',
+    );
+    expect(screen.queryByText('999')).toBeNull();
+  });
+
+  it('terraforms the selected planning field immediately without displaying costs', async () => {
+    const empty = {
+      ...sandbox,
+      snapshot: {
+        ...sandbox.snapshot,
+        fields: [{ ...sandbox.snapshot.fields[0], buildingId: null }],
+      },
+    };
+    mocks.get.mockImplementation((url: string) =>
+      Promise.resolve(
+        url === '/colonies/sandboxes'
+          ? { limit: 3, sandboxes: [empty] }
+          : url.endsWith('/options')
+            ? { buildingIds: [], upgrades: [], terraformingIds: ['land'] }
+            : empty,
+      ),
+    );
+    mocks.post.mockResolvedValue(empty);
+    render(
+      <ColonySandboxPanel
+        colonyId={1}
+        buildingMap={buildingMap as never}
+        terraformingDefs={[
+          {
+            id: 'land',
+            fromFieldType: '101',
+            toFieldType: '102',
+            description: 'Ebnen',
+            duration: 999,
+            energyCost: 999,
+            costs: [{ commodityId: 1, amount: 999 }],
+            researchId: null,
+          },
+        ]}
+      />,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: /Plan A/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Feld 20' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Ebnen' }));
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith('/colonies/sandboxes/7/actions', {
+        action: 'terraform',
+        fieldIndex: 20,
+        terraformingId: 'land',
+      }),
+    );
+    expect(screen.queryByText('Kosten')).toBeNull();
+    expect(screen.queryByText('999')).toBeNull();
   });
 
   it('creates a named copy from the current colony and selects it', async () => {

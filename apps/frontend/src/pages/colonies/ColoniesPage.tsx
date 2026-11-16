@@ -1253,6 +1253,8 @@ export function ColonyDetail({
           key={colony.id}
           colonyId={colony.id}
           buildingMap={buildingMap}
+          commodityMap={commodityMap}
+          terraformingDefs={terraformingDefs}
         />
       </div>
     );

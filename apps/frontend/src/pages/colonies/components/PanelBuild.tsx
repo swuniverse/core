@@ -14,6 +14,7 @@ const BUILDING_COLUMNS = [4, 2, 1, 3] as const;
 type CategoryKey = 'all' | (typeof BUILDING_COLUMNS)[number];
 
 type PanelBuildProps = {
+  sandboxMode?: boolean;
   buildingDefs: BuildingDef[];
   fields: ColonyField[];
   storage: ColonyStorageItem[];
@@ -98,6 +99,7 @@ function getMissingCostLabel(
 }
 
 export function PanelBuild({
+  sandboxMode = false,
   buildingDefs,
   fields,
   storage,
@@ -140,14 +142,14 @@ export function PanelBuild({
     }
     for (const col of Object.keys(cols)) {
       cols[Number(col)].sort((a, b) => {
-        const aAffordable = canAfford(a, storage, energy) ? 0 : 1;
-        const bAffordable = canAfford(b, storage, energy) ? 0 : 1;
+        const aAffordable = (sandboxMode || canAfford(a, storage, energy)) ? 0 : 1;
+        const bAffordable = (sandboxMode || canAfford(b, storage, energy)) ? 0 : 1;
         if (aAffordable !== bAffordable) return aAffordable - bAffordable;
         return a.name.localeCompare(b.name, 'de');
       });
     }
     return cols;
-  }, [buildingDefs, commodityFilterId, energy, fieldFilter, storage]);
+  }, [buildingDefs, commodityFilterId, energy, fieldFilter, storage, sandboxMode]);
 
   const visibleBuildings = useMemo(() => {
     if (activeCategory === 'all') {
@@ -245,7 +247,7 @@ export function PanelBuild({
       ) : (
         <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
           {visibleBuildings.map((building) => {
-            const affordable = canAfford(building, storage, energy);
+            const affordable = sandboxMode || canAfford(building, storage, energy);
             const isSelected = selectedBuilding?.id === building.id;
             const alreadyBuilt =
               building.isUnique &&
@@ -303,7 +305,7 @@ export function PanelBuild({
                         </span>
                       ) : affordable ? (
                         <span className="rounded border border-green-400/30 bg-green-900/20 px-1.5 py-0.5 text-[10px] text-green-400">
-                          Baubar
+                          {sandboxMode ? 'Kostenlos bauen' : 'Baubar'}
                         </span>
                       ) : (
                         <span className="rounded border border-red-400/30 bg-red-900/20 px-1.5 py-0.5 text-[10px] text-red-400">

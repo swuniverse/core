@@ -234,12 +234,73 @@ export class ColonyConstructionService {
     if (!colony) throw new NotFoundException('Colony not found');
     const field = colony.fields.find((f) => f.fieldIndex === fieldIndex);
     if (!field) throw new NotFoundException('Field not found');
+    const actualDef = await this.validateBuildPlacement(
+      colony, userId, field, buildingId, manager,
+    );
+    const actualBuildingId = actualDef.id;
+
+    const currentDefinition = field.buildingId
+      ? (this.gameData.getBuilding(field.buildingId) ?? null)
+      : null;
+    if (field.buildingId && !currentDefinition) {
+      throw new BadRequestException('Unknown existing building');
+    }
+
+    await this.assertReplacementCostsAvailable(
+      colony,
+      field,
+      actualDef,
+      currentDefinition,
+      manager,
+    );
+    this.assertReplacementEnergyAvailable(
+      colony,
+      field,
+      actualDef,
+      currentDefinition,
+    );
+
+    if (currentDefinition) {
+      await this.removeBuilding(
+        colony,
+        field,
+        currentDefinition,
+        userId,
+        true,
+        manager,
+      );
+    }
+
+    // ponytail: deposit check removed — balanceAndProduce() deactivates if deposits insufficient
+    this.deductBuildEnergy(colony, actualDef);
+    await this.deductBuildCosts(colony, actualDef.resourceCosts ?? [], manager);
+    await (manager?.getRepository(Colony) ?? this.colonyRepo).save(colony);
+
+    this.buildingLifecycleService.prepareBuildJob(
+      field,
+      actualBuildingId,
+      actualDef.costs.buildTime,
+      activateAfterBuild,
+    );
+
+    return (manager?.getRepository(ColonyField) ?? this.fieldRepo).save(field);
+  }
+
+  /** Placement/research/limits only: safe for an independent planning context. */
+  async validateBuildPlacement(
+    colony: Colony,
+    userId: number,
+    field: ColonyField,
+    buildingId: number,
+    manager?: EntityManager,
+    options: { upgrade?: boolean; userColonies?: Colony[] } = {},
+  ): Promise<BuildingDef> {
     if (field.terraformingId) {
       throw new BadRequestException(
         'Cannot build on a field being terraformed',
       );
     }
-    if (field.buildingId && this.isHeadquartersField(field)) {
+    if (!options.upgrade && field.buildingId && this.isHeadquartersField(field)) {
       throw new BadRequestException('Cannot replace headquarters');
     }
 
@@ -290,53 +351,9 @@ export class ColonyConstructionService {
         ? (this.gameData.getBuilding(actualBuildingId) ?? buildingDef)
         : buildingDef;
 
-    await this.checkBuildingLimits(colony, userId, actualDef, manager);
+    await this.checkBuildingLimits(colony, userId, actualDef, manager, options.userColonies);
 
-    const currentDefinition = field.buildingId
-      ? (this.gameData.getBuilding(field.buildingId) ?? null)
-      : null;
-    if (field.buildingId && !currentDefinition) {
-      throw new BadRequestException('Unknown existing building');
-    }
-
-    await this.assertReplacementCostsAvailable(
-      colony,
-      field,
-      actualDef,
-      currentDefinition,
-      manager,
-    );
-    this.assertReplacementEnergyAvailable(
-      colony,
-      field,
-      actualDef,
-      currentDefinition,
-    );
-
-    if (currentDefinition) {
-      await this.removeBuilding(
-        colony,
-        field,
-        currentDefinition,
-        userId,
-        true,
-        manager,
-      );
-    }
-
-    // ponytail: deposit check removed — balanceAndProduce() deactivates if deposits insufficient
-    this.deductBuildEnergy(colony, actualDef);
-    await this.deductBuildCosts(colony, actualDef.resourceCosts ?? [], manager);
-    await (manager?.getRepository(Colony) ?? this.colonyRepo).save(colony);
-
-    this.buildingLifecycleService.prepareBuildJob(
-      field,
-      actualBuildingId,
-      actualDef.costs.buildTime,
-      activateAfterBuild,
-    );
-
-    return (manager?.getRepository(ColonyField) ?? this.fieldRepo).save(field);
+    return actualDef;
   }
 
   /** Wohn- und Farmgebaeude brauchen eine Atmosphaere - auf Planeten ohne (z.B. Mondartig, Lavaplanet) nie baubar, auch nicht auf "standard"-Feldern. */
@@ -366,6 +383,7 @@ export class ColonyConstructionService {
     userId: number,
     buildingDef: BuildingDef,
     manager?: EntityManager,
+    simulatedColonies?: Colony[],
   ): Promise<void> {
     const colonyLimit = buildingDef.colonyLimit ?? buildingDef.bclimit ?? 0;
     const globalLimit = buildingDef.globalLimit ?? buildingDef.blimit ?? 0;
@@ -382,7 +400,7 @@ export class ColonyConstructionService {
     }
 
     if (globalLimit > 0) {
-      const userColonies = await (
+      const userColonies = simulatedColonies ?? await (
         manager?.getRepository(Colony) ?? this.colonyRepo
       ).find({
         where: { userId },
@@ -555,7 +573,7 @@ export class ColonyConstructionService {
     return String(this.normalizeFieldTypeCandidate(Number(toFieldType)));
   }
 
-  private normalizeFieldTypeCandidate(fieldType: number): number {
+  normalizeFieldTypeCandidate(fieldType: number): number {
     return fieldType >= 10000 ? Math.floor(fieldType / 100) : fieldType;
   }
 
@@ -652,7 +670,7 @@ export class ColonyConstructionService {
     return null;
   }
 
-  private assertCanActivateBuilding(
+  assertCanActivateBuilding(
     colony: Colony,
     field: ColonyField,
     _definition: BuildingDef,
@@ -698,12 +716,8 @@ export class ColonyConstructionService {
     }
   }
 
-  private async deactivateDependentBuildings(
-    colony: Colony,
-    definition: BuildingDef,
-    manager?: EntityManager,
-  ): Promise<ColonyField[]> {
-    const deactivated: ColonyField[] = [];
+  getDependentFields(colony: Colony, definition: BuildingDef): ColonyField[] {
+    const result: ColonyField[] = [];
     const dependentCommodityIds = new Set(
       (definition.production ?? [])
         .filter(
@@ -714,7 +728,7 @@ export class ColonyConstructionService {
         .map((production) => production.commodityId),
     );
 
-    if (dependentCommodityIds.size === 0) return deactivated;
+    if (dependentCommodityIds.size === 0) return [];
 
     for (const victim of colony.fields ?? []) {
       if (
@@ -735,6 +749,19 @@ export class ColonyConstructionService {
       ) {
         continue;
       }
+      result.push(victim);
+    }
+    return result;
+  }
+
+  private async deactivateDependentBuildings(
+    colony: Colony,
+    definition: BuildingDef,
+    manager?: EntityManager,
+  ): Promise<ColonyField[]> {
+    const deactivated: ColonyField[] = [];
+    for (const victim of this.getDependentFields(colony, definition)) {
+      const victimDefinition = this.gameData.getBuilding(victim.buildingId!)!;
       await this.buildingLifecycleService.deactivateBuilding(
         colony,
         victim,
@@ -747,14 +774,7 @@ export class ColonyConstructionService {
     return deactivated;
   }
 
-  async demolish(
-    colonyId: number,
-    userId: number,
-    fieldIndex: number,
-  ): Promise<ColonyField> {
-    const colony = await this.findOne(colonyId, userId);
-    const field = colony.fields.find((f) => f.fieldIndex === fieldIndex);
-    if (!field) throw new NotFoundException('Field not found');
+  validateDemolition(field: ColonyField): BuildingDef {
     if (!field.buildingId) {
       throw new BadRequestException('No building on this field');
     }
@@ -771,6 +791,19 @@ export class ColonyConstructionService {
     if (!definition) {
       throw new BadRequestException('Unknown building');
     }
+
+    return definition;
+  }
+
+  async demolish(
+    colonyId: number,
+    userId: number,
+    fieldIndex: number,
+  ): Promise<ColonyField> {
+    const colony = await this.findOne(colonyId, userId);
+    const field = colony.fields.find((f) => f.fieldIndex === fieldIndex);
+    if (!field) throw new NotFoundException('Field not found');
+    const definition = this.validateDemolition(field);
 
     return this.removeBuilding(colony, field, definition, userId, false);
   }
@@ -948,15 +981,7 @@ export class ColonyConstructionService {
     return result;
   }
 
-  async terraformField(
-    colonyId: number,
-    userId: number,
-    fieldIndex: number,
-    terraformingId: string,
-  ): Promise<ColonyField> {
-    const colony = await this.findOne(colonyId, userId);
-    const field = colony.fields.find((f) => f.fieldIndex === fieldIndex);
-    if (!field) throw new NotFoundException('Field not found');
+  async validateTerraforming(userId: number, field: ColonyField, terraformingId: string) {
     if (field.buildingId || field.isBuilding) {
       throw new BadRequestException('Cannot terraform a field with a building');
     }
@@ -992,6 +1017,19 @@ export class ColonyConstructionService {
         );
       }
     }
+    return terraforming;
+  }
+
+  async terraformField(
+    colonyId: number,
+    userId: number,
+    fieldIndex: number,
+    terraformingId: string,
+  ): Promise<ColonyField> {
+    const colony = await this.findOne(colonyId, userId);
+    const field = colony.fields.find((f) => f.fieldIndex === fieldIndex);
+    if (!field) throw new NotFoundException('Field not found');
+    const terraforming = await this.validateTerraforming(userId, field, terraformingId);
     const changeable = getColonyChangeable(colony);
     if (terraforming.energyCost > changeable.energy) {
       throw new BadRequestException(
@@ -1009,15 +1047,7 @@ export class ColonyConstructionService {
     return this.fieldRepo.save(field);
   }
 
-  async upgradeBuilding(
-    colonyId: number,
-    userId: number,
-    fieldIndex: number,
-    upgradeId: number,
-  ): Promise<ColonyField> {
-    const colony = await this.findOne(colonyId, userId);
-    const field = colony.fields.find((f) => f.fieldIndex === fieldIndex);
-    if (!field) throw new NotFoundException('Field not found');
+  async validateUpgrade(colony: Colony, userId: number, field: ColonyField, upgradeId: number, userColonies?: Colony[]) {
     if (!field.buildingId || field.isBuilding) {
       throw new BadRequestException('No completed building on this field');
     }
@@ -1045,6 +1075,22 @@ export class ColonyConstructionService {
     if (!currentDefinition || !targetDefinition) {
       throw new BadRequestException('Unknown building upgrade target');
     }
+    const context = { ...colony, fields: colony.fields.filter((entry) => entry.id !== field.id) };
+    const simulated = userColonies?.map((entry) => entry === colony ? context : entry);
+    await this.validateBuildPlacement(context, userId, field, targetDefinition.id, undefined, { upgrade: true, userColonies: simulated });
+    return { upgrade, currentDefinition, targetDefinition };
+  }
+
+  async upgradeBuilding(
+    colonyId: number,
+    userId: number,
+    fieldIndex: number,
+    upgradeId: number,
+  ): Promise<ColonyField> {
+    const colony = await this.findOne(colonyId, userId);
+    const field = colony.fields.find((f) => f.fieldIndex === fieldIndex);
+    if (!field) throw new NotFoundException('Field not found');
+    const { upgrade, currentDefinition, targetDefinition } = await this.validateUpgrade(colony, userId, field, upgradeId);
     const changeable = getColonyChangeable(colony);
     if (upgrade.energyCost > changeable.energy) {
       throw new BadRequestException(
@@ -1131,7 +1177,7 @@ export class ColonyConstructionService {
     return field.fieldType >= 900 && field.fieldType < 1000;
   }
 
-  private isHeadquartersField(field: ColonyField): boolean {
+  isHeadquartersField(field: ColonyField): boolean {
     return (
       !!field.buildingId && this.headquartersBuildingIds.has(field.buildingId)
     );

@@ -134,6 +134,9 @@ export class ColonySandboxService {
         lock: { mode: 'pessimistic_read' },
       });
       if (!colony) throw new NotFoundException('Kolonie nicht gefunden.');
+      const context = await manager.findOne(Colony, {
+        where: { id: colonyId }, relations: ['celestialObject', 'changeable'],
+      }) ?? colony;
       const limit = this.limit();
       if (
         (await manager.count(ColonySandbox, { where: { userId } })) >= limit
@@ -175,6 +178,14 @@ export class ColonySandboxService {
           sourceColonyId: colony.id,
           snapshot: {
             sourceColonyName: colony.name,
+            energy: context.changeable?.energy ?? colony.energy,
+            celestialObject: context.celestialObject ? {
+              classId: context.celestialObject.classId,
+              name: context.celestialObject.name,
+              objectType: context.celestialObject.objectType,
+              swuRotation: context.celestialObject.swuRotation,
+              swuRing: context.celestialObject.swuRing,
+            } : null,
             colonyClassId: colony.colonyClassId,
             surfaceWidth: colony.surfaceWidth ?? null,
             surfaceMask: colony.surfaceMask ?? null,

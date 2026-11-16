@@ -387,3 +387,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - col-F3 – Top-10-Rangliste der besten Arbeitgeber aus zufriedenen Arbeitern aller Kolonien mit eigener Position und Verlinkung im Datenbank-Hub umgesetzt – siehe `issues/col-F3-rangliste-zufriedene-arbeiter.md`
 
 - col-G3a – Eigentümergeschützte Sandbox-Kopien aller Koloniefelder mit CRUD, konfigurierbarem Limit (Standard 3, transaktional abgesichert) und schreibgeschützter Karte umgesetzt. Kopien bleiben beim Ersteller und überleben die Quellkolonie; eigene JSONB-Snapshots ohne Tick-/Ranglistenwirkung. Bau/Vorschau folgen in col-G3b/c – siehe `issues/col-G3a-kolonie-sandbox-datenmodell.md`
+
+- col-G3b – Sandbox-Bau/Ersetzen, Abreißen, Upgrade, Terraforming und Einzel-/Massenschaltung sofort und kostenlos umgesetzt. Gemeinsame Live-Platzierungs-/Aktivierungsregeln, transaktionale Snapshot-Änderungen ohne Ressourcen, Queues, Nachrichten oder Hooks; Spielerlimits ersetzen die Quelle durch den Plan, Arbeiter werden aus dem Plan abgeleitet. Produktionsvorschau folgt in col-G3c – siehe `issues/col-G3b-kolonie-sandbox-bauen-und-schalten.md`

@@ -49,6 +49,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 export function ColonyFieldDialog({
   field,
+  sandboxMode = false,
+  children,
   building,
   buildingMap,
   commodityMap,
@@ -65,6 +67,8 @@ export function ColonyFieldDialog({
   wasteAvailability,
 }: {
   field: ColonyField;
+  sandboxMode?: boolean;
+  children?: ReactNode;
   building?: BuildingDef;
   buildingMap: Record<number, BuildingDef>;
   commodityMap: Record<number, CommodityDef>;
@@ -169,7 +173,7 @@ export function ColonyFieldDialog({
     field,
     terraformingDefs,
   );
-  const contextActions = building
+  const contextActions = !sandboxMode && building
     ? getBuildingContextActions(building.functions ?? [], field.isActive, {
         waste: wasteAvailability ?? {
           enabled: false,
@@ -177,9 +181,10 @@ export function ColonyFieldDialog({
         },
       }).filter((action) => action.view !== 'waste' || !field.isBuilding)
     : [];
-  const canOpenAcademy = building?.functions?.includes(1) && !field.isBuilding;
+  const canOpenAcademy = !sandboxMode && building?.functions?.includes(1) && !field.isBuilding;
 
   const renderUpgradeCosts = (upgrade: ColonyFieldUpgrade) => {
+    if (sandboxMode) return <span>Sofort und kostenlos</span>;
     const rows: ReactNode[] = [];
     if (upgrade.energyCost > 0) {
       rows.push(
@@ -691,11 +696,11 @@ export function ColonyFieldDialog({
                           <div className="mt-1 text-center text-xs text-swu-muted">
                             Dauer{' '}
                             <span className="font-bold text-swu-primary">
-                              {formatDuration(option.duration)}
+                              {sandboxMode ? 'Sofort' : formatDuration(option.duration)}
                             </span>
                           </div>
                         </div>
-                        <div className="min-w-20 border-l border-swu-border/40 pl-3 text-xs">
+                        {!sandboxMode && <div className="min-w-20 border-l border-swu-border/40 pl-3 text-xs">
                           <div className="mb-1 font-bold text-swu-primary">
                             Kosten
                           </div>
@@ -739,7 +744,7 @@ export function ColonyFieldDialog({
                                 </div>
                               );
                             })}
-                        </div>
+                        </div>}
                       </div>
                     </div>
                   ))}
@@ -752,7 +757,7 @@ export function ColonyFieldDialog({
             </Section>
           )}
 
-          {!field.buildingId && (
+          {!sandboxMode && !field.buildingId && (
             <button
               type="button"
               onClick={onOpenBuildMenu}
@@ -761,6 +766,7 @@ export function ColonyFieldDialog({
               Baumenü öffnen
             </button>
           )}
+          {children}
         </div>
       </section>
     </div>

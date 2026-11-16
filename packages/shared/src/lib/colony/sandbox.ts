@@ -26,6 +26,15 @@ export interface ColonySandboxFieldDto {
 /** Independent planning inputs, never a tickable colony or inventory. */
 export interface ColonySandboxSnapshotDto {
   sourceColonyName: string;
+  /** Optional for snapshots created before planning actions were introduced. */
+  energy?: number;
+  celestialObject?: {
+    classId: number | null;
+    name: string | null;
+    objectType: number;
+    swuRotation?: 'rotating' | 'tidal-locked' | null;
+    swuRing?: boolean;
+  } | null;
   colonyClassId: number;
   surfaceWidth: number | null;
   surfaceMask: string | null;
@@ -55,4 +64,35 @@ export interface ColonySandboxDto extends ColonySandboxSummaryDto {
 export interface ColonySandboxListDto {
   limit: number;
   sandboxes: ColonySandboxSummaryDto[];
+}
+
+export type ColonySandboxActionDto =
+  | {
+      action: 'build';
+      fieldIndex: number;
+      buildingId: number;
+      activate?: boolean;
+    }
+  | { action: 'upgrade'; fieldIndex: number; upgradeId: number }
+  | { action: 'terraform'; fieldIndex: number; terraformingId: string }
+  | { action: 'demolish' | 'toggle'; fieldIndex: number }
+  | {
+      action: 'mass-toggle';
+      mode: number;
+      fieldIndexes?: number[];
+      commodityId?: number;
+      activate: boolean;
+    };
+
+export interface ColonySandboxOptionsDto {
+  buildingIds: number[];
+  upgrades: Array<{
+    id: number;
+    fromBuildingId: number;
+    toBuildingId: number;
+    description: string;
+    energyCost: number;
+    costs: Array<{ commodityId: number; amount: number }>;
+  }>;
+  terraformingIds: string[];
 }

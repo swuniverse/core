@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   ColonySandboxDto,
+  ColonySandboxActionDto,
+  ColonySandboxOptionsDto,
   ColonySandboxListDto,
 } from '@swuniverse/shared';
 import { api } from '../../../services/api';
-import type { BuildingDef } from '../types';
+import type { BuildingDef, CommodityDef, TerraformingDef } from '../types';
+import { ColonyFieldDialog } from './ColonyFieldDialog';
+import { PanelBuild } from './PanelBuild';
 import { ColonyMap } from './ColonyMap';
 
 const none = new Set<number>();
@@ -17,9 +21,13 @@ const errorText = (error: unknown) =>
 export function ColonySandboxPanel({
   colonyId,
   buildingMap,
+  commodityMap = {},
+  terraformingDefs = [],
 }: {
   colonyId: number;
   buildingMap: Record<number, BuildingDef>;
+  commodityMap?: Record<number, CommodityDef>;
+  terraformingDefs?: TerraformingDef[];
 }) {
   const [list, setList] = useState<ColonySandboxListDto | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -29,6 +37,42 @@ export function ColonySandboxPanel({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const generation = useRef(0);
+  const pending = useRef(false);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [options, setOptions] = useState<ColonySandboxOptionsDto | null>(null);
+  const [selection, setSelection] = useState<number[]>([]);
+  const [mode, setMode] = useState(2);
+  const [commodityId, setCommodityId] = useState<number | undefined>();
+  const [activate, setActivate] = useState(true);
+  const [skipped, setSkipped] = useState<
+    Array<{ fieldIndex: number; reason: string }>
+  >([]);
+
+  useEffect(() => {
+    setSelectedIndex(null);
+    setSelection([]);
+    setSkipped([]);
+  }, [selectedId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setOptions(null);
+    if (detail && selectedIndex != null) {
+      void api
+        .get<ColonySandboxOptionsDto>(
+          `/colonies/sandboxes/${detail.id}/fields/${selectedIndex}/options`,
+        )
+        .then((result) => {
+          if (!cancelled) setOptions(result);
+        })
+        .catch((cause) => {
+          if (!cancelled) setError(errorText(cause));
+        });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [detail, selectedIndex]);
   const loadList = useCallback(async () => {
     const version = generation.current;
     const result = await api.get<ColonySandboxListDto>('/colonies/sandboxes');
@@ -67,6 +111,8 @@ export function ColonySandboxPanel({
   }, [selectedId]);
 
   const act = async (action: () => Promise<void>) => {
+    if (pending.current) return;
+    pending.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -74,10 +120,27 @@ export function ColonySandboxPanel({
     } catch (cause) {
       setError(errorText(cause));
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   };
   const fields = detail?.snapshot.fields ?? [];
+  const selectedField = fields.find(
+    (field) => field.fieldIndex === selectedIndex,
+  );
+  const plan = (action: ColonySandboxActionDto) =>
+    act(async () => {
+      if (!detail) return;
+      const version = generation.current;
+      const result = await api.post<
+        ColonySandboxDto & {
+          skipped?: Array<{ fieldIndex: number; reason: string }>;
+        }
+      >(`/colonies/sandboxes/${detail.id}/actions`, action);
+      if (version !== generation.current) return;
+      setDetail(result);
+      setSkipped(result.skipped ?? []);
+    });
   const atLimit = list == null || list.sandboxes.length >= list.limit;
 
   return (
@@ -87,10 +150,10 @@ export function ColonySandboxPanel({
     >
       <h2 className="font-bold text-swu-primary">Sandboxen</h2>
       <p className="text-swu-muted">
-        Schreibgeschützte Planungskopie der Kolonie. Änderungen an der echten
-        Kolonie beeinflussen die Kopie nicht.
+        Sofort und kostenlos planen: Bauen, Abreißen, Upgrade, Terraforming und
+        Schalten. Änderungen an der echten Kolonie beeinflussen die Kopie nicht.
       </p>
-      {error && (
+      {error && !(selectedField && options) && (
         <p role="alert" className="text-red-400">
           {error}
         </p>
@@ -207,9 +270,113 @@ export function ColonySandboxPanel({
               Sandbox löschen
             </button>
           </form>
+          <fieldset
+            disabled={busy}
+            className="flex flex-wrap items-center gap-2"
+          >
+            <legend>Gebäude schalten</legend>
+            <label>
+              Gruppe{' '}
+              <select
+                value={mode}
+                onChange={(event) => setMode(Number(event.target.value))}
+              >
+                <option value={2}>Auswahl</option>
+                <option value={1}>Energieverbraucher</option>
+                <option value={3}>Energieproduzenten</option>
+                <option value={4}>Industrie</option>
+                <option value={5}>Wohngebäude</option>
+                <option value={6}>Warenverbraucher</option>
+                <option value={7}>Warenproduzenten</option>
+              </select>
+            </label>
+            {(mode === 6 || mode === 7) && (
+              <label>
+                Ware{' '}
+                <select
+                  value={commodityId ?? ''}
+                  onChange={(event) =>
+                    setCommodityId(Number(event.target.value) || undefined)
+                  }
+                >
+                  <option value="">Bitte wählen</option>
+                  {Object.values(commodityMap).map((commodity) => (
+                    <option key={commodity.id} value={commodity.id}>
+                      {commodity.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <button
+              disabled={
+                (mode === 2 && selection.length === 0) ||
+                ((mode === 6 || mode === 7) && !commodityId)
+              }
+              onClick={() =>
+                void plan({
+                  action: 'mass-toggle',
+                  mode,
+                  fieldIndexes: selection,
+                  ...(commodityId ? { commodityId } : {}),
+                  activate: true,
+                })
+              }
+            >
+              Auswahl aktivieren
+            </button>
+            <button
+              disabled={
+                (mode === 2 && selection.length === 0) ||
+                ((mode === 6 || mode === 7) && !commodityId)
+              }
+              onClick={() =>
+                void plan({
+                  action: 'mass-toggle',
+                  mode,
+                  fieldIndexes: selection,
+                  ...(commodityId ? { commodityId } : {}),
+                  activate: false,
+                })
+              }
+            >
+              Auswahl deaktivieren
+            </button>
+            {mode === 2 &&
+              fields
+                .filter((field) => field.buildingId && !field.locked)
+                .map((field) => (
+                  <label key={field.fieldIndex}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Feld ${field.fieldIndex} auswählen`}
+                      checked={selection.includes(field.fieldIndex)}
+                      onChange={(event) =>
+                        setSelection((previous) =>
+                          event.target.checked
+                            ? [...previous, field.fieldIndex]
+                            : previous.filter(
+                                (index) => index !== field.fieldIndex,
+                              ),
+                        )
+                      }
+                    />
+                    Feld {field.fieldIndex}
+                  </label>
+                ))}
+          </fieldset>
+          {skipped.length > 0 && (
+            <ul role="status">
+              {skipped.map((entry) => (
+                <li key={entry.fieldIndex}>
+                  Feld {entry.fieldIndex}: {entry.reason}
+                </li>
+              ))}
+            </ul>
+          )}
           <div aria-label="Sandbox-Felder">
             <ColonyMap
-              readOnly
+              readOnly={busy}
               showEnergy={false}
               surfaceWidth={detail.snapshot.surfaceWidth ?? undefined}
               orbitFields={fields.filter(
@@ -229,18 +396,96 @@ export function ColonySandboxPanel({
                     field.fieldType >= 800 &&
                     field.fieldType < 900),
               )}
-              selectedField={null}
+              selectedField={selectedField ?? null}
               highlightedFields={none}
               replacementFields={none}
               isBuildMode={false}
               buildingMap={buildingMap}
               getBuildPreviewTitle={noop}
-              onFieldClick={noop}
+              onFieldClick={(field) => {
+                if (!busy && !field.locked) setSelectedIndex(field.fieldIndex);
+              }}
               onFieldMouseEnter={noop}
               onFieldMouseLeave={noop}
               energy={{ current: 0, max: 0 }}
             />
           </div>
+          {selectedField && options && (
+            <>
+              <ColonyFieldDialog
+                sandboxMode
+                field={{
+                  ...selectedField,
+                  availableUpgrades: options.upgrades.map((upgrade) => ({
+                    ...upgrade,
+                    researchId: null,
+                  })),
+                }}
+                building={
+                  selectedField.buildingId
+                    ? buildingMap[selectedField.buildingId]
+                    : undefined
+                }
+                buildingMap={buildingMap}
+                commodityMap={commodityMap}
+                terraformingDefs={terraformingDefs.filter((option) =>
+                  options.terraformingIds.includes(String(option.id)),
+                )}
+                onClose={() => setSelectedIndex(null)}
+                onOpenContext={noop}
+                onOpenBuildMenu={noop}
+                onFilterBuildMenuByCommodity={noop}
+                onOpenAcademy={noop}
+                onTerraform={(fieldIndex, terraformingId) =>
+                  plan({ action: 'terraform', fieldIndex, terraformingId })
+                }
+                onUpgrade={(fieldIndex, upgradeId) =>
+                  plan({ action: 'upgrade', fieldIndex, upgradeId })
+                }
+                onDemolish={(fieldIndex) =>
+                  plan({ action: 'demolish', fieldIndex })
+                }
+                onToggle={(fieldIndex) =>
+                  plan({ action: 'toggle', fieldIndex })
+                }
+              >
+                {error && (
+                  <p role="alert" className="text-red-400">
+                    {error}
+                  </p>
+                )}
+                <fieldset disabled={busy} className="space-y-2">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={activate}
+                      onChange={(event) => setActivate(event.target.checked)}
+                    />
+                    Nach Bau aktivieren
+                  </label>
+                  <PanelBuild
+                    sandboxMode
+                    buildingDefs={options.buildingIds
+                      .map((id) => buildingMap[id])
+                      .filter(Boolean)}
+                    fields={fields}
+                    storage={[]}
+                    energy={0}
+                    commodityMap={commodityMap}
+                    selectedBuilding={null}
+                    onSelectBuilding={(building) =>
+                      void plan({
+                        action: 'build',
+                        fieldIndex: selectedField.fieldIndex,
+                        buildingId: building.id,
+                        activate,
+                      })
+                    }
+                  />
+                </fieldset>
+              </ColonyFieldDialog>
+            </>
+          )}
         </div>
       )}
     </section>
