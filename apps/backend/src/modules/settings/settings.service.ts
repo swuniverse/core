@@ -29,6 +29,8 @@ const SETTING_DEFAULTS: Record<string, string> = {
   show_pm_read_receipt: '1',
   profile_visit_optout: '0',
   inbox_messenger_style: '0',
+  fleet_fixed_default: '0',
+  reactor_auto_carryover_default: '0',
   css_color_sheet: 'default',
   rgb_code: '',
   default_view: 'maindesk',
@@ -42,6 +44,8 @@ const RPG_BEHAVIORS = new Set(
 );
 
 const BOOLEAN_SETTINGS = new Set([
+  'fleet_fixed_default',
+  'reactor_auto_carryover_default',
   'show_online_status',
   'email_notification',
   'storage_notification',

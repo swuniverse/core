@@ -5,6 +5,8 @@ import { UserSetting } from './entities/user-setting.entity';
 import { RpgBehavior } from '@swuniverse/shared';
 
 export const BOOLEAN_SETTING_DEFAULTS = {
+  fleet_fixed_default: false,
+  reactor_auto_carryover_default: false,
   show_online_status: true,
   email_notification: true,
   storage_notification: false,
@@ -22,6 +24,8 @@ const SETTING_DEFAULTS: Record<string, string> = {
   show_pm_read_receipt: '1',
   profile_visit_optout: '0',
   inbox_messenger_style: '0',
+  fleet_fixed_default: '0',
+  reactor_auto_carryover_default: '0',
   css_color_sheet: 'default',
   rgb_code: '',
   default_view: 'maindesk',

@@ -118,3 +118,21 @@ describe('Interface palette', () => {
     await waitFor(() => expect(apiMocks.patch).toHaveBeenCalledWith('/user/settings', { css_color_sheet: 'contrast' }));
   });
 });
+
+
+describe('Fleet and reactor creation defaults', () => {
+  it('persists both switches independently', async () => {
+    apiMocks.get.mockReset().mockResolvedValue({ fleet_fixed_default: '0', reactor_auto_carryover_default: '1' });
+    apiMocks.patch.mockReset().mockResolvedValue({});
+    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Gameplay' }));
+    const fleet = await screen.findByRole('switch', { name: 'Neue Flotten standardmäßig fixieren' });
+    const reactor = screen.getByRole('switch', { name: 'Reaktor-Übertrag für neue Schiffe aktivieren' });
+    expect(fleet.getAttribute('aria-checked')).toBe('false');
+    expect(reactor.getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(fleet);
+    await waitFor(() => expect(apiMocks.patch).toHaveBeenCalledWith('/user/settings', { fleet_fixed_default: '1' }));
+    fireEvent.click(reactor);
+    await waitFor(() => expect(apiMocks.patch).toHaveBeenCalledWith('/user/settings', { reactor_auto_carryover_default: '0' }));
+  });
+});

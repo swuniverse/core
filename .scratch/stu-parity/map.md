@@ -441,3 +441,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - soc-F3a – Öffentliche Online-Listen berücksichtigen das standardmäßig aktive `show_online_status`-Opt-out, Allianzstatus bleibt sichtbar. UI und alle Pflicht-Gates geprüft – siehe [Ticket](issues/soc-F3a-online-status-sichtbarkeit.md).
 
 - soc-F3b – Standard, heller Kontrast und Fraktionsakzent über globale Design-Tokens, sofortige/persistierte Auswahl und Allowlist umgesetzt; alle Pflicht-Gates grün – siehe [Ticket](issues/soc-F3b-farbschema.md).
+
+- soc-F3d – Flottenfixierung und Reaktor-Übertrag als validierte Erzeugungsstandards, zentral beim Insert über alle Erzeugungswege angewandt. Bestehende Objekte unverändert; alle Pflicht-Gates und PostgreSQL-Prüfungen grün – siehe [Ticket](issues/soc-F3d-flotten-und-reaktor-standards.md).

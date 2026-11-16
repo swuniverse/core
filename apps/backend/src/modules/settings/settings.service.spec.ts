@@ -346,3 +346,12 @@ it('accepts only the interface palette allowlist with a default palette', async 
   expect(settingRepo.upsert).toHaveBeenCalledTimes(3);
   for (const value of ['custom', '<style>', '', 'CONTRAST']) await expect(service.updateSettings(1, { css_color_sheet: value })).rejects.toThrow(BadRequestException);
 });
+
+
+it.each(['fleet_fixed_default', 'reactor_auto_carryover_default'])('validates creation default %s', async key => {
+  const { service, settingRepo } = createService();
+  expect((await service.getSettings(1))[key]).toBe('0');
+  for (const value of ['0', '1']) await service.updateSettings(1, { [key]: value });
+  expect(settingRepo.upsert).toHaveBeenCalledTimes(2);
+  await expect(service.updateSettings(1, { [key]: 'true' })).rejects.toThrow(BadRequestException);
+});

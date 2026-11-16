@@ -441,6 +441,17 @@ function GameplayTab() {
     };
   }, []);
 
+  const setCreationDefault = async (key: 'fleet_fixed_default' | 'reactor_auto_carryover_default') => {
+    const previous = settings[key] ?? '0';
+    const value = previous === '1' ? '0' : '1';
+    setSettings(current => ({ ...current, [key]: value }));
+    try { await api.patch('/user/settings', { [key]: value }); }
+    catch (error: unknown) {
+      setSettings(current => ({ ...current, [key]: previous }));
+      setError(getErrorMessage(error, 'Erzeugungsstandard konnte nicht gespeichert werden.'));
+    }
+  };
+
   const setColorScheme = async (value: string) => {
     const previous = settings.css_color_sheet ?? 'default';
     const faction = useAuthStore.getState().user?.faction;
@@ -573,6 +584,13 @@ function GameplayTab() {
           <option value="research">Forschung</option>
           <option value="holonet">HoloNet</option>
         </select>
+      </Section>
+      <Section title="Neue Flotten und Schiffe">
+        <Toggle label="Neue Flotten standardmäßig fixieren" checked={settings.fleet_fixed_default === '1'}
+          onChange={() => void setCreationDefault('fleet_fixed_default')} />
+        <Toggle label="Reaktor-Übertrag für neue Schiffe aktivieren" checked={settings.reactor_auto_carryover_default === '1'}
+          onChange={() => void setCreationDefault('reactor_auto_carryover_default')} />
+        <p className="text-xs text-swu-muted">Gilt nur für neu erzeugte Flotten und Schiffe.</p>
       </Section>
       <Section title="Farbschema">
         <label htmlFor="interface-color-scheme" className="text-xs text-swu-muted">Oberfläche</label>
