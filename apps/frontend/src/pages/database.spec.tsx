@@ -107,6 +107,44 @@ describe('DatabasePage', () => {
     expect(screen.queryByText('Kartierung wird aufgebaut')).toBeNull();
   });
 
+  it('opens the employer ranking from the colony group and shows the own score and position', async () => {
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url === '/database/rankings/satisfied-workers') {
+        return Promise.resolve({
+          title: 'Die Top 10 der besten Arbeitgeber',
+          metricLabel: 'Zufriedene Arbeiter',
+          entries: [{ userId: 1, username: 'Leia', score: 120, rank: 1 }],
+          currentUser: { userId: 2, username: 'Han', score: 45, rank: 11 },
+        });
+      }
+      return Promise.resolve({ sections: [] });
+    });
+    render(
+      <MemoryRouter>
+        <DatabasePage />
+      </MemoryRouter>,
+    );
+    const colonies = screen.getByRole('heading', { name: 'Kolonien' })
+      .parentElement as HTMLElement;
+    fireEvent.click(
+      within(colonies).getByRole('button', {
+        name: 'Die Top 10 der besten Arbeitgeber',
+      }),
+    );
+    const table = await screen.findByRole('table');
+    expect(
+      screen.getByRole('heading', {
+        name: 'Die Top 10 der besten Arbeitgeber',
+      }),
+    ).toBeTruthy();
+    expect(
+      within(table).getByRole('columnheader', { name: 'Zufriedene Arbeiter' }),
+    ).toBeTruthy();
+    expect(within(table).getByText('Leia')).toBeTruthy();
+    expect(within(table).getByText('120')).toBeTruthy();
+    expect(screen.getByText('Dein Punktestand: 45 (Platz 11)')).toBeTruthy();
+  });
+
   it('groups all available highscores and opens the RPG and Aurodium rankings', async () => {
     render(
       <MemoryRouter>

@@ -47,6 +47,17 @@ export class ColonySocialService {
     };
   }
 
+  getSatisfiedWorkerCount(
+    colony: Colony,
+    summary: ColonyInternalSummary,
+  ): number {
+    const workers = colony.stats?.workers ?? summary.workersUsed;
+    return Math.max(
+      0,
+      Math.min(workers, this.getLifeStandard(colony, summary).absolute),
+    );
+  }
+
   getPositivePrimaryEffect(
     summary: ColonyInternalSummary,
     factionKey?: string,

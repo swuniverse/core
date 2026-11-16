@@ -259,6 +259,7 @@ export class DatabaseController {
       'trade-posts',
       'colony-worth',
       'colony-production',
+      'satisfied-workers',
     ] as const;
     if (!keys.includes(key as (typeof keys)[number])) {
       throw new NotFoundException('Rangliste nicht gefunden');

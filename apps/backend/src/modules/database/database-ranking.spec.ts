@@ -33,17 +33,24 @@ jest.mock('../spacecraft/entities/flight-signature.entity', () => ({
   FlightSignature: class FlightSignature {},
 }));
 
+import { ColonyStatsService } from '../colony/colony-stats.service';
+import { ColonySocialService } from '../colony/colony-social.service';
 import { DatabaseService } from './database.service';
 
-function createService(overrides: {
-  userRepo?: object;
-  flightSignatureRepo?: object;
-  holonetRatingRepo?: object;
-  aurodiumSources?: object[];
-  tradePostActivity?: object;
-} = {}) {
+function createService(
+  overrides: {
+    userRepo?: object;
+    colonyRepo?: object;
+    gameData?: object;
+    flightSignatureRepo?: object;
+    holonetRatingRepo?: object;
+    aurodiumSources?: object[];
+    tradePostActivity?: object;
+  } = {},
+) {
   return new DatabaseService(
     (overrides.userRepo ?? {}) as never,
+    (overrides.colonyRepo ?? {}) as never,
     {} as never,
     {} as never,
     {} as never,
@@ -53,8 +60,7 @@ function createService(overrides: {
     {} as never,
     {} as never,
     {} as never,
-    {} as never,
-    {} as never,
+    (overrides.gameData ?? {}) as never,
     {} as never,
     {} as never,
     {} as never,
@@ -76,6 +82,8 @@ function createService(overrides: {
     {} as never,
     {} as never,
     (overrides.tradePostActivity ?? {}) as never,
+    new ColonyStatsService((overrides.gameData ?? {}) as never),
+    new ColonySocialService((overrides.gameData ?? {}) as never),
   );
 }
 
@@ -282,5 +290,114 @@ describe('DatabaseService individual discovery ranking', () => {
       score: 1,
       rank: 2,
     });
+  });
+});
+
+describe('DatabaseService satisfied worker ranking', () => {
+  const building = (id: number, amount: number) => ({
+    id,
+    epsProc: 0,
+    bevUse: 30,
+    bonuses: {},
+    production: [{ commodityId: 1300, amount }],
+  });
+  const field = (buildingId: number, isActive = true, isBuilding = false) => ({
+    id: buildingId,
+    buildingId,
+    isActive,
+    isBuilding,
+  });
+  const colony = (
+    userId: number,
+    username: string,
+    workers: number,
+    fields: object[] = [],
+  ) => ({
+    userId,
+    user: { id: userId, username, isNpc: false },
+    stats: { workers },
+    fields,
+    population: 100,
+  });
+  const gameData = {
+    getBuilding: (id: number) => building(id, id === 1 ? 40 : 100),
+    getBuildingFunctions: () => [],
+    getCommodity: (id: number) => ({ id, isDeposit: false }),
+    getColonyClass: () => null,
+    getSocialEffects: () => ({ lifeStandardCommodityId: 1300 }),
+  };
+
+  it('caps satisfaction per colony, totals across colonies, and ignores inactive and unfinished buildings', async () => {
+    const colonyRepo = {
+      find: jest
+        .fn()
+        .mockResolvedValue([
+          colony(1, 'Leia', 80, [
+            field(1),
+            field(2, false),
+            field(2, true, true),
+          ]),
+          colony(1, 'Leia', 10, [field(2)]),
+          colony(2, 'Han', 45, [field(1), field(1)]),
+          colony(2, 'Han', 100),
+        ]),
+    };
+    const result = await createService({ colonyRepo, gameData }).getRanking(
+      2,
+      'satisfied-workers',
+    );
+    expect(result.title).toBe('Die Top 10 der besten Arbeitgeber');
+    expect(result.metricLabel).toBe('Zufriedene Arbeiter');
+    expect(result.entries).toEqual([
+      { userId: 1, username: 'Leia', score: 50, rank: 1 },
+      { userId: 2, username: 'Han', score: 45, rank: 2 },
+    ]);
+    expect(result.currentUser).toEqual(result.entries[1]);
+    expect(colonyRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        relations: expect.arrayContaining(['user', 'stats', 'fields']),
+        where: { isAbandoned: false, user: { isNpc: false } },
+      }),
+    );
+  });
+
+  it('limits the list to ten, sorts equal scores by name and keeps the own position outside the top ten', async () => {
+    const colonyRepo = {
+      find: jest
+        .fn()
+        .mockResolvedValue([
+          colony(1, 'Zeta', 40, [field(1)]),
+          colony(2, 'Alpha', 40, [field(1)]),
+          ...Array.from({ length: 9 }, (_, i) =>
+            colony(i + 3, `Player ${i}`, 20 - i, [field(1)]),
+          ),
+        ]),
+    };
+    const result = await createService({ colonyRepo, gameData }).getRanking(
+      11,
+      'satisfied-workers',
+    );
+    expect(result.entries).toHaveLength(10);
+    expect(result.entries[0]).toMatchObject({ username: 'Alpha', rank: 1 });
+    expect(result.entries[1]).toMatchObject({ username: 'Zeta', rank: 2 });
+    expect(result.currentUser).toEqual({
+      userId: 11,
+      username: 'Player 8',
+      score: 12,
+      rank: 11,
+    });
+  });
+
+  it('returns zero satisfaction without active production and no own position without colonies', async () => {
+    const colonyRepo = {
+      find: jest.fn().mockResolvedValue([colony(1, 'Leia', 100)]),
+    };
+    const service = createService({ colonyRepo, gameData });
+    expect(
+      (await service.getRanking(1, 'satisfied-workers')).currentUser,
+    ).toMatchObject({ score: 0, rank: 1 });
+    expect(
+      (await service.getRanking(2, 'satisfied-workers')).currentUser,
+    ).toBeNull();
   });
 });

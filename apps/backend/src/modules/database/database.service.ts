@@ -47,6 +47,8 @@ import {
   CartographyPlan,
   CartographyPlanStatus,
 } from '../spacecraft/entities/cartography-plan.entity';
+import { ColonyStatsService } from '../colony/colony-stats.service';
+import { ColonySocialService } from '../colony/colony-social.service';
 import { ColonyScanProjectionService } from '../spacecraft/colony-scan-projection.service';
 import { UserAward } from '../awards/entities/user-award.entity';
 import { ProfileVisitorService } from '../profile-visitor/profile-visitor.service';
@@ -78,7 +80,8 @@ type RankingKey =
   | 'aurodium'
   | 'trade-posts'
   | 'colony-worth'
-  | 'colony-production';
+  | 'colony-production'
+  | 'satisfied-workers';
 type RankingEntry = {
   userId: number;
   username: string;
@@ -153,8 +156,9 @@ export class DatabaseService {
     private readonly contacts: ContactService = {} as ContactService,
     private readonly settingsReader: UserSettingsReader = {} as UserSettingsReader,
     private readonly rpgPlotService: RpgPlotService = {} as RpgPlotService,
-    private readonly tradePostActivity: TradePostActivityRanking =
-      {} as TradePostActivityRanking,
+    private readonly tradePostActivity: TradePostActivityRanking = {} as TradePostActivityRanking,
+    private readonly colonyStats: ColonyStatsService = {} as ColonyStatsService,
+    private readonly colonySocial: ColonySocialService = {} as ColonySocialService,
   ) {}
 
   async getTradePosts(userId: number) {
@@ -988,6 +992,12 @@ export class DatabaseService {
           metricLabel: 'Fertige Gebäude',
           entries: await this.getColonyWorthRanking(topOnly),
         };
+      case 'satisfied-workers':
+        return {
+          title: 'Die Top 10 der besten Arbeitgeber',
+          metricLabel: 'Zufriedene Arbeiter',
+          entries: await this.getSatisfiedWorkerRanking(topOnly),
+        };
       case 'colony-production':
         return {
           title: 'Die Top 10 der Produzenten',
@@ -1112,16 +1122,30 @@ export class DatabaseService {
   }
 
   async getRankings() {
-    const [research, prestige, colonies, colonyWorth, colonyProductionWorth] =
-      await Promise.all([
-        this.getResearchRanking(),
-        this.getPrestigeRanking(),
-        this.getColonyRanking(),
-        this.getColonyWorthRanking(),
-        this.getColonyProductionWorthRanking(),
-      ]);
+    const [
+      research,
+      prestige,
+      colonies,
+      colonyWorth,
+      colonyProductionWorth,
+      satisfiedWorkers,
+    ] = await Promise.all([
+      this.getResearchRanking(),
+      this.getPrestigeRanking(),
+      this.getColonyRanking(),
+      this.getColonyWorthRanking(),
+      this.getColonyProductionWorthRanking(),
+      this.getSatisfiedWorkerRanking(),
+    ]);
 
-    return { research, prestige, colonies, colonyWorth, colonyProductionWorth };
+    return {
+      research,
+      prestige,
+      colonies,
+      colonyWorth,
+      colonyProductionWorth,
+      satisfiedWorkers,
+    };
   }
 
   private async getResearchRanking(topOnly = true) {
@@ -1191,6 +1215,35 @@ export class DatabaseService {
       .orderBy('score', 'DESC')
       .addOrderBy('colony.name', 'ASC');
     return topOnly ? query.limit(10).getRawMany() : query.getRawMany();
+  }
+
+  private async getSatisfiedWorkerRanking(
+    topOnly = true,
+  ): Promise<RankingEntry[]> {
+    const colonies = await this.colonyRepo.find({
+      where: { isAbandoned: false, user: { isNpc: false } },
+      relations: ['user', 'stats', 'fields'],
+    });
+    const totals = new Map<number, RankingEntry>();
+    for (const colony of colonies) {
+      if (colony.userId == null || !colony.user) continue;
+      const summary = this.colonyStats.calculateSummary(colony);
+      const score = this.colonySocial.getSatisfiedWorkerCount(colony, summary);
+      const previous = totals.get(colony.userId);
+      totals.set(colony.userId, {
+        userId: colony.userId,
+        username: colony.user.username,
+        score: (previous?.score ?? 0) + score,
+      });
+    }
+    return [...totals.values()]
+      .sort(
+        (left, right) =>
+          right.score - left.score ||
+          left.username.localeCompare(right.username) ||
+          left.userId - right.userId,
+      )
+      .slice(0, topOnly ? 10 : undefined);
   }
 
   private async getColonyProductionWorthRanking(topOnly = true) {

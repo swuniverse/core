@@ -383,3 +383,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - tmw-K1b1 – Gemeinsamer Feldtransition-Executor verarbeitet System- und Galaxierouten mit EPS und allen Bewegungsfolgen je tatsächlich betretenem Feld – siehe Feature-Commit
 
 - col-A6 – Demontage recycelt Module nach Integrität, vollständige Reaktorladungen und geladene Torpedos innerhalb der Lagergrenze; Werftpflicht, Fracht und Crew bleiben erhalten, Vorschau zeigt Rückgaben – siehe `issues/col-A6-demontage-nach-stu-regel.md`
+
+- col-F3 – Top-10-Rangliste der besten Arbeitgeber aus zufriedenen Arbeitern aller Kolonien mit eigener Position und Verlinkung im Datenbank-Hub umgesetzt – siehe `issues/col-F3-rangliste-zufriedene-arbeiter.md`

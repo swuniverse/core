@@ -55,7 +55,8 @@ type RankingKey =
   | 'aurodium'
   | 'trade-posts'
   | 'colony-worth'
-  | 'colony-production';
+  | 'colony-production'
+  | 'satisfied-workers';
 
 type View =
   | 'settlers'
@@ -261,6 +262,11 @@ const groups: Array<{
   {
     title: 'Kolonien',
     entries: [
+      {
+        label: 'Die Top 10 der besten Arbeitgeber',
+        view: 'rankings',
+        ranking: 'satisfied-workers',
+      },
       {
         label: 'Die Top 10 der Architekten',
         view: 'rankings',

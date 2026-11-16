@@ -24,7 +24,11 @@ import { ResearchStatus } from '../research/entities/research.entity';
 
 function createService() {
   const userRepo = { find: jest.fn(), findOne: jest.fn(), count: jest.fn() };
-  const colonyRepo = { count: jest.fn(), createQueryBuilder: jest.fn() };
+  const colonyRepo = {
+    count: jest.fn(),
+    createQueryBuilder: jest.fn(),
+    find: jest.fn().mockResolvedValue([]),
+  };
   const shipRepo = { count: jest.fn() };
   const researchRepo = { count: jest.fn(), createQueryBuilder: jest.fn() };
   const factionService = { findAll: jest.fn() };
@@ -146,6 +150,7 @@ describe('DatabaseService rankings', () => {
     const result = await service.getRankings();
 
     expect(result).toEqual({
+      satisfiedWorkers: [],
       research: [{ userId: 1, username: 'A', score: '2' }],
       prestige: [{ userId: 3, username: 'C', score: 9 }],
       colonies: [{ userId: 2, username: 'B', score: '3' }],

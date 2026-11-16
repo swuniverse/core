@@ -1,3 +1,5 @@
+import { ColonyStatsService } from '../colony/colony-stats.service';
+import { ColonySocialService } from '../colony/colony-social.service';
 import { MapRegion } from '../starmap/entities/map-region.entity';
 import { RegionDiscovery } from '../starmap/entities/region-discovery.entity';
 import { DatabaseRegionCatalogService } from './database-region-catalog.service';
@@ -113,6 +115,8 @@ import { StarmapModule } from '../starmap/starmap.module';
   controllers: [DatabaseController, DatabaseProgressController],
   providers: [
     DatabaseService,
+    ColonyStatsService,
+    ColonySocialService,
     DatabaseRegionCatalogService,
     DatabaseCompletionService,
     DatabaseDiscoveryListener,
