@@ -16,6 +16,7 @@ import {
 
 export function FieldCell({
   field,
+  readOnly = false,
   buildingName,
   buildingId,
   isSelected,
@@ -30,6 +31,7 @@ export function FieldCell({
   onClick,
 }: {
   field: ColonyField;
+  readOnly?: boolean;
   buildingName?: string;
   buildingId?: number;
   isSelected: boolean;
@@ -64,6 +66,7 @@ export function FieldCell({
   if (field.locked && !field.adminPreview) {
     return (
       <button
+        disabled={readOnly}
         onClick={onClick}
         aria-label={`Feld ${field.fieldIndex}: verborgen`}
         className={`relative w-full aspect-square overflow-hidden text-xs flex items-center justify-center border border-gray-500 bg-swu-bg/90
@@ -77,6 +80,7 @@ export function FieldCell({
 
   return (
     <button
+      disabled={readOnly}
       data-tutorial="colony-field"
       onClick={onClick}
       onMouseEnter={onMouseEnter}

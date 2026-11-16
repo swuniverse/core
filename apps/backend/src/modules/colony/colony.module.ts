@@ -1,3 +1,6 @@
+import { ColonySandboxService } from './colony-sandbox.service';
+import { ColonySandboxController } from './colony-sandbox.controller';
+import { ColonySandbox } from './entities/colony-sandbox.entity';
 import { AnomalyModule } from '../anomaly/anomaly.module';
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -73,6 +76,7 @@ import { Layer } from '../starmap/entities/layer.entity';
     TypeOrmModule.forFeature([
       Colony,
       ColonyField,
+      ColonySandbox,
       ColonyStorage,
       ColonyStats,
       ColonyChangeable,
@@ -105,8 +109,9 @@ import { Layer } from '../starmap/entities/layer.entity';
     AnomalyModule,
     forwardRef(() => SpacecraftFeatureModule),
   ],
-  controllers: [ColonyController, SpacecraftOrbitOrderController],
+  controllers: [ColonySandboxController, ColonyController, SpacecraftOrbitOrderController],
   providers: [
+    ColonySandboxService,
     ColonyDeletionHandler,
     ColonyService,
     ColonySeedService,

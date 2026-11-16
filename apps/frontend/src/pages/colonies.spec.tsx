@@ -11,6 +11,8 @@ import type {
   TerraformingDef,
 } from './colonies/types';
 
+vi.mock('./colonies/components/ColonySandboxPanel', () => ({ ColonySandboxPanel: () => <div>Sandboxen zur Planung</div> }));
+
 const colonyApiMocks = vi.hoisted(() => ({
   fetchCommodities: vi.fn(),
   fetchAvailableBuildings: vi.fn(),
@@ -266,6 +268,18 @@ describe('ColoniesPage socket refresh', () => {
     });
     colonyApiMocks.fetchShipClasses.mockResolvedValue(shipClasses);
     colonyApiMocks.fetchEnvironmentScan.mockResolvedValue(null);
+  });
+
+  it('switches from the live colony to the sandbox and back', async () => {
+    colonyApiMocks.fetchColonies.mockResolvedValue([createColony(1, 'Alpha', 5, 10)]);
+    colonyApiMocks.fetchColonyDetail.mockResolvedValue(createColony(1, 'Alpha', 5, 10));
+    render(<MemoryRouter initialEntries={['/colonies?selected=1']}><Routes><Route path="/colonies" element={<ColoniesPage />} /></Routes></MemoryRouter>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Sandbox' }));
+    expect(screen.getByText('Sandboxen zur Planung')).toBeTruthy();
+    expect(screen.queryByLabelText('Koloniefelder')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Kolonie' }));
+    expect(screen.getByLabelText('Koloniefelder')).toBeTruthy();
+    expect(screen.queryByText('Sandboxen zur Planung')).toBeNull();
   });
 
   it('refreshes overview and selected detail for matching COLONY_UPDATED', async () => {

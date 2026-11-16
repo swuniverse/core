@@ -1,3 +1,4 @@
+import { ColonySandbox } from './modules/colony/entities/colony-sandbox.entity';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -183,6 +184,7 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
           DatabaseCategoryAward,
           Colony,
           ColonyField,
+          ColonySandbox,
           ColonyStorage,
           ColonyStats,
           ColonyChangeable,

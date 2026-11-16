@@ -385,3 +385,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - col-A6 – Demontage recycelt Module nach Integrität, vollständige Reaktorladungen und geladene Torpedos innerhalb der Lagergrenze; Werftpflicht, Fracht und Crew bleiben erhalten, Vorschau zeigt Rückgaben – siehe `issues/col-A6-demontage-nach-stu-regel.md`
 
 - col-F3 – Top-10-Rangliste der besten Arbeitgeber aus zufriedenen Arbeitern aller Kolonien mit eigener Position und Verlinkung im Datenbank-Hub umgesetzt – siehe `issues/col-F3-rangliste-zufriedene-arbeiter.md`
+
+- col-G3a – Eigentümergeschützte Sandbox-Kopien aller Koloniefelder mit CRUD, konfigurierbarem Limit (Standard 3, transaktional abgesichert) und schreibgeschützter Karte umgesetzt. Kopien bleiben beim Ersteller und überleben die Quellkolonie; eigene JSONB-Snapshots ohne Tick-/Ranglistenwirkung. Bau/Vorschau folgen in col-G3b/c – siehe `issues/col-G3a-kolonie-sandbox-datenmodell.md`

@@ -1,3 +1,4 @@
+import { ColonySandbox } from '../../modules/colony/entities/colony-sandbox.entity';
 import { join } from 'node:path';
 import { DataSource } from 'typeorm';
 import { User } from '../../modules/auth/user.entity';
@@ -146,6 +147,7 @@ export const INTEGRATION_ENTITIES = [
   ShipClassDef,
   Colony,
   ColonyField,
+  ColonySandbox,
   ColonyStorage,
   ColonyStats,
   ColonyChangeable,

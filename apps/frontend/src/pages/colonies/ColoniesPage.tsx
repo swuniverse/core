@@ -40,6 +40,7 @@ import { PanelWaste } from './components/PanelWaste';
 import { PanelTelescope } from './components/PanelTelescope';
 import { ColonyContextPanel } from './components/ColonyContextPanel';
 import { ColonyCommandBar } from './components/ColonyCommandBar';
+import { ColonySandboxPanel } from './components/ColonySandboxPanel';
 import { ColonyMap } from './components/ColonyMap';
 import { SupplyDock } from './components/SupplyDock';
 import { CommodityLocationsDialog } from './components/CommodityLocationsDialog';
@@ -860,6 +861,8 @@ export function ColonyDetail({
   );
   const [selectedField, setSelectedField] = useState<ColonyField | null>(null);
   const [mainView, setMainView] = useState<ColonyMainView>('information');
+  const [sandboxMode, setSandboxMode] = useState(false);
+  useEffect(() => setSandboxMode(false), [colony.id]);
   const [contextView, setContextView] = useState<ColonyContextView>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingDef | null>(
     null,
@@ -1223,9 +1226,42 @@ export function ColonyDetail({
     );
   };
 
+  const modeSwitch = (
+    <div role="group" aria-label="Kolonieansicht" className="flex gap-2 text-xs">
+      <button
+        className="rounded border border-swu-border px-2 py-1"
+        aria-pressed={!sandboxMode}
+        onClick={() => setSandboxMode(false)}
+      >
+        Kolonie
+      </button>
+      <button
+        className="rounded border border-swu-border px-2 py-1"
+        aria-pressed={sandboxMode}
+        onClick={() => setSandboxMode(true)}
+      >
+        Sandbox
+      </button>
+    </div>
+  );
+  if (sandboxMode) {
+    return (
+      <div className="space-y-2">
+        <ColonyCommandBar colony={colony} onBack={onBack} />
+        {modeSwitch}
+        <ColonySandboxPanel
+          key={colony.id}
+          colonyId={colony.id}
+          buildingMap={buildingMap}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
       <ColonyCommandBar colony={colony} onBack={onBack} />
+      {modeSwitch}
 
       <ColonyPrimaryNav
         activeView={mainView}

@@ -9,6 +9,8 @@ const DEFAULT_COLUMNS = 10;
 const DAYLIGHT_REFRESH_MS = 60_000;
 
 type ColonyMapProps = {
+  readOnly?: boolean;
+  showEnergy?: boolean;
   orbitFields: ColonyField[];
   surfaceFields: ColonyField[];
   undergroundFields: ColonyField[];
@@ -71,6 +73,8 @@ function ColonyMapSection({
 }
 
 export function ColonyMap({
+  readOnly = false,
+  showEnergy = true,
   orbitFields,
   surfaceFields,
   undergroundFields,
@@ -128,6 +132,7 @@ export function ColonyMap({
     <FieldCell
       key={field.fieldIndex}
       field={field}
+      readOnly={readOnly}
       buildingId={field.buildingId ?? undefined}
       buildingName={
         field.buildingId
@@ -153,65 +158,67 @@ export function ColonyMap({
       data-tutorial="colony-energy"
       className="rounded border border-swu-border bg-swu-surface p-2 shadow-[0_12px_40px_rgba(0,0,0,0.18)]"
     >
-      <div className="mb-2 border-b border-swu-border/60 pb-2">
-        <div className="mb-1 flex items-center justify-between gap-2 text-[10px]">
-          <span className="font-bold uppercase tracking-wide text-swu-muted">
-            Energie
-          </span>
-          <span className="font-mono text-swu-warning">
-            {energy.current}/{energy.max}
-            {energy.delta != null && (
-              <span
-                className={
-                  energy.delta >= 0
-                    ? 'ml-1 text-green-400'
-                    : 'ml-1 text-red-400'
-                }
-              >
-                {formatSignedAmount(energy.delta)}
-              </span>
-            )}
-          </span>
-        </div>
-        <div className="h-2 overflow-hidden rounded border border-swu-border/60 bg-swu-bg">
-          <div
-            className="h-full bg-swu-warning transition-[width]"
-            style={{
-              width: `${energy.max > 0 ? Math.min(100, Math.max(0, (energy.current / energy.max) * 100)) : 0}%`,
-            }}
-          />
-        </div>
-        {shield && (
-          <div className="mt-2 border-t border-swu-border/40 pt-2">
-            <div className="mb-1 flex items-center justify-between gap-2 text-[10px]">
-              <span className="font-bold uppercase tracking-wide text-swu-muted">
-                <span aria-hidden="true" className="mr-1 text-swu-accent">
-                  ◇
+      {showEnergy && (
+        <div className="mb-2 border-b border-swu-border/60 pb-2">
+          <div className="mb-1 flex items-center justify-between gap-2 text-[10px]">
+            <span className="font-bold uppercase tracking-wide text-swu-muted">
+              Energie
+            </span>
+            <span className="font-mono text-swu-warning">
+              {energy.current}/{energy.max}
+              {energy.delta != null && (
+                <span
+                  className={
+                    energy.delta >= 0
+                      ? 'ml-1 text-green-400'
+                      : 'ml-1 text-red-400'
+                  }
+                >
+                  {formatSignedAmount(energy.delta)}
                 </span>
-                Schildstärke
-              </span>
-              <span className="font-mono text-swu-accent">
-                {shield.current}/{shield.max}
-              </span>
-            </div>
-            <div
-              role="progressbar"
-              aria-label="Schildstärke"
-              aria-valuemin={0}
-              aria-valuenow={shield.current}
-              aria-valuemax={shield.max}
-              className="h-2 overflow-hidden rounded border border-swu-border/60 bg-swu-bg"
-            >
-              <div
-                className="h-full bg-swu-accent transition-[width]"
-                style={{
-                  width: `${Math.min(100, Math.max(0, (shield.current / shield.max) * 100))}%`,
-                }}
-              />
-            </div>
+              )}
+            </span>
           </div>
-        )}
-      </div>
+          <div className="h-2 overflow-hidden rounded border border-swu-border/60 bg-swu-bg">
+            <div
+              className="h-full bg-swu-warning transition-[width]"
+              style={{
+                width: `${energy.max > 0 ? Math.min(100, Math.max(0, (energy.current / energy.max) * 100)) : 0}%`,
+              }}
+            />
+          </div>
+          {shield && (
+            <div className="mt-2 border-t border-swu-border/40 pt-2">
+              <div className="mb-1 flex items-center justify-between gap-2 text-[10px]">
+                <span className="font-bold uppercase tracking-wide text-swu-muted">
+                  <span aria-hidden="true" className="mr-1 text-swu-accent">
+                    ◇
+                  </span>
+                  Schildstärke
+                </span>
+                <span className="font-mono text-swu-accent">
+                  {shield.current}/{shield.max}
+                </span>
+              </div>
+              <div
+                role="progressbar"
+                aria-label="Schildstärke"
+                aria-valuemin={0}
+                aria-valuenow={shield.current}
+                aria-valuemax={shield.max}
+                className="h-2 overflow-hidden rounded border border-swu-border/60 bg-swu-bg"
+              >
+                <div
+                  className="h-full bg-swu-accent transition-[width]"
+                  style={{
+                    width: `${Math.min(100, Math.max(0, (shield.current / shield.max) * 100))}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       {isBuildMode && (
         <div className="mb-2 flex justify-end border-b border-swu-border/40 pb-2">
           <div className="rounded border border-swu-accent/40 bg-swu-accent/10 px-2 py-1 text-[10px] font-bold text-swu-accent">
