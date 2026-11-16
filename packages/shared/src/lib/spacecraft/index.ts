@@ -1130,3 +1130,18 @@ export interface ShipDisassemblyReturns {
   reactorFuel: Array<{ commodityId: number; amount: number }>;
   torpedoes: Array<{ commodityId: number; amount: number }>;
 }
+
+export interface SpacecraftCargoDisposeRequestDto {
+  items: Array<{ commodityId: number; amount: number }>;
+}
+
+export interface SpacecraftCargoDisposeResultDto {
+  messages: string[];
+  cargo: Array<{
+    id: number;
+    commodityId: number;
+    amount: number;
+    commodityName: string;
+  }>;
+  cargoUsed: number;
+}

@@ -774,3 +774,98 @@ describe('TransferService wreck recovery', () => {
     expect(manager.remove).toHaveBeenCalledWith(wreck);
   });
 });
+
+function disposalFixture() {
+  const ship = {
+    id: 1,
+    userId: 10,
+    status: 'IDLE',
+    runtimeSystems: {},
+    cargoUsed: 99,
+  };
+  const cargo = [
+    { id: 1, spacecraftId: 1, commodityId: 7, amount: 10 },
+    { id: 2, spacecraftId: 1, commodityId: 8, amount: 5 },
+  ];
+  const shipRepo = {
+    findOne: jest.fn(async ({ where }) =>
+      where.userId === ship.userId ? ship : null,
+    ),
+  };
+  const query = {
+    select: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    getRawOne: jest.fn(async () => ({
+      total: String(cargo.reduce((sum, item) => sum + item.amount, 0)),
+    })),
+  };
+  const cargoRepo = {
+    find: jest.fn(async () => cargo),
+    save: jest.fn(),
+    remove: jest.fn(),
+    createQueryBuilder: jest.fn(() => query),
+  };
+  const manager = {
+    getRepository: jest.fn((entity) =>
+      entity === Spacecraft ? shipRepo : cargoRepo,
+    ),
+    save: jest.fn(),
+  };
+  const dataSource = {
+    transaction: jest.fn(async (callback) => callback(manager)),
+  };
+  const service = new TransferService(
+    cargoRepo as never,
+    {} as never,
+    dataSource as never,
+    {} as never,
+    {} as never,
+    { getCommodity: (id: number) => ({ name: `Ware ${id}` }) } as never,
+    {} as never,
+    {} as never,
+  );
+  return { ship, cargo, shipRepo, cargoRepo, manager, service };
+}
+
+describe('TransferService cargo disposal', () => {
+  it('locks owner and cargo, clamps combined requests and returns actual amounts with the updated hold', async () => {
+    const { service, ship, cargo, cargoRepo, shipRepo, manager } =
+      disposalFixture();
+    const result = await service.disposeCargo(1, 10, [
+      { commodityId: 7, amount: 6 },
+      { commodityId: 7, amount: 6 },
+      { commodityId: 8, amount: 2 },
+    ]);
+    expect(result.messages).toEqual([
+      '10 Ware 7 entsorgt.',
+      '2 Ware 8 entsorgt.',
+    ]);
+    expect(result.cargo).toEqual([
+      expect.objectContaining({ commodityId: 8, amount: 3 }),
+    ]);
+    expect(ship.cargoUsed).toBe(3);
+    expect(cargoRepo.remove).toHaveBeenCalledWith(cargo[0]);
+    expect(cargoRepo.save).toHaveBeenCalledWith(cargo[1]);
+    expect(manager.save).toHaveBeenCalledWith(ship);
+    expect(shipRepo.findOne).toHaveBeenCalledWith({
+      where: { id: 1, userId: 10 },
+      lock: { mode: 'pessimistic_write' },
+    });
+    expect(cargoRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({ lock: { mode: 'pessimistic_write' } }),
+    );
+  });
+
+  it('rejects foreign owners and hyperspace before touching cargo', async () => {
+    const { service, ship, cargoRepo } = disposalFixture();
+    await expect(
+      service.disposeCargo(1, 11, [{ commodityId: 7, amount: 1 }]),
+    ).rejects.toThrow('Schiff nicht gefunden');
+    ship.runtimeSystems = { WARPDRIVE: { active: true } };
+    await expect(
+      service.disposeCargo(1, 10, [{ commodityId: 7, amount: 1 }]),
+    ).rejects.toThrow('Hyperraum');
+    expect(cargoRepo.find).not.toHaveBeenCalled();
+    expect(cargoRepo.remove).not.toHaveBeenCalled();
+  });
+});

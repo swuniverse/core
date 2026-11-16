@@ -3,6 +3,7 @@ import { commodityImage } from '../../lib/assets';
 import { Tooltip, TooltipTable } from '../Tooltip';
 import { formatNumber } from '../../lib/format';
 import { api } from '../../services/api';
+import { CargoDisposeDialog } from './CargoDisposeDialog';
 
 export interface CargoItem {
   id: number;
@@ -140,27 +141,42 @@ export function ShipStoragePanel({
   shipId,
   cargoMax,
   refreshKey = 0,
+  hyperdriveActive = false,
+  onChanged,
 }: {
   shipId: number;
   cargoMax: number;
   refreshKey?: number;
+  hyperdriveActive?: boolean;
+  onChanged?: () => void;
 }) {
   const [cargo, setCargo] = useState<CargoItem[]>([]);
+  const [disposeOpen, setDisposeOpen] = useState(false);
+  const [messages, setMessages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const visibleCargo = cargo.filter((item) => item.amount > 0);
   const used = visibleCargo.reduce((sum, item) => sum + item.amount, 0);
 
   useEffect(() => {
+    let active = true;
+    setError(null);
     void api
       .get<CargoItem[]>(`/spacecraft/${shipId}/cargo`)
-      .then(setCargo)
-      .catch((err: unknown) =>
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'Lagerraum konnte nicht geladen werden',
-        ),
+      .then((items) => {
+        if (active) setCargo(items);
+      })
+      .catch(
+        (err: unknown) =>
+          active &&
+          setError(
+            err instanceof Error
+              ? err.message
+              : 'Lagerraum konnte nicht geladen werden',
+          ),
       );
+    return () => {
+      active = false;
+    };
   }, [shipId, refreshKey]);
 
   return (
@@ -210,6 +226,45 @@ export function ShipStoragePanel({
           </p>
         )}
       </div>
+      <div className="border-t border-swu-border p-2">
+        <button
+          type="button"
+          disabled={hyperdriveActive || !visibleCargo.length || !!error}
+          onClick={() => {
+            setMessages([]);
+            setDisposeOpen(true);
+          }}
+          className="border border-swu-border px-2 py-1 disabled:opacity-40"
+        >
+          Waren entsorgen
+        </button>
+        {hyperdriveActive && (
+          <p className="mt-1 text-swu-muted">
+            Entsorgung im Hyperraum nicht möglich.
+          </p>
+        )}
+        {messages.length > 0 && (
+          <div role="status" className="mt-1">
+            {messages.map((message, index) => (
+              <p key={index}>{message}</p>
+            ))}
+          </div>
+        )}
+      </div>
+      {disposeOpen && !hyperdriveActive && (
+        <CargoDisposeDialog
+          key={shipId}
+          shipId={shipId}
+          cargo={cargo}
+          onClose={() => setDisposeOpen(false)}
+          onComplete={(result) => {
+            setCargo(result.cargo);
+            setMessages(result.messages);
+            cargoRequests.delete(shipId);
+            onChanged?.();
+          }}
+        />
+      )}
     </section>
   );
 }

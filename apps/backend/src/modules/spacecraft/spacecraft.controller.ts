@@ -60,6 +60,7 @@ import { StationShipManagementService } from './station-ship-management.service'
 import { StationRepairService } from './station-repair.service';
 import { StationShipyardService } from './station-shipyard.service';
 import { ShipManagementRequest } from './ship-management.service';
+import { CargoDisposeDto } from './cargo-dispose.dto';
 import { EngineeringAmountDto } from './engineering-amount.dto';
 import { AdminSpawnShipDto } from './admin-spawn-ship.dto';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
@@ -1535,6 +1536,15 @@ export class SpacecraftController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.transferService.getShipCargo(id, req.user.sub);
+  }
+
+  @Post(':id/cargo/dispose')
+  disposeCargo(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body() dto: CargoDisposeDto,
+  ) {
+    return this.transferService.disposeCargo(id, req.user.sub, dto.items);
   }
 
   @Post(':id/cargo/load')

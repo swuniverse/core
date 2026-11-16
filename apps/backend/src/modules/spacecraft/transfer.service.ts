@@ -1,6 +1,10 @@
 import { InteractionContextService } from './interaction-context.service';
 import { checkInteraction, InteractionRule } from './interaction-policy';
 import { BadRequestException, Injectable } from '@nestjs/common';
+import type {
+  SpacecraftCargoDisposeRequestDto,
+  SpacecraftCargoDisposeResultDto,
+} from '@swuniverse/shared';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { ColonyStorage } from '../colony/entities/colony-storage.entity';
@@ -563,6 +567,84 @@ export class TransferService {
         commodityName: commodity?.name ?? `Ware #${item.commodityId}`,
         commoditySort: commodity?.sort ?? item.commodityId,
       }));
+  }
+
+  async disposeCargo(
+    shipId: number,
+    userId: number,
+    items: SpacecraftCargoDisposeRequestDto['items'],
+  ): Promise<SpacecraftCargoDisposeResultDto> {
+    if (
+      !Array.isArray(items) ||
+      items.length > 1000 ||
+      items.some(
+        (item) =>
+          !item ||
+          !Number.isSafeInteger(item.commodityId) ||
+          item.commodityId < 1 ||
+          !Number.isSafeInteger(item.amount) ||
+          item.amount < 0,
+      )
+    ) {
+      throw new BadRequestException('Ungültige Waren oder Mengen');
+    }
+    return this.dataSource.transaction(async (manager) => {
+      const ship = await manager.getRepository(Spacecraft).findOne({
+        where: { id: shipId, userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!ship) throw new BadRequestException('Schiff nicht gefunden');
+      if (ship.status === SpacecraftStatus.DESTROYED) {
+        throw new BadRequestException('Wracklager ist nicht zugänglich');
+      }
+      if (
+        (ship.runtimeSystems as SpacecraftRuntimeSystems)?.WARPDRIVE?.active
+      ) {
+        throw new BadRequestException(
+          'Im Hyperraum können keine Waren entsorgt werden',
+        );
+      }
+      const repo = manager.getRepository(CargoItem);
+      const cargo = await repo.find({
+        where: { spacecraftId: shipId },
+        order: { commodityId: 'ASC' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const requested = new Map<number, number>();
+      for (const item of items) {
+        requested.set(
+          item.commodityId,
+          Math.min(
+            Number.MAX_SAFE_INTEGER,
+            (requested.get(item.commodityId) ?? 0) + item.amount,
+          ),
+        );
+      }
+      const messages: string[] = [];
+      for (const item of cargo) {
+        const amount = Math.min(
+          item.amount,
+          requested.get(item.commodityId) ?? 0,
+        );
+        if (amount <= 0) continue;
+        item.amount -= amount;
+        if (item.amount === 0) await repo.remove(item);
+        else await repo.save(item);
+        const name =
+          this.gameData.getCommodity(item.commodityId)?.name ??
+          `Ware #${item.commodityId}`;
+        messages.push(`${amount} ${name} entsorgt.`);
+      }
+      ship.cargoUsed = await this.getCargoUsed(shipId, repo);
+      await manager.save(ship);
+      return {
+        messages: messages.length
+          ? messages
+          : ['Es wurden keine Waren entsorgt.'],
+        cargo: this.withCommodityNames(cargo.filter((item) => item.amount > 0)),
+        cargoUsed: ship.cargoUsed,
+      };
+    });
   }
 
   async getShipCargo(shipId: number, userId?: number) {

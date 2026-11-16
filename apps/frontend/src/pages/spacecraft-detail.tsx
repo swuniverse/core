@@ -314,9 +314,12 @@ export function SpacecraftDetailPage() {
       <div className="mt-2">
         <div id="ship-storage">
           <ShipStoragePanel
+            key={ship.id}
             shipId={ship.id}
             cargoMax={ship.cargoMax ?? 0}
             refreshKey={storageVersion}
+            hyperdriveActive={ship.runtimeSystems?.WARPDRIVE?.active === true}
+            onChanged={refreshShipAndStorage}
           />
         </div>
       </div>
