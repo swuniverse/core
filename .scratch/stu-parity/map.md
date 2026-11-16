@@ -405,3 +405,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-ENG-4 – Warenentsorgung im Schiffslager mit Mengenfeldern und „alles“, Eigentümer-/Hyperraumsperre, bestandsbegrenzter transaktionaler Vernichtung und Meldung je Ware umgesetzt. PostgreSQL prüft Parallelität und Rollback; vollständige Tests und Pflicht-Gates grün – siehe [Ticket](issues/sc-WP-ENG-4-schiffsmuelleimer.md).
 
 - sc-WP-FLEET-3 – Persistentes Ein-/Ausblenden von Flotten in der Schiffsliste und „Nach oben“ mit stabiler übriger Reihenfolge umgesetzt. Eigentümergeschützte transaktionale API, Migration und PostgreSQL-Prüfung für Parallelität, Flottenverlegung und Rollback; alle Pflicht-Gates grün – siehe [Ticket](issues/sc-WP-FLEET-3-flottenpflege.md).
+
+- sc-WP-NAV-2c – Admin-Flugsignaturen im Vollkarteneditor mit Ausschnittsabfrage, Schiff-/Spieler-/Allianzfilter und Richtungs-Linienoverlay umgesetzt. Unterschiedliche Schiffe je Richtung statt mehrfacher Spuren zählen; HTTP-Adminschutz, PostgreSQL-Aggregation und asynchrone Canvas-/Filtertests geprüft, alle Pflicht-Gates grün – siehe [Ticket](issues/sc-WP-NAV-2c-admin-signaturansicht.md).

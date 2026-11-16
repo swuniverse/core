@@ -1,6 +1,9 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Application, Container, Sprite, Graphics, Assets, Text, TextStyle } from 'pixi.js';
 import type { StarmapGalaxyFieldDto } from '@swuniverse/shared';
+import { useAdminSignatureStore } from '../../stores/admin-signature.store';
+import { useAuthStore } from '../../stores/auth.store';
+import { drawFlightSignatures, signatureViewport } from './flight-signature-overlay';
 import { useFullmapEditorStore } from '../../stores/fullmap-editor.store';
 import { spaceBackgroundTile, systemTypeImage, starTileImage } from '../../lib/assets';
 
@@ -17,6 +20,10 @@ export function FullMapCanvas() {
   const tooltipRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
   const galaxyRef = useRef<Container | null>(null);
+  const signatureGfxRef = useRef<Graphics | null>(null);
+  const signatureFields = useAdminSignatureStore((s) => s.fields);
+  const signaturesEnabled = useAdminSignatureStore((s) => s.enabled);
+  const isAdmin = useAuthStore((s) => s.user?.isAdmin === true);
   const gridGfxRef = useRef<Graphics | null>(null);
   const selectionGfxRef = useRef<Graphics | null>(null);
   const overlayContainerRef = useRef<Container | null>(null);
@@ -91,10 +98,11 @@ export function FullMapCanvas() {
     const state = stateRef.current;
     container.position.set(-state.viewX * state.scale, -state.viewY * state.scale);
     container.scale.set(state.scale);
+    if (layer) useAdminSignatureStore.getState().setViewport(signatureViewport(layer, state, app.screen, CELL));
     if (gridGfxRef.current) {
       gridGfxRef.current.visible = overlays.grid && state.scale * CELL >= 5;
     }
-  }, [overlays.grid]);
+  }, [overlays.grid, layer]);
 
   const updateTooltip = useCallback(() => {
     const tooltip = tooltipRef.current;
@@ -161,6 +169,16 @@ export function FullMapCanvas() {
 
   useEffect(() => { drawImpassableOverlay(); }, [drawImpassableOverlay]);
 
+  const drawSignatures = useCallback(() => {
+    const graphics = signatureGfxRef.current;
+    if (!graphics) return;
+    const state = useAdminSignatureStore.getState();
+    drawFlightSignatures(graphics, state.enabled && useAuthStore.getState().user?.isAdmin ? state.fields : [], CELL);
+  }, []);
+  const drawSignaturesRef = useRef(drawSignatures);
+  drawSignaturesRef.current = drawSignatures;
+  useEffect(() => { drawSignatures(); }, [drawSignatures, signatureFields, signaturesEnabled, isAdmin]);
+
   const fieldsRef = useRef(fields);
   fieldsRef.current = fields;
 
@@ -189,6 +207,10 @@ export function FullMapCanvas() {
       overlayContainerRef.current = overlayContainer;
       galaxyContainer.addChild(overlayContainer);
 
+      signatureGfxRef.current = new Graphics();
+      galaxyContainer.addChild(signatureGfxRef.current);
+      drawSignaturesRef.current();
+
       const selection = new Graphics();
       selectionGfxRef.current = selection;
       galaxyContainer.addChild(selection);
@@ -200,6 +222,7 @@ export function FullMapCanvas() {
       loadTiles(galaxyContainer);
       fitView(app);
       setupInteraction(app, ac.signal);
+      app.renderer.on('resize', updateView);
     });
 
     return () => {
@@ -208,7 +231,12 @@ export function FullMapCanvas() {
       galaxyRef.current = null;
       gridGfxRef.current = null;
       selectionGfxRef.current = null;
-      initPromise.then(() => app.destroy(true, { children: true }));
+      signatureGfxRef.current = null;
+      useAdminSignatureStore.getState().setViewport(null);
+      initPromise.then(() => {
+        app.renderer.off('resize', updateView);
+        app.destroy(true, { children: true });
+      });
     };
   }, [layer?.id]);
 
@@ -225,6 +253,9 @@ export function FullMapCanvas() {
     const overlayContainer = new Container();
     overlayContainerRef.current = overlayContainer;
     container.addChild(overlayContainer);
+    signatureGfxRef.current = new Graphics();
+    container.addChild(signatureGfxRef.current);
+    drawSignaturesRef.current();
     const selection = new Graphics();
     selectionGfxRef.current = selection;
     const rectGfx = new Graphics();
@@ -306,6 +337,12 @@ export function FullMapCanvas() {
     }
     grid.stroke({ color: 0xffffff, width: 0.5, alpha: 0.2 });
     container.addChild(grid);
+
+    // Flight trails above map tiles, below selection highlights.
+    if (galaxyRef.current === container && signatureGfxRef.current) {
+      container.addChild(signatureGfxRef.current);
+      drawSignaturesRef.current();
+    }
 
     // Selection + rect overlay on top
     if (selectionGfxRef.current) {

@@ -1,3 +1,4 @@
+import { FlightSignaturePanel } from './FlightSignaturePanel';
 import { OverlayToggles } from './OverlayToggles';
 import { ToolSelector } from './ToolSelector';
 import { ValuePanel } from './ValuePanel';
@@ -10,6 +11,7 @@ export function FullMapPanel() {
         <FieldDetails />
       </div>
       <OverlayToggles />
+      <FlightSignaturePanel />
       <ToolSelector />
       <ValuePanel />
     </aside>

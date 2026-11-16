@@ -583,3 +583,22 @@ export interface StarmapCreateWormholeDto {
   isRandomExit?: boolean;
   name?: string;
 }
+
+
+export type AdminFlightSignatureFilter = 'ALL' | 'SPACECRAFT' | 'USER' | 'ALLIANCE';
+
+export interface AdminFlightSignatureQueryDto {
+  xStart: number;
+  xEnd: number;
+  yStart: number;
+  yEnd: number;
+  filter?: AdminFlightSignatureFilter;
+  targetId?: number;
+}
+
+export interface AdminFlightSignatureFieldDto {
+  fieldId: number;
+  cx: number;
+  cy: number;
+  directions: Record<'NORTH' | 'EAST' | 'SOUTH' | 'WEST', number>;
+}
