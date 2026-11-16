@@ -453,3 +453,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - tmw-K10c – Kalendergesteuerte saisonale Anomalien, geschützte Öffnen-Aktion, Sammelwaren und Sonderprestige samt Historie umgesetzt. Alle Pflicht-Gates und acht PostgreSQL-Tests grün; Migration lokal angewendet – siehe [Ticket](issues/tmw-K10c-saisonale-anomalien.md).
 
 - Triage-2026-11-16 – Sieben Resttickets gegen Baseline/STU/Tests geprüft, drei sofort ausführbare Aufträge sowie zwei abhängige Interdiktornetz-Kinder vorbereitet, vier konkrete Entscheidungsfälle dokumentiert. Kein Feature-Code geändert – siehe [Audit](triage-2026-11-16.md).
+
+- tmw-K1a2 – Flotten-Flugfolgen durch sieben echte PostgreSQL-Fälle für vier Flugpfade, Mitglieder-/Leaderverlust und vollständige Zerstörung abgesichert. Veraltete Kampfbericht-Fixture und fehlende Wrack-/Notruf-Metadaten repariert; 49 Integrationstests, 34 Unit-Tests, Lint/Typecheck grün. Produktionsfluglogik bereits korrekt – siehe [Ticket](issues/tmw-K1a2-flugfolgen-fuer-alle-flottenschiffe.md).

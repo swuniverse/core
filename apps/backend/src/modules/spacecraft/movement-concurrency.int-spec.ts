@@ -30,6 +30,18 @@ import { regionTarget } from './cartography-plan.service';
 import { GalaxyFieldType } from '../starmap/entities/galaxy-field-type.entity';
 import type { CrewEnhancementService } from './crew-enhancement.service';
 import { FlightSignatureService } from './flight-signature.service';
+import { LastCombatReportService } from './last-combat-report.service';
+import { AnomalyRegistry } from '../anomaly/anomaly-registry';
+import { AnomalyFlightConsequence } from '../anomaly/anomaly-flight-consequence';
+import { IonStormHandler } from '../anomaly/ion-storm.handler';
+import type { AnomalyRandom } from '../anomaly/stu-random';
+import { Anomaly } from '../anomaly/entities/anomaly.entity';
+import { AnomalyType } from '../anomaly/entities/anomaly-type.entity';
+import { SpacecraftIonStormEffects } from './ion-storm-effects';
+import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
+import { Message } from '../messaging/entities/message.entity';
+import { User } from '../auth/user.entity';
+
 import { StatisticsService } from '../statistics/statistics.service';
 import { GameGateway } from '../websocket/game.gateway';
 import { MessagingService } from '../messaging/messaging.service';
@@ -66,6 +78,20 @@ function barrier() {
     release = resolve;
   });
   return { promise, release };
+}
+
+/** Fail promptly when the movement aborts before reaching the controlled load. */
+async function waitForControlledLoad(
+  acquired: Promise<void>,
+  pending: Promise<unknown>,
+): Promise<void> {
+  await Promise.race([
+    acquired,
+    pending.then((result) => {
+      if (result && typeof result === 'object' && 'error' in result) throw result.error;
+      throw new Error('Movement completed before the controlled load');
+    }),
+  ]);
 }
 
 const battleReport = (text: string): CombatReportDto => ({
@@ -108,6 +134,7 @@ async function movementService(dataSource: DataSource) {
     FlightConsequencePipeline,
     ExplorationService,
     LayerKnowledgeService,
+    LastCombatReportService,
   ];
   const dependencies: Type<unknown>[] = realServices.flatMap(
     (service) => Reflect.getMetadata('design:paramtypes', service) ?? [],
@@ -286,7 +313,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       (error: unknown) => ({ error }),
     );
     try {
-      await acquired.promise;
+      await waitForControlledLoad(acquired.promise, pending);
       await dataSource
         .getRepository(Spacecraft)
         .update(ship.id, { energy: 44 });
@@ -336,7 +363,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       (error: unknown) => ({ error }),
     );
     try {
-      await acquired.promise;
+      await waitForControlledLoad(acquired.promise, pending);
       await dataSource.getRepository(SpacecraftModule).delete(drive.id);
     } finally {
       dataSource.subscribers.splice(
@@ -403,7 +430,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       (error: unknown) => ({ error }),
     );
     try {
-      await acquired.promise;
+      await waitForControlledLoad(acquired.promise, pending);
       await dataSource
         .getRepository(Spacecraft)
         .update(remote.id, { locationId: locations[0].id });
@@ -454,7 +481,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
     dataSource.subscribers.push(subscriber);
     const pending = fixture.service.flyGalaxy(ship.id, ship.userId, 2, 1);
     try {
-      await acquired.promise;
+      await waitForControlledLoad(acquired.promise, pending);
       await dataSource
         .getRepository(Spacecraft)
         .update(ship.id, { battery: 23, name: 'Renamed during flight' });
@@ -511,7 +538,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       (error: unknown) => ({ error }),
     );
     try {
-      await acquired.promise;
+      await waitForControlledLoad(acquired.promise, pending);
       await dataSource.transaction(async (manager) => {
         await manager.findOneOrFail(Spacecraft, {
           where: { id: ship.id },
@@ -570,7 +597,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       WARPDRIVE: { active: false, integrity: 100, cooldown: 3 },
     };
     try {
-      await acquired.promise;
+      await waitForControlledLoad(acquired.promise, pending);
       await dataSource
         .getRepository(Spacecraft)
         .update(ship.id, { runtimeSystems });
@@ -643,7 +670,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       (error: unknown) => ({ error }),
     );
     try {
-      await acquired.promise;
+      await waitForControlledLoad(acquired.promise, pending);
       await dataSource.transaction(async (manager) => {
         await manager.findOneOrFail(Spacecraft, {
           where: { id: ship.id },
@@ -718,7 +745,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       (error: unknown) => ({ error }),
     );
     try {
-      await acquired.promise;
+      await waitForControlledLoad(acquired.promise, pending);
       await fixture.service.joinFleet(ship.userId, fleet.id, joiner.id);
     } finally {
       dataSource.subscribers.splice(
@@ -783,7 +810,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       (error: unknown) => ({ error }),
     );
     try {
-      await acquired.promise;
+      await waitForControlledLoad(acquired.promise, pending);
       expect(
         await dataSource
           .getRepository(Spacecraft)
@@ -839,7 +866,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       (error: unknown) => ({ error }),
     );
     try {
-      await acquired.promise;
+      await waitForControlledLoad(acquired.promise, pending);
       await dataSource
         .getRepository(Spacecraft)
         .update(ship.id, { status: SpacecraftStatus.DESTROYED, hull: 0 });
@@ -913,7 +940,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       (error: unknown) => ({ error }),
     );
     try {
-      await acquired.promise;
+      await waitForControlledLoad(acquired.promise, pending);
       await dataSource
         .getRepository(Spacecraft)
         .update(ship.id, { status: SpacecraftStatus.DESTROYED, hull: 0 });
@@ -1278,7 +1305,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       (error: unknown) => ({ error }),
     );
     try {
-      await acquired.promise;
+      await waitForControlledLoad(acquired.promise, pending);
       await dataSource
         .getRepository(Spacecraft)
         .update(target.id, { energy: 44 });
@@ -1402,7 +1429,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       (error: unknown) => ({ error }),
     );
     try {
-      await acquired.promise;
+      await waitForControlledLoad(acquired.promise, pending);
       await dataSource
         .getRepository(Spacecraft)
         .update(member.id, { energy: 44 });
@@ -1491,7 +1518,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       (error: unknown) => ({ error }),
     );
     try {
-      await acquired.promise;
+      await waitForControlledLoad(acquired.promise, pending);
       await dataSource
         .getRepository(Spacecraft)
         .update(member.id, { energy: 44 });
@@ -1575,7 +1602,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       (error: unknown) => ({ error }),
     );
     try {
-      await acquired.promise;
+      await waitForControlledLoad(acquired.promise, pending);
       await dataSource
         .getRepository(Spacecraft)
         .update(ship.id, { energy: 44 });
@@ -1630,7 +1657,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       (error: unknown) => ({ error }),
     );
     try {
-      await acquired.promise;
+      await waitForControlledLoad(acquired.promise, pending);
       await dataSource
         .getRepository(Spacecraft)
         .update(ship.id, { locationId: locations[2].id, energy: 44 });
@@ -2061,4 +2088,346 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       );
     });
   });
+
+  describe('fleet field and ion storm consequences (tmw-K1a2)', () => {
+    const modes = ['GALAXY', 'SYSTEM', 'ENTER', 'LEAVE'] as const;
+    type Mode = (typeof modes)[number];
+    const now = Date.UTC(2030, 0, 1);
+    afterEach(() => jest.restoreAllMocks());
+
+    async function flight(mode: Mode) {
+      const layer = await dataSource
+        .getRepository(Layer)
+        .findOneByOrFail({ name: 'Movement test layer' });
+      let systemLocations: SpaceLocation[] = [];
+      if (mode !== 'GALAXY') {
+        const system = await dataSource.getRepository(StarSystem).save({
+          name: 'Fleet storm system',
+          layerId: layer.id,
+          cx: 1,
+          cy: 1,
+          maxX: 3,
+          maxY: 1,
+          systemTypeId: 1,
+        });
+        const fields = await dataSource
+          .getRepository(SystemField)
+          .save(
+            [1, 2, 3].map((sx) => ({
+              starSystemId: system.id,
+              sx,
+              sy: 1,
+              fieldTypeId: 1,
+            })),
+          );
+        systemLocations = await Promise.all(
+          fields.map((field) =>
+            dataSource
+              .getRepository(SpaceLocation)
+              .findOneByOrFail({ systemFieldId: field.id }),
+          ),
+        );
+        await dataSource
+          .getRepository(GalaxyField)
+          .update(locations[0].galaxyFieldId!, { starSystemId: system.id });
+      }
+      const origin =
+        mode === 'SYSTEM' || mode === 'LEAVE' ? systemLocations[0] : locations[0];
+      const destinations =
+        mode === 'GALAXY'
+          ? locations.slice(1)
+          : mode === 'SYSTEM'
+            ? systemLocations.slice(1)
+            : mode === 'ENTER'
+              ? [systemLocations[0]]
+              : [locations[0]];
+      const members: Spacecraft[] = [ship];
+      for (const name of ['Second ship', 'Third ship']) {
+        members.push(
+          await dataSource.getRepository(Spacecraft).save({
+            name,
+            userId: ship.userId,
+            shipClassId: ship.shipClassId,
+            locationId: origin.id,
+            energy: 71,
+          }),
+        );
+      }
+      const fleet = await dataSource
+        .getRepository(Fleet)
+        .save({ name: 'Storm fleet', userId: ship.userId, leaderId: ship.id });
+      await dataSource.getRepository(Spacecraft).update(
+        members.map((member) => member.id),
+        {
+          fleetId: fleet.id,
+          locationId: origin.id,
+          status: SpacecraftStatus.IDLE,
+          lastGalaxyFlightDirection: 'RIGHT',
+          hull: 100,
+          hullMax: 100,
+          shields: 0,
+          reactorFuel: 40,
+          reactorFuelMax: 100,
+          runtimeSystems: {},
+        },
+      );
+      await dataSource.getRepository(SpacecraftModule).save(
+        members.flatMap((member) => [
+          {
+            spacecraftId: member.id,
+            category: 'HYPERDRIVE',
+            moduleType: 'Hyperdrive',
+            isActive: true,
+          },
+          {
+            spacecraftId: member.id,
+            category: 'SUBLIGHT_DRIVE',
+            moduleType: 'Impulsantrieb',
+            isActive: true,
+          },
+          {
+            spacecraftId: member.id,
+            category: 'SENSORS',
+            moduleType: 'Sensors',
+            isActive: true,
+          },
+        ]),
+      );
+      for (const destination of destinations) {
+        if (destination.galaxyFieldId != null) {
+          await dataSource
+            .getRepository(GalaxyField)
+            .update(destination.galaxyFieldId, {
+              effects: [FieldEffect.REACTOR_LEAK],
+            });
+        } else {
+          await dataSource
+            .getRepository(SystemField)
+            .update(destination.systemFieldId!, {
+              effects: [FieldEffect.REACTOR_LEAK],
+            });
+        }
+      }
+      const run = () =>
+        mode === 'GALAXY'
+          ? fixture.service.flyGalaxy(ship.id, ship.userId, 3, 1)
+          : mode === 'SYSTEM'
+            ? fixture.service.navigate(ship.id, ship.userId, 3, 1)
+            : mode === 'ENTER'
+              ? fixture.service.enterSystem(ship.id, ship.userId)
+              : fixture.service.leaveSystem(ship.id, ship.userId);
+      return { members, destinations, fleet, layer, run };
+    }
+
+    async function addStorms(layerId: number, destinations: SpaceLocation[]) {
+      const random: AnomalyRandom = {
+        integer: (min, max) => (min === 0 && max === 20 ? 1 : min),
+        normal: () => 20,
+        skewed: () => 600,
+      };
+      const messaging = new MessagingService(
+        dataSource.getRepository(Message),
+        dataSource.getRepository(User),
+        new StatisticsService(dataSource, []),
+        fixture.gateway as unknown as GameGateway,
+        {} as ConstructorParameters<typeof MessagingService>[4],
+      );
+      // Exercise the real row deletion, wreck creation and fleet hand-over.
+      // No assigned crew in this fixture, so constructor defaults need no pods.
+      const destruction = new SpacecraftDestructionService(
+        dataSource,
+        new SpacecraftRuntimeStateService(),
+        fixture.gateway as unknown as GameGateway,
+        messaging,
+        {} as ConstructorParameters<typeof SpacecraftDestructionService>[4],
+        {} as ConstructorParameters<typeof SpacecraftDestructionService>[5],
+        new GameDataService(),
+      );
+      const handler = new IonStormHandler(random);
+      handler.registerEffects(
+        new SpacecraftIonStormEffects({
+          random,
+          messaging,
+          destruction,
+          crewEnhancement: { enhanceSpacecraft: async () => undefined },
+          hasIonStormReduction: () => false,
+          now: () => now,
+        }),
+      );
+      const registry = new AnomalyRegistry();
+      registry.register(handler);
+      const type = await dataSource
+        .getRepository(AnomalyType)
+        .save({ key: 'ION_STORM' });
+      const root = await dataSource.getRepository(Anomaly).save({
+        typeId: type.id,
+        remainingTicks: 100,
+        locationId: null,
+        data: {
+          layerId,
+          directionInDegrees: 90,
+          velocity: 1,
+          movementType: 'STATIC',
+          isPositivePolarity: true,
+          intensity: 100,
+        },
+      });
+      await dataSource.getRepository(Anomaly).save(
+        destinations.map((destination) => ({
+          typeId: type.id,
+          parentId: root.id,
+          locationId: destination.id,
+          remainingTicks: 10,
+        })),
+      );
+      const consequence = new AnomalyFlightConsequence(dataSource, registry);
+      fixture.consequences.push(consequence);
+      const entries: Array<[number, number | null]> = [];
+      const apply = consequence.onEnterField.bind(consequence);
+      const incoming = jest
+        .spyOn(consequence, 'onEnterField')
+        .mockImplementation((member, ...args) => {
+          entries.push([member.id, member.locationId]);
+          return apply(member, ...args);
+        });
+      return {
+        incoming,
+        entries,
+        destruction: jest.spyOn(destruction, 'destroyInManager'),
+      };
+    }
+
+    it.each(modes)(
+      'applies actual field and ion storm effects once per fleet ship/field through %s',
+      async (mode) => {
+        const { members, destinations, layer, run } = await flight(mode);
+        const fieldCalls = jest.spyOn(fixture.effect, 'onEnterField');
+        const { entries } = await addStorms(layer.id, destinations);
+        await run();
+        const rows = await dataSource
+          .getRepository(Spacecraft)
+          .find({ order: { id: 'ASC' } });
+        expect(rows).toHaveLength(3);
+        for (const row of rows) {
+          expect(row).toMatchObject({
+            locationId: destinations.at(-1)!.id,
+            hull: 100 - 20 * destinations.length,
+            reactorFuel: 40 - 5 * destinations.length,
+            runtimeSystems: {
+              WARPDRIVE: { active: false, cooldown: now + 600_000 },
+            },
+          });
+        }
+        const expected = destinations.flatMap((destination) =>
+          members.map((member) => [member.id, destination.id]),
+        );
+        expect(entries).toEqual(expected);
+        // Calls keep live ship references: use the actual field argument for field order.
+        const fieldIds = destinations.map(
+          (destination) => destination.galaxyFieldId ?? destination.systemFieldId,
+        );
+        expect(
+          fieldCalls.mock.calls.map(([member, field]) => [member.id, field.id]),
+        ).toEqual(
+          fieldIds.flatMap((fieldId) =>
+            members.map((member) => [member.id, fieldId]),
+          ),
+        );
+        expect(
+          await dataSource
+            .getRepository(Message)
+            .count({ where: { subject: 'Ionensturm' } }),
+        ).toBe(expected.length);
+      },
+    );
+
+    it.each([false, true])(
+      'removes an ion-storm-destroyed ship and continues the surviving fleet (leader lost: %s)',
+      async (leaderLost) => {
+        const { members, destinations, fleet, layer, run } =
+          await flight('GALAXY');
+        const lost = members[leaderLost ? 0 : 1];
+        await dataSource.getRepository(Spacecraft).update(lost.id, { hull: 5 });
+        const { incoming, destruction } = await addStorms(layer.id, destinations);
+        const result = await run();
+        const survivors = members.filter((member) => member.id !== lost.id);
+        expect(result).toMatchObject({
+          movement: {
+            completedSteps: 2,
+            stopReason: 'ARRIVED',
+            destroyedShipIds: [lost.id],
+            movedShipIds: survivors.map((member) => member.id),
+          },
+        });
+        expect(
+          await dataSource.getRepository(Spacecraft).findOneBy({ id: lost.id }),
+        ).toBeNull();
+        expect(destruction).toHaveBeenCalledTimes(1);
+        expect(
+          await dataSource.getRepository(SpacecraftWreck).find(),
+        ).toMatchObject([
+          { locationId: destinations[0].id, formerShipClassId: ship.shipClassId },
+        ]);
+        expect(
+          (
+            await dataSource
+              .getRepository(Fleet)
+              .findOneByOrFail({ id: fleet.id })
+          ).leaderId,
+        ).toBe(survivors[0].id);
+        for (const survivor of survivors) {
+          expect(
+            await dataSource
+              .getRepository(Spacecraft)
+              .findOneByOrFail({ id: survivor.id }),
+          ).toMatchObject({
+            locationId: destinations[1].id,
+            hull: 60,
+            reactorFuel: 30,
+          });
+        }
+        expect(
+          incoming.mock.calls.filter(([member]) => member.id === lost.id),
+        ).toHaveLength(1);
+        expect(
+          await dataSource
+            .getRepository(FlightSignature)
+            .count({ where: { spacecraftId: lost.id } }),
+        ).toBe(2);
+        expect(
+          await dataSource
+            .getRepository(Message)
+            .count({ where: { subject: 'Ionensturm' } }),
+        ).toBe(5);
+      },
+    );
+
+    it('stops on the first field when the ion storm destroys the complete fleet', async () => {
+      const { members, destinations, fleet, layer, run } = await flight('GALAXY');
+      await dataSource.getRepository(Spacecraft).update(
+        members.map((member) => member.id),
+        { hull: 5 },
+      );
+      const { entries, destruction } = await addStorms(layer.id, destinations);
+      expect(await run()).toMatchObject({
+        movement: {
+          completedSteps: 1,
+          stopReason: 'DESTROYED',
+          movedShipIds: [],
+          destroyedShipIds: members.map((member) => member.id),
+        },
+      });
+      expect(await dataSource.getRepository(Spacecraft).count()).toBe(0);
+      expect(
+        await dataSource.getRepository(Fleet).findOneBy({ id: fleet.id }),
+      ).toBeNull();
+      expect(await dataSource.getRepository(SpacecraftWreck).count()).toBe(3);
+      expect(entries).toEqual(
+        members.map((member) => [member.id, destinations[0].id]),
+      );
+      expect(destruction).toHaveBeenCalledTimes(3);
+      expect(await dataSource.getRepository(FlightSignature).count()).toBe(6);
+    });
+  });
+
 });
