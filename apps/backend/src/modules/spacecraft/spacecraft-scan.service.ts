@@ -1,4 +1,9 @@
 import {
+  TACHYON_SCAN_ENERGY,
+  TACHYON_SCAN_DURATION_MS,
+  tachyonScanExpiresAt,
+} from './spacecraft-tachyon-scan';
+import {
   BadRequestException,
   Injectable,
   NotFoundException,
@@ -80,6 +85,44 @@ export class SpacecraftScanService {
     } as unknown as FlightSignatureService,
   ) {}
 
+  async tachyonScan(shipId: number, userId: number) {
+    return this.shipRepo.manager.transaction(async (manager) => {
+      const ship = await manager.findOne(Spacecraft, {
+        where: { id: shipId, userId },
+        relations: { modules: true },
+        lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
+      });
+      if (!ship) throw new NotFoundException('Spacecraft not found');
+      assertSpacecraftNotInStandby(ship, 'einem Scan');
+      if (ship.status === SpacecraftStatus.DESTROYED)
+        throw new BadRequestException('Destroyed ship cannot scan');
+      if (ship.locationId == null)
+        throw new BadRequestException('Schiff hat kein aktuelles Feld');
+      if (!(await this.spacecraftCrewService.hasEnoughCrew(ship)))
+        throw new BadRequestException('Not enough crew');
+      const systems = this.runtimeState.initialize(ship);
+      this.runtimeState.requireActivation(systems, 'TACHYON_SCANNER');
+      const scanner = systems.TACHYON_SCANNER;
+      if (!scanner?.active)
+        throw new BadRequestException(
+          'Gravitationswellenscanner ist nicht aktiv',
+        );
+      if (ship.energy < TACHYON_SCAN_ENERGY)
+        throw new BadRequestException('Nicht genug EPS');
+      const scannedAt = Date.now();
+      ship.energy -= TACHYON_SCAN_ENERGY;
+      scanner.lastScanAt = scannedAt;
+      scanner.lastScanLocationId = ship.locationId;
+      ship.runtimeSystems = systems;
+      await manager.save(ship);
+      return {
+        energyCost: TACHYON_SCAN_ENERGY,
+        scannedAt,
+        expiresAt: scannedAt + TACHYON_SCAN_DURATION_MS,
+      };
+    });
+  }
+
   async sectorScan(
     shipId: number,
     userId: number,
@@ -130,7 +173,9 @@ export class SpacecraftScanService {
         : null;
     const galaxyLocation = location.scope === 'GALAXY' ? location : null;
     const signatureResult = ship.locationId
-      ? await this.flightSignatureService.getVisibleAt(ship.locationId, userId)
+      ? await this.flightSignatureService.getVisibleAt(
+          ship.locationId, userId, new Date(), tachyonScanExpiresAt(ship) !== null,
+        )
       : { signatures: [], fadedSignatures: { uncloaked: 0, cloaked: 0 } };
     const discovery =
       galaxyLocation && systemTypeId != null && SYSTEM_TYPE_BY_ID[systemTypeId]

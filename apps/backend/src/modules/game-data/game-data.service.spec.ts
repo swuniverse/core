@@ -536,6 +536,7 @@ describe('GameDataService fabrication items', () => {
       ['module.special.crewtransport-modul', 60500],
       ['module.special.astrometrie-labor', 60600],
       ['module.special.hyperraumfeldscanner', 60700],
+      ['module.special.gravitationswellenscanner', 60400],
       ['module.special.matrixsensoren', 60800],
       ['module.special.torpedotransportmodul', 60900],
       ['module.special.shuttlerampe', 61000],

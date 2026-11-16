@@ -508,6 +508,47 @@ describe('spacecraft core detail controls', () => {
     );
   });
 
+  describe.each(['SYSTEM', 'GALAXY'])('cloak counts in %s LSS', (scope) => {
+    afterEach(() => jest.useRealTimers());
+
+    it('counts foreign cloaks only during detection without revealing ship details', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-11-16T12:00:00Z'));
+      const { service, ship } = createService();
+      const location = (x: number) => scope === 'SYSTEM'
+        ? { kind: 'SYSTEM_FIELD', systemField: { starSystemId: 1, sx: x, sy: 1, starSystem: { maxX: 5, maxY: 5 } } }
+        : { kind: 'GALAXY_FIELD', galaxyField: { layerId: 1, cx: x, cy: 1 } };
+      const fields = [1, 2].map((x) => ({ id: x, sx: x, sy: 1, cx: x, cy: 1, fieldType: { id: 1, key: 'EMPTY_SPACE', name: 'Raum' } }));
+      const cloaked = { id: 8, name: 'Geheim', userId: 5, location: location(2), runtimeSystems: { CLOAK: { active: true } } };
+      const query = (rows: unknown[]) => {
+        const builder: any = { getMany: jest.fn(async () => rows), getRawMany: jest.fn(async () => []) };
+        for (const method of ['leftJoinAndSelect', 'leftJoin', 'innerJoin', 'select', 'addSelect', 'where', 'andWhere', 'orderBy', 'addOrderBy']) builder[method] = jest.fn(() => builder);
+        return builder;
+      };
+      Object.assign(ship, { locationId: 42, location: location(1), status: 'IDLE', runtimeSystems: {
+        LONG_RANGE_SENSORS: { active: true, cooldown: 0, integrity: 100 },
+        TACHYON_SCANNER: { active: true, cooldown: 0, integrity: 100, lastScanAt: Date.now(), lastScanLocationId: 42 },
+      } });
+      Object.assign(service as any, {
+        shipRepo: { findOne: jest.fn(async () => ship), createQueryBuilder: () => query([cloaked]) },
+        systemFieldRepo: { createQueryBuilder: () => query(fields) },
+        galaxyFieldRepo: { createQueryBuilder: () => query(fields) },
+        objectRepo: { createQueryBuilder: () => query([]) },
+        layerRepo: { findOneBy: jest.fn(async () => ({ width: 5, height: 5 })) },
+        dataSource: { getRepository: () => ({ createQueryBuilder: () => query([]) }) },
+        getSensorRange: jest.fn(async () => 3),
+        buildLocalMapContext: jest.fn(async () => ({})),
+      });
+      const detected = await service.getLocalMap(2, 1);
+      expect(detected.overlays.signatures).toContainEqual({ x: 2, y: 1, state: 'COUNT', count: 1 });
+      expect(detected.ships).toEqual([]);
+      expect(JSON.stringify(detected)).not.toContain('Geheim');
+      jest.advanceTimersByTime(300_000);
+      const expired = await service.getLocalMap(2, 1);
+      expect(expired.overlays.signatures).not.toContainEqual({ x: 2, y: 1, state: 'COUNT', count: 1 });
+      expect(expired.tachyonScanExpiresAt).toBeNull();
+    });
+  });
+
   describe('nearby sensors and cloak', () => {
     it('lists foreign cloaked ships for nobody but their owner', async () => {
       const { service, ship } = createService();

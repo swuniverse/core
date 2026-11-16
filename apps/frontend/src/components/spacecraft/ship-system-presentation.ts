@@ -93,6 +93,13 @@ export const SHIP_SYSTEMS: ShipSystemPresentation[] = [
     'border-fuchsia-400/60 bg-fuchsia-500/10 text-fuchsia-100',
   ),
   system(
+    'TACHYON_SCANNER',
+    'Gravitationswellenscanner',
+    'Erfasst getarnte Schiffe durch Gravitationsanomalien',
+    '⌁',
+    'border-cyan-400/60 bg-cyan-500/10 text-cyan-100',
+  ),
+  system(
     'SUBSPACE_SCANNER',
     'Hyperraumfeldscanner',
     'Aktive Erfassung und Analyse von Subraumspuren',

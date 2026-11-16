@@ -1,3 +1,4 @@
+import { tachyonScanExpiresAt } from './spacecraft-tachyon-scan';
 import { isDeepStrictEqual } from 'node:util';
 import { stationBatteryReload } from './station-battery-reload';
 import {
@@ -601,6 +602,8 @@ export class SpacecraftService {
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
     return {
       mode: ship.lssMode ?? SpacecraftLssMode.DISABLED,
+      tachyonAvailable: systems.TACHYON_SCANNER?.active === true && systems.TACHYON_SCANNER.integrity > 0,
+      tachyonScanExpiresAt: tachyonScanExpiresAt(ship),
       available: systems.LONG_RANGE_SENSORS?.active === true,
       reason:
         systems.LONG_RANGE_SENSORS?.active === true
@@ -1321,6 +1324,7 @@ export class SpacecraftService {
       REACTOR_CHARGE_TRANSFER: 'Reaktorladungstransfer',
       HYPERDRIVE_BOOSTER: 'Hyperantriebs-Notladegerät',
       SUBSPACE_SCANNER: 'Hyperraumfeldscanner',
+      TACHYON_SCANNER: 'Gravitationswellenscanner',
       MATRIX_SCANNER: 'Matrixsensoren',
       TRACKER: 'Peilsender',
       LIFE_SUPPORT: 'Lebenserhaltung',
@@ -4220,6 +4224,7 @@ export class SpacecraftService {
     if (lss.integrity <= 0)
       throw new BadRequestException('Langstreckensensoren sind zerstört');
     const sensorRange = await this.getSensorRange(ship);
+    const scanExpiresAt = tachyonScanExpiresAt(ship);
 
     if (location.scope === 'SYSTEM') {
       const shipX = location.x;
@@ -4302,7 +4307,7 @@ export class SpacecraftService {
         observer: { x: shipX, y: shipY },
         position: (field) => ({ x: field.sx, y: field.sy }),
         signatures: this.countFieldSignatures(
-          [ship, ...nearbyShips],
+          [ship, ...(scanExpiresAt !== null ? allNearbyShips : nearbyShips)],
           (entry) => resolveSpacecraftLocation(entry)?.x ?? null,
           (entry) => resolveSpacecraftLocation(entry)?.y ?? null,
         ),
@@ -4319,6 +4324,7 @@ export class SpacecraftService {
 
       return {
         mode: 'system' as const,
+        tachyonScanExpiresAt: scanExpiresAt,
         shipX,
         shipY,
         sensorRange,
@@ -4503,7 +4509,7 @@ export class SpacecraftService {
       observer: { x: location.x, y: location.y },
       position: (field) => ({ x: field.cx, y: field.cy }),
       signatures: this.countFieldSignatures(
-        [ship, ...nearbyShips],
+        [ship, ...(scanExpiresAt !== null ? allNearbyShips : nearbyShips)],
         (entry) => resolveSpacecraftLocation(entry)?.x ?? null,
         (entry) => resolveSpacecraftLocation(entry)?.y ?? null,
       ),
@@ -4520,6 +4526,7 @@ export class SpacecraftService {
 
     return {
       mode: 'galaxy' as const,
+      tachyonScanExpiresAt: scanExpiresAt,
       shipX: location.x,
       shipY: location.y,
       sensorRange,

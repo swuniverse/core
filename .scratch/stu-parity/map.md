@@ -51,6 +51,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Entscheidungen
 
+- 2026-11-16 – sc-WP-CLOAK-2a – STU-Tachyon-Scanner heißt in SWU **Gravitationswellenscanner** (Gravitationsanomalien als kanonnaher Tarnungsindikator); Ware 19003, Forschung 60400 und Fertigung verwenden denselben Namen. 10 EPS pro Scan, 3 EPS pro aktivem Tick, 300 s standortgebundene Erkennung für LSS-Zählungen und getarnte Sektorspuren; keine Freigabe von LSS-Schiffsdetails/NBS/Angriffen. Grenzen und atomare Abbuchung mit PostgreSQL geprüft – siehe [sc-WP-CLOAK-2a](issues/sc-WP-CLOAK-2a-tachyon-scan.md).
+
 <!-- Ralph und der Product Owner ergänzen hier: Datum – Issue-ID – Entscheidung -->
 
 - 2026-11-13 – tmw-T7a – Basishandel: Ein Kauf geht mit dem Kauf-Modifier −10 in die Kursformel ein; der STU-Code (`$summand = 1`) wird als Fehler nicht übernommen.
@@ -391,3 +393,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - col-G3b – Sandbox-Bau/Ersetzen, Abreißen, Upgrade, Terraforming und Einzel-/Massenschaltung sofort und kostenlos umgesetzt. Gemeinsame Live-Platzierungs-/Aktivierungsregeln, transaktionale Snapshot-Änderungen ohne Ressourcen, Queues, Nachrichten oder Hooks; Spielerlimits ersetzen die Quelle durch den Plan, Arbeiter werden aus dem Plan abgeleitet. Produktionsvorschau folgt in col-G3c – siehe `issues/col-G3b-kolonie-sandbox-bauen-und-schalten.md`
 
 - col-G3c – Sandbox-Bilanz für Energie, Waren/Effekte/Vorkommen, Wohnraum, Arbeiter und Lebensstandard mit gemeinsamer Statistik-/Soziallogik und Differenztabelle zur aktuellen eigenen Quellkolonie umgesetzt. Basiswohnraum verhindert Doppelzählung; Besitzerwechsel/Aufgabe/Löschung entfernen den Live-Vergleich. Damit ist die Sandbox-Trilogie col-G3a bis col-G3c vollständig – siehe `issues/col-G3c-kolonie-sandbox-produktionsvorschau.md`
+
+- sc-WP-CLOAK-2a – Gravitationswellen-Scan mit Modul/Fertigung, atomarem EPS-Verbrauch, fünfminütiger LSS-Erkennung, 18-h-Fenster für getarnte Flugsignaturen und automatischer Kartenaktualisierung umgesetzt; alle Pflicht-Gates und PostgreSQL-Test grün – siehe [Ticket](issues/sc-WP-CLOAK-2a-tachyon-scan.md).

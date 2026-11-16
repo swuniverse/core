@@ -74,6 +74,7 @@ export class FlightSignatureService {
     locationId: number,
     userId: number,
     now = new Date(),
+    includeCloaked = false,
   ): Promise<{
     signatures: VisibleFlightSignature[];
     fadedSignatures: { uncloaked: number; cloaked: number };
@@ -94,6 +95,7 @@ export class FlightSignatureService {
     const signatures: VisibleFlightSignature[] = [];
     const fadedSignatures = { uncloaked: 0, cloaked: 0 };
     for (const row of latest.values()) {
+      if (row.isCloaked && !includeCloaked) continue;
       const age = now.getTime() - row.createdAt.getTime();
       const signatureWindow = row.isCloaked ? 18 * HOUR : 48 * HOUR;
       const classWindow = row.isCloaked ? 12 * HOUR : 24 * HOUR;

@@ -23,7 +23,7 @@ interface Ship {
   energy: number;
   energyMax: number;
   location: SpaceLocationDto;
-  runtimeSystems?: Record<string, { active: boolean }>;
+  runtimeSystems?: Record<string, { active: boolean; lastScanAt?: number }>;
   lssMode?: 'DISABLED' | 'TERRITORY' | 'IMPASSABLE' | 'CARTOGRAPHY';
   navigationBounds?: { minX: number; maxX: number; minY: number; maxY: number };
 }
@@ -105,6 +105,8 @@ export function NavigationPanel({
     fetchLocalMap,
     onLocalMapChange,
     ship.runtimeSystems?.LONG_RANGE_SENSORS?.active,
+    ship.runtimeSystems?.TACHYON_SCANNER?.active,
+    ship.runtimeSystems?.TACHYON_SCANNER?.lastScanAt,
     navigationLocationKey,
   ]);
 
@@ -340,6 +342,7 @@ export function NavigationPanel({
       ) : (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
           <LssMap
+            onScanExpired={fetchLocalMap}
             localMap={localMap}
             navTarget={navTarget}
             cartographyPoints={cartographyPoints}

@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useEffect } from 'react';
 import {
   fieldEffectDefinition,
   knownFieldEffects,
@@ -114,6 +114,7 @@ export interface LocalMapContext {
 }
 
 export interface LocalMapGalaxy {
+  tachyonScanExpiresAt?: number | null;
   mode: 'galaxy';
   shipX: number;
   shipY: number;
@@ -135,6 +136,7 @@ export interface LocalMapGalaxy {
   context?: LocalMapContext;
 }
 export interface LocalMapSystem {
+  tachyonScanExpiresAt?: number | null;
   mode: 'system';
   shipX: number;
   shipY: number;
@@ -171,6 +173,7 @@ interface LssMapProps {
   navTarget: { x: number; y: number } | null;
   cartographyPoints?: Array<{ x: number; y: number }>;
   onFieldClick: (x: number, y: number) => void;
+  onScanExpired?: () => void;
 }
 
 function fieldEffects(field: {
@@ -236,7 +239,17 @@ export function LssMap({
   navTarget,
   cartographyPoints = [],
   onFieldClick,
+  onScanExpired,
 }: LssMapProps) {
+  useEffect(() => {
+    const expiresAt = localMap.tachyonScanExpiresAt;
+    if (expiresAt == null || !onScanExpired) return;
+    const timer = setTimeout(
+      onScanExpired,
+      Math.max(0, expiresAt - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [localMap.tachyonScanExpiresAt, onScanExpired]);
   const { shipX, shipY, sensorRange } = localMap;
   const cartographyPointKeys = new Set(
     cartographyPoints.map(({ x, y }) => `${x}:${y}`),

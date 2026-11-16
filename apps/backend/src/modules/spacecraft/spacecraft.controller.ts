@@ -972,6 +972,14 @@ export class SpacecraftController {
     return this.spacecraftService.pickUpBuoy(id, buoyId, req.user.sub);
   }
 
+  @Post(':id/tachyon-scan')
+  tachyonScan(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.scanService.tachyonScan(id, req.user.sub);
+  }
+
   @Post(':id/sector-scan')
   sectorScan(
     @Param('id', ParseIntPipe) id: number,

@@ -45,7 +45,7 @@ describe('FlightSignatureService', () => {
       row(4, 5, true, 19, now),
       row(5, 1, false, 1, now),
     ]);
-    const result = await service.getVisibleAt(8, 1, now);
+    const result = await service.getVisibleAt(8, 1, now, true);
     expect(result.signatures).toEqual([
       expect.objectContaining({
         spacecraftId: 1,
@@ -54,6 +54,22 @@ describe('FlightSignatureService', () => {
       }),
     ]);
     expect(result.fadedSignatures).toEqual({ uncloaked: 1, cloaked: 1 });
+  });
+
+  it('hides cloaked trails without a scan and expires them exactly at 18 hours', async () => {
+    const now = new Date('2026-10-22T12:00:00Z');
+    repo.find.mockResolvedValue([
+      row(1, 2, true, 18 - 1 / 3600000, now),
+      row(2, 2, true, 18, now),
+      row(3, 2, true, 19, now),
+    ]);
+    expect(await service.getVisibleAt(8, 1, now)).toEqual({
+      signatures: [],
+      fadedSignatures: { uncloaked: 0, cloaked: 0 },
+    });
+    expect(
+      (await service.getVisibleAt(8, 1, now, true)).fadedSignatures.cloaked,
+    ).toBe(1);
   });
 
   it('deletes signatures older than 48 hours', async () => {

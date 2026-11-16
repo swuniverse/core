@@ -131,6 +131,7 @@ export const SPACECRAFT_RUNTIME_SYSTEM_KEYS = [
   'REACTOR_CHARGE_TRANSFER',
   'HYPERDRIVE_BOOSTER',
   'SUBSPACE_SCANNER',
+  'TACHYON_SCANNER',
   'MATRIX_SCANNER',
   'TRACKER',
   'LIFE_SUPPORT',
@@ -148,6 +149,8 @@ export interface SpacecraftRuntimeSystemStateDto {
   max?: number;
   targetId?: number;
   ticksRemaining?: number;
+  lastScanAt?: number;
+  lastScanLocationId?: number;
 }
 
 export interface SpacecraftTrackerDto {

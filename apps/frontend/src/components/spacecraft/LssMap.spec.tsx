@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { LssMap, type LocalMapSystem } from './LssMap';
 
 vi.mock('../../lib/assets', () => ({
@@ -48,6 +48,42 @@ function systemMap(
 }
 
 describe('LssMap', () => {
+  it('refreshes the count at scan expiry and cancels the timer on unmount', () => {
+    vi.useFakeTimers();
+    try {
+      const localMap = {
+        ...systemMap(201),
+        tachyonScanExpiresAt: Date.now() + 300_000,
+      };
+      const onScanExpired = vi.fn();
+      const view = render(
+        <LssMap
+          localMap={localMap}
+          navTarget={null}
+          onFieldClick={vi.fn()}
+          onScanExpired={onScanExpired}
+        />,
+      );
+      act(() => vi.advanceTimersByTime(299_999));
+      expect(onScanExpired).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(1));
+      expect(onScanExpired).toHaveBeenCalledOnce();
+      view.rerender(
+        <LssMap
+          localMap={{ ...localMap, tachyonScanExpiresAt: Date.now() + 300_000 }}
+          navTarget={null}
+          onFieldClick={vi.fn()}
+          onScanExpired={onScanExpired}
+        />,
+      );
+      view.unmount();
+      act(() => vi.advanceTimersByTime(300_000));
+      expect(onScanExpired).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('renders dubious signatures without a numeric count', () => {
     const localMap = systemMap(201);
     localMap.overlays = {

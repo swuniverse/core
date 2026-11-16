@@ -24,6 +24,7 @@ export function SensorOperationsPanel({
 }: Props) {
   const [mode, setMode] = useState<SpacecraftLssMode>('DISABLED');
   const [available, setAvailable] = useState(false);
+  const [tachyonAvailable, setTachyonAvailable] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,12 +32,15 @@ export function SensorOperationsPanel({
     if (!open) return;
     setError(null);
     api
-      .get<{ mode: SpacecraftLssMode; available: boolean }>(
-        `/spacecraft/${shipId}/lss-mode`,
-      )
+      .get<{
+        mode: SpacecraftLssMode;
+        available: boolean;
+        tachyonAvailable?: boolean;
+      }>(`/spacecraft/${shipId}/lss-mode`)
       .then((result) => {
         setMode(result.mode);
         setAvailable(result.available);
+        setTachyonAvailable(result.tachyonAvailable === true);
       })
       .catch((err: unknown) =>
         setError(
@@ -61,6 +65,20 @@ export function SensorOperationsPanel({
           ? err.message
           : 'LSS-Filter konnte nicht geändert werden',
       );
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function scanCloakedShips() {
+    setPending(true);
+    setError(null);
+    try {
+      await api.post(`/spacecraft/${shipId}/tachyon-scan`, {});
+      onUpdate();
+      onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Scan fehlgeschlagen');
     } finally {
       setPending(false);
     }
@@ -104,6 +122,16 @@ export function SensorOperationsPanel({
               {entry.label}
             </button>
           ))}
+          {tachyonAvailable && (
+            <button
+              type="button"
+              disabled={pending || !available}
+              onClick={() => void scanCloakedShips()}
+              className="mt-2 w-full border border-swu-border px-2 py-2 text-left text-xs text-swu-accent disabled:opacity-40"
+            >
+              Gravitationswellen-Scan (10 EPS · 5 Min.)
+            </button>
+          )}
           {!available && (
             <p className="mt-2 text-[10px] text-amber-300">
               Langstreckensensoren sind nicht aktiv.

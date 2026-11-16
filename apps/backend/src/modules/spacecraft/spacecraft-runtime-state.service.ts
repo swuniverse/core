@@ -46,6 +46,7 @@ export function getRuntimeSystemsForModule(
     }
     if (name === 'hyperraumfeldscanner') return ['SUBSPACE_SCANNER'];
     if (name === 'matrixsensoren') return ['MATRIX_SCANNER'];
+    if (name === 'gravitationswellenscanner') return ['TACHYON_SCANNER'];
     if (name === 'peilsender') return ['TRACKER'];
     return ['SPECIAL'];
   }
@@ -149,7 +150,12 @@ export function initializeSpacecraftRuntimeSystems(
     }
   } else {
     for (const key of SPACECRAFT_RUNTIME_SYSTEM_KEYS) {
-      if (key === 'ASTROMETRY_LAB' || key === 'CLOAK') continue;
+      if (
+        key === 'ASTROMETRY_LAB' ||
+        key === 'CLOAK' ||
+        key === 'TACHYON_SCANNER'
+      )
+        continue;
       systems[key] ??= { active: true, cooldown: 0, integrity: 100 };
     }
   }
@@ -195,6 +201,7 @@ function getAvailableSystems(
           'ASTROMETRY_LAB',
           'CLOAK',
           'SUBSPACE_SCANNER',
+          'TACHYON_SCANNER',
           'MATRIX_SCANNER',
           'TRACKER',
         ].includes(key)
