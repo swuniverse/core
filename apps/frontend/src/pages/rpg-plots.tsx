@@ -1,3 +1,4 @@
+import { PlayerName } from '../components/PlayerName';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import type {
@@ -68,7 +69,7 @@ export function RpgPlotListPage() {
             <article key={plot.id} className="grid gap-2 border border-swu-border bg-swu-surface/50 p-3 text-xs md:grid-cols-[1fr_auto]">
               <div>
                 <Link className="text-sm font-bold text-swu-primary hover:text-swu-accent" to={`/holonet/plots/${plot.id}`}>{plot.title}</Link>
-                <p>{plot.members.length} Schreiber · Erstellt von {plot.creatorName}</p>
+                <p>{plot.members.length} Schreiber · Erstellt von <PlayerName name={plot.creatorName} /></p>
               </div>
               <div className="text-right">
                 <p>{new Date(plot.startedAt).toLocaleDateString('de-DE')}</p>
@@ -199,7 +200,7 @@ export function RpgPlotDetailPage() {
                       >
                         {post.title || `Beitrag #${post.id}`}
                       </Link>
-                      <span>{post.author.username} · {new Date(post.createdAt).toLocaleString('de-DE')}</span>
+                      <span><PlayerName name={post.author.username} /> · {new Date(post.createdAt).toLocaleString('de-DE')}</span>
                     </div>
                     <BbCodeText text={post.body} className="whitespace-pre-wrap text-sm" />
                   </article>
@@ -216,14 +217,14 @@ export function RpgPlotDetailPage() {
             <section className={panel}>
               <h2 className={heading}>Schreiber</h2>
               <div className="divide-y divide-swu-border/60">
-                {plot.members.map((member) => <div key={member.userId} className="flex items-center justify-between p-2 text-xs"><Link to={`/players/${member.userId}`} className="text-swu-primary">{member.username} (#{member.userId})</Link>{manages && active && member.userId !== plot.creatorId && <button className={button} aria-label={`${member.username} entfernen`} onClick={() => void removeMember(member.userId)}>Entfernen</button>}</div>)}
+                {plot.members.map((member) => <div key={member.userId} className="flex items-center justify-between p-2 text-xs"><Link to={`/players/${member.userId}`} className="text-swu-primary"><PlayerName name={member.username} /> (#{member.userId})</Link>{manages && active && member.userId !== plot.creatorId && <button className={button} aria-label={`${member.username} entfernen`} onClick={() => void removeMember(member.userId)}>Entfernen</button>}</div>)}
               </div>
             </section>
           </main>
           <aside className={`${panel} h-fit text-xs`}>
             <h2 className={heading}>Status</h2>
             <div className="space-y-2 p-3">
-              <p>Ersteller: {plot.creatorName}</p>
+              <p>Ersteller: <PlayerName name={plot.creatorName} /></p>
               <p>Beginn: {new Date(plot.startedAt).toLocaleString('de-DE')}</p>
               <p>{active ? 'Plot ist aktiv' : `Beendet: ${new Date(plot.endedAt!).toLocaleString('de-DE')}`}</p>
               {manages && active && <><button className={button} onClick={() => setEditing((value) => !value)}>Bearbeiten</button><button className="ml-2 border border-red-500/60 px-3 py-1 text-red-300" onClick={() => void end()}>Plot beenden</button><label className="mt-4 block">Spieler-ID<input className={`${input} mt-1`} inputMode="numeric" value={memberId} onChange={(event) => setMemberId(event.target.value.replace(/\D/g, ''))} /></label><button className={`${primary} mt-2`} disabled={!memberId} onClick={() => void addMember()}>Schreiber hinzufügen</button></>}

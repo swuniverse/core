@@ -76,6 +76,9 @@ export class User {
   displayName: string | null;
 
   @Column({ type: 'text', nullable: true })
+  displayNameMarkup: string | null;
+
+  @Column({ type: 'text', nullable: true })
   avatar: string | null;
 
   @Column({ type: 'text', nullable: true })

@@ -1,3 +1,4 @@
+import { PlayerName } from '../PlayerName';
 import { useEffect, useState } from 'react';
 import { AllianceRole, type AllianceDepotDto } from '@swuniverse/shared';
 import { api } from '../../services/api';
@@ -57,7 +58,7 @@ export function AllianceDepotsPanel({
           className="border-t border-swu-border pt-2"
         >
           <h3 className="font-bold">{depot.name}</h3>
-          <p>Besitzer: {depot.owner.name}</p>
+          <p>Besitzer: <PlayerName name={depot.owner.name} /></p>
           <p>Standort: {depot.locationLabel}</p>
           <p>
             Lager: {depot.cargoUsed} / {depot.cargoMax}

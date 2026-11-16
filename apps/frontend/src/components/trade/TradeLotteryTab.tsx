@@ -1,3 +1,4 @@
+import { PlayerName } from '../PlayerName';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import type { TradeLotteryDto } from '@swuniverse/shared';
 import { formatNumber } from '../../lib/format';
@@ -93,7 +94,7 @@ export function TradeLotteryTab() {
           <h2 className="font-bold text-swu-primary">Letzte Ziehung · Zeitraum {lottery.lastDraw.period}</h2>
           <p>
             {lottery.lastDraw.winner
-              ? `Gewinner: ${lottery.lastDraw.winner.username} – ${formatNumber(lottery.lastDraw.jackpot)} Aurodium aus ${formatNumber(lottery.lastDraw.tickets)} Losen`
+              ? <>Gewinner: <PlayerName name={lottery.lastDraw.winner.username} /> – {formatNumber(lottery.lastDraw.jackpot)} Aurodium aus {formatNumber(lottery.lastDraw.tickets)} Losen</>
               : `Noch nicht gezogen – ${formatNumber(lottery.lastDraw.tickets)} Lose im Topf`}
           </p>
           <p className="text-swu-muted">Deine Lose: {formatNumber(lottery.lastDraw.ownTickets)}</p>

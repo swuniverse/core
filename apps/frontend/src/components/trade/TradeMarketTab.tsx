@@ -1,3 +1,4 @@
+import { PlayerName } from '../PlayerName';
 import { useCallback, useEffect, useState } from 'react';
 import type {
   TakeTradeOfferResultDto,
@@ -128,7 +129,7 @@ export function TradeMarketTab() {
               {result.items.map((offer) => (
                 <tr key={offer.id} className="border-t border-swu-border/60">
                   <td className="px-2 py-1">{offer.tradePostName}</td>
-                  <td className="px-2 py-1">{offer.ownerName}</td>
+                  <td className="px-2 py-1"><PlayerName name={offer.ownerName} /></td>
                   <td className="px-2 py-1"><Goods id={offer.offeredCommodityId} name={offer.offeredCommodityName} amount={offer.offeredAmount} /></td>
                   <td className="px-2 py-1"><Goods id={offer.wantedCommodityId} name={offer.wantedCommodityName} amount={offer.wantedAmount} /></td>
                   <td className="px-2 py-1 font-mono">{offer.offerCount}×</td>
@@ -213,7 +214,7 @@ function TakeOfferDialog({
           <button type="button" onClick={onClose} disabled={pending} className="text-swu-muted">Schließen</button>
         </header>
         <p>
-          {offer.ownerName} bietet je {formatNumber(offer.offeredAmount)} {offer.offeredCommodityName} für{' '}
+          <PlayerName name={offer.ownerName} /> bietet je {formatNumber(offer.offeredAmount)} {offer.offeredCommodityName} für{' '}
           {formatNumber(offer.wantedAmount)} {offer.wantedCommodityName} am {offer.tradePostName}.
         </p>
         <div className="flex items-center gap-2">

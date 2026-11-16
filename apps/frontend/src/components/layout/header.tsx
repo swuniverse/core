@@ -1,3 +1,4 @@
+import { PlayerName } from '../PlayerName';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Faction, type GlobalHeaderStatusDto } from '@swuniverse/shared';
@@ -173,7 +174,7 @@ export function Header() {
           >
             <div className="min-w-0 leading-tight">
               <div className="truncate text-xs font-bold text-swu-primary">
-                {user?.name ?? 'Kommandant'}
+                <PlayerName name={user?.name ?? 'Kommandant'} playerId={user?.id} />
               </div>
               <div className="mt-0.5 hidden text-[9px] text-swu-muted sm:block">
                 ID {user?.id ?? '-'} · Prestige{' '}

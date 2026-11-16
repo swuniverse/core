@@ -355,3 +355,24 @@ it.each(['fleet_fixed_default', 'reactor_auto_carryover_default'])('validates cr
   expect(settingRepo.upsert).toHaveBeenCalledTimes(2);
   await expect(service.updateSettings(1, { [key]: 'true' })).rejects.toThrow(BadRequestException);
 });
+
+
+describe('Player-name grammar and uniqueness', () => {
+  it('stores formatted markup separately from the visible name and counts visible characters', async () => {
+    const { service, userRepo } = createService({ id: 7, username: 'login', description: null });
+    const name = '[color=#ff0000][b][i]' + 'x'.repeat(60) + '[/i][/b][/color]';
+    expect(await service.updateProfile(7, { displayName: name })).toMatchObject({ displayName: 'x'.repeat(60), displayNameMarkup: name });
+    expect(userRepo.save).toHaveBeenCalledWith(expect.objectContaining({ displayName: 'x'.repeat(60) }));
+  });
+  it.each(['[url=https://evil.test]Leia[/url]', '[img]Leia[/img]', '[u]Leia[/u]', '[b]Le[/b]', '[b]Leia[/i]', '[b]Leia', '[color=expression(x)]Leia[/color]', '[b]' + 'x'.repeat(61) + '[/b]'])('rejects invalid names: %s', async displayName => {
+    const { service, userRepo } = createService({ id: 7, username: 'login' });
+    await expect(service.updateProfile(7, { displayName })).rejects.toThrow(BadRequestException);
+    expect(userRepo.save).not.toHaveBeenCalled();
+  });
+  it('checks uniqueness by plain name and permits removing formatting', async () => {
+    const { service, userRepo } = createService({ id: 7, username: 'login' });
+    userRepo.findOne.mockResolvedValueOnce({ id: 8, displayName: 'Leia' });
+    await expect(service.updateProfile(7, { displayName: '[b]Leia[/b]' })).rejects.toThrow('bereits vergeben');
+    await expect(service.updateProfile(7, { displayName: '' })).resolves.toMatchObject({ displayName: null, displayNameMarkup: null });
+  });
+});

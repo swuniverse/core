@@ -351,6 +351,9 @@ export class AuthService {
             }),
           },
           {
+            displayName: Raw((col) => `LOWER(${col}) = LOWER(:username)`, { username: dto.username }),
+          },
+          {
             email: Raw((col) => `LOWER(${col}) = :email`, { email }),
           },
         ],
@@ -933,6 +936,7 @@ export class AuthService {
         id: user.id,
         username: user.username,
         displayName: user.displayName ?? null,
+        displayNameMarkup: user.displayNameMarkup ?? null,
         avatar: user.avatar ?? null,
         email: user.email,
         emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,

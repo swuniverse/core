@@ -443,3 +443,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - soc-F3b – Standard, heller Kontrast und Fraktionsakzent über globale Design-Tokens, sofortige/persistierte Auswahl und Allowlist umgesetzt; alle Pflicht-Gates grün – siehe [Ticket](issues/soc-F3b-farbschema.md).
 
 - soc-F3d – Flottenfixierung und Reaktor-Übertrag als validierte Erzeugungsstandards, zentral beim Insert über alle Erzeugungswege angewandt. Bestehende Objekte unverändert; alle Pflicht-Gates und PostgreSQL-Prüfungen grün – siehe [Ticket](issues/soc-F3d-flotten-und-reaktor-standards.md).
+
+- soc-I1c – Eingeschränkt formatierte Spielernamen mit getrenntem Klartext/Markup, Eindeutigkeitsindex und zentralem PlayerName-Renderer in den Namensanzeigen umgesetzt. Suche, Titel und Mails bleiben Klartext; alle Pflicht-Gates und PostgreSQL-Prüfung grün – siehe [Ticket](issues/soc-I1c-bbcode-in-spielernamen.md).

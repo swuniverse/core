@@ -1,3 +1,4 @@
+import { PlayerName } from '../components/PlayerName';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
@@ -206,7 +207,7 @@ export function AdminInvitesPage() {
               {(data?.quotas ?? []).map((quota) => (
                 <tr key={quota.id} className="border-t border-swu-border/40">
                   <td className="py-2 pr-3 text-swu-primary">
-                    {quota.user?.username ?? '—'}
+                    <PlayerName name={quota.user?.username ?? '—'} />
                   </td>
                   <td className="py-2 pr-3 text-swu-muted">{quota.userId}</td>
                   <td className="py-2 pr-3 text-swu-muted">
@@ -247,10 +248,10 @@ export function AdminInvitesPage() {
                     {formatInviteStatus(key.status)}
                   </td>
                   <td className="py-2 pr-3 text-swu-muted">
-                    {key.ownerUser?.username ?? key.ownerUserId ?? 'Admin-Pool'}
+                    <PlayerName name={String(key.ownerUser?.username ?? key.ownerUserId ?? 'Admin-Pool')} />
                   </td>
                   <td className="py-2 pr-3 text-swu-muted">
-                    {key.usedByUser?.username ?? '—'}
+                    <PlayerName name={key.usedByUser?.username ?? '—'} />
                   </td>
                   <td className="py-2 pr-3 text-swu-muted">
                     {formatDate(key.createdAt)}

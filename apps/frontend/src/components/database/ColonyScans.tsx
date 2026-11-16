@@ -1,3 +1,4 @@
+import { PlayerName } from '../PlayerName';
 import { Link } from 'react-router-dom';
 import type { ColonyScanProjectionDto } from '@swuniverse/shared';
 
@@ -44,7 +45,7 @@ export function ColonyScans({
                         ? 'eigener Scan'
                         : 'Allianz-Scan'}
                     </span>{' '}
-                    · Scanner: {scan.scanner.username ?? `#${scan.scanner.id}`}
+                    · Scanner: <PlayerName name={scan.scanner.username ?? `#${scan.scanner.id}`} />
                   </span>
                   {scan.canDelete && (
                     <button
@@ -61,7 +62,7 @@ export function ColonyScans({
                   Snapshot vom{' '}
                   {new Date(scan.snapshot.scannedAt).toLocaleString('de-DE')} ·
                   damaliger Besitzer:{' '}
-                  {scan.snapshot.owner.username ?? 'unbekannt'}
+                  <PlayerName name={scan.snapshot.owner.username ?? 'unbekannt'} />
                 </p>
                 {scan.system?.discovered && scan.system.id != null && (
                   <p className="text-xs text-swu-muted">
@@ -78,9 +79,7 @@ export function ColonyScans({
                   <p className="text-xs">
                     Aktuell: <span>{current.name}</span> auf Feld {current.posX}
                     :{current.posY}
-                    {current.owner
-                      ? ` · Besitzer: ${current.owner.username ?? 'unbekannt'}`
-                      : ' · aufgegeben'}
+                    {current.owner ? <> · Besitzer: <PlayerName name={current.owner.username ?? 'unbekannt'} /></> : ' · aufgegeben'}
                     {ownerChanged && (
                       <span className="ml-2 text-amber-200">
                         Besitzerwechsel seit dem Scan

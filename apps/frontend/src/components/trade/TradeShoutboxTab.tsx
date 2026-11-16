@@ -1,3 +1,4 @@
+import { PlayerName } from '../PlayerName';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import type { TradeLicenseDto, TradeShoutboxDto } from '@swuniverse/shared';
@@ -93,7 +94,7 @@ function ShoutboxBox({ networkId }: { networkId: number }) {
         {box?.entries.map((entry) => (
           <li key={entry.id} className="break-words">
             <span className="mr-1 font-mono text-[10px] text-swu-muted">{formatDateTime(entry.createdAt)}</span>
-            <Link to={`/players/${entry.userId}`} className="mr-1 text-swu-accent hover:underline">{entry.username}</Link>
+            <Link to={`/players/${entry.userId}`} className="mr-1 text-swu-accent hover:underline"><PlayerName name={entry.username} /></Link>
             <span>{entry.message}</span>
           </li>
         ))}

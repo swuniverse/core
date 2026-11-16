@@ -1,3 +1,4 @@
+import { PlayerName } from '../../components/PlayerName';
 import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { PlayerAvatar } from '../../components/PlayerAvatar';
@@ -26,7 +27,7 @@ export function DashboardProfileVisitors({
                 to={`/players/${visitor.userId}`}
                 className="truncate text-swu-primary hover:text-swu-accent"
               >
-                {visitor.displayName || visitor.username}
+                <PlayerName name={visitor.displayName || visitor.username} />
               </Link>
               <time className="shrink-0 text-[9px] text-swu-muted" dateTime={visitor.visitedAt}>
                 {formatDateTime(visitor.visitedAt)}
@@ -115,7 +116,7 @@ export function DashboardMessages({ data }: { data: DashboardData }) {
                 {post.commentCount} Kommentare
               </span>
               <span className="col-span-2 text-[9px] text-swu-muted">
-                von {post.author?.username ?? post.authorName ?? 'Unbekannt'} ·{' '}
+                von <PlayerName name={post.author?.username ?? post.authorName ?? 'Unbekannt'} /> ·{' '}
                 {formatGameDateTime(post.createdAt)}
               </span>
             </Link>
@@ -230,7 +231,7 @@ export function DashboardLimits({ data }: { data: DashboardData }) {
               alt={randomPlayer.username}
               className="size-10"
             />
-            <span className="text-xs text-swu-text">{randomPlayer.username}</span>
+            <span className="text-xs text-swu-text"><PlayerName name={randomPlayer.username} /></span>
           </Link>
         ) : (
           <p className="px-3 py-3 text-center text-xs text-swu-muted">

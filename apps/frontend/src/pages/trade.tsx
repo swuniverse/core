@@ -1,3 +1,4 @@
+import { PlayerName } from '../components/PlayerName';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type {
@@ -409,7 +410,7 @@ function PostsTab({
                 </button>
               </td>
               <td className="px-2 py-1">Netz {post.networkId}</td>
-              <td className="px-2 py-1">{post.owner?.name ?? 'Verlassen'}</td>
+              <td className="px-2 py-1"><PlayerName name={post.owner?.name ?? 'Verlassen'} /></td>
               <td className="px-2 py-1">
                 <PostLocation post={post} />
               </td>
@@ -455,7 +456,7 @@ function PostInfo({
         <dt className="text-swu-muted">Handelsnetz</dt>
         <dd>Netz {post.networkId}</dd>
         <dt className="text-swu-muted">Betreiber</dt>
-        <dd>{post.owner?.name ?? 'Verlassen'}</dd>
+        <dd><PlayerName name={post.owner?.name ?? 'Verlassen'} /></dd>
         <dt className="text-swu-muted">Ort</dt>
         <dd>
           <PostLocation post={post} />

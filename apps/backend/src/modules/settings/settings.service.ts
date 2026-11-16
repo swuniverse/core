@@ -6,7 +6,7 @@ import {
   Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Raw, Repository } from 'typeorm';
+import { Not, Raw, Repository } from 'typeorm';
 import { isEmail } from 'class-validator';
 import * as bcrypt from 'bcrypt';
 import { User } from '../auth/user.entity';
@@ -20,7 +20,7 @@ import {
   EMAIL_BLOCKLIST,
   type EmailBlocklistPort,
 } from './email-blocklist.port';
-import { INTERFACE_COLOR_SCHEMES, RpgBehavior } from '@swuniverse/shared';
+import { parsePlayerName, INTERFACE_COLOR_SCHEMES, RpgBehavior } from '@swuniverse/shared';
 
 const SETTING_DEFAULTS: Record<string, string> = {
   show_online_status: '1',
@@ -192,7 +192,7 @@ export class SettingsService {
   async updateProfile(
     userId: number,
     data: { description?: string; displayName?: string },
-  ): Promise<{ description: string | null; displayName: string | null }> {
+  ): Promise<{ description: string | null; displayName: string | null; displayNameMarkup: string | null }> {
     const user = await this.userRepo.findOneBy({ id: userId });
     if (!user) throw new UnauthorizedException();
 
@@ -204,20 +204,27 @@ export class SettingsService {
     }
 
     if (data.displayName !== undefined) {
-      const name = data.displayName.trim();
-      if (name.length > 0 && name.length < 3) {
-        throw new BadRequestException(
-          'Display name must be at least 3 characters',
-        );
-      }
-      if (name.length > 60) {
-        throw new BadRequestException('Display name too long (max 60)');
-      }
-      user.displayName = name || null;
+      if (typeof data.displayName !== 'string') throw new BadRequestException('Ungültiger Spielername');
+      const input = data.displayName.trim();
+      let parsed: ReturnType<typeof parsePlayerName> | null = null;
+      try { if (input) parsed = parsePlayerName(input); }
+      catch (error) { throw new BadRequestException(error instanceof Error ? error.message : 'Ungültiger Spielername'); }
+      const name = parsed?.plain ?? user.username;
+      const duplicate = await this.userRepo.findOne({ where: [
+        { id: Not(userId), displayName: Raw(col => `LOWER(${col}) = LOWER(:name)`, { name }) },
+        { id: Not(userId), username: Raw(col => `LOWER(${col}) = LOWER(:name)`, { name }) },
+      ] });
+      if (duplicate) throw new BadRequestException('Dieser Spielername ist bereits vergeben');
+      user.displayName = parsed?.plain ?? null;
+      user.displayNameMarkup = parsed?.markup ?? null;
     }
 
-    await this.userRepo.save(user);
-    return { description: user.description, displayName: user.displayName };
+    try { await this.userRepo.save(user); }
+    catch (error) {
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') throw new BadRequestException('Dieser Spielername ist bereits vergeben');
+      throw error;
+    }
+    return { description: user.description, displayName: user.displayName, displayNameMarkup: user.displayNameMarkup };
   }
 
   async updateAvatar(
@@ -327,8 +334,9 @@ export class SettingsService {
 
     const users = await this.userRepo
       .createQueryBuilder('u')
-      .select(['u.id', 'u.username'])
-      .where('u.username ILIKE :q', { q: `%${query}%` })
+      .select(['u.id', 'u.username', 'u.displayName'])
+      .where('(u.username ILIKE :q OR u.displayName ILIKE :q)', { q: `%${query}%` })
+      .orderBy('COALESCE(u.displayName, u.username)', 'ASC')
       .limit(10)
       .getMany();
 

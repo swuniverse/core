@@ -1,3 +1,4 @@
+import { refreshPlayerNames } from '../stores/player-names.store';
 import { applyInterfaceTheme } from '../hooks/use-interface-theme';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -107,9 +108,9 @@ function ProfileTab() {
   const [msg, setMsg] = useState('');
 
   useEffect(() => {
-    api.get<{ description: string | null; displayName: string | null; avatar: string | null }>('/auth/me').then((p) => {
+    api.get<{ description: string | null; displayName: string | null; displayNameMarkup?: string | null; avatar: string | null }>('/auth/me').then((p) => {
       setDescription(p.description ?? '');
-      setDisplayName(p.displayName ?? '');
+      setDisplayName(p.displayNameMarkup ?? p.displayName ?? '');
       setAvatar(p.avatar ?? null);
     });
   }, []);
@@ -118,10 +119,11 @@ function ProfileTab() {
     setSaving(true);
     setMsg('');
     try {
-      const result = await api.patch<{ description: string | null; displayName: string | null }>('/user/profile', { description, displayName });
+      const result = await api.patch<{ description: string | null; displayName: string | null; displayNameMarkup?: string | null }>('/user/profile', { description, displayName });
       if (user) {
-        setUser({ ...user, displayName: result.displayName });
+        setUser({ ...user, displayName: result.displayName, displayNameMarkup: result.displayNameMarkup });
       }
+      void refreshPlayerNames().catch(() => undefined);
       setMsg('Gespeichert');
     } catch (error: unknown) {
       setMsg(getErrorMessage(error, 'Fehler'));
@@ -217,7 +219,7 @@ function ProfileTab() {
 
       <Section title="Anzeigename">
         <p className="text-xs text-swu-muted mb-2">
-          Dein oeffentlicher Name in der Siedlerliste. Leer = Login-Name wird verwendet.
+          Dein öffentlicher Name. Erlaubt: [color=#rrggbb], [b] und [i], jeweils mit schließendem Tag. 3–60 sichtbare Zeichen; leer verwendet den Login-Namen.
         </p>
         <Input
           type="text"

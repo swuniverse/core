@@ -1,3 +1,4 @@
+import { PlayerName } from '../components/PlayerName';
 import { useCallback, useEffect, useState } from 'react';
 import { formatGameDate, formatGameDateTime } from '../lib/format';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -423,7 +424,7 @@ export function HolonetPage() {
             <h2 className="text-sm font-bold text-swu-primary">{viewCharacter.name}</h2>
             <CharacterAvatar character={viewCharacter} />
             <BbCodeText allowExternalImages text={viewCharacter.description} className="whitespace-pre-wrap text-sm" />
-            <p className="text-xs">Besitzer: <Link to={`/players/${viewCharacter.user.id}`} className="text-swu-accent">{viewCharacter.user.username}</Link></p>
+            <p className="text-xs">Besitzer: <Link to={`/players/${viewCharacter.user.id}`} className="text-swu-accent"><PlayerName name={viewCharacter.user.username} /></Link></p>
             <button type="button" autoFocus onClick={() => setViewCharacter(null)} className="border border-swu-border px-3 py-1 text-xs">Schließen</button>
           </div>
         </div>
@@ -488,7 +489,7 @@ export function HolonetPage() {
                 {plotRequests.map((request) => (
                   <article key={request.id} className="space-y-2 border-b border-swu-border/60 p-3 text-xs">
                     <p><Link className="text-swu-accent hover:underline" to={`/holonet/${request.postId}`}>{request.post.title}</Link> für Plot „{request.plot.title}“</p>
-                    <p className="text-swu-muted">Antrag von {request.requester.username}</p>
+                    <p className="text-swu-muted">Antrag von <PlayerName name={request.requester.username} /></p>
                     <div className="flex gap-2">
                       <button type="button" onClick={() => void decidePlotRequest(request, true)} className="border border-green-500/50 px-2 py-1 text-green-400">Annehmen</button>
                       <button type="button" onClick={() => void decidePlotRequest(request, false)} className="border border-red-500/50 px-2 py-1 text-red-400">Ablehnen</button>
@@ -540,7 +541,7 @@ export function HolonetPage() {
                           </h2>
                         </div>
                         <div className="flex shrink-0 items-center gap-2 text-[10px] text-swu-muted">
-                          <span>{post.author.username}</span>
+                          <span><PlayerName name={post.author.username} /></span>
                           <span className="text-red-400">
                             {formatGameDate(post.createdAt)}
                           </span>
@@ -728,7 +729,7 @@ export function HolonetPage() {
                                 >
                                   <div className="mb-1 flex items-center justify-between gap-2 text-[10px]">
                                     <span className="font-bold text-swu-primary">
-                                      {comment.author.username}
+                                      <PlayerName name={comment.author.username} />
                                     </span>
                                     <div className="flex items-center gap-2 text-swu-muted">
                                       <span>
@@ -787,7 +788,7 @@ export function HolonetPage() {
                           <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center border border-swu-border bg-swu-bg text-lg font-bold text-swu-primary">
                             {post.author.username.slice(0, 2).toUpperCase()}
                           </div>
-                          <p className="text-xs text-swu-primary">{post.author.username}</p>
+                          <p className="text-xs text-swu-primary"><PlayerName name={post.author.username} /></p>
                           {post.authorId !== null && (
                             <p className="text-[10px] text-swu-muted">Siedler #{post.authorId}</p>
                           )}

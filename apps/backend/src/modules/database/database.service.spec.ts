@@ -478,3 +478,10 @@ it('excludes opted-out accounts from the public online list', async () => {
   reader.getManyBoolean.mockResolvedValue(new Map([[1, true], [2, false]]));
   expect(await service.getOnlinePlayers()).toEqual([expect.objectContaining({ id: 1 })]);
 });
+
+
+it('returns only public name representations for the shared renderer', async () => {
+  const { service, userRepo } = createService();
+  userRepo.find.mockResolvedValue([{ id: 1, username: 'login', displayName: 'Leia', displayNameMarkup: '[b]Leia[/b]', email: 'private@example.test', passwordHash: 'secret' }]);
+  expect(await service.getPlayerNames()).toEqual([{ id: 1, username: 'login', displayName: 'Leia', displayNameMarkup: '[b]Leia[/b]' }]);
+});

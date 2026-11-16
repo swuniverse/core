@@ -73,6 +73,7 @@ export interface UserProfile {
   id: number;
   username: string;
   displayName?: string | null;
+  displayNameMarkup?: string | null;
   avatar?: string | null;
   email: string;
   emailVerifiedAt?: string | null;
@@ -103,3 +104,5 @@ export enum Faction {
 /** Supported interface token palettes. */
 export const INTERFACE_COLOR_SCHEMES = ['default', 'contrast', 'faction'] as const;
 export type InterfaceColorScheme = typeof INTERFACE_COLOR_SCHEMES[number];
+
+export * from './player-name.js';

@@ -1,3 +1,4 @@
+import { PlayerName } from '../components/PlayerName';
 import { useEffect, useState } from 'react';
 import { api } from '../services/api';
 
@@ -199,7 +200,7 @@ export function ColonyScansPage() {
                     {scan.colonyName || `Kolonie #${scan.colonyId}`}
                   </div>
                   <div className="text-swu-muted">
-                    Besitzer: {scan.colonyOwnerUsername ?? 'unbekannt'}
+                    Besitzer: <PlayerName name={scan.colonyOwnerUsername ?? 'unbekannt'} />
                   </div>
                   {(scan.history?.length ?? 0) > 1 && (
                     <button
@@ -234,7 +235,7 @@ export function ColonyScansPage() {
                             {new Date(entry.createdAt).toLocaleString('de-DE')}
                           </div>
                           <div className="text-swu-muted">
-                            {entry.provenance === 'OWN' ? 'Eigener Scan' : 'Allianz-Scan'} · Scanner: {entry.scanner.username ?? `#${entry.scanner.id}`}
+                            {entry.provenance === 'OWN' ? 'Eigener Scan' : 'Allianz-Scan'} · Scanner: <PlayerName name={entry.scanner.username ?? `#${entry.scanner.id}`} />
                           </div>
                           {entry.abandoned && (
                             <div className="text-yellow-400">
@@ -270,13 +271,13 @@ export function ColonyScansPage() {
                 {selected.colonyName || `Kolonie #${selected.colonyId}`}
               </div>
               <div className="text-xs text-swu-muted">
-                Besitzer: {selected.colonyOwnerUsername ?? 'unbekannt'}
+                Besitzer: <PlayerName name={selected.colonyOwnerUsername ?? 'unbekannt'} />
               </div>
               <div className="text-xs text-swu-muted">
                 Scan: {new Date(selected.createdAt).toLocaleString('de-DE')}
               </div>
               <div className="text-xs text-swu-muted">
-                {selected.provenance === 'OWN' ? 'Eigener Scan' : 'Allianz-Scan'} · Scanner: {selected.scanner.username ?? `#${selected.scanner.id}`}
+                {selected.provenance === 'OWN' ? 'Eigener Scan' : 'Allianz-Scan'} · Scanner: <PlayerName name={selected.scanner.username ?? `#${selected.scanner.id}`} />
               </div>
               <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
                 <span className="rounded border border-swu-border px-2 py-1 text-swu-muted">

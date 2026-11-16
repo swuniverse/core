@@ -47,6 +47,11 @@ export class DatabaseController {
     return this.databaseService.getOverview();
   }
 
+  @Get('player-names')
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'))
+  getPlayerNames() { return this.databaseService.getPlayerNames(); }
+
   @Get('online')
   getOnlinePlayers() {
     return this.databaseService.getOnlinePlayers();

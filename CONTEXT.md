@@ -2,6 +2,9 @@
 
 ## Spieler & Gruppen
 
+**Spielername**:
+Der öffentliche Anzeigename eines Spielers. `[color]`, `[b]` und `[i]` sind erlaubt; 3–60 sichtbare Zeichen zählen. Klartext und Formatierung werden getrennt gespeichert. Eindeutigkeit, Suche, Sortierung, Mails und textuelle Titel verwenden Klartext; Allianznamen bleiben ohne Namens-BBCode.
+
 **Fraktion**:
 Eine der beiden großen Seiten des Spiels, die **Rebellenallianz** oder das **Galaktische Imperium**. Ein Spieler wählt sie beim Einstieg einmalig.
 _Avoid_: Volk, Seite

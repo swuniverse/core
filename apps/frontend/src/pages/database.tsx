@@ -1,3 +1,4 @@
+import { PlayerName } from '../components/PlayerName';
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { PlanetImg } from '../components/PlanetImg';
@@ -487,7 +488,7 @@ export function DatabaseSystemDetailPage() {
                     className="ml-auto text-xs text-swu-accent hover:underline"
                     to={`/messages?tab=compose&to=${colony.owner.id}&name=${encodeURIComponent(colony.owner.username)}`}
                   >
-                    Nachricht an {colony.owner.username}
+                    Nachricht an <PlayerName name={colony.owner.username} />
                   </Link>
                 )}
               </li>
@@ -671,7 +672,7 @@ function TradePosts({ data }: { data: TradePostEntry[] }) {
         ) : (
           <span className="text-swu-muted">Unbekannt</span>
         ),
-        post.ownerName,
+        <PlayerName name={post.ownerName} />,
       ])}
     />
   );
@@ -1122,7 +1123,7 @@ function NpcsAndAdmins({ data }: { data: NpcsAndAdmins }) {
                     to={`/players/${entry.id}`}
                     className="block truncate text-swu-primary hover:text-swu-accent"
                   >
-                    {name}
+                    <PlayerName name={name} playerId={entry.id} />
                   </Link>
                   <span className="text-xs text-swu-muted">
                     {entry.factionName ?? 'Keine Fraktion'}
@@ -1162,7 +1163,7 @@ function Settlers({ data }: { data: Settler[] }) {
           to={`/players/${row.id}`}
           className="text-swu-primary hover:text-swu-accent"
         >
-          {row.displayName || row.username}
+          <PlayerName name={row.displayName || row.username} />
           {row.onVacation && (
             <span className="ml-1 text-swu-warning">(Urlaub)</span>
           )}
@@ -1204,7 +1205,7 @@ function RankingView({ data }: { data: RankingDetail }) {
         rows={data.entries.map((entry) =>
           data.anonymous
             ? [entry.rank, entry.faction ?? 'Unbekannt', entry.score, entry.shipCount ?? 0]
-            : [entry.rank, entry.username, entry.score],
+            : [entry.rank, <PlayerName name={entry.username} />, entry.score],
         )}
       />
       {!data.anonymous && (

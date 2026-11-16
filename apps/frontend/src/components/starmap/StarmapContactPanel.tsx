@@ -1,3 +1,4 @@
+import { PlayerName } from '../PlayerName';
 import { Link } from 'react-router-dom';
 import type {
   SpacecraftAlertState,
@@ -82,7 +83,7 @@ export function StarmapContactPanel({
               {contact.stance && ` · ${CONTACT_STANCE_LABELS[contact.stance]}`}
             </p>
             {contact.ownerName && (
-              <p className="text-xs text-swu-muted">{contact.ownerName}</p>
+              <p className="text-xs text-swu-muted"><PlayerName name={contact.ownerName} /></p>
             )}
             {contact.alliance && (
               <p className="text-xs text-swu-muted">{contact.alliance.name}</p>

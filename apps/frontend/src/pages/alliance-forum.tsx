@@ -1,3 +1,4 @@
+import { PlayerName } from '../components/PlayerName';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PmLink } from '../components/PmLink';
@@ -60,13 +61,13 @@ function AuthorLine({ author }: { author: ForumAuthorDto }) {
   return (
     <span>
       {author.userId === null ? (
-        <span className="text-swu-muted">{author.name}</span>
+        <span className="text-swu-muted"><PlayerName name={author.name} playerId={author.userId} /></span>
       ) : (
         <Link
           to={`/players/${author.userId}`}
           className="text-swu-accent hover:underline"
         >
-          {author.name}
+          <PlayerName name={author.name} playerId={author.userId} />
         </Link>
       )}
       {meta.length > 0 && (

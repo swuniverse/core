@@ -1,3 +1,4 @@
+import { refreshPlayerNames, resetPlayerNames } from '../../stores/player-names.store';
 import { useInterfaceTheme } from '../../hooks/use-interface-theme';
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -58,6 +59,14 @@ export function AppShell() {
   const setUser = useAuthStore((state) => state.setUser);
   const location = useLocation();
   const navigate = useNavigate();
+  useEffect(() => {
+    resetPlayerNames();
+    return resetPlayerNames;
+  }, [user?.id]);
+  useEffect(() => {
+    if (user?.id) void refreshPlayerNames().catch(() => undefined);
+  }, [user?.id, location.pathname]);
+
 
   useEffect(() => {
     void api

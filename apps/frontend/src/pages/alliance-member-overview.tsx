@@ -1,3 +1,4 @@
+import { PlayerName } from '../components/PlayerName';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
@@ -145,7 +146,7 @@ function MemberRow({
           decorative
           className="size-9 text-sm"
         />
-        <span className="font-bold text-swu-primary">{member.name}</span>
+        <span className="font-bold text-swu-primary"><PlayerName name={member.name} playerId={member.userId} /></span>
         {member.roleTitle && (
           <span className="text-xs text-swu-muted">{member.roleTitle}</span>
         )}

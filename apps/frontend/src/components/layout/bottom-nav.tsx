@@ -1,3 +1,4 @@
+import { PlayerName } from '../PlayerName';
 import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/auth.store';
@@ -86,7 +87,7 @@ export function BottomNav() {
               className="group flex items-center gap-3 px-3 py-2.5 rounded text-sm text-swu-danger w-full text-left"
             >
               <NavigationIcon name="logout" active={false} size="small" />
-              <span>Logout ({user?.username})</span>
+              <span>Logout (<PlayerName name={user?.username} />)</span>
             </button>
           </div>
         </div>

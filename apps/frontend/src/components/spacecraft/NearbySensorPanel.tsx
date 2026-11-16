@@ -1,3 +1,4 @@
+import { PlayerName } from '../PlayerName';
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type {
@@ -514,7 +515,7 @@ export function NearbySensorPanel({
                     )}
                   </td>
                   <td className="border border-swu-border p-1">
-                    {target.username ?? 'Niemand'}
+                    <PlayerName name={target.username ?? 'Niemand'} />
                   </td>
                 </tr>
               ))}

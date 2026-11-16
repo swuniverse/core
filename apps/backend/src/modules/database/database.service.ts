@@ -231,6 +231,11 @@ export class DatabaseService {
       });
   }
 
+  async getPlayerNames() {
+    const users = await this.userRepo.find({ select: ['id', 'username', 'displayName', 'displayNameMarkup'], order: { id: 'ASC' } });
+    return users.map(user => ({ id: user.id, username: user.username, displayName: user.displayName, displayNameMarkup: user.displayNameMarkup }));
+  }
+
   async getOnlinePlayers() {
     const onlineUserIds = this.gameGateway.onlineUserIds;
     if (onlineUserIds.length === 0) return [];

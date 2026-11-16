@@ -1,3 +1,4 @@
+import { PlayerName } from '../PlayerName';
 import { Link } from 'react-router-dom';
 
 export type ColonyScan = {
@@ -58,7 +59,7 @@ export function ColonyScanDialog({
               Kolonie-Oberflächenscan: {scan.colony.name}
             </h3>
             <p className="text-swu-muted">
-              Besitzer: {scan.colony.owner.username ?? 'unbekannt'}
+              Besitzer: <PlayerName name={scan.colony.owner.username ?? 'unbekannt'} />
             </p>
             {scan.systemReference && (
               <Link

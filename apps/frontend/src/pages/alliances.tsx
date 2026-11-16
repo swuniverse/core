@@ -1,3 +1,4 @@
+import { PlayerName } from '../components/PlayerName';
 import { AllianceDepotsPanel } from '../components/alliance/AllianceDepotsPanel';
 import {
   useCallback,
@@ -202,7 +203,7 @@ function AllianceListMembers({
             className="size-12 text-lg sm:size-14"
           />
           <span className="w-full truncate text-xs font-bold text-swu-primary group-hover:text-swu-accent">
-            {member.name}
+            <PlayerName name={member.name} playerId={member.userId} />
           </span>
         </Link>
       ))}
@@ -496,7 +497,7 @@ function AllianceMembersSection({
                   decorative
                   className="size-9 text-sm"
                 />
-                {member.name}
+                <PlayerName name={member.name} playerId={member.userId} />
               </Link>
               {member.roleTitle && (
                 <span className="border border-swu-accent/50 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-swu-accent">
@@ -797,7 +798,7 @@ function DiplomacyRelationships({
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-bold">
-                {relationship.counterparty.name}
+                {relationship.counterpartyType === DiplomacyPartyType.PLAYER ? <PlayerName name={relationship.counterparty.name} playerId={relationship.counterparty.id} /> : relationship.counterparty.name}
                 {partyTypeLabel(relationship.counterpartyType)}:{' '}
                 {relationshipTypeLabel(relationship.type)}
               </h3>
@@ -1490,7 +1491,7 @@ export function AllianceDiplomacyPage() {
                   <div className="space-y-1 text-sm md:col-span-2">
                     <p>
                       Gegenpartei (Siedler):{' '}
-                      <strong>{negotiateWith.name}</strong>
+                      <strong><PlayerName name={negotiateWith.name} /></strong>
                     </p>
                     <button
                       type="button"
@@ -1944,7 +1945,7 @@ export function AllianceDetailPage() {
                     ` (${entry.relationship.vassalage.lordAllianceId === alliance.id ? 'Lehnsherr' : 'Vasall'})`}
                 </p>
                 <p className="text-xs text-swu-muted">
-                  {entry.actor?.name ?? 'Unbekannt'} ·{' '}
+                  <PlayerName name={entry.actor?.name ?? 'Unbekannt'} /> ·{' '}
                   {dateFormatter.format(new Date(entry.occurredAt))}
                 </p>
               </li>
@@ -2008,7 +2009,7 @@ export function AllianceDetailPage() {
                         color: relationship.counterparty.color ?? undefined,
                       }}
                     >
-                      {relationship.counterparty.name}
+                      {relationship.counterpartyType === DiplomacyPartyType.PLAYER ? <PlayerName name={relationship.counterparty.name} playerId={relationship.counterparty.id} /> : relationship.counterparty.name}
                     </Link>
                     <span>{relationshipTypeLabel(relationship.type)}</span>
                     <span className="text-xs text-swu-muted">
@@ -2192,7 +2193,7 @@ export function AllianceApplicationsPage() {
                 to={`/players/${application.userId}`}
                 className="font-bold text-swu-primary hover:text-swu-accent"
               >
-                {application.name}
+                <PlayerName name={application.name} />
               </Link>
               <span className="text-xs text-swu-muted">
                 {dateFormatter.format(new Date(application.createdAt))}
@@ -2792,7 +2793,7 @@ export function SettlerPublicDiplomacy({ playerId }: { playerId: number }) {
                     color: relationship.counterparty.color ?? undefined,
                   }}
                 >
-                  {relationship.counterparty.name}
+                  {relationship.counterpartyType === DiplomacyPartyType.PLAYER ? <PlayerName name={relationship.counterparty.name} playerId={relationship.counterparty.id} /> : relationship.counterparty.name}
                 </Link>
                 <span>{relationshipTypeLabel(relationship.type)}</span>
                 <span className="text-xs text-swu-muted">
@@ -2837,7 +2838,7 @@ export function SettlerPublicDiplomacy({ playerId }: { playerId: number }) {
                 {entry.secondAlliance.name}
               </p>
               <p className="text-xs text-swu-muted">
-                {entry.actor?.name ?? 'Unbekannt'} ·{' '}
+                <PlayerName name={entry.actor?.name ?? 'Unbekannt'} /> ·{' '}
                 {dateFormatter.format(new Date(entry.occurredAt))}
               </p>
             </li>

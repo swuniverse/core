@@ -1,3 +1,4 @@
+import { PlayerName } from '../components/PlayerName';
 import { UserMessageFolders, type UserMessageFolder } from '../components/messaging/UserMessageFolders';
 import { useEffect, useState, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -906,7 +907,7 @@ export function MessagesPage() {
                   {ignoredPlayers.map((entry) => (
                     <tr key={entry.id} className="border-t border-swu-border">
                       <td className="px-2 py-1"><input type="checkbox" aria-label={`${entry.ignoredUsername} markieren`} checked={selectedIgnoreIds.has(entry.id)} onChange={() => setSelectedIgnoreIds((current) => { const next = new Set(current); if (next.has(entry.id)) next.delete(entry.id); else next.add(entry.id); return next; })} /></td>
-                      <td className="px-2 py-1"><Link to={`/players/${entry.ignoredUserId}`} className="text-swu-primary hover:text-swu-accent">{entry.ignoredUsername}</Link></td>
+                      <td className="px-2 py-1"><Link to={`/players/${entry.ignoredUserId}`} className="text-swu-primary hover:text-swu-accent"><PlayerName name={entry.ignoredUsername} /></Link></td>
                       <td className="px-2 py-1 text-swu-muted">{formatDateTime(entry.createdAt)}</td>
                     </tr>
                   ))}
@@ -916,7 +917,7 @@ export function MessagesPage() {
             <div className="flex gap-2 border-t border-swu-border p-2"><button disabled={!selectedIgnoreIds.size} onClick={() => setConfirmation('delete-ignores')} className="border border-swu-border px-2 py-1 disabled:opacity-40">Markierte löschen</button><button disabled={!ignoredPlayers.length} onClick={() => setConfirmation('delete-all-ignores')} className="border border-swu-border px-2 py-1 disabled:opacity-40">Alle löschen</button></div>
           </section>
           <section className="border border-swu-border bg-swu-surface/70 p-3"><h2 className="mb-2 font-bold text-swu-primary">Siedler ignorieren</h2><div className="flex gap-2"><input aria-label="Siedler-ID ignorieren" value={newIgnoredPlayerId} onChange={(event) => setNewIgnoredPlayerId(event.target.value)} placeholder="Siedler-ID" className="border border-swu-border bg-swu-bg px-2 py-1" /><button onClick={() => void addIgnoredPlayer()} className="border border-swu-accent px-2 py-1 text-swu-accent">Ignorieren</button></div></section>
-          <section className="border border-swu-border bg-swu-surface/70"><header className="border-b border-swu-border px-3 py-2 font-bold text-swu-primary">Siedler, die Dich ignorieren</header>{ignoredBy.length === 0 ? <p className="p-3 text-swu-muted">Keine Einträge.</p> : <table className="w-full"><tbody>{ignoredBy.map((entry) => <tr key={entry.id} className="border-t border-swu-border"><td className="px-2 py-1"><Link to={`/players/${entry.ownerId}`} className="text-swu-primary">{entry.ownerUsername}</Link></td><td className="px-2 py-1 text-swu-muted">{formatDateTime(entry.createdAt)}</td></tr>)}</tbody></table>}</section>
+          <section className="border border-swu-border bg-swu-surface/70"><header className="border-b border-swu-border px-3 py-2 font-bold text-swu-primary">Siedler, die Dich ignorieren</header>{ignoredBy.length === 0 ? <p className="p-3 text-swu-muted">Keine Einträge.</p> : <table className="w-full"><tbody>{ignoredBy.map((entry) => <tr key={entry.id} className="border-t border-swu-border"><td className="px-2 py-1"><Link to={`/players/${entry.ownerId}`} className="text-swu-primary"><PlayerName name={entry.ownerUsername} /></Link></td><td className="px-2 py-1 text-swu-muted">{formatDateTime(entry.createdAt)}</td></tr>)}</tbody></table>}</section>
           <button type="button" onClick={() => setSearchParams({ tab: 'contacts' })} className="text-swu-primary hover:text-swu-accent">Zur Kontaktliste</button>
         </div>
       ) : tab === 'contacts' ? (
@@ -930,7 +931,7 @@ export function MessagesPage() {
                   {contacts.map((contact) => (
                     <tr key={contact.id} className="border-t border-swu-border">
                       <td className="px-2 py-1"><input type="checkbox" aria-label={`${contact.contactUsername} markieren`} checked={selectedContactIds.has(contact.id)} onChange={() => setSelectedContactIds((current) => { const next = new Set(current); if (next.has(contact.id)) next.delete(contact.id); else next.add(contact.id); return next; })} /></td>
-                      <td className="px-2 py-1"><PlayerAvatar name={contact.contactUsername} avatar={null} faction={null} decorative className="mr-2 size-7" /><Link to={`/players/${contact.contactUserId}`} className="text-swu-primary hover:text-swu-accent">{contact.contactUsername}</Link></td>
+                      <td className="px-2 py-1"><PlayerAvatar name={contact.contactUsername} avatar={null} faction={null} decorative className="mr-2 size-7" /><Link to={`/players/${contact.contactUserId}`} className="text-swu-primary hover:text-swu-accent"><PlayerName name={contact.contactUsername} /></Link></td>
                       <td className="px-2 py-1"><select aria-label={`Modus für ${contact.contactUsername}`} value={contact.mode} onChange={(event) => void updateContactMode(contact, event.target.value as ContactMode)} className={`bg-swu-bg border border-swu-border px-1 py-0.5 ${CONTACT_MODE_STYLES[contact.mode]}`}>{Object.values(ContactMode).map((mode) => <option key={mode} value={mode}>{CONTACT_MODE_LABELS[mode]}</option>)}</select></td>
                       <td className="px-2 py-1 text-center"><input type="checkbox" aria-label={`Als Freund behandeln: ${contact.contactUsername}`} title="Du behandelst diesen Kontakt als Freund; die Gegenrichtung bleibt unverändert." checked={contact.treatAsFriend ?? false} disabled={pendingContactPermissions.has(contact.id)} onChange={(event) => void updateContactPermissions(contact, { treatAsFriend: event.target.checked })} /></td>
                       <td className="px-2 py-1 text-center"><input type="checkbox" aria-label={`Live-Position teilen mit ${contact.contactUsername}`} title="Du teilst Deine eigenen Schiffspositionen mit diesem Kontakt, nicht umgekehrt." checked={contact.shareLivePositions ?? false} disabled={pendingContactPermissions.has(contact.id)} onChange={(event) => void updateContactPermissions(contact, { shareLivePositions: event.target.checked })} /></td>
@@ -944,8 +945,8 @@ export function MessagesPage() {
             </div>
             <div className="flex gap-2 border-t border-swu-border p-2"><button disabled={!selectedContactIds.size} onClick={() => setConfirmation('delete-contacts')} className="border border-swu-border px-2 py-1 disabled:opacity-40">Markierte löschen</button><button disabled={!contacts.length} onClick={() => setConfirmation('delete-all-contacts')} className="border border-swu-border px-2 py-1 disabled:opacity-40">Alle löschen</button></div>
           </section>
-          <section className="border border-swu-border bg-swu-surface/70 p-3"><h2 className="mb-2 font-bold text-swu-primary">Kontakt hinzufügen</h2><div className="flex flex-wrap gap-2"><input aria-label="Siedler-ID" value={newContactId} onChange={(event) => setNewContactId(event.target.value)} placeholder="Siedler-ID" className="bg-swu-bg border border-swu-border px-2 py-1" /><div className="relative"><input aria-label="Siedlername" value={newContactName} onChange={(event) => searchContact(event.target.value)} placeholder="Name suchen" className="bg-swu-bg border border-swu-border px-2 py-1" />{contactSearchResults.length > 0 && <div className="absolute z-10 w-full border border-swu-border bg-swu-surface">{contactSearchResults.map((result) => <button key={result.id} onClick={() => { setNewContactId(String(result.id)); setNewContactName(result.username); setContactSearchResults([]); }} className="block w-full px-2 py-1 text-left">{result.username}</button>)}</div>}</div><select value={newContactMode} onChange={(event) => setNewContactMode(event.target.value as ContactMode)} className="bg-swu-bg border border-swu-border px-2 py-1">{Object.values(ContactMode).map((mode) => <option key={mode} value={mode}>{CONTACT_MODE_LABELS[mode]}</option>)}</select><button onClick={() => void addContact()} className="border border-swu-accent px-2 py-1 text-swu-accent">Hinzufügen</button></div></section>
-          <section className="border border-swu-border bg-swu-surface/70"><header className="border-b border-swu-border px-3 py-2 font-bold text-swu-primary">Einträge anderer Siedler über Dich</header>{receivedContacts.length === 0 ? <p className="p-3 text-swu-muted">Keine Einträge.</p> : <table className="w-full"><tbody>{receivedContacts.map((contact) => <tr key={contact.id} className="border-t border-swu-border"><td className={`px-2 py-1 ${CONTACT_MODE_STYLES[contact.mode]}`}>{CONTACT_MODE_LABELS[contact.mode]}</td><td className="px-2 py-1"><Link to={`/players/${contact.ownerId}`} className="text-swu-primary">{contact.ownerUsername}</Link></td><td>{formatDateTime(contact.createdAt)}</td></tr>)}</tbody></table>}</section>
+          <section className="border border-swu-border bg-swu-surface/70 p-3"><h2 className="mb-2 font-bold text-swu-primary">Kontakt hinzufügen</h2><div className="flex flex-wrap gap-2"><input aria-label="Siedler-ID" value={newContactId} onChange={(event) => setNewContactId(event.target.value)} placeholder="Siedler-ID" className="bg-swu-bg border border-swu-border px-2 py-1" /><div className="relative"><input aria-label="Siedlername" value={newContactName} onChange={(event) => searchContact(event.target.value)} placeholder="Name suchen" className="bg-swu-bg border border-swu-border px-2 py-1" />{contactSearchResults.length > 0 && <div className="absolute z-10 w-full border border-swu-border bg-swu-surface">{contactSearchResults.map((result) => <button key={result.id} onClick={() => { setNewContactId(String(result.id)); setNewContactName(result.username); setContactSearchResults([]); }} className="block w-full px-2 py-1 text-left"><PlayerName name={result.username} /></button>)}</div>}</div><select value={newContactMode} onChange={(event) => setNewContactMode(event.target.value as ContactMode)} className="bg-swu-bg border border-swu-border px-2 py-1">{Object.values(ContactMode).map((mode) => <option key={mode} value={mode}>{CONTACT_MODE_LABELS[mode]}</option>)}</select><button onClick={() => void addContact()} className="border border-swu-accent px-2 py-1 text-swu-accent">Hinzufügen</button></div></section>
+          <section className="border border-swu-border bg-swu-surface/70"><header className="border-b border-swu-border px-3 py-2 font-bold text-swu-primary">Einträge anderer Siedler über Dich</header>{receivedContacts.length === 0 ? <p className="p-3 text-swu-muted">Keine Einträge.</p> : <table className="w-full"><tbody>{receivedContacts.map((contact) => <tr key={contact.id} className="border-t border-swu-border"><td className={`px-2 py-1 ${CONTACT_MODE_STYLES[contact.mode]}`}>{CONTACT_MODE_LABELS[contact.mode]}</td><td className="px-2 py-1"><Link to={`/players/${contact.ownerId}`} className="text-swu-primary"><PlayerName name={contact.ownerUsername} /></Link></td><td>{formatDateTime(contact.createdAt)}</td></tr>)}</tbody></table>}</section>
           <button type="button" onClick={() => setSearchParams({ tab: 'ignore-list' })} className="text-swu-primary hover:text-swu-accent">Ignorierliste öffnen</button>
         </div>
       ) : tab === 'compose' ? (
@@ -973,7 +974,7 @@ export function MessagesPage() {
                     onMouseDown={() => selectRecipient(u)}
                     className="w-full text-left px-3 py-2 text-sm text-swu-primary hover:bg-swu-bg transition-colors"
                   >
-                    {u.username}
+                    <PlayerName name={u.username} />
                   </button>
                 ))}
               </div>
@@ -1034,7 +1035,7 @@ export function MessagesPage() {
                 {correspondence.map((message) => (
                   <article key={message.id} className="px-3 py-2 text-xs">
                     <div className="mb-1 flex justify-between gap-3 text-swu-muted">
-                      <span>Von: {message.sender?.username ?? 'System'}</span>
+                      <span>Von: <PlayerName name={message.sender?.username ?? 'System'} /></span>
                       <time dateTime={message.createdAt}>
                         {formatGameDateTime(message.createdAt)}
                       </time>
@@ -1077,7 +1078,7 @@ export function MessagesPage() {
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center justify-between gap-2">
                           <span className="font-bold text-swu-primary">
-                            {conversation.partner.username}
+                            <PlayerName name={conversation.partner.username} />
                           </span>
                           <span className="text-[10px] text-swu-muted">
                             {timeAgo(conversation.createdAt)}
@@ -1151,11 +1152,7 @@ export function MessagesPage() {
                         </div>
                       </div>
                       <p className="text-[10px] text-swu-muted mt-0.5">
-                        {folder === 'OUTBOX'
-                          ? `An: ${msg.recipient?.username}`
-                          : msg.isSystem
-                            ? 'System'
-                            : `Von: ${msg.sender?.username || 'System'}`}
+                        {folder === 'OUTBOX' ? <>An: <PlayerName name={msg.recipient?.username} /></> : msg.isSystem ? 'System' : <>Von: <PlayerName name={msg.sender?.username || 'System'} /></>}
                       </p>
                     </button>
                     <button
@@ -1204,7 +1201,7 @@ export function MessagesPage() {
                 <OriginSeverityBadge severity={selected.originSeverity} />
               </div>
               <p className="text-[10px] text-swu-muted mb-3">
-                {selected.sender?.username || 'System'} ·{' '}
+                <PlayerName name={selected.sender?.username || 'System'} /> ·{' '}
                 {timeAgo(selected.createdAt)}
               </p>
               <BbCodeText

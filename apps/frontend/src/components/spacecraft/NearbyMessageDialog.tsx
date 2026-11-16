@@ -1,3 +1,4 @@
+import { PlayerName } from '../PlayerName';
 import { useState } from 'react';
 import { api } from '../../services/api';
 
@@ -49,7 +50,7 @@ export function NearbyMessageDialog({
           </button>
         </header>
         <p className="mb-2 text-swu-muted">
-          Empfänger: {target.username ?? target.name}
+          Empfänger: <PlayerName name={target.username ?? target.name} />
         </p>
         <label
           className="block text-xs text-swu-muted"

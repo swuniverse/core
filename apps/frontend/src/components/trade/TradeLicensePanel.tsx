@@ -1,3 +1,4 @@
+import { PlayerName } from '../PlayerName';
 import { useCallback, useEffect, useState } from 'react';
 import type {
   IssuedTradeLicenseDto,
@@ -337,7 +338,7 @@ function OwnerLicenseAdmin({ menu }: { menu: TradeLicenseMenuDto }) {
           <tbody>
             {issued.map((license) => (
               <tr key={license.id} className="border-t border-swu-border/60">
-                <td className="px-2 py-1">{license.username}</td>
+                <td className="px-2 py-1"><PlayerName name={license.username} /></td>
                 <td className="px-2 py-1 text-right font-mono">bis {formatDateTime(license.expiresAt)}</td>
               </tr>
             ))}

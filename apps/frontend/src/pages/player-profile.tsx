@@ -1,3 +1,4 @@
+import { PlayerName } from '../components/PlayerName';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { BbCodeText } from '../components/BbCodeText';
@@ -241,7 +242,7 @@ export function PlayerProfilePage() {
                 className="text-2xl font-bold text-swu-accent"
                 style={{ fontFamily: 'var(--font-swu-display)' }}
               >
-                {name}
+                <PlayerName name={name} playerId={player.id} />
               </h1>
               {player.onVacation && (
                 <span className="text-sm font-bold text-swu-warning">(Urlaub)</span>
