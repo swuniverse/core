@@ -324,7 +324,7 @@ export class StarmapAdminService {
     const missing = defaults.filter((entry) => !existingKeys.has(entry.key));
     if (missing.length > 0) {
       await this.fieldTypeRepo.save(
-        missing.map((entry) => this.fieldTypeRepo.create(entry)),
+        missing.map((entry) => this.fieldTypeRepo.create({ ...entry, miningResources: entry.key === 'NEBULA' ? [{ commodityId: 3, rate: 100 }] : ['ASTEROID_FIELD', 'ASTEROID_CLUSTER'].includes(entry.key) ? [{ commodityId: 9, rate: 100 }, { commodityId: 10, rate: 100 }] : [] })),
       );
     }
     for (const entry of defaults) {
@@ -2719,6 +2719,7 @@ export class StarmapAdminService {
       isSystem: fieldType.isSystem,
       colorKey: fieldType.colorKey,
       category: fieldType.category,
+      miningResources: fieldType.miningResources ?? [],
     };
   }
 

@@ -1,3 +1,4 @@
+import { FieldMiningEditor } from './FieldMiningEditor';
 import { useState, useMemo } from 'react';
 import { useFullmapEditorStore } from '../../stores/fullmap-editor.store';
 import { starTileImage } from '../../lib/assets';
@@ -77,6 +78,13 @@ export function ValuePanel() {
           />
         );
       })}
+
+      {fieldTypes.find(type => type.id === selectedFieldTypeId) && (
+        <FieldMiningEditor
+          fieldType={fieldTypes.find(type => type.id === selectedFieldTypeId)!}
+          onSaved={resources => useFullmapEditorStore.setState(state => ({ fieldTypes: state.fieldTypes.map(type => type.id === selectedFieldTypeId ? { ...type, miningResources: resources } : type) }))}
+        />
+      )}
 
       {/* Systemtyp */}
       <div>

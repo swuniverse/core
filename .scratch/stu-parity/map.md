@@ -51,6 +51,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Entscheidungen
 
+- sc-WP-RES-1 – Der Bussard-Kollektor heißt in SWU **Ressourcen-Kollektor** (Ware 19011, Fertigung mit Antriebsmodule Stufe I). Feldtyp-Raten sind im Karteneditor konfigurierbar: Nebel liefern standardmäßig Tibanna-Gas, Asteroidenfelder Phrik-/Cortosis-Erz mit je 100 Einheiten/Tick. Aktivierung 15 EPS, laufend 10 EPS; volles Lager, Bewegung und ungültige Systemvoraussetzungen beenden die Förderung – siehe [Ticket](issues/sc-WP-RES-1-ressourcen-sammeln-mining.md).
+
 - sc-WP-NAV-5b – Der Navicomputer-Sprung ist die einzige Langstreckensprung-Fähigkeit: freie passierbare Koordinate auf jeder persönlich bekannten, nicht verborgenen Ebene, ohne Route/Distanzkosten. Die vollständig vorvalidierte nicht fixierte Flotte springt atomar für 55 EPS je Schiff mit 300 Sekunden Spulen-Cooldown; Ziel-Feldeffekte gelten, Deflektor-Fluggebühren entfallen. Umsetzung und Prüfungen: [Ticket](issues/sc-WP-NAV-5b-transwarp-pendant.md).
 
 - 2026-11-16 – sc-WP-CREW-3c – Fremde gerettete Crew wird pro Eigner an den nächsten erreichbaren Posten derselben Ebene überstellt (Manhattan-Distanz, aktuelle Benutzer-/Allianz-/Fraktionsrechte bei Stationsposten; eigenständige NPC-Posten öffentlich). Keine Übernahme des STU-Bugs, der den Posten des ersten Eigners für weitere Eigner wiederverwendet. Vier exklusive Crew-Standorte mit verlustfreiem Rollback-Schutz; wartende Crew wird bei Postenzerstörung in Kapseln evakuiert – siehe [Ticket](issues/sc-WP-CREW-3c-fremde-crew-an-handelsposten.md).
@@ -411,3 +413,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-NAV-2c – Admin-Flugsignaturen im Vollkarteneditor mit Ausschnittsabfrage, Schiff-/Spieler-/Allianzfilter und Richtungs-Linienoverlay umgesetzt. Unterschiedliche Schiffe je Richtung statt mehrfacher Spuren zählen; HTTP-Adminschutz, PostgreSQL-Aggregation und asynchrone Canvas-/Filtertests geprüft, alle Pflicht-Gates grün – siehe [Ticket](issues/sc-WP-NAV-2c-admin-signaturansicht.md).
 
 - sc-WP-NAV-5b – Hyperraum-Spule, Fertigung und Navicomputer-Zielwahl mit atomarem Flottensprung, richtungslosen Signaturen, Sperr-/Rollback-Tests und zeitbasiertem Cooldown umgesetzt; alle Pflicht-Gates grün – siehe [Ticket](issues/sc-WP-NAV-5b-transwarp-pendant.md).
+
+- sc-WP-RES-1 – Ressourcen-Kollektor mit Fertigung, editierbaren Feldtyp-Ressourcen, Ressourcenwahl/Status in der Schiffskontrolle und atomarer lagerbegrenzter Tickförderung samt Flugabbruch umgesetzt. Migration auch in der lokalen Dev-DB eingespielt; vollständige Pflicht-Gates und 20 PostgreSQL-Tests grün – siehe [Ticket](issues/sc-WP-RES-1-ressourcen-sammeln-mining.md).

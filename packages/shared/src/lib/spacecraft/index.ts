@@ -135,6 +135,7 @@ export const SPACECRAFT_RUNTIME_SYSTEM_KEYS = [
   'MATRIX_SCANNER',
   'TRACKER',
   'HYPERSPACE_COIL',
+  'RESOURCE_COLLECTOR',
   'LIFE_SUPPORT',
   'DEFLECTOR',
 ] as const;
@@ -150,6 +151,8 @@ export interface SpacecraftRuntimeSystemStateDto {
   max?: number;
   targetId?: number;
   ticksRemaining?: number;
+  resourceCommodityId?: number;
+  resourceLocationId?: number;
   lastScanAt?: number;
   lastScanLocationId?: number;
 }
@@ -1166,4 +1169,19 @@ export interface NavicomputerJumpResultDto {
   shipIds: number[];
   locationId: number;
   cooldownUntil: number;
+}
+
+export interface FieldMiningResourceDto {
+  commodityId: number;
+  rate: number;
+}
+
+export interface ResourceCollectionDto {
+  state: 'IDLE' | 'GATHER_RESOURCES';
+  selectedCommodityId: number | null;
+  options: Array<FieldMiningResourceDto & { name: string }>;
+  freeCargo: number;
+  activationEps: number;
+  epsPerTick: number;
+  blockReason: string | null;
 }

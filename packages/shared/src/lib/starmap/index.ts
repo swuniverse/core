@@ -93,6 +93,7 @@ export interface OnboardingLayerSectorsDto {
 }
 
 export interface StarmapFieldTypeDto {
+  miningResources?: import('../spacecraft/index.js').FieldMiningResourceDto[];
   id: number;
   key: string;
   name: string;

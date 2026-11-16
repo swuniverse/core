@@ -1,3 +1,5 @@
+import { ResourceCollectionService } from './resource-collection.service';
+import { ResourceCollectionController, FieldMiningController } from './resource-collection.controller';
 import { NavicomputerJumpService } from './navicomputer-jump.service';
 import { NavicomputerJumpController } from './navicomputer-jump.controller';
 import { Module, OnModuleInit, forwardRef } from '@nestjs/common';
@@ -182,13 +184,14 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     forwardRef(() => TradeModule),
     AccountDeletionModule,
   ],
-  controllers: [SpacecraftController, NavicomputerJumpController],
+  controllers: [SpacecraftController, NavicomputerJumpController, ResourceCollectionController, FieldMiningController],
   providers: [
     SpacecraftDeletionHandler,
     TradeDealFulfillmentAdapter,
     SpacecraftService,
     WormholePassageService,
     NavicomputerJumpService,
+    ResourceCollectionService,
     WormholeRestrictionService,
     WormholeRestrictionAccessPolicy,
     { provide: WORMHOLE_ACCESS_POLICY, useExisting: WormholeRestrictionAccessPolicy },
@@ -271,11 +274,12 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
       provide: FLIGHT_CONSEQUENCES,
       // STU PostFlight order: deflector, field type effects, anomalies.
       useFactory: (
+        collection: ResourceCollectionService,
         deflector: DeflectorConsequence,
         fieldEffects: FieldEffectConsequence,
         anomalies: AnomalyFlightConsequence,
-      ) => [deflector, fieldEffects, anomalies],
-      inject: [DeflectorConsequence, FieldEffectConsequence, AnomalyFlightConsequence],
+      ) => [collection, deflector, fieldEffects, anomalies],
+      inject: [ResourceCollectionService, DeflectorConsequence, FieldEffectConsequence, AnomalyFlightConsequence],
     },
   ],
   exports: [

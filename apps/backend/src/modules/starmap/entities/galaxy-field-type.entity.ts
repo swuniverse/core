@@ -3,6 +3,9 @@ import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm';
 @Entity('galaxy_field_types')
 @Index(['key'], { unique: true })
 export class GalaxyFieldType {
+  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  miningResources: import('@swuniverse/shared').FieldMiningResourceDto[];
+
   @PrimaryGeneratedColumn()
   id: number;
 
