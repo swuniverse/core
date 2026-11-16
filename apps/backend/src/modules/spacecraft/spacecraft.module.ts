@@ -1,3 +1,5 @@
+import { NavicomputerJumpService } from './navicomputer-jump.service';
+import { NavicomputerJumpController } from './navicomputer-jump.controller';
 import { Module, OnModuleInit, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SpacecraftController } from './spacecraft.controller';
@@ -180,12 +182,13 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     forwardRef(() => TradeModule),
     AccountDeletionModule,
   ],
-  controllers: [SpacecraftController],
+  controllers: [SpacecraftController, NavicomputerJumpController],
   providers: [
     SpacecraftDeletionHandler,
     TradeDealFulfillmentAdapter,
     SpacecraftService,
     WormholePassageService,
+    NavicomputerJumpService,
     WormholeRestrictionService,
     WormholeRestrictionAccessPolicy,
     { provide: WORMHOLE_ACCESS_POLICY, useExisting: WormholeRestrictionAccessPolicy },

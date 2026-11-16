@@ -51,6 +51,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Entscheidungen
 
+- sc-WP-NAV-5b – Der Navicomputer-Sprung ist die einzige Langstreckensprung-Fähigkeit: freie passierbare Koordinate auf jeder persönlich bekannten, nicht verborgenen Ebene, ohne Route/Distanzkosten. Die vollständig vorvalidierte nicht fixierte Flotte springt atomar für 55 EPS je Schiff mit 300 Sekunden Spulen-Cooldown; Ziel-Feldeffekte gelten, Deflektor-Fluggebühren entfallen. Umsetzung und Prüfungen: [Ticket](issues/sc-WP-NAV-5b-transwarp-pendant.md).
+
 - 2026-11-16 – sc-WP-CREW-3c – Fremde gerettete Crew wird pro Eigner an den nächsten erreichbaren Posten derselben Ebene überstellt (Manhattan-Distanz, aktuelle Benutzer-/Allianz-/Fraktionsrechte bei Stationsposten; eigenständige NPC-Posten öffentlich). Keine Übernahme des STU-Bugs, der den Posten des ersten Eigners für weitere Eigner wiederverwendet. Vier exklusive Crew-Standorte mit verlustfreiem Rollback-Schutz; wartende Crew wird bei Postenzerstörung in Kapseln evakuiert – siehe [Ticket](issues/sc-WP-CREW-3c-fremde-crew-an-handelsposten.md).
 
 - 2026-11-16 – sc-WP-CLOAK-2a – STU-Tachyon-Scanner heißt in SWU **Gravitationswellenscanner** (Gravitationsanomalien als kanonnaher Tarnungsindikator); Ware 19003, Forschung 60400 und Fertigung verwenden denselben Namen. 10 EPS pro Scan, 3 EPS pro aktivem Tick, 300 s standortgebundene Erkennung für LSS-Zählungen und getarnte Sektorspuren; keine Freigabe von LSS-Schiffsdetails/NBS/Angriffen. Grenzen und atomare Abbuchung mit PostgreSQL geprüft – siehe [sc-WP-CLOAK-2a](issues/sc-WP-CLOAK-2a-tachyon-scan.md).
@@ -407,3 +409,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-FLEET-3 – Persistentes Ein-/Ausblenden von Flotten in der Schiffsliste und „Nach oben“ mit stabiler übriger Reihenfolge umgesetzt. Eigentümergeschützte transaktionale API, Migration und PostgreSQL-Prüfung für Parallelität, Flottenverlegung und Rollback; alle Pflicht-Gates grün – siehe [Ticket](issues/sc-WP-FLEET-3-flottenpflege.md).
 
 - sc-WP-NAV-2c – Admin-Flugsignaturen im Vollkarteneditor mit Ausschnittsabfrage, Schiff-/Spieler-/Allianzfilter und Richtungs-Linienoverlay umgesetzt. Unterschiedliche Schiffe je Richtung statt mehrfacher Spuren zählen; HTTP-Adminschutz, PostgreSQL-Aggregation und asynchrone Canvas-/Filtertests geprüft, alle Pflicht-Gates grün – siehe [Ticket](issues/sc-WP-NAV-2c-admin-signaturansicht.md).
+
+- sc-WP-NAV-5b – Hyperraum-Spule, Fertigung und Navicomputer-Zielwahl mit atomarem Flottensprung, richtungslosen Signaturen, Sperr-/Rollback-Tests und zeitbasiertem Cooldown umgesetzt; alle Pflicht-Gates grün – siehe [Ticket](issues/sc-WP-NAV-5b-transwarp-pendant.md).

@@ -1327,6 +1327,7 @@ export class SpacecraftService {
       TACHYON_SCANNER: 'Gravitationswellenscanner',
       MATRIX_SCANNER: 'Matrixsensoren',
       TRACKER: 'Peilsender',
+      HYPERSPACE_COIL: 'Hyperraum-Spule',
       LIFE_SUPPORT: 'Lebenserhaltung',
       DEFLECTOR: 'Deflektor',
     };

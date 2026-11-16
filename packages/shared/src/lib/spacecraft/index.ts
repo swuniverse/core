@@ -134,6 +134,7 @@ export const SPACECRAFT_RUNTIME_SYSTEM_KEYS = [
   'TACHYON_SCANNER',
   'MATRIX_SCANNER',
   'TRACKER',
+  'HYPERSPACE_COIL',
   'LIFE_SUPPORT',
   'DEFLECTOR',
 ] as const;
@@ -1146,4 +1147,23 @@ export interface SpacecraftCargoDisposeResultDto {
     commodityName: string;
   }>;
   cargoUsed: number;
+}
+
+export interface NavicomputerDestinationDto {
+  layerId: number;
+  x: number;
+  y: number;
+}
+
+export interface NavicomputerLayerDto {
+  id: number;
+  name: string;
+  width: number;
+  height: number;
+}
+
+export interface NavicomputerJumpResultDto {
+  shipIds: number[];
+  locationId: number;
+  cooldownUntil: number;
 }

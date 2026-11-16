@@ -56,6 +56,13 @@ describe('DeflectorConsequence', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
+  it('keeps the fixed jump cost while applying destination special damage', async () => {
+    const target = ship({ energy: 16 });
+    await consequence.onEnterField(target, field({ specialDamage: 60 }), [], undefined, { navicomputerJump: true });
+    expect(target).toMatchObject({ energy: 16, shields: 0, hull: 980 });
+    expect(messaging.sendSystem).toHaveBeenCalled();
+  });
+
   it('charges the field energy cost with an intact deflector and enough EPS', async () => {
     const target = ship();
     const messages: string[] = [];

@@ -13,6 +13,8 @@ const DESTROYED_STATUS = 'DESTROYED';
  */
 export interface FlightConsequenceContext {
   towed?: boolean;
+  /** The coil activation pays the complete jump cost; no per-field deflector charge. */
+  navicomputerJump?: boolean;
 }
 
 export interface FlightConsequence {

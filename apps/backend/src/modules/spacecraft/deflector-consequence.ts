@@ -60,7 +60,7 @@ export class DeflectorConsequence implements FlightConsequence {
         await this.applyFieldDamage(ship, type.specialDamage, true, `${type.name} in Sektor ${sector}`, type, sector, lines, transaction);
         if (ship.status === SpacecraftStatus.DESTROYED) return;
       }
-      if (type.energyCost === 0) return;
+      if (type.energyCost === 0 || context?.navicomputerJump) return;
       const deflector = (ship.runtimeSystems as Record<string, SystemState>).DEFLECTOR;
       if (!deflector || (deflector.integrity ?? 100) <= 0) {
         await this.applyFieldDamage(ship, type.damage, false, 'Deflektor außer Funktion.', type, sector, lines, transaction);

@@ -1,3 +1,4 @@
+import { NavicomputerJumpPanel } from './NavicomputerJumpPanel';
 import { useCallback, useEffect, useState } from 'react';
 import {
   fieldEffectDefinition,
@@ -23,7 +24,7 @@ interface Ship {
   energy: number;
   energyMax: number;
   location: SpaceLocationDto;
-  runtimeSystems?: Record<string, { active: boolean; lastScanAt?: number }>;
+  runtimeSystems?: Record<string, { active: boolean; lastScanAt?: number; integrity?: number; cooldown?: number }>;
   lssMode?: 'DISABLED' | 'TERRITORY' | 'IMPASSABLE' | 'CARTOGRAPHY';
   navigationBounds?: { minX: number; maxX: number; minY: number; maxY: number };
 }
@@ -248,6 +249,14 @@ export function NavigationPanel({
       aria-labelledby="navigation-panel-heading"
       data-tutorial="ship-navigation"
     >
+      {!inSystem && ship.runtimeSystems?.HYPERSPACE_COIL && (ship.runtimeSystems.HYPERSPACE_COIL.integrity ?? 0) > 0 && (
+        <NavicomputerJumpPanel
+          shipId={ship.id}
+          cooldown={ship.runtimeSystems.HYPERSPACE_COIL.cooldown}
+          disabled={moving || changingSystem || ship.status !== 'IDLE' || ship.energy < 55 || !ship.runtimeSystems?.WARPDRIVE?.active}
+          onJump={async () => { await onShipUpdate(); await fetchLocalMap(); }}
+        />
+      )}
       <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-swu-border/60 pb-1">
         <h3
           id="navigation-panel-heading"

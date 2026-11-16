@@ -48,6 +48,7 @@ const SYSTEM_LABELS: Partial<Record<SpacecraftRuntimeSystemKey, string>> = {
   MATRIX_SCANNER: 'Matrixsensoren',
   LIFE_SUPPORT: 'Lebenserhaltung',
   DEFLECTOR: 'Deflektor',
+  HYPERSPACE_COIL: 'Hyperraum-Spule',
 };
 
 @Injectable()
