@@ -51,6 +51,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Entscheidungen
 
+- 2026-11-16 – Triage der sieben Resttickets: tmw-K1a2 als Fixture-/Regressionsauftrag, SPEC-2 und SPEC-5 ausführbar vorbereitet; SPEC-3/4/6 warten auf konkrete Ausstattungs-/Spieldatenentscheidungen. SPEC-1 ist nur als Tracking-Split in SPEC-1a/b/c resolved; das Interdiktornetz bleibt unimplementiert. Vier Empfehlungen sind im [Triage-Audit](triage-2026-11-16.md) ausdrücklich als Vorschläge markiert, nicht freigegeben. Der breite PostgreSQL-Bewegungslauf ist wegen einer veralteten LastCombatReport-Testfixture rot; isolierte Tests bestehen.
+
 - 2026-11-16 – tmw-K10c – Adventstüren heißen **Lebenstag-Geschenke**, Sammelware 60 **Lebenstag-Marke**; Ostereier heißen **Frühlings-Kapseln** (Ware 73). Beide Waren sind gebunden und nicht im NPC-Handel. Je Saison entstehen fünf Anomalien; Lebenstag läuft 1.–24. Dezember, Frühlings-Kapseln entstehen Ostersonntag und verfallen nach sieben Tagen. Saisonbeginn entfernt alte Sammelwaren. Verbindlich sind die Ticketregeln (erster Nikolaus-Klick 500 Prestige plus Ware, letzte global verbrauchte Kapsel 500 Prestige); abweichende persönliche Limits/Bonus-Klicks der STU-Quellen werden nicht übernommen – siehe [Ticket](issues/tmw-K10c-saisonale-anomalien.md).
 
 - sc-WP-STAT-6b – Allianzdepots sind organisatorische Zuordnungen eigener betriebsbereiter Versorgungsdepots/Logistikzentren zur aktuellen Allianz. Präsident und Vize erhalten eine reine Bestands-/Standortansicht. Mitgliederaustritt, Rauswurf, Auflösung und Reset bereinigen transaktional über `AllianceContextCleanup`; Stationslöschung/Demontage über FK-Cascade. Eigentum und Lade-/Steuerungsrechte bleiben bestehen – siehe [Ticket](issues/sc-WP-STAT-6b-allianzdepot.md).
@@ -449,3 +451,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - soc-I1c – Eingeschränkt formatierte Spielernamen mit getrenntem Klartext/Markup, Eindeutigkeitsindex und zentralem PlayerName-Renderer in den Namensanzeigen umgesetzt. Suche, Titel und Mails bleiben Klartext; alle Pflicht-Gates und PostgreSQL-Prüfung grün – siehe [Ticket](issues/soc-I1c-bbcode-in-spielernamen.md).
 
 - tmw-K10c – Kalendergesteuerte saisonale Anomalien, geschützte Öffnen-Aktion, Sammelwaren und Sonderprestige samt Historie umgesetzt. Alle Pflicht-Gates und acht PostgreSQL-Tests grün; Migration lokal angewendet – siehe [Ticket](issues/tmw-K10c-saisonale-anomalien.md).
+
+- Triage-2026-11-16 – Sieben Resttickets gegen Baseline/STU/Tests geprüft, drei sofort ausführbare Aufträge sowie zwei abhängige Interdiktornetz-Kinder vorbereitet, vier konkrete Entscheidungsfälle dokumentiert. Kein Feature-Code geändert – siehe [Audit](triage-2026-11-16.md).
