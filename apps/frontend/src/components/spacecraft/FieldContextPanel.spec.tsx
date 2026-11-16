@@ -1671,3 +1671,30 @@ describe('FieldContextPanel', () => {
     });
   });
 });
+
+
+describe('Seasonal anomaly opening in the ship field context', () => {
+  it('offers opening on the current anomaly field and refreshes the ship after delivery', async () => {
+    apiMocks.get.mockReset().mockResolvedValue(null);
+    apiMocks.post.mockReset().mockResolvedValue({ message: '1 Lebenstag-Marke erhalten.' });
+    const update = vi.fn();
+    render(<MemoryRouter><FieldContextPanel shipId={7} onUpdate={update} context={{
+      wormholePassages: [], coordinates: { x: 1, y: 2 }, starSystem: null, colony: null,
+      construction: { station: null, canBuild: false }, information: { canSectorScan: false, cartographyKnown: false },
+      anomalies: [{ id: 15, type: 'LIFE_DAY_GIFT', name: 'Lebenstag-Geschenk', remainingTicks: 10, canOpen: true }],
+    }} /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Lebenstag-Geschenk öffnen' }));
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/7/anomaly/15/open', {}));
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('status').textContent).toBe('1 Lebenstag-Marke erhalten.');
+  });
+  it('does not offer opening for a non-actionable anomaly or an empty field', () => {
+    apiMocks.get.mockReset().mockResolvedValue(null);
+    render(<MemoryRouter><FieldContextPanel shipId={7} onUpdate={vi.fn()} context={{
+      wormholePassages: [], coordinates: { x: 1, y: 2 }, starSystem: null, colony: null,
+      construction: { station: null, canBuild: false }, information: { canSectorScan: false, cartographyKnown: false },
+      anomalies: [{ type: 'ION_STORM', name: 'Ionensturm', remainingTicks: 3 }],
+    }} /></MemoryRouter>);
+    expect(screen.queryByRole('button', { name: /öffnen/i })).toBeNull();
+  });
+});

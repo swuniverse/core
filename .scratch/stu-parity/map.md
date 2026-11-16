@@ -51,6 +51,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Entscheidungen
 
+- 2026-11-16 – tmw-K10c – Adventstüren heißen **Lebenstag-Geschenke**, Sammelware 60 **Lebenstag-Marke**; Ostereier heißen **Frühlings-Kapseln** (Ware 73). Beide Waren sind gebunden und nicht im NPC-Handel. Je Saison entstehen fünf Anomalien; Lebenstag läuft 1.–24. Dezember, Frühlings-Kapseln entstehen Ostersonntag und verfallen nach sieben Tagen. Saisonbeginn entfernt alte Sammelwaren. Verbindlich sind die Ticketregeln (erster Nikolaus-Klick 500 Prestige plus Ware, letzte global verbrauchte Kapsel 500 Prestige); abweichende persönliche Limits/Bonus-Klicks der STU-Quellen werden nicht übernommen – siehe [Ticket](issues/tmw-K10c-saisonale-anomalien.md).
+
 - sc-WP-STAT-6b – Allianzdepots sind organisatorische Zuordnungen eigener betriebsbereiter Versorgungsdepots/Logistikzentren zur aktuellen Allianz. Präsident und Vize erhalten eine reine Bestands-/Standortansicht. Mitgliederaustritt, Rauswurf, Auflösung und Reset bereinigen transaktional über `AllianceContextCleanup`; Stationslöschung/Demontage über FK-Cascade. Eigentum und Lade-/Steuerungsrechte bleiben bestehen – siehe [Ticket](issues/sc-WP-STAT-6b-allianzdepot.md).
 
 - sc-WP-STAT-6a – Demontage übernimmt STU-Codebestätigung, halbe Bauzeit, halben rollenbezogenen Workbee-Bedarf und zweistufiges Zufallsrecycling. Gemäß Ticket wird die Station endgültig entfernt; Module gehen lagerbegrenzt an das erste eigene betriebsbereite angedockte Schiff nach ID. Der STU-Rückbau zum Konstrukt entfällt, Stationslagerverlust und Abdocken werden vorab angezeigt. `sc-WP-STAT-6b` bindet Depotzuordnungen per kaskadierender Stationsreferenz an diesen Löschpfad – siehe [Ticket](issues/sc-WP-STAT-6a-station-demontieren.md).
@@ -445,3 +447,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - soc-F3d – Flottenfixierung und Reaktor-Übertrag als validierte Erzeugungsstandards, zentral beim Insert über alle Erzeugungswege angewandt. Bestehende Objekte unverändert; alle Pflicht-Gates und PostgreSQL-Prüfungen grün – siehe [Ticket](issues/soc-F3d-flotten-und-reaktor-standards.md).
 
 - soc-I1c – Eingeschränkt formatierte Spielernamen mit getrenntem Klartext/Markup, Eindeutigkeitsindex und zentralem PlayerName-Renderer in den Namensanzeigen umgesetzt. Suche, Titel und Mails bleiben Klartext; alle Pflicht-Gates und PostgreSQL-Prüfung grün – siehe [Ticket](issues/soc-I1c-bbcode-in-spielernamen.md).
+
+- tmw-K10c – Kalendergesteuerte saisonale Anomalien, geschützte Öffnen-Aktion, Sammelwaren und Sonderprestige samt Historie umgesetzt. Alle Pflicht-Gates und acht PostgreSQL-Tests grün; Migration lokal angewendet – siehe [Ticket](issues/tmw-K10c-saisonale-anomalien.md).

@@ -1,3 +1,4 @@
+import { OpenSeasonalAnomalyButton } from './OpenSeasonalAnomalyButton';
 import { useEffect, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type {
@@ -480,6 +481,7 @@ export function FieldContextPanel({
                 className="block text-fuchsia-300"
               >
                 Anomalie: {formatAnomaly(anomaly)}
+                <OpenSeasonalAnomalyButton shipId={shipId} anomaly={anomaly} onUpdate={onUpdate} />
               </span>
             ))}
             {(context.starSystem || context.region) && (
