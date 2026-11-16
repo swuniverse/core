@@ -1,3 +1,6 @@
+import { UserMessageFolder } from './entities/user-message-folder.entity';
+import { UserMessageFoldersService } from './user-message-folders.service';
+import { UserMessageFoldersController } from './user-message-folders.controller';
 import { Global, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MessagingController } from './messaging.controller';
@@ -17,16 +20,17 @@ import { AdminBroadcastService } from './admin-broadcast.service';
 @Global()
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Message, User]),
+    TypeOrmModule.forFeature([Message, User, UserMessageFolder]),
     StatisticsModule,
     SettingsModule,
     WebsocketModule,
     AccountDeletionModule,
     MailModule,
   ],
-  controllers: [MessagingController],
+  controllers: [MessagingController, UserMessageFoldersController],
   providers: [
     MessagingService,
+    UserMessageFoldersService,
     ColonyEventService,
     MessagingDeletionHandler,
     AdminBroadcastService,

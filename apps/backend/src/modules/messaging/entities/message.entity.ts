@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { MessageTargetKind } from '@swuniverse/shared';
 import { User } from '../../auth/user.entity';
+import { UserMessageFolder } from './user-message-folder.entity';
 import { MessageFolder } from '../message-folder';
 
 @Entity('messages')
@@ -52,6 +53,13 @@ export class Message {
   /** Durable classification for received messages; sent messages are OUTBOX. */
   @Column({ type: 'varchar', length: 16, default: MessageFolder.PERSONAL })
   folder: MessageFolder;
+
+  @Column({ type: 'int', nullable: true })
+  userFolderId: number | null;
+
+  @ManyToOne(() => UserMessageFolder, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'userFolderId' })
+  userFolder: UserMessageFolder | null;
 
   /** Optional idempotency token for durable system-message delivery. */
   @Column({ type: 'varchar', length: 100, nullable: true })

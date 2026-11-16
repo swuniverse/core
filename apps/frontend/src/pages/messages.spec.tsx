@@ -629,10 +629,10 @@ describe('MessagesPage folders', () => {
     await waitFor(() => expect(api.get).toHaveBeenCalledWith('/messages/folders'));
     api.post.mockImplementationOnce(() => Promise.reject(new Error('Der Text ist zu kurz')));
 
-    fireEvent.change(screen.getAllByRole('textbox')[1], {
+    fireEvent.change(screen.getByLabelText('Betreff'), {
       target: { value: 'Status' },
     });
-    fireEvent.change(screen.getAllByRole('textbox')[2], {
+    fireEvent.change(screen.getByLabelText('Nachricht'), {
       target: { value: 'Entwurf bleibt erhalten' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Senden' }));
@@ -666,7 +666,7 @@ describe('MessagesPage folders', () => {
     });
     renderPage('/messages?tab=compose&to=7&name=Leia');
 
-    fireEvent.change(screen.getAllByRole('textbox')[1], {
+    fireEvent.change(screen.getByLabelText('Betreff'), {
       target: { value: 'Status' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Senden' }));

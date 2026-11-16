@@ -117,3 +117,7 @@ Der Header wird um eine kompakte, STU-inspirierte Icon-Leiste ergänzt, die alle
 - Die vorhandene globale Ereignisquelle enthält bereits Raum-/Ortsdaten, die bisher in der Oberfläche nicht ausgeschöpft werden.
 - Die aktuelle globale Ereignisroute zeigt lokal keine expliziten Guards. Die Erweiterung muss das prüfen und eine konsistente Authentifizierungs- und Spielzugangsgrenze sicherstellen.
 - Die alte Kolonieereignisstruktur enthält eine große Zahl von Produzenten. Die Umstellung muss alle Tick- und Aktionspfade erfassen, damit nicht einzelne Meldungsarten nach der Migration verloren gehen.
+
+## Nachtrag: Eigene persönliche Ordner (soc-A7)
+
+Die sieben Systemordner bleiben eine geschlossene Menge. Eigene Nachrichtenordner bilden eine zweite, besitzergebundene Ebene ausschließlich für persönliche Nachrichten. `folder` bleibt PERSONAL, `userFolderId` verweist auf den eigenen Ordner; NULL ist die persönliche Wurzel. Feste Headerzähler zählen weiterhin alle persönlichen Nachrichten einschließlich Unterordnern. Beim Löschen eines eigenen Ordners wird der Verweis auf NULL gesetzt.

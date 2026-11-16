@@ -1,3 +1,4 @@
+import { UserMessageFolder } from './modules/messaging/entities/user-message-folder.entity';
 import { ColonySandbox } from './modules/colony/entities/colony-sandbox.entity';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -247,6 +248,7 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
           Research,
           ResearchRewardGrant,
           Message,
+          UserMessageFolder,
           HolonetPost,
           HolonetComment,
           HolonetRating,

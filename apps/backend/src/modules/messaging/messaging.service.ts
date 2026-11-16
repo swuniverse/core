@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type MessageTarget, WsEventType } from '@swuniverse/shared';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
 
 import { User } from '../auth/user.entity';
 import { withDeletedAuthor } from '../account-deletion/deleted-player';
@@ -80,6 +80,7 @@ export class MessagingService {
       where: {
         recipientId: userId,
         folder: folder as IncomingMessageFolder,
+        ...(folder === MessageFolder.PERSONAL ? { userFolderId: IsNull() } : {}),
         deletedByRecipient: false,
       },
       relations: ['sender'],

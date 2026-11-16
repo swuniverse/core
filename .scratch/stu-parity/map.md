@@ -435,3 +435,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-UI-4 – Letzter Kampfbericht an überlebenden Schiffen mit Eigentümerschutz, Icon/Dialog und PostgreSQL-Prüfung umgesetzt; alle Pflicht-Gates grün – siehe [Ticket](issues/sc-WP-UI-4-letzter-kampfbericht-am-schiff.md).
 
 - soc-A4 – PM-Mail nach Zustellung hinter Betreiber-Flag und Empfänger-Opt-in, ohne Inhalt und ohne Blockieren der Nachricht umgesetzt; alle Pflicht-Gates grün – siehe [Ticket](issues/soc-A4-email-bei-neuer-pm.md).
+
+- soc-A7 – Eigene persönliche Nachrichtenordner als zweite Ebene mit atomarem Verschieben, Sortieren und Rückverschiebung beim Löschen umgesetzt. Feste Zähler unverändert; alle Pflicht-Gates und 5 PostgreSQL-Tests grün – siehe [Ticket](issues/soc-A7-eigene-nachrichtenordner.md).

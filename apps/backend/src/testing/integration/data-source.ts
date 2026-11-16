@@ -1,3 +1,4 @@
+import { UserMessageFolder } from '../../modules/messaging/entities/user-message-folder.entity';
 import { Research } from '../../modules/research/entities/research.entity';
 import { StationScrapping } from '../../modules/spacecraft/entities/station-scrapping.entity';
 import { ColonySandbox } from '../../modules/colony/entities/colony-sandbox.entity';
@@ -117,6 +118,7 @@ export const INTEGRATION_ENTITIES = [
   ForumTopic,
   ForumPost,
   Message,
+  UserMessageFolder,
   Layer,
   LayerKnowledge,
   UserSetting,

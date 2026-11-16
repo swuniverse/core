@@ -1,3 +1,4 @@
+import { UserMessageFolders, type UserMessageFolder } from '../components/messaging/UserMessageFolders';
 import { useEffect, useState, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { BbCodeText } from '../components/BbCodeText';
@@ -114,6 +115,7 @@ function MessageActionRail({
   messages,
   selectedIds,
   isCompose,
+  activeCustom = false,
   onCompose,
   onContacts,
   onFolder,
@@ -128,6 +130,7 @@ function MessageActionRail({
   messages: MessageSummary[];
   selectedIds: Set<number>;
   isCompose: boolean;
+  activeCustom?: boolean;
   onCompose: () => void;
   onContacts: () => void;
   onFolder: (folder: MessageFolder) => void;
@@ -182,7 +185,7 @@ function MessageActionRail({
               unread: 0,
               total: 0,
             };
-            const active = !isCompose && folder === entry.folder;
+            const active = !isCompose && !activeCustom && folder === entry.folder;
             return (
               <button
                 key={entry.folder}
@@ -403,6 +406,13 @@ const CONTACT_MODE_STYLES: Record<ContactMode, string> = {
 export function MessagesPage() {
   const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
+  const customParam = Number(searchParams.get('userFolder'));
+  const customId = Number.isInteger(customParam) && customParam > 0 ? customParam : null;
+  const [userFolders, setUserFolders] = useState<UserMessageFolder[]>([]);
+  const refreshUserFolders = async () => {
+    const data = await api.get<UserMessageFolder[]>('/messages/user-folders');
+    setUserFolders(Array.isArray(data) ? data : []);
+  };
   const initialTab = searchParams.get('tab');
   const initialRecipientId = Number(searchParams.get('to'));
   const startsCompose =
@@ -464,7 +474,7 @@ export function MessagesPage() {
     setLoading(true);
     try {
       const response = await api.get<InboxResponse>(
-        `/messages/folders/${selectedFolder.toLowerCase()}?page=${p}`,
+        customId !== null ? `/messages/user-folders/${customId}/messages?page=${p}` : `/messages/folders/${selectedFolder.toLowerCase()}?page=${p}`,
       );
       setMessages(response.data);
       setTotal(response.total);
@@ -489,6 +499,7 @@ export function MessagesPage() {
 
   useEffect(() => {
     void refreshFolders().catch(() => undefined);
+    void refreshUserFolders().catch(() => undefined);
     void api
       .get<Record<string, string>>('/user/settings')
       .then((settings) => setMessengerStyle(settings.inbox_messenger_style === '1'))
@@ -497,7 +508,7 @@ export function MessagesPage() {
 
   useEffect(() => {
     if (tab === 'folders') {
-      if (folder === 'PERSONAL' && messengerStyle) void loadConversations(page);
+      if (folder === 'PERSONAL' && customId === null && messengerStyle) void loadConversations(page);
       else void loadMessages(folder, page);
     }
     if (tab === 'contacts') {
@@ -518,7 +529,7 @@ export function MessagesPage() {
         setIgnoredBy(received);
       });
     }
-  }, [folder, page, tab, messengerStyle]);
+  }, [folder, page, tab, messengerStyle, customId]);
 
   useEffect(() => {
     const requestedTab = searchParams.get('tab');
@@ -622,7 +633,7 @@ export function MessagesPage() {
     if (folder === 'OUTBOX') return;
     setActionError(null);
     try {
-      await api.post(`/messages/folders/${folder.toLowerCase()}/mark-read`, {});
+      await api.post(customId !== null ? `/messages/user-folders/${customId}/mark-read` : `/messages/folders/${folder.toLowerCase()}/mark-read`, {});
       setSelected(null);
       await refreshCurrentFolder();
     } catch {
@@ -638,7 +649,7 @@ export function MessagesPage() {
     }
     setActionError(null);
     try {
-      await api.post(`/messages/folders/${folder.toLowerCase()}/empty`, {});
+      await api.post(customId !== null ? `/messages/user-folders/${customId}/empty` : `/messages/folders/${folder.toLowerCase()}/empty`, {});
       setConfirmation(null);
       setSelected(null);
       setSelectedIds(new Set());
@@ -856,6 +867,7 @@ export function MessagesPage() {
         >
           <MessageActionRail
             folder={folder}
+            activeCustom={customId !== null}
             folders={folders}
             messages={messages}
             selectedIds={selectedIds}
@@ -869,6 +881,11 @@ export function MessagesPage() {
             onMarkFolderRead={markFolderRead}
             onEmptyFolder={emptyFolder}
           />
+          <UserMessageFolders folders={userFolders} activeId={customId}
+            onSelect={id => setSearchParams(id === null ? { folder: 'personal' } : { folder: 'personal', userFolder: String(id) })}
+            onRefresh={refreshUserFolders}
+            moveIds={tab === 'folders' && folder === 'PERSONAL' ? (selectedIds.size ? [...selectedIds] : selected && !selected.isSystem ? [selected.id] : []) : []}
+            onMoved={async () => { setSelected(null); await refreshCurrentFolder(); }} />
         </aside>
 
         <div className="min-w-0 flex-1">
@@ -963,8 +980,9 @@ export function MessagesPage() {
             )}
           </div>
           <div>
-            <label className="text-xs text-swu-muted">Betreff</label>
+            <label htmlFor="pm-subject" className="text-xs text-swu-muted">Betreff</label>
             <input
+              id="pm-subject"
               value={compose.subject}
               onChange={(e) =>
                 setCompose({ ...compose, subject: e.target.value })
@@ -973,8 +991,9 @@ export function MessagesPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-swu-muted">Nachricht</label>
+            <label htmlFor="pm-body" className="text-xs text-swu-muted">Nachricht</label>
             <textarea
+              id="pm-body"
               value={compose.body}
               onChange={(e) => setCompose({ ...compose, body: e.target.value })}
               rows={5}
@@ -1036,7 +1055,7 @@ export function MessagesPage() {
           <div className="flex-1 bg-swu-surface border border-swu-border rounded-lg overflow-hidden">
             {loading ? (
               <div className="p-4 text-swu-muted text-sm">Laden...</div>
-            ) : folder === 'PERSONAL' && messengerStyle ? (
+            ) : folder === 'PERSONAL' && customId === null && messengerStyle ? (
               conversations.length === 0 ? (
                 <div className="p-4 text-swu-muted text-sm">Keine Nachrichten.</div>
               ) : (
