@@ -110,6 +110,8 @@ describe('BattleResolverService', () => {
     expect(t.destructionService.saveCombatSurvivor).toHaveBeenCalledWith(
       defenders[0],
     );
+    expect(defenders[0].lastCombatReport).toEqual(report);
+    expect(attackers[0].lastCombatReport).toBeUndefined();
     expect(t.moduleRepo.save).toHaveBeenCalledWith(t.modules);
     expect(t.statistics.countEvent).toHaveBeenCalledWith(COMBATS_EVENT);
     expect(t.statistics.countEvent).toHaveBeenCalledWith(

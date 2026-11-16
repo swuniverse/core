@@ -76,6 +76,7 @@ export class BattleResolverService {
       party(defenders),
     );
     const destroyedIds = new Set(result.destroyedShipIds);
+    const report = this.reportFormatter.formatBattle(result, attackers, defenders);
     for (const ship of participants) {
       if (destroyedIds.has(ship.id)) {
         const destroyerUserId = attackers.some(
@@ -88,13 +89,14 @@ export class BattleResolverService {
           destroyerUserId,
         );
       } else {
+        ship.lastCombatReport = report;
         await this.destructionService.saveCombatSurvivor(ship);
       }
     }
     await this.moduleRepo.save(modules);
     await this.countCombat(destroyedIds.size);
 
-    return this.reportFormatter.formatBattle(result, attackers, defenders);
+    return report;
   }
 
   private fieldEffectContext(ship: Spacecraft): {

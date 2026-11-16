@@ -149,6 +149,7 @@ import { StatisticsService } from '../statistics/statistics.service';
 import { FlightSignatureService } from './flight-signature.service';
 import { StationConstructionService } from './station-construction.service';
 import { StationScrappingService } from './station-scrapping.service';
+import { LastCombatReportService } from './last-combat-report.service';
 import { StationRepairService } from './station-repair.service';
 import { StationShipyardService } from './station-shipyard.service';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
@@ -299,6 +300,7 @@ export class SpacecraftService {
     @Optional() private readonly resourceCollection?: ResourceCollectionService,
     @Optional() private readonly resourceConversion?: ResourceConversionService,
     @Optional() private readonly stationScrapping?: StationScrappingService,
+    @Optional() private readonly lastReports?: LastCombatReportService,
   ) {}
 
   /**
@@ -1703,6 +1705,7 @@ export class SpacecraftService {
     });
 
     return Object.assign(ship, {
+      hasLastCombatReport: await this.lastReports?.has(ship.id) ?? false,
       shipClassName: shipClass?.name || `Class ${ship.shipClassId}`,
       shipClassKey: shipClass?.key || null,
       isShuttle: ['SHUTTLE', 'WORKBEE'].includes(shipClass?.role ?? ''),

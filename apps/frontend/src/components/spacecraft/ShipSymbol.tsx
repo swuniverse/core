@@ -12,7 +12,8 @@ export type ShipSymbolKind =
   | 'special'
   | 'life-support'
   | 'module'
-  | 'self-destruct';
+  | 'self-destruct'
+  | 'combat-report';
 
 export function ShipSymbol({
   kind,
@@ -22,6 +23,7 @@ export function ShipSymbol({
   className?: string;
 }) {
   const paths: Record<ShipSymbolKind, ReactNode> = {
+    'combat-report': <><path d="M5 3h14v18H5zM8 7h8M8 11h8M8 15h6" /></>,
     reactor: (
       <>
         <circle cx="12" cy="12" r="3" />

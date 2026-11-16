@@ -9,6 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { User } from '../../auth/user.entity';
+import type { CombatReportDto } from '@swuniverse/shared';
 import { SpaceLocation } from '../../starmap/entities/space-location.entity';
 import type { SpacecraftModule } from './spacecraft-module.entity';
 import { Fleet } from './fleet.entity';
@@ -61,6 +62,9 @@ export enum SpacecraftLssMode {
 export class Spacecraft {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column({ type: 'jsonb', nullable: true, select: false })
+  lastCombatReport: CombatReportDto | null;
 
   @Column({ length: 255 })
   name: string;

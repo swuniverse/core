@@ -384,6 +384,7 @@ export interface SpacecraftListSystemDto {
 }
 
 export interface SpacecraftListDto {
+  hasLastCombatReport?: boolean;
   id: number;
   name: string;
   shipClassId: number;
@@ -488,6 +489,7 @@ export interface StationExpansionOptionDto {
 }
 
 export interface SpacecraftDetailDto {
+  hasLastCombatReport?: boolean;
   id: number;
   name: string;
   shipClassId: number;

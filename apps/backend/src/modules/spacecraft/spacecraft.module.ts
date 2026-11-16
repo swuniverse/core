@@ -1,4 +1,6 @@
 import { ShuttleService } from './shuttle.service';
+import { LastCombatReportService } from './last-combat-report.service';
+import { LastCombatReportController } from './last-combat-report.controller';
 import { StationScrappingService } from './station-scrapping.service';
 import { StationScrappingController } from './station-scrapping.controller';
 import { StationScrapping } from './entities/station-scrapping.entity';
@@ -192,7 +194,7 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     forwardRef(() => TradeModule),
     AccountDeletionModule,
   ],
-  controllers: [StationScrappingController, ShuttleController, ResourceConversionController, SpacecraftController, NavicomputerJumpController, ResourceCollectionController, FieldMiningController],
+  controllers: [LastCombatReportController, StationScrappingController, ShuttleController, ResourceConversionController, SpacecraftController, NavicomputerJumpController, ResourceCollectionController, FieldMiningController],
   providers: [
     SpacecraftDeletionHandler,
     TradeDealFulfillmentAdapter,
@@ -202,6 +204,7 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     ResourceCollectionService,
     ResourceConversionService,
     ShuttleService,
+    LastCombatReportService,
     StationScrappingService,
     WormholeRestrictionService,
     WormholeRestrictionAccessPolicy,

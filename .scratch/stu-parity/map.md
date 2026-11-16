@@ -431,3 +431,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-STAT-6a – Stationsdemontage mit MD5-Bestätigung, persistentem Fortschritt, Workbee-Pausierung und STU-Modulrecycling an ein eigenes angedocktes Schiff umgesetzt. Station und gebundene Daten werden entfernt, alle Schiffe abgedockt; Crewzuweisung gesperrt und Status nach Kampf erhalten. Vollständige Pflicht-Gates und 15 PostgreSQL-Tests grün, Migration lokal angewendet – siehe [Ticket](issues/sc-WP-STAT-6a-station-demontieren.md).
 
 - sc-WP-STAT-6b – Eigene Depotstationen der aktuellen Allianz zuordnen/lösen und Bestands-/Standortansicht für Präsident/Vize umgesetzt. Austritt, Rauswurf, Auflösung, Reset und Demontage bereinigen atomar ohne neue Entnahme-/Steuerungsrechte. Pflicht-Gates und 18 PostgreSQL-Tests grün, Migration lokal angewendet – siehe [Ticket](issues/sc-WP-STAT-6b-allianzdepot.md).
+
+- sc-WP-UI-4 – Letzter Kampfbericht an überlebenden Schiffen mit Eigentümerschutz, Icon/Dialog und PostgreSQL-Prüfung umgesetzt; alle Pflicht-Gates grün – siehe [Ticket](issues/sc-WP-UI-4-letzter-kampfbericht-am-schiff.md).

@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { api } from '../../services/api';
 import { CommunicationDrawer } from './CommunicationDrawer';
 import { RepairDialog } from './RepairDialog';
+import { LastCombatReportButton } from './LastCombatReportButton';
 
 interface ShipQuickActionsProps {
+  hasLastCombatReport?: boolean;
   shipId: number;
   onRefresh: () => void;
   onInfo: () => void;
@@ -40,6 +42,7 @@ const ACTIONS: QuickAction[] = [
 ];
 
 export function ShipQuickActions({
+  hasLastCombatReport,
   shipId,
   onRefresh,
   onInfo,
@@ -79,6 +82,7 @@ export function ShipQuickActions({
         role="toolbar"
         aria-label="Schiffsaktionen"
       >
+        <LastCombatReportButton shipId={shipId} available={hasLastCombatReport} />
         {ACTIONS.map((action, index) => (
           <button
             key={`${action.action ?? action.target ?? action.label}-${index}`}

@@ -12,6 +12,7 @@ import { SHIP_SYSTEMS } from './ship-system-presentation';
 
 interface ShipHeaderTableProps {
   ship: {
+    hasLastCombatReport?: boolean;
     id: number;
     name: string;
     shipClassId: number;
@@ -288,6 +289,7 @@ export function ShipHeaderTable({
                     <tr>
                       <td className="w-[20%] pr-2 align-middle">
                         <ShipQuickActions
+                          hasLastCombatReport={ship.hasLastCombatReport}
                           shipId={ship.id}
                           onRefresh={() => onUpdate?.()}
                           onInfo={onInfo}
@@ -365,6 +367,7 @@ export function ShipHeaderTable({
           onSelfDestruct={onSelfDestruct}
         />
         <ShipQuickActions
+          hasLastCombatReport={ship.hasLastCombatReport}
           shipId={ship.id}
           onRefresh={() => onUpdate?.()}
           onInfo={onInfo}
