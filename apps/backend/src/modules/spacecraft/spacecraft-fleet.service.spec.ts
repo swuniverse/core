@@ -80,6 +80,7 @@ function createService() {
     find: jest.fn(async () => []),
   };
   const fleetRepo = {
+    find: jest.fn(),
     create: jest.fn((fleet) => fleet),
     save: jest.fn(async (fleet) => ({ id: 7, ...fleet })),
     findOne: jest.fn(),
@@ -365,6 +366,7 @@ function createService() {
     explorationService,
     statistics,
     fleetRepo,
+    manager,
   };
 }
 
@@ -652,5 +654,81 @@ describe('SpacecraftService fleet management', () => {
     expect(fleet.leaderId).toBe(3);
     await service.dissolveFleet(5, 7);
     expect(fleetRepo.remove).toHaveBeenCalledWith(fleet);
+  });
+});
+
+
+describe('SpacecraftService fleet list preferences', () => {
+  it('prioritizes a fleet and preserves the order of the remaining fleets', async () => {
+    const { service, fleetRepo, manager } = createService();
+    const fleets = [
+      { id: 1, userId: 5, sort: 7 },
+      { id: 2, userId: 5, sort: 3 },
+      { id: 3, userId: 5, sort: 3 },
+    ];
+    manager.find.mockResolvedValue(fleets as never);
+    fleetRepo.findOne.mockImplementation(({ where }) =>
+      Promise.resolve(fleets.find((fleet) => fleet.id === where.id)),
+    );
+    await service.prioritizeFleet(5, 3);
+    expect(
+      [...fleets].sort((a, b) => b.sort - a.sort).map((fleet) => fleet.id),
+    ).toEqual([3, 1, 2]);
+    expect(manager.find).toHaveBeenCalledWith(Fleet, {
+      where: { userId: 5 },
+      order: { id: 'ASC' },
+      lock: { mode: 'for_no_key_update' },
+    });
+    await service.prioritizeFleet(5, 2);
+    expect(
+      [...fleets].sort((a, b) => b.sort - a.sort).map((fleet) => fleet.id),
+    ).toEqual([2, 3, 1]);
+    await service.prioritizeFleet(5, 2);
+    expect(fleets.map((fleet) => fleet.sort).sort()).toEqual([0, 1, 2]);
+  });
+
+  it('persists hide and show without overwriting other fleet properties', async () => {
+    const { service, fleetRepo, manager } = createService();
+    const fleet = {
+      id: 7,
+      userId: 5,
+      name: 'Aurek',
+      sort: 3,
+      isHidden: false,
+      isFixed: true,
+    };
+    fleetRepo.findOne.mockResolvedValue(fleet);
+    await service.setFleetVisibility(5, 7, true);
+    expect(fleet).toMatchObject({ isHidden: true, sort: 3, isFixed: true });
+    expect(manager.update).toHaveBeenCalledWith(Fleet, 7, { isHidden: true });
+    await service.setFleetVisibility(5, 7, false);
+    expect(fleet.isHidden).toBe(false);
+    await expect(
+      service.setFleetVisibility(5, 7, 'true' as never),
+    ).rejects.toThrow('boolescher');
+  });
+
+  it('denies unknown or foreign fleets without changing preferences', async () => {
+    const { service, fleetRepo, manager } = createService();
+    fleetRepo.findOne.mockResolvedValue(null);
+    manager.find.mockResolvedValue([]);
+    await expect(service.setFleetVisibility(6, 7, true)).rejects.toThrow(
+      'Flotte nicht gefunden',
+    );
+    await expect(service.prioritizeFleet(6, 7)).rejects.toThrow(
+      'Flotte nicht gefunden',
+    );
+    expect(manager.update).not.toHaveBeenCalled();
+  });
+
+  it('loads fleets with the persisted sort order and deterministic ties', async () => {
+    const { service, fleetRepo } = createService();
+    fleetRepo.find.mockResolvedValue([]);
+    await service.getUserFleets(5);
+    expect(fleetRepo.find).toHaveBeenCalledWith({
+      where: { userId: 5 },
+      relations: ['members'],
+      order: { sort: 'DESC', id: 'ASC' },
+    });
   });
 });

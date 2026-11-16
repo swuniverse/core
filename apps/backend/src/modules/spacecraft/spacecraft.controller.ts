@@ -135,6 +135,11 @@ class RenameFleetDto {
   name: string;
 }
 
+class FleetVisibilityDto {
+  @IsBoolean()
+  isHidden: boolean;
+}
+
 class ChangeFleetLeaderDto {
   @Type(() => Number)
   @IsInt()
@@ -628,6 +633,27 @@ export class SpacecraftController {
     @Body() dto: RenameFleetDto,
   ) {
     return this.spacecraftService.renameFleet(req.user.sub, fleetId, dto.name);
+  }
+
+  @Patch('fleets/:fleetId/visibility')
+  setFleetVisibility(
+    @Param('fleetId', ParseIntPipe) fleetId: number,
+    @Request() req: { user: { sub: number } },
+    @Body() dto: FleetVisibilityDto,
+  ) {
+    return this.spacecraftService.setFleetVisibility(
+      req.user.sub,
+      fleetId,
+      dto.isHidden,
+    );
+  }
+
+  @Post('fleets/:fleetId/prioritize')
+  prioritizeFleet(
+    @Param('fleetId', ParseIntPipe) fleetId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.spacecraftService.prioritizeFleet(req.user.sub, fleetId);
   }
 
   @Patch('fleets/:fleetId/alert-state')

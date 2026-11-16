@@ -423,6 +423,8 @@ export interface SpacecraftListDto {
   fleetId: number | null;
   fleetName: string | null;
   fleetLeaderId: number | null;
+  fleetSort?: number;
+  fleetIsHidden?: boolean;
   systems: Record<
     'SHORT_RANGE_SENSORS' | 'LONG_RANGE_SENSORS' | 'WEAPONS' | 'TORPEDO_BANK',
     SpacecraftListSystemDto

@@ -33,6 +33,12 @@ export class Fleet {
   @Column({ default: false })
   isFixed: boolean;
 
+  @Column({ default: 0 })
+  sort: number;
+
+  @Column({ default: false })
+  isHidden: boolean;
+
   @OneToMany(() => Spacecraft, (s) => s.fleet)
   members: Spacecraft[];
 

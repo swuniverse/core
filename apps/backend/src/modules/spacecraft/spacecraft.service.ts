@@ -1703,6 +1703,8 @@ export class SpacecraftService {
       fleetName: ship.fleet?.name || null,
       fleetLeaderId: ship.fleet?.leaderId ?? null,
       fleetIsFixed: ship.fleet?.isFixed ?? false,
+      fleetSort: ship.fleet?.sort ?? 0,
+      fleetIsHidden: ship.fleet?.isHidden ?? false,
       fleetMembers:
         ship.fleet?.members?.map((member) => ({
           id: member.id,
@@ -3458,6 +3460,52 @@ export class SpacecraftService {
     });
   }
 
+  async setFleetVisibility(
+    userId: number,
+    fleetId: number,
+    isHidden: boolean,
+  ): Promise<Fleet> {
+    if (typeof isHidden !== 'boolean') {
+      throw new BadRequestException(
+        'Sichtbarkeit muss ein boolescher Wert sein',
+      );
+    }
+    return this.dataSource.transaction(async (manager) => {
+      const fleet = await manager.findOne(Fleet, {
+        where: { id: fleetId, userId },
+        lock: { mode: 'for_no_key_update' },
+      });
+      if (!fleet) throw new NotFoundException('Flotte nicht gefunden');
+      await manager.update(Fleet, fleet.id, { isHidden });
+      fleet.isHidden = isHidden;
+      return fleet;
+    });
+  }
+
+  async prioritizeFleet(userId: number, fleetId: number): Promise<Fleet> {
+    return this.dataSource.transaction(async (manager) => {
+      // Stable lock order serializes simultaneous reordering requests.
+      const fleets = await manager.find(Fleet, {
+        where: { userId },
+        order: { id: 'ASC' },
+        lock: { mode: 'for_no_key_update' },
+      });
+      const fleet = fleets.find((item) => item.id === fleetId);
+      if (!fleet) throw new NotFoundException('Flotte nicht gefunden');
+      const remaining = fleets
+        .filter((item) => item.id !== fleetId)
+        .sort((a, b) => b.sort - a.sort || a.id - b.id);
+      const ordered = [fleet, ...remaining];
+      // Renumber to bounded ranks instead of growing a counter indefinitely.
+      for (const [index, item] of ordered.entries()) {
+        const sort = ordered.length - index - 1;
+        if (item.sort !== sort) await manager.update(Fleet, item.id, { sort });
+        item.sort = sort;
+      }
+      return fleet;
+    });
+  }
+
   async setFleetAlertState(
     userId: number,
     fleetId: number,
@@ -3557,6 +3605,7 @@ export class SpacecraftService {
     return this.fleetRepo.find({
       where: { userId },
       relations: ['members'],
+      order: { sort: 'DESC', id: 'ASC' },
     });
   }
 

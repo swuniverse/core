@@ -19,6 +19,7 @@ import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { Spacecraft } from './entities/spacecraft.entity';
 import { Fleet } from './entities/fleet.entity';
+import { AddFleetListPreferences20261116133000 } from '../../database/migrations/20261116133000-add-fleet-list-preferences';
 import { ShipClassService } from './ship-class.service';
 import { SpacecraftService } from './spacecraft.service';
 import { lockFleetParticipants } from './fleet-lock';
@@ -871,6 +872,110 @@ describe('Public fleet mutations across committed relocation (PostgreSQL)', () =
       fleetId: fleet.id,
       locationId: destination.id,
       energy: 71,
+    });
+  });
+
+  it('persists fleet list defaults, hiding and showing without changing membership', async () => {
+    expect(fleet).toMatchObject({ sort: 0, isHidden: false });
+    await fixture.service.setFleetVisibility(owner.id, fleet.id, true);
+    const loaded = await fixture.service.getUserFleets(owner.id);
+    expect(loaded[0]).toMatchObject({ id: fleet.id, isHidden: true });
+    expect(loaded[0].members.map((member) => member.id)).toEqual([leader.id]);
+    await fixture.service.setFleetVisibility(owner.id, fleet.id, false);
+    expect((await fixture.service.getUserFleets(owner.id))[0].isHidden).toBe(
+      false,
+    );
+  });
+
+  it('reorders only owned fleets and keeps other fleets in their relative order', async () => {
+    const second = await dataSource
+      .getRepository(Fleet)
+      .save({ name: 'Besh', userId: owner.id, leaderId: joiner.id });
+    const third = await dataSource
+      .getRepository(Fleet)
+      .save({ name: 'Cresh', userId: owner.id, leaderId: joiner.id });
+    const foreign = await createUser(dataSource);
+    const foreignFleet = await dataSource
+      .getRepository(Fleet)
+      .save({
+        name: 'Foreign',
+        userId: foreign.id,
+        leaderId: joiner.id,
+        sort: 100,
+      });
+    await fixture.service.prioritizeFleet(owner.id, third.id);
+    expect(
+      (await fixture.service.getUserFleets(owner.id)).map((item) => item.id),
+    ).toEqual([third.id, fleet.id, second.id]);
+    await fixture.service.prioritizeFleet(owner.id, second.id);
+    expect(
+      (await fixture.service.getUserFleets(owner.id)).map((item) => item.id),
+    ).toEqual([second.id, third.id, fleet.id]);
+    await expect(
+      fixture.service.prioritizeFleet(owner.id, foreignFleet.id),
+    ).rejects.toThrow('Flotte nicht gefunden');
+    await expect(
+      fixture.service.setFleetVisibility(owner.id, foreignFleet.id, true),
+    ).rejects.toThrow('Flotte nicht gefunden');
+    expect(
+      await dataSource
+        .getRepository(Fleet)
+        .findOneByOrFail({ id: foreignFleet.id }),
+    ).toMatchObject({ sort: 100, isHidden: false });
+  });
+
+  it('serializes simultaneous priorities into unique, bounded ranks', async () => {
+    const second = await dataSource
+      .getRepository(Fleet)
+      .save({ name: 'Besh', userId: owner.id, leaderId: joiner.id });
+    const third = await dataSource
+      .getRepository(Fleet)
+      .save({ name: 'Cresh', userId: owner.id, leaderId: joiner.id });
+    await Promise.all([
+      fixture.service.prioritizeFleet(owner.id, second.id),
+      fixture.service.prioritizeFleet(owner.id, third.id),
+    ]);
+    const fleets = await fixture.service.getUserFleets(owner.id);
+    expect(fleets.map((item) => item.sort)).toEqual([2, 1, 0]);
+    expect(fleets[2].id).toBe(fleet.id);
+    expect(new Set(fleets.map((item) => item.id))).toEqual(
+      new Set([fleet.id, second.id, third.id]),
+    );
+  });
+
+  it('hides a fleet after a concurrent relocation without reverting leadership or positions', async () => {
+    await dataSource
+      .getRepository(Spacecraft)
+      .update(joiner.id, { fleetId: fleet.id });
+    await acrossRelocation(
+      () => fixture.service.setFleetVisibility(owner.id, fleet.id, true),
+      true,
+    );
+    expect(
+      await dataSource.getRepository(Fleet).findOneByOrFail({ id: fleet.id }),
+    ).toMatchObject({ leaderId: joiner.id, isHidden: true });
+    expect(
+      await dataSource
+        .getRepository(Spacecraft)
+        .findOneByOrFail({ id: leader.id }),
+    ).toMatchObject({ locationId: destination.id, energy: 44 });
+  });
+
+  it('supports rollback and reapplying the migration with existing fleets', async () => {
+    await dataSource.transaction(async (manager) => {
+      const migration = new AddFleetListPreferences20261116133000();
+      const runner = manager.queryRunner;
+      if (!runner) throw new Error('Transaction runner missing');
+      await migration.down(runner);
+      const legacy = await manager.query(
+        'SELECT "id", "name" FROM "fleets" WHERE "id" = $1',
+        [fleet.id],
+      );
+      expect(legacy).toEqual([{ id: fleet.id, name: fleet.name }]);
+      await migration.up(runner);
+      expect(
+        await manager.findOneByOrFail(Fleet, { id: fleet.id }),
+      ).toMatchObject({ sort: 0, isHidden: false });
     });
   });
 });

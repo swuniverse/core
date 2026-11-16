@@ -33,6 +33,8 @@ export function SpacecraftPage() {
   const navigate = useNavigate();
   const [ships, setShips] = useState<SpacecraftListDto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fleetActionPending, setFleetActionPending] = useState(false);
+  const [fleetActionError, setFleetActionError] = useState<string | null>(null);
   const [fleetName, setFleetName] = useState('');
   const [leaderId, setLeaderId] = useState('');
   const [fleetAlertFailures, setFleetAlertFailures] = useState<Record<number, string[]>>({});
@@ -59,10 +61,12 @@ export function SpacecraftPage() {
       id,
       name: members[0].fleetName ?? `Flotte ${id}`,
       leaderId: members[0].fleetLeaderId,
+      sort: members[0].fleetSort ?? 0,
+      isHidden: members[0].fleetIsHidden ?? false,
       members: [...members].sort((a, b) =>
         a.id === members[0].fleetLeaderId ? -1 : b.id === members[0].fleetLeaderId ? 1 : a.id - b.id,
       ),
-    }));
+    })).sort((a, b) => b.sort - a.sort || a.id - b.id);
   }, [ships]);
   const stations = ships.filter((ship) => ship.kind === 'STATION');
   const mobileShips = ships.filter((ship) => ship.kind !== 'STATION');
@@ -107,6 +111,27 @@ export function SpacecraftPage() {
     await loadShips();
   }
 
+  async function updateFleetList(fleetId: number, isHidden?: boolean) {
+    if (fleetActionPending) return;
+    setFleetActionPending(true);
+    setFleetActionError(null);
+    try {
+      if (isHidden === undefined)
+        await api.post(`/spacecraft/fleets/${fleetId}/prioritize`, {});
+      else
+        await api.patch(`/spacecraft/fleets/${fleetId}/visibility`, {
+          isHidden,
+        });
+      await loadShips();
+    } catch (error: unknown) {
+      setFleetActionError(
+        error instanceof Error ? error.message : 'Flottenpflege fehlgeschlagen',
+      );
+    } finally {
+      setFleetActionPending(false);
+    }
+  }
+
   if (loading) return <div className="p-3 text-swu-muted md:p-6">Flotte wird geladen...</div>;
 
   return (
@@ -114,15 +139,19 @@ export function SpacecraftPage() {
       <div className="border border-swu-border bg-black/30 px-3 py-1.5">
         <h1 className="text-xs font-bold text-swu-primary">/ Schiffe / Flotte</h1>
       </div>
+      {fleetActionError && <p role="alert" className="border border-swu-danger px-3 py-2 text-xs text-red-400">{fleetActionError}</p>}
       {fleets.map((fleet) => (
         <ShipTable
           key={fleet.id}
           title={fleet.name}
           ships={fleet.members}
           leaderId={fleet.leaderId}
+          collapsed={fleet.isHidden}
           actions={(
             <>
               <span>{fleet.members.length} {fleet.members.length === 1 ? 'Schiff' : 'Schiffe'}</span>
+              <button type="button" disabled={fleetActionPending} aria-label={`${fleet.name} ${fleet.isHidden ? 'einblenden' : 'ausblenden'}`} aria-expanded={!fleet.isHidden} className="border border-swu-border px-2 py-1 text-swu-primary disabled:opacity-40" onClick={() => void updateFleetList(fleet.id, !fleet.isHidden)}>{fleet.isHidden ? 'Einblenden' : 'Ausblenden'}</button>
+              <button type="button" disabled={fleetActionPending} aria-label={`${fleet.name} nach oben`} className="border border-swu-border px-2 py-1 text-swu-primary disabled:opacity-40" onClick={() => void updateFleetList(fleet.id)}>Nach oben</button>
               <div className="flex items-center gap-1">
                 {(['GREEN', 'YELLOW', 'RED'] as const).map((alertState) => {
                   const active = fleet.members.every((member) => member.alertState === alertState);
@@ -202,18 +231,89 @@ function StationTable({ stations, onOpen }: { stations: SpacecraftListDto[]; onO
   );
 }
 
-function ShipTable({ title, ships, leaderId, actions, message, emptyLabel, onOpen }: { title: string; ships: SpacecraftListDto[]; leaderId?: number | null; actions?: ReactNode; message?: string; emptyLabel?: string; onOpen: (id: number) => void }) {
+function ShipTable({
+  title,
+  ships,
+  leaderId,
+  actions,
+  message,
+  emptyLabel,
+  collapsed = false,
+  onOpen,
+}: {
+  title: string;
+  ships: SpacecraftListDto[];
+  leaderId?: number | null;
+  actions?: ReactNode;
+  message?: string;
+  emptyLabel?: string;
+  collapsed?: boolean;
+  onOpen: (id: number) => void;
+}) {
   return (
     <section className="overflow-x-auto border border-swu-border bg-swu-surface/70">
       <header className="flex items-center justify-between gap-3 border-b border-swu-border bg-black/30 px-3 py-2 text-xs">
         <h2 className="font-bold text-swu-primary">{title}</h2>
-        {actions && <div className="flex items-center gap-3 text-swu-muted">{actions}</div>}
+        {actions && (
+          <div className="flex flex-wrap items-center justify-end gap-3 text-swu-muted">
+            {actions}
+          </div>
+        )}
       </header>
-      {message && <p className="whitespace-pre-line border-b border-swu-border px-3 py-2 text-xs text-red-400">{message}</p>}
-      <table className="w-full border-collapse text-xs">
-        <thead><tr className="bg-black/40 text-center font-bold text-swu-primary">{['Klasse', 'Name', 'Alarm', 'Ebene', 'x|y', 'Hülle', 'Schilde', 'EPS', 'Hyperantrieb', 'Reaktor', 'Batterie', 'Crew', 'Systeme', 'Status'].map((heading) => <th key={heading} className={cell}>{heading}</th>)}</tr></thead>
-        <tbody>{ships.length === 0 ? <tr><td colSpan={14} className={`${cell} py-4 text-center text-swu-muted`}>{emptyLabel}</td></tr> : ships.map((ship) => <ShipRow key={ship.id} ship={ship} leader={ship.id === leaderId} onOpen={() => onOpen(ship.id)} />)}</tbody>
-      </table>
+      {!collapsed && message && (
+        <p className="whitespace-pre-line border-b border-swu-border px-3 py-2 text-xs text-red-400">
+          {message}
+        </p>
+      )}
+      {!collapsed && (
+        <table className="w-full border-collapse text-xs">
+          <thead>
+            <tr className="bg-black/40 text-center font-bold text-swu-primary">
+              {[
+                'Klasse',
+                'Name',
+                'Alarm',
+                'Ebene',
+                'x|y',
+                'Hülle',
+                'Schilde',
+                'EPS',
+                'Hyperantrieb',
+                'Reaktor',
+                'Batterie',
+                'Crew',
+                'Systeme',
+                'Status',
+              ].map((heading) => (
+                <th key={heading} className={cell}>
+                  {heading}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {ships.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={14}
+                  className={`${cell} py-4 text-center text-swu-muted`}
+                >
+                  {emptyLabel}
+                </td>
+              </tr>
+            ) : (
+              ships.map((ship) => (
+                <ShipRow
+                  key={ship.id}
+                  ship={ship}
+                  leader={ship.id === leaderId}
+                  onOpen={() => onOpen(ship.id)}
+                />
+              ))
+            )}
+          </tbody>
+        </table>
+      )}
     </section>
   );
 }

@@ -403,3 +403,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-CREW-3c – Fremde Kapselcrew an erreichbare Handelsposten, atomare Systemnachrichten, erweiterte Verschollenenliste und autorisiertes Ablegen/Abziehen einzelner Crewmitglieder in Kapseln umgesetzt. Migration, Postenzerstörung und Nachrichten-Rollback mit PostgreSQL geprüft; alle Pflicht-Gates grün – siehe [Ticket](issues/sc-WP-CREW-3c-fremde-crew-an-handelsposten.md).
 
 - sc-WP-ENG-4 – Warenentsorgung im Schiffslager mit Mengenfeldern und „alles“, Eigentümer-/Hyperraumsperre, bestandsbegrenzter transaktionaler Vernichtung und Meldung je Ware umgesetzt. PostgreSQL prüft Parallelität und Rollback; vollständige Tests und Pflicht-Gates grün – siehe [Ticket](issues/sc-WP-ENG-4-schiffsmuelleimer.md).
+
+- sc-WP-FLEET-3 – Persistentes Ein-/Ausblenden von Flotten in der Schiffsliste und „Nach oben“ mit stabiler übriger Reihenfolge umgesetzt. Eigentümergeschützte transaktionale API, Migration und PostgreSQL-Prüfung für Parallelität, Flottenverlegung und Rollback; alle Pflicht-Gates grün – siehe [Ticket](issues/sc-WP-FLEET-3-flottenpflege.md).

@@ -411,3 +411,161 @@ describe('SpacecraftPage', () => {
     expect(screen.getByLabelText('Bereitschaft')).toBeTruthy();
   });
 });
+
+describe('SpacecraftPage fleet list preferences', () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  const members = () => [
+    {
+      ...ship,
+      id: 2,
+      name: 'Falke',
+      fleetId: 4,
+      fleetName: 'Rote Staffel',
+      fleetLeaderId: 2,
+      fleetSort: 0,
+      fleetIsHidden: false,
+    },
+    {
+      ...ship,
+      id: 3,
+      name: 'Adler',
+      fleetId: 4,
+      fleetName: 'Rote Staffel',
+      fleetLeaderId: 2,
+      fleetSort: 0,
+      fleetIsHidden: false,
+    },
+    {
+      ...ship,
+      id: 5,
+      name: 'Speer',
+      fleetId: 8,
+      fleetName: 'Blaue Staffel',
+      fleetLeaderId: 5,
+      fleetSort: 1,
+      fleetIsHidden: false,
+    },
+  ];
+
+  it('persists collapsing across page mounts and shows the header with a way to expand', async () => {
+    const ships = members();
+    apiMocks.get.mockImplementation(() =>
+      Promise.resolve(ships.map((item) => ({ ...item }))),
+    );
+    apiMocks.patch.mockImplementation(
+      (_path: string, { isHidden }: { isHidden: boolean }) => {
+        for (const item of ships.filter((item) => item.fleetId === 4))
+          item.fleetIsHidden = isHidden;
+        return Promise.resolve({});
+      },
+    );
+    const page = () => (
+      <MemoryRouter>
+        <SpacecraftPage />
+      </MemoryRouter>
+    );
+    const { unmount } = render(page());
+    const hide = await screen.findByRole('button', {
+      name: 'Rote Staffel ausblenden',
+    });
+    fireEvent.click(hide);
+    await screen.findByRole('button', { name: 'Rote Staffel einblenden' });
+    expect(apiMocks.patch).toHaveBeenCalledWith(
+      '/spacecraft/fleets/4/visibility',
+      { isHidden: true },
+    );
+    expect(
+      screen
+        .getByRole('heading', { name: 'Rote Staffel' })
+        .closest('section')
+        ?.querySelector('table'),
+    ).toBeNull();
+    expect(
+      screen
+        .getByRole('heading', { name: 'Blaue Staffel' })
+        .closest('section')
+        ?.querySelector('table'),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole('button', { name: 'Rote Staffel einblenden' })
+        .getAttribute('aria-expanded'),
+    ).toBe('false');
+    unmount();
+    render(page());
+    const show = await screen.findByRole('button', {
+      name: 'Rote Staffel einblenden',
+    });
+    expect(
+      screen
+        .getByRole('heading', { name: 'Rote Staffel' })
+        .closest('section')
+        ?.querySelector('table'),
+    ).toBeNull();
+    fireEvent.click(show);
+    await screen.findByRole('button', { name: 'Rote Staffel ausblenden' });
+    expect(apiMocks.patch).toHaveBeenLastCalledWith(
+      '/spacecraft/fleets/4/visibility',
+      { isHidden: false },
+    );
+    expect(screen.getByLabelText('Flottenführer Falke')).toBeTruthy();
+    expect(screen.getByText('Adler')).toBeTruthy();
+  });
+
+  it('orders fleets by saved priority and moves the chosen fleet to the top after reload', async () => {
+    const ships = members();
+    apiMocks.get.mockImplementation(() =>
+      Promise.resolve(ships.map((item) => ({ ...item }))),
+    );
+    apiMocks.post.mockImplementation(() => {
+      for (const item of ships) item.fleetSort = item.fleetId === 4 ? 1 : 0;
+      return Promise.resolve({});
+    });
+    render(
+      <MemoryRouter>
+        <SpacecraftPage />
+      </MemoryRouter>,
+    );
+    await screen.findByRole('heading', { name: 'Rote Staffel' });
+    const names = () =>
+      screen
+        .getAllByRole('heading', { level: 2 })
+        .slice(0, 2)
+        .map((item) => item.textContent);
+    expect(names()).toEqual(['Blaue Staffel', 'Rote Staffel']);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Rote Staffel nach oben' }),
+    );
+    await waitFor(() =>
+      expect(names()).toEqual(['Rote Staffel', 'Blaue Staffel']),
+    );
+    expect(apiMocks.post).toHaveBeenCalledWith(
+      '/spacecraft/fleets/4/prioritize',
+      {},
+    );
+  });
+
+  it('keeps the fleet expanded on failure and reports the error', async () => {
+    apiMocks.get.mockResolvedValue(members());
+    apiMocks.patch.mockRejectedValue(new Error('Flotte nicht gefunden'));
+    render(
+      <MemoryRouter>
+        <SpacecraftPage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Rote Staffel ausblenden' }),
+    );
+    expect(await screen.findByRole('alert')).toHaveProperty(
+      'textContent',
+      'Flotte nicht gefunden',
+    );
+    expect(
+      screen
+        .getByRole('button', { name: 'Rote Staffel ausblenden' })
+        .hasAttribute('disabled'),
+    ).toBe(false);
+    expect(screen.getByLabelText('Flottenführer Falke')).toBeTruthy();
+  });
+});
