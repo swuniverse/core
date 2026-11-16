@@ -1,3 +1,4 @@
+import { ShuttleService } from '../spacecraft/shuttle.service';
 import {
   BadRequestException,
   Inject,
@@ -122,6 +123,7 @@ export class ColonyOrbitService implements OnModuleInit {
     private readonly orbitOrderLifecycle?: OrbitOrderLifecyclePort,
     @Optional()
     private readonly messaging?: MessagingService,
+    @Optional() private readonly shuttles?: ShuttleService,
   ) {}
 
   onModuleInit(): void {
@@ -808,6 +810,8 @@ export class ColonyOrbitService implements OnModuleInit {
     shipId: number,
     items: Array<{ commodityId: number; amount: number }>,
   ): Promise<void> {
+    if (this.shuttles)
+      return this.shuttles.transferStored(colonyId, userId, shipId, items);
     const colony = await this.ownership.findOwnedColony(colonyId, userId);
     const ship = await this.shipRepo.findOne({
       where: { id: shipId, userId },

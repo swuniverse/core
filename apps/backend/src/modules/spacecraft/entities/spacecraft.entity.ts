@@ -71,6 +71,10 @@ export class Spacecraft {
   @JoinColumn({ name: 'shipClassId' })
   shipClass: ShipClassDef;
 
+  /** Original stored hull commodity for a lossless shuttle/Workbee round trip. */
+  @Column({ type: 'int', nullable: true })
+  shuttleCommodityId: number | null;
+
   @Column({ type: 'int', nullable: true })
   buildPlanId: number | null;
 

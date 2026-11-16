@@ -1,5 +1,7 @@
+import { ShuttleService } from '../spacecraft/shuttle.service';
 import {
   Injectable,
+  Optional,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -135,6 +137,7 @@ export class ColonyService {
     private readonly colonyShipyardService: ColonyShipyardService,
     private readonly colonyConstructionService: ColonyConstructionService,
     private readonly colonyTickProcessorService: ColonyTickProcessorService,
+    @Optional() private readonly shuttles?: ShuttleService,
   ) {}
 
   giveUpColony(colonyId: number, userId: number, confirmation: string) {
@@ -893,6 +896,10 @@ export class ColonyService {
     if (!shipClass) throw new BadRequestException('Unknown ship class');
     const hangarDef = this.getHangarDefForShipClass(shipClass);
     if (!hangarDef) throw new BadRequestException('Ship cannot land in hangar');
+    if (this.shuttles && ['SHUTTLE', 'WORKBEE'].includes(shipClass.role)) {
+      await this.shuttles.land(shipId, userId, colonyId);
+      return this.findOne(colonyId, userId);
+    }
 
     const [freeAssignmentCount, assignedCrew] = await Promise.all([
       this.colonyCrewService.getFreeAssignmentCount(colony),
@@ -1137,6 +1144,10 @@ export class ColonyService {
       this.spacecraftStatsService.fillResources(savedShip);
     }
     savedShip.modules = installedModules;
+    savedShip.shipClass = shipClass;
+    if (['SHUTTLE', 'WORKBEE'].includes(shipClass.role)) {
+      savedShip.shuttleCommodityId = hangarDef.hangarCommodityId;
+    }
     initializeSpacecraftRuntimeSystems(savedShip);
     await this.shipRepo.save(savedShip);
     return this.findOne(colonyId, userId);

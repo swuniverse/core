@@ -1104,6 +1104,11 @@ export class GameDataService implements OnModuleInit {
         `Loaded ${this.hangarShipDefsByClassKey.size} hangar ship definitions`,
       );
     }
+    for (const commodity of this.commodities.values()) {
+      commodity.isShuttle = this.isSmallCraftCommodity(commodity.id);
+      commodity.isWorkbee = commodity.id >= 20061 && commodity.id <= 20065;
+    }
+
   }
 
   private loadShipClasses() {
@@ -1500,6 +1505,14 @@ export class GameDataService implements OnModuleInit {
 
   getHangarShipDefByCommodity(commodityId: number): HangarShipDef | undefined {
     return this.hangarShipDefsByCommodity.get(commodityId);
+  }
+
+  isSmallCraftCommodity(commodityId: number): boolean {
+    if (commodityId >= 20061 && commodityId <= 20065) return true;
+    const hangar = this.getHangarShipDefByCommodity(commodityId);
+    return !!hangar && ['SHUTTLE', 'WORKBEE'].includes(
+      this.getShipClassDefByKey(hangar.shipClassKey)?.role ?? '',
+    );
   }
 
   getAllHangarShipDefs(): HangarShipDef[] {

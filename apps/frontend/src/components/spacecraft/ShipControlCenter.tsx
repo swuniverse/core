@@ -1,3 +1,4 @@
+import { ShuttleManagementPanel } from './ShuttleManagementPanel';
 import { ResourceConversionPanel } from './ResourceConversionPanel';
 import { ResourceCollectionPanel } from './ResourceCollectionPanel';
 import { useEffect, useState } from 'react';
@@ -7,6 +8,8 @@ import { api } from '../../services/api';
 import { type RuntimeSystemState } from './ship-system-presentation';
 
 interface ShipControlCenterProps {
+  isShuttle?: boolean;
+  onLanded?: () => void;
   shipId: number;
   systems: Record<string, RuntimeSystemState> | undefined;
   onUpdate: () => void;
@@ -40,6 +43,8 @@ export const SYSTEM_ASSETS: Record<string, string> = {
 
 export function ShipControlCenter({
   shipId,
+  isShuttle,
+  onLanded,
   systems,
   onUpdate,
 }: ShipControlCenterProps) {
@@ -165,6 +170,14 @@ export function ShipControlCenter({
         <h3 className="border-b border-swu-border px-3 py-1 text-center font-bold text-swu-primary">
           Schiffskontrolle
         </h3>
+        {(systems?.SHUTTLE_RAMP || isShuttle) && (
+          <ShuttleManagementPanel
+            shipId={shipId}
+            refreshKey={JSON.stringify(systems)}
+            onUpdate={onUpdate}
+            onLanded={onLanded}
+          />
+        )}
         {systems?.RESOURCE_CONVERTER && <ResourceConversionPanel shipId={shipId} onUpdate={onUpdate} refreshKey={JSON.stringify(systems)} />}
         {systems?.RESOURCE_COLLECTOR && <ResourceCollectionPanel shipId={shipId} onUpdate={onUpdate} refreshKey={JSON.stringify(systems)} />}
         {systemRow('SHIELDS')}

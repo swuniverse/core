@@ -137,6 +137,7 @@ export const SPACECRAFT_RUNTIME_SYSTEM_KEYS = [
   'HYPERSPACE_COIL',
   'RESOURCE_COLLECTOR',
   'RESOURCE_CONVERTER',
+  'SHUTTLE_RAMP',
   'LIFE_SUPPORT',
   'DEFLECTOR',
 ] as const;
@@ -388,6 +389,7 @@ export interface SpacecraftListDto {
   shipClassId: number;
   shipClassName?: string;
   shipClassKey?: string | null;
+  isShuttle?: boolean;
   kind: 'SHIP' | 'STATION';
   stationRole: string | null;
   dockCapacity: number;
@@ -491,6 +493,7 @@ export interface SpacecraftDetailDto {
   shipClassId: number;
   shipClassName?: string;
   shipClassKey?: string | null;
+  isShuttle?: boolean;
   kind?: 'SHIP' | 'STATION';
   stationRole?: string | null;
   dockCapacity?: number;
@@ -1203,4 +1206,21 @@ export interface ResourceConversionDto {
   activationEps: number;
   epsPerTick: number;
   blockReason: string | null;
+}
+
+export interface ShuttleManagementDto {
+  isShuttle: boolean;
+  capacity: number;
+  storedCount: number;
+  blockReason: string | null;
+  stored: Array<{
+    commodityId: number;
+    name: string;
+    amount: number;
+    energyCost: number;
+    crewRequired: number;
+    blockReason: string | null;
+  }>;
+  nearby: Array<{ id: number; name: string; blockReason: string | null }>;
+  colonies: Array<{ id: number; name: string; blockReason: string | null }>;
 }

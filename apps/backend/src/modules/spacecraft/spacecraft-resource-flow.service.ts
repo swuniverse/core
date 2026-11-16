@@ -50,6 +50,7 @@ const SYSTEM_LABELS: Partial<Record<SpacecraftRuntimeSystemKey, string>> = {
   MATRIX_SCANNER: 'Matrixsensoren',
   LIFE_SUPPORT: 'Lebenserhaltung',
   DEFLECTOR: 'Deflektor',
+  SHUTTLE_RAMP: 'Shuttlerampe',
   HYPERSPACE_COIL: 'Hyperraum-Spule',
   RESOURCE_COLLECTOR: 'Ressourcen-Kollektor',
       RESOURCE_CONVERTER: 'Molekular-Raffinerie',

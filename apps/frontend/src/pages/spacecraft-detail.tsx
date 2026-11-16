@@ -216,6 +216,8 @@ export function SpacecraftDetailPage() {
         )}
         <div className="space-y-2">
           <ShipControlCenter
+            isShuttle={ship.isShuttle}
+            onLanded={() => navigate('/spacecraft')}
             shipId={ship.id}
             systems={ship.runtimeSystems}
             onUpdate={refreshShipAndStorage}

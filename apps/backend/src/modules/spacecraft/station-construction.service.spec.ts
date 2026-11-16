@@ -70,6 +70,8 @@ describe('StationConstructionService', () => {
       location: { kind: 'SYSTEM_FIELD', systemField: { effects: [] } },
       user: { faction: 'REBEL_ALLIANCE' },
       energy: 120,
+      crewRequired: 0,
+      modules: [{category: 'SPECIAL', moduleType: 'Shuttlerampe', integrity:100,isActive:true}],
       shields: 0,
       runtimeSystems: { SHUTTLE_RAMP: { active: true, integrity: 100 } },
     });
@@ -90,7 +92,7 @@ describe('StationConstructionService', () => {
     const result = await service.build(7, 3);
 
     expect(result.station.stationRole).toBe(StationRole.CONSTRUCTION);
-    expect(shipRepo.save).toHaveBeenCalledTimes(7);
+    expect(shipRepo.save).toHaveBeenCalledWith(expect.objectContaining({id:7,energy:20,cargoUsed:0}));
     expect(shipRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: SpacecraftKind.STATION,

@@ -1,3 +1,9 @@
+import { initializeSpacecraftRuntimeSystems } from './spacecraft-runtime-state.service';
+import {
+  createSmallCraft,
+  assignSmallCraftCrew,
+  prepareSmallCraft,
+} from './small-craft-launch';
 import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import {
   Faction,
@@ -48,10 +54,12 @@ export class StationConstructionService {
           'location.galaxyField',
           'location.galaxyField.fieldType',
           'user',
+          'modules',
         ],
         lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
       });
       if (!ship) throw new NotFoundException('Spacecraft not found');
+      initializeSpacecraftRuntimeSystems(ship);
       this.assertShipCanBuild(ship);
       if (this.isWormhole(ship)) {
         throw new BadRequestException('In Wurmlöchern können keine Stationen errichtet werden');
@@ -91,15 +99,16 @@ export class StationConstructionService {
       }
       this.requireCargo(cargo, BUILDING_MATERIALS_ID, 100, '100 Doonium werden benötigt');
       this.requireCargo(cargo, DURANIUM_ID, 50, '50 Durastahl-Legierung werden benötigt');
-      const energyCost = workbeeClass.epsBase * WORKBEE_COUNT;
+      const launch = prepareSmallCraft(workbeeClass, this.gameData);
+      const energyCost = launch.energyCost * WORKBEE_COUNT;
       if (ship.energy < energyCost) {
         throw new BadRequestException(`Es wird insgesamt ${energyCost} Energie für den Start der 5 Workbees benötigt`);
       }
-      const requiredCrew = workbeeClass.crewMin * WORKBEE_COUNT;
+      const requiredCrew = launch.crewRequired * WORKBEE_COUNT;
       const assignedCrew = await manager.getRepository(CrewAssignment).find({
         where: { spacecraftId: ship.id },
       });
-      const excessCrew = Math.max(0, assignedCrew.length - ship.crewRequired);
+      const excessCrew = Math.max(0, assignedCrew.length - (ship.crewRequired ?? 0));
       if (excessCrew < requiredCrew) {
         throw new BadRequestException(`Nicht genügend Crew für den Start der 5 Workbees vorhanden, benötigt wird ${requiredCrew}`);
       }
@@ -108,6 +117,10 @@ export class StationConstructionService {
       await shipRepo.save(ship);
       this.consumeCargo(cargo, BUILDING_MATERIALS_ID, 100);
       this.consumeCargo(cargo, DURANIUM_ID, 50);
+      const launchedCommodities = workbeeCargo.flatMap((row) => Array.from(
+        { length: Math.min(WORKBEE_COUNT, Math.max(0, row.amount)) },
+        () => row.commodityId,
+      )).slice(0, WORKBEE_COUNT);
       this.consumeWorkbees(workbeeCargo, WORKBEE_COUNT);
       await cargoRepo.save(cargo.filter((item) => item.amount >= 0));
 
@@ -148,43 +161,25 @@ export class StationConstructionService {
       const workbees: Spacecraft[] = [];
       for (let index = 0; index < WORKBEE_COUNT; index++) {
         workbees.push(
-          await shipRepo.save(
-            shipRepo.create({
-              name: `${workbeeClass.name} ${index + 1}`,
-              shipClassId: workbeeClass.id,
-              userId,
-              locationId: ship.locationId,
-              location: ship.location,
-              kind: SpacecraftKind.SHIP,
-              stationRole: null,
-              dockedAtId: station.id,
-              dockCapacity: 0,
-              status: SpacecraftStatus.IDLE,
-              alertState: AlertState.GREEN,
-              operatingMode: SpacecraftOperatingMode.NORMAL,
-              hull: workbeeClass.hullBase,
-              hullMax: workbeeClass.hullBase,
-              shields: 0,
-              shieldsMax: workbeeClass.shieldBase,
-              energy: workbeeClass.epsBase,
-              energyMax: workbeeClass.epsBase,
-              crew: workbeeClass.crewMin,
-              crewMax: workbeeClass.crewMax,
-              cargoUsed: 0,
-              cargoMax: workbeeClass.cargoCapacity,
-              battery: workbeeClass.batteryBase,
-              batteryMax: workbeeClass.batteryBase,
-              reactorFuel: workbeeClass.reactorBase * 10,
-              reactorFuelMax: workbeeClass.reactorBase * 10,
-              warpSpeed: 0,
-              warpdrive: 0,
-              warpdriveMax: 0,
-              runtimeSystems: {},
-            }),
-          ),
+          await createSmallCraft(manager, workbeeClass, {
+            name: `${workbeeClass.name} ${index + 1}`,
+            userId,
+            locationId: ship.locationId,
+            location: ship.location,
+            dockedAtId: station.id,
+            shuttleCommodityId: launchedCommodities[index],
+          }, this.gameData),
         );
       }
-      await this.transferCrew(manager, assignedCrew, workbees, requiredCrew);
+      await assignSmallCraftCrew(
+        manager,
+        requiredCrew ? assignedCrew.slice(-requiredCrew) : [],
+        workbees,
+      );
+      initializeSpacecraftRuntimeSystems(ship);
+      ship.crew = assignedCrew.length - requiredCrew;
+      ship.cargoUsed = cargo.reduce((sum, row) => sum + Math.max(0, row.amount), 0);
+      await shipRepo.save(ship);
       return { station, workbees };
     });
   }
@@ -481,8 +476,9 @@ export class StationConstructionService {
     }
     const shuttleRamp = ship.runtimeSystems?.SHUTTLE_RAMP as { integrity?: number } | undefined;
     if (!shuttleRamp || (shuttleRamp.integrity ?? 0) <= 0) throw new BadRequestException('Die Shuttle-Rampe ist zerstört');
-    if (ship.shields > 0) throw new BadRequestException('Die Schilde sind aktiviert');
+    if ((ship.runtimeSystems?.SHIELDS as { active?: boolean })?.active) throw new BadRequestException('Die Schilde sind aktiviert');
     const cloak = ship.runtimeSystems?.CLOAK as { active?: boolean } | undefined;
+    if ((ship.runtimeSystems?.WARPDRIVE as { active?: boolean })?.active) throw new BadRequestException('Hyperantrieb ist aktiviert');
     if (cloak?.active) throw new BadRequestException('Die Tarnung ist aktiviert');
   }
 
@@ -514,13 +510,4 @@ export class StationConstructionService {
     }
   }
 
-  private async transferCrew(manager: EntityManager, crew: CrewAssignment[], workbees: Spacecraft[], amount: number): Promise<void> {
-    if (amount === 0) return;
-    const assignments = crew.slice(-amount);
-    assignments.forEach((assignment, index) => {
-      assignment.spacecraftId = workbees[index].id;
-      assignment.slot = null;
-    });
-    await manager.getRepository(CrewAssignment).save(assignments);
-  }
 }

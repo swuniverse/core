@@ -1181,6 +1181,7 @@ export class SpacecraftService {
     systemKey: SpacecraftRuntimeSystemKey,
     active: boolean,
   ): Promise<{ systems: unknown }> {
+    if (systemKey === 'SHUTTLE_RAMP') throw new BadRequestException('Die Shuttlerampe ist ein passives System');
     if (systemKey === 'RESOURCE_CONVERTER') throw new BadRequestException('Bitte das Raffinerie-Fenster verwenden');
     if (systemKey === 'RESOURCE_COLLECTOR') throw new BadRequestException('Bitte das Ressourcensammel-Fenster verwenden');
     const ship = await this.findOne(shipId, userId);
@@ -1336,6 +1337,7 @@ export class SpacecraftService {
       HYPERSPACE_COIL: 'Hyperraum-Spule',
       RESOURCE_COLLECTOR: 'Ressourcen-Kollektor',
       RESOURCE_CONVERTER: 'Molekular-Raffinerie',
+      SHUTTLE_RAMP: 'Shuttlerampe',
       LIFE_SUPPORT: 'Lebenserhaltung',
       DEFLECTOR: 'Deflektor',
     };
@@ -1693,6 +1695,7 @@ export class SpacecraftService {
 
   private async toShipSummary(ship: Spacecraft): Promise<Spacecraft> {
     const shipClass = await this.shipClassService.findById(ship.shipClassId);
+    if (shipClass) ship.shipClass = shipClass;
     const moduleCount = await this.moduleRepo.count({
       where: { spacecraftId: ship.id },
     });
@@ -1700,6 +1703,7 @@ export class SpacecraftService {
     return Object.assign(ship, {
       shipClassName: shipClass?.name || `Class ${ship.shipClassId}`,
       shipClassKey: shipClass?.key || null,
+      isShuttle: ['SHUTTLE', 'WORKBEE'].includes(shipClass?.role ?? ''),
       isColonizer: shipClass?.isColonizer ?? false,
       colonizerTier: shipClass?.colonizerTier ?? null,
       colonizationBuildingId: shipClass?.colonizationBuildingId ?? null,
@@ -4909,6 +4913,7 @@ export class SpacecraftService {
       this.shipClassService.findById(ship.shipClassId),
     ]);
     ship.modules = modules;
+    if (shipClass) ship.shipClass = shipClass;
     const energyBefore = ship.energy;
     const resourceFlow = this.spacecraftResourceFlowService.recharge(
       ship,

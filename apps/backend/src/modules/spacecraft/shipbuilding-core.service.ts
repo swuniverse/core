@@ -344,6 +344,11 @@ export class ShipbuildingCoreService {
       ship.crewRequired = crewRequired;
       ship.crewMax = Math.max(ship.crewMax, crewRequired);
       ship.modules = installed;
+      ship.shipClass = hull;
+      if (['SHUTTLE', 'WORKBEE'].includes(hull.role)) {
+        ship.shuttleCommodityId =
+          this.gameData.getHangarShipDef?.(hull.key)?.hangarCommodityId ?? null;
+      }
       initializeSpacecraftRuntimeSystems(ship);
       await manager.save(Spacecraft, ship);
       job.status = ColonyShipBuildQueueStatus.COMPLETED;

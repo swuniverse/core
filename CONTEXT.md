@@ -182,6 +182,14 @@ _Avoid_: Allianz-Lager
 
 ## Stationen
 
+**Shuttle**:
+Ein kleines Schiff der Rolle SHUTTLE oder WORKBEE, dessen Rumpf als Lagerware mitgeführt werden kann. Eine **Shuttlerampe** startet es mit voller EPS-Ladung und eigener freier Crew. Aufnahme am gleichen Feld und Landung auf einer eigenen Kolonie mit aktivem Landeplatz führen Rumpf, Fracht und Crew innerhalb der jeweiligen Kapazitätsgrenzen zurück.
+_Avoid_: Rettungskapsel, reine Transportware
+
+**Shuttlerampe**:
+Ein passives Laufzeitsystem zum Starten und Aufnehmen von **Shuttles** auf Schiffen und Stationen. Es verbraucht keine laufenden EPS. Shuttleplätze ergeben sich aus dem größeren Wert von Rumpfkapazität und intakter installierter Rampenkapazität; Startkosten entsprechen der vollen EPS-Ladung des gestarteten Schiffs.
+_Avoid_: Hangar (für die Shuttlerampe), aktives Transportsystem
+
 **Station**:
 Ein unbeweglicher Typ von **Spacecraft** mit gemeinsamen Laufzeitsystemen, Lager, Sensorik und Kampffähigkeit. Stationsspezifische Zustände wie Bau, Dockplätze, Zugangsregeln und Reparaturen sind an dieses Spacecraft gebunden.
 _Avoid_: Gebäude, Raumkörper

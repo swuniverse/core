@@ -48,6 +48,7 @@ export function getRuntimeSystemsForModule(
     if (name === 'matrixsensoren') return ['MATRIX_SCANNER'];
     if (name === 'gravitationswellenscanner') return ['TACHYON_SCANNER'];
     if (name === 'molekular-raffinerie') return ['RESOURCE_CONVERTER'];
+    if (name === 'shuttlerampe') return ['SHUTTLE_RAMP'];
     if (name === 'ressourcen-kollektor') return ['RESOURCE_COLLECTOR'];
     if (name === 'hyperraum-spule') return ['HYPERSPACE_COIL'];
     if (name === 'peilsender') return ['TRACKER'];
@@ -120,7 +121,9 @@ export function initializeSpacecraftRuntimeSystems(
   // Callers without hydrated modules retain the legacy state until they can
   // load the relation. Authorization paths load modules explicitly.
   if (ship.modules) {
-    const availableSystems = getAvailableSystems(ship.modules);
+    const smallCraft = ship.shuttleCommodityId != null ||
+      ['SHUTTLE', 'WORKBEE'].includes(ship.shipClass?.role ?? '');
+    const availableSystems = getAvailableSystems(ship.modules, smallCraft);
     for (const key of Object.keys(systems) as SpacecraftRuntimeSystemKey[]) {
       if (!availableSystems.has(key)) delete systems[key];
     }
@@ -138,6 +141,7 @@ export function initializeSpacecraftRuntimeSystems(
           key !== 'HYPERSPACE_COIL' &&
           key !== 'RESOURCE_COLLECTOR' &&
           key !== 'RESOURCE_CONVERTER' &&
+          key !== 'SHUTTLE_RAMP' &&
           (key === 'LIFE_SUPPORT' ||
             key === 'DEFLECTOR' ||
             backingModules.length === 0 ||
@@ -162,7 +166,8 @@ export function initializeSpacecraftRuntimeSystems(
         key === 'TACHYON_SCANNER' ||
         key === 'HYPERSPACE_COIL' ||
         key === 'RESOURCE_COLLECTOR' ||
-        key === 'RESOURCE_CONVERTER'
+        key === 'RESOURCE_CONVERTER' ||
+        key === 'SHUTTLE_RAMP'
       )
         continue;
       systems[key] ??= { active: true, cooldown: 0, integrity: 100 };
@@ -198,11 +203,12 @@ export function initializeSpacecraftRuntimeSystems(
 
 function getAvailableSystems(
   modules: SpacecraftModule[] | undefined,
+  smallCraft = false,
 ): Set<SpacecraftRuntimeSystemKey> {
-  // Life support and the deflector are default systems of every ship (STU
-  // `getDefaultSystems`; SWU knows no shuttles). All other runtime systems
-  // must be backed by an installed module, matching STU's system creation.
-  const systems = new Set<SpacecraftRuntimeSystemKey>(['LIFE_SUPPORT', 'DEFLECTOR']);
+  // STU getDefaultSystems: life support is universal; small craft have no
+  // default deflector. Other systems require installed modules.
+  const systems = new Set<SpacecraftRuntimeSystemKey>(['LIFE_SUPPORT']);
+  if (!smallCraft) systems.add('DEFLECTOR');
   if (!modules) {
     for (const key of SPACECRAFT_RUNTIME_SYSTEM_KEYS) {
       if (
@@ -216,6 +222,7 @@ function getAvailableSystems(
           'HYPERSPACE_COIL',
           'RESOURCE_COLLECTOR',
           'RESOURCE_CONVERTER',
+          'SHUTTLE_RAMP',
         ].includes(key)
       )
         systems.add(key);
