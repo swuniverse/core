@@ -72,6 +72,18 @@ export class MailService {
     }
   }
 
+  sendPrivateMessageNotification(
+    to: string,
+    senderName: string,
+  ): Promise<boolean> {
+    const baseUrl = this.config.get<string>('APP_BASE_URL') ?? '';
+    return this.sendMail({
+      to,
+      subject: `Neue Nachricht von ${senderName}`,
+      text: `Du hast eine neue persönliche Nachricht von ${senderName}.\n\n${baseUrl.replace(/\/$/, '')}/messages`,
+    });
+  }
+
   sendPasswordResetMail(
     to: string,
     username: string,

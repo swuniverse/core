@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type MessageTarget, WsEventType } from '@swuniverse/shared';
@@ -14,6 +15,7 @@ import { PRIVATE_MESSAGES_EVENT } from '../statistics/statistic-events';
 import { StatisticsService } from '../statistics/statistics.service';
 import { GameGateway } from '../websocket/game.gateway';
 import { UserSettingsReader } from '../settings/user-settings-reader';
+import { PrivateMessageNotificationService } from './private-message-notification.service';
 import { Message } from './entities/message.entity';
 import {
   IncomingMessageFolder,
@@ -41,6 +43,8 @@ export class MessagingService {
     private readonly statisticsService: StatisticsService,
     private readonly gateway: GameGateway,
     private readonly settingsReader: UserSettingsReader,
+    @Optional()
+    private readonly pmNotification?: PrivateMessageNotificationService,
   ) {}
 
   setIgnoreCheck(
@@ -58,7 +62,12 @@ export class MessagingService {
       take: limit,
     });
 
-    return { data: withDeletedAuthor(data, 'sender', 'senderId'), total, page, limit };
+    return {
+      data: withDeletedAuthor(data, 'sender', 'senderId'),
+      total,
+      page,
+      limit,
+    };
   }
 
   async getFolder(userId: number, folder: MessageFolder, page = 1, limit = 20) {
@@ -79,7 +88,12 @@ export class MessagingService {
       take: limit,
     });
 
-    return { data: withDeletedAuthor(data, 'sender', 'senderId'), total, page: normalizedPage, limit };
+    return {
+      data: withDeletedAuthor(data, 'sender', 'senderId'),
+      total,
+      page: normalizedPage,
+      limit,
+    };
   }
 
   async getFolderSummary(userId: number) {
@@ -285,6 +299,7 @@ export class MessagingService {
     });
     const saved = await this.messageRepo.save(message);
     this.notifyRecipient(recipientId, MessageFolder.PERSONAL);
+    void this.pmNotification?.notify(senderId, recipientId);
     await this.statisticsService.countEvent(PRIVATE_MESSAGES_EVENT);
     return saved;
   }
@@ -323,7 +338,8 @@ export class MessagingService {
     markRead = false,
     transaction?: TransactionalNotifications,
   ): Promise<Message> {
-    const repository = transaction?.manager.getRepository(Message) ?? this.messageRepo;
+    const repository =
+      transaction?.manager.getRepository(Message) ?? this.messageRepo;
     const notify = () => this.notifyRecipient(recipientId, folder);
     const scheduleNotification = () => {
       if (transaction) transaction.afterCommit.push(notify);

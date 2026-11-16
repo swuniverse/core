@@ -1,6 +1,6 @@
 # E-Mail-Benachrichtigung bei neuer persönlicher Nachricht (hinter Flag)
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -26,14 +26,24 @@ Abgrenzung: sh-AP-16 nennt `email_notification` als wirksam zu machende Einstell
 
 ## Akzeptanzkriterien
 
-- [ ] Neue Konfiguration `PLAYER_MAIL_NOTIFICATIONS_ENABLED` (Default `false`, in `.env.example` dokumentiert). Ist sie aus oder SMTP nicht konfiguriert, wird keine Mail versucht.
-- [ ] Nur persönliche PMs von Spielern lösen eine Mail aus; Systemnachrichten und andere Ordner nicht.
-- [ ] Mail nur bei `email_notification = '1'` des Empfängers; Betreff „Neue Nachricht von <Absender>“, Text ohne Nachrichteninhalt (nur Hinweis und Link auf `/messages`), Adressat ist die Konto-E-Mail.
-- [ ] Der Versand läuft nach dem Speichern und blockiert bzw. scheitert den PM-Versand nie; Fehler werden nur geloggt.
-- [ ] Backend-Tests mit gemocktem `MailService`: Flag aus → kein Aufruf; Flag an + Einstellung an → ein Aufruf; Einstellung aus → kein Aufruf; Mailfehler → PM trotzdem gespeichert.
-- [ ] Hinweis im Einstellungs-UI bei der Option, dass E-Mails nur verschickt werden, wenn der Betreiber sie aktiviert hat (optional über einen Statusendpunkt).
+- [x] Neue Konfiguration `PLAYER_MAIL_NOTIFICATIONS_ENABLED` (Default `false`, in `.env.example` dokumentiert). Ist sie aus oder SMTP nicht konfiguriert, wird keine Mail versucht.
+- [x] Nur persönliche PMs von Spielern lösen eine Mail aus; Systemnachrichten und andere Ordner nicht.
+- [x] Mail nur bei `email_notification = '1'` des Empfängers; Betreff „Neue Nachricht von <Absender>“, Text ohne Nachrichteninhalt (nur Hinweis und Link auf `/messages`), Adressat ist die Konto-E-Mail.
+- [x] Der Versand läuft nach dem Speichern und blockiert bzw. scheitert den PM-Versand nie; Fehler werden nur geloggt.
+- [x] Backend-Tests mit gemocktem `MailService`: Flag aus → kein Aufruf; Flag an + Einstellung an → ein Aufruf; Einstellung aus → kein Aufruf; Mailfehler → PM trotzdem gespeichert.
+- [x] Hinweis im Einstellungs-UI bei der Option, dass E-Mails nur verschickt werden, wenn der Betreiber sie aktiviert hat (optional über einen Statusendpunkt).
 
 ## Comments
 
 - 2026-10-29: Umsetzung test-first begonnen; die gezielten Backend-Tests waren grün (2 Suites, 18 Tests). Die verpflichtende Prüfung `npx nx affected -t lint typecheck test --base=HEAD` scheiterte in zwei ernsthaften Versuchen projektweit am bestehenden Frontend-Typecheck mit zahlreichen `TS6305`-Fehlern (fehlende `apps/frontend/dist/**/*.d.ts`-Buildartefakte), auch nach `npx nx run frontend:build`. Produktcode gemäß Abbruchverfahren verworfen. Bitte den Frontend-Typecheck/Buildgraph reparieren oder bestätigen, wie diese bestehende Baseline-Störung für Ralph-Läufe behandelt werden soll.
 - 2026-11-09: Die integrierte Baseline 14b86081/c8e14f1c beseitigt den zuletzt dokumentierten fachfremden Blocker (Frontend-TS6305-Gate); reguläre Nx-Lint-/Typecheck-/Build-Gates und vollständige Tests sind laut Baseline-Review grün, lokale Test-Spieldaten waren dafür vorhanden. Status ready-for-agent; vorhandene Issue-Abhängigkeiten bleiben verbindlich. Dies belegt keine Feature-Fertigstellung: verworfene Änderungen müssen neu umgesetzt und die aktuellen Issue-Tests und Pflicht-Gates erneut ausgeführt werden; keine Ausnahme.
+
+## Answer
+
+Persönliche Nachrichten starten nach dem Speichern eine fehlertolerante Mailbenachrichtigung. Betreiber-Flag, SMTP, Empfänger-Opt-in und echte Spielerkonten werden geprüft. Mail enthält nur Absender und Nachrichtenlink; das UI erklärt die Betreiberfreigabe.
+
+## Validation
+
+Alle Nx lint/typecheck/test- und Build-Gates grün; 9 fokussierte Mailtests einschließlich nicht blockierender SMTP-Fehler und System-/NPC-Ausschluss. Backend 240 Suites / 2316 Tests (zusätzlicher Mailinhaltstest separat geprüft), Frontend 122 Dateien / 843 Tests.
+
+- 2026-11-16: Vollständig umgesetzt und geprüft.

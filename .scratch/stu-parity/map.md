@@ -433,3 +433,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-STAT-6b – Eigene Depotstationen der aktuellen Allianz zuordnen/lösen und Bestands-/Standortansicht für Präsident/Vize umgesetzt. Austritt, Rauswurf, Auflösung, Reset und Demontage bereinigen atomar ohne neue Entnahme-/Steuerungsrechte. Pflicht-Gates und 18 PostgreSQL-Tests grün, Migration lokal angewendet – siehe [Ticket](issues/sc-WP-STAT-6b-allianzdepot.md).
 
 - sc-WP-UI-4 – Letzter Kampfbericht an überlebenden Schiffen mit Eigentümerschutz, Icon/Dialog und PostgreSQL-Prüfung umgesetzt; alle Pflicht-Gates grün – siehe [Ticket](issues/sc-WP-UI-4-letzter-kampfbericht-am-schiff.md).
+
+- soc-A4 – PM-Mail nach Zustellung hinter Betreiber-Flag und Empfänger-Opt-in, ohne Inhalt und ohne Blockieren der Nachricht umgesetzt; alle Pflicht-Gates grün – siehe [Ticket](issues/soc-A4-email-bei-neuer-pm.md).

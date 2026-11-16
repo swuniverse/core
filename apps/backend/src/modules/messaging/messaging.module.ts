@@ -11,6 +11,7 @@ import { WebsocketModule } from '../websocket/websocket.module';
 import { AccountDeletionModule } from '../account-deletion/account-deletion.module';
 import { MessagingDeletionHandler } from './messaging-deletion.handler';
 import { MailModule } from '../mail/mail.module';
+import { PrivateMessageNotificationService } from './private-message-notification.service';
 import { AdminBroadcastService } from './admin-broadcast.service';
 
 @Global()
@@ -29,6 +30,7 @@ import { AdminBroadcastService } from './admin-broadcast.service';
     ColonyEventService,
     MessagingDeletionHandler,
     AdminBroadcastService,
+    PrivateMessageNotificationService,
   ],
   exports: [MessagingService, ColonyEventService],
 })
