@@ -28,6 +28,7 @@ describe('Colony sandboxes (PostgreSQL)', () => {
       source,
       { get: () => 3 } as unknown as ConfigService,
       { hasTechByName: async () => true } as never,
+      { calculateSummary: () => ({ housingBonus: 0 }) } as never,
     );
   }, 180_000);
 

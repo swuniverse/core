@@ -59,6 +59,8 @@ function setup(limit?: number) {
     solarOutputTJ: 30,
     energy: 20,
     storageUsed: 5,
+    population: 10,
+    populationMax: 100,
   };
   const saved: object[] = [];
   const repository = {
@@ -92,6 +94,7 @@ function setup(limit?: number) {
     dataSource as never,
     config as never,
     unlocks as never,
+    { calculateSummary: () => ({ housingBonus: 0 }) } as never,
   );
   return {
     service,

@@ -17,6 +17,7 @@ import { UnlockResolverService } from '../research/unlock-resolver.service';
 import { ColonySandbox } from './entities/colony-sandbox.entity';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
+import { ColonyStatsService } from './colony-stats.service';
 import { colonySandboxContext } from './colony-sandbox-context';
 
 /** Mutates only JSON planning inputs. Never calls the live construction/lifecycle actions. */
@@ -29,6 +30,7 @@ export class ColonySandboxPlanningService {
     private readonly gameData: GameDataService,
     private readonly management: ColonyBuildingManagementService,
     private readonly unlocks: UnlockResolverService,
+    private readonly stats: ColonyStatsService,
   ) {}
 
   private async owned(
@@ -124,6 +126,7 @@ export class ColonySandboxPlanningService {
     await this.source.transaction(async (manager) => {
       const sandbox = await this.owned(manager, userId, id, true);
       const colony = colonySandboxContext(sandbox, this.gameData);
+      sandbox.snapshot.baseHousing ??= sandbox.snapshot.populationMax - this.stats.calculateSummary(colony).housingBonus;
       if (action.action === 'mass-toggle') {
         if (
           !Number.isInteger(action.mode) ||

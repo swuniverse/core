@@ -180,6 +180,7 @@ function setup() {
     gameData as never,
     management,
     unlocks as never,
+    stats,
   );
   return {
     service,

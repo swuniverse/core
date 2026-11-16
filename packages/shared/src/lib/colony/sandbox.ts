@@ -43,6 +43,8 @@ export interface ColonySandboxSnapshotDto {
   swuZoneSlot: number | null;
   population: number;
   populationMax: number;
+  /** Housing not provided by active buildings, captured before editing. */
+  baseHousing?: number;
   energyMax: number;
   storageMax: number;
   workers: number;
@@ -95,4 +97,34 @@ export interface ColonySandboxOptionsDto {
     costs: Array<{ commodityId: number; amount: number }>;
   }>;
   terraformingIds: string[];
+}
+
+export interface ColonySandboxMetricsDto {
+  energyBalance: number;
+  energyProduction: number;
+  energyConsumption: number;
+  energyMax: number;
+  population: number;
+  housing: number;
+  housingFree: number;
+  workers: number;
+  freeWorkers: number;
+  lifeStandard: number;
+  lifeStandardPercent: number;
+}
+
+export interface ColonySandboxPreviewDto {
+  sourceColonyName: string | null;
+  sandbox: ColonySandboxMetricsDto;
+  colony: ColonySandboxMetricsDto | null;
+  /** Sandbox minus current colony; percentages are differences in percentage points. */
+  difference: ColonySandboxMetricsDto | null;
+  production: Array<{
+    commodityId: number;
+    name: string;
+    kind: 'WARE' | 'EFFECT' | 'DEPOSIT';
+    sandbox: number;
+    colony: number | null;
+    difference: number | null;
+  }>;
 }

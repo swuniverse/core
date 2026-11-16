@@ -255,6 +255,21 @@ const SWU_KYBER_COMMODITY_ID = 1508;
 export class ColonyStatsService {
   constructor(private readonly gameData: GameDataService) {}
 
+  /** Pure planning calculation: rebuild housing/employment without a tick or persisted state changes. */
+  calculatePlanningSummary(colony: Colony, baseHousing: number): ColonyInternalSummary {
+    const contributions = this.calculateSummary(colony);
+    const workers = contributions.workersUsed;
+    return this.calculateSummary({
+      ...colony,
+      changeable: {
+        ...getColonyChangeable(colony),
+        maxPopulation: Math.max(0, baseHousing + contributions.housingBonus),
+        workers,
+        workless: Math.max(0, colony.population - workers),
+      },
+    });
+  }
+
   calculateSummary(
     colony: Colony,
     excludedFieldIds: Set<number> = new Set(),

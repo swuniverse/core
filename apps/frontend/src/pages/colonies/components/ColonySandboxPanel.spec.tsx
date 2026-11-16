@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   delete: vi.fn(),
 }));
 vi.mock('../../../services/api', () => ({ api: mocks }));
+vi.mock('./ColonySandboxPreview', () => ({ ColonySandboxPreview: () => <div>Sandbox-Bilanz</div> }));
 
 const sandbox = {
   id: 7,

@@ -16,6 +16,7 @@ import { User } from '../auth/user.entity';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
+import { ColonyStatsService } from './colony-stats.service';
 import { ColonyStats } from './entities/colony-stats.entity';
 import { ColonySandbox } from './entities/colony-sandbox.entity';
 
@@ -27,6 +28,7 @@ export class ColonySandboxService {
     private readonly dataSource: DataSource,
     private readonly config: ConfigService,
     private readonly unlocks: UnlockResolverService,
+    private readonly statsCalculator: ColonyStatsService,
   ) {}
 
   private limit(): number {
@@ -170,6 +172,8 @@ export class ColonySandboxService {
         terraformingFinishesAt:
           field.terraformingFinishesAt?.toISOString() ?? null,
       }));
+      const populationMax = context.changeable?.maxPopulation ?? stats?.maxPopulation ?? colony.populationMax;
+      const housingBonus = this.statsCalculator.calculateSummary({ ...context, fields }).housingBonus;
       return manager.save(
         ColonySandbox,
         manager.getRepository(ColonySandbox).create({
@@ -192,11 +196,12 @@ export class ColonySandboxService {
             solarOutputTJ: colony.solarOutputTJ ?? null,
             rotationFactor: colony.rotationFactor ?? null,
             swuZoneSlot: colony.swuZoneSlot ?? null,
-            population: colony.population,
-            populationMax: stats?.maxPopulation ?? colony.populationMax,
-            energyMax: stats?.maxEnergy ?? colony.energyMax,
-            storageMax: stats?.maxStorage ?? colony.storageMax,
-            workers: stats?.workers ?? 0,
+            population: context.changeable ? context.changeable.workers + context.changeable.workless : colony.population,
+            populationMax,
+            baseHousing: populationMax - housingBonus,
+            energyMax: context.changeable?.maxEnergy ?? stats?.maxEnergy ?? colony.energyMax,
+            storageMax: context.changeable?.maxStorage ?? stats?.maxStorage ?? colony.storageMax,
+            workers: context.changeable?.workers ?? stats?.workers ?? 0,
             fields: snapshotFields,
           },
         }),

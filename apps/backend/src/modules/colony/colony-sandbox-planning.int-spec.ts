@@ -1,3 +1,5 @@
+import { ColonySandboxPreviewService } from './colony-sandbox-preview.service';
+import { ColonySocialService } from './colony-social.service';
 import 'reflect-metadata';
 import {
   INestApplication,
@@ -11,6 +13,7 @@ import { DataSource } from 'typeorm';
 import type {
   ColonySandboxDto,
   ColonySandboxOptionsDto,
+  ColonySandboxPreviewDto,
 } from '@swuniverse/shared';
 import { ColonySandboxController } from './colony-sandbox.controller';
 import { ColonySandboxPlanningService } from './colony-sandbox-planning.service';
@@ -22,6 +25,8 @@ import { ColonyBuildingEffectsService } from './colony-building-effects.service'
 import { ColonyFunctionManagerService } from './colony-function-manager.service';
 import { ColonySandbox } from './entities/colony-sandbox.entity';
 import { Colony } from './entities/colony.entity';
+import { ColonyChangeable } from './entities/colony-changeable.entity';
+import type { BuildingDef } from '../game-data/game-data.service';
 import { ColonyField } from './entities/colony-field.entity';
 import { Message } from '../messaging/entities/message.entity';
 import {
@@ -39,7 +44,7 @@ describe('sandbox planning HTTP (PostgreSQL)', () => {
   let otherId: number;
   let colonyId: number;
   let sandboxId: number;
-  const definition = {
+  const definition: BuildingDef = {
     id: 10,
     name: 'Generator',
     category: 'energy',
@@ -49,6 +54,8 @@ describe('sandbox planning HTTP (PostgreSQL)', () => {
     resourceCosts: [{ commodityId: 1, amount: 999 }],
     epsCost: 999,
     epsProc: 20,
+    bevPro: 0,
+    bevUse: 0,
     production: [],
     bonuses: { energy: 0, population: 0, storage: 0 },
     integrity: 100,
@@ -69,7 +76,8 @@ describe('sandbox planning HTTP (PostgreSQL)', () => {
       },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
-    const result = (await response.json()) as ColonySandboxDto &
+    const result = (await response.json()) as ColonySandboxPreviewDto &
+      ColonySandboxDto &
       ColonySandboxOptionsDto & {
         skipped: Array<{ fieldIndex: number; reason: string }>;
       };
@@ -92,6 +100,7 @@ describe('sandbox planning HTTP (PostgreSQL)', () => {
       getCommodity: () => undefined,
       getBuildingUpgradesForBuilding: () => [],
       getAllTerraforming: () => [],
+      getSocialEffects: () => undefined,
     };
     const unlocks = {
       hasTechByName: async () => true,
@@ -140,6 +149,7 @@ describe('sandbox planning HTTP (PostgreSQL)', () => {
       source,
       { get: () => 3 } as never,
       unlocks as never,
+      stats,
     );
     const planning = new ColonySandboxPlanningService(
       source,
@@ -148,12 +158,22 @@ describe('sandbox planning HTTP (PostgreSQL)', () => {
       gameData as never,
       management,
       unlocks as never,
+      stats,
     );
     const module = await Test.createTestingModule({
       controllers: [ColonySandboxController],
       providers: [
         { provide: ColonySandboxService, useValue: sandboxes },
         { provide: ColonySandboxPlanningService, useValue: planning },
+        {
+          provide: ColonySandboxPreviewService,
+          useValue: new ColonySandboxPreviewService(
+            source,
+            stats,
+            new ColonySocialService(gameData as never),
+            gameData as never,
+          ),
+        },
       ],
     })
       .overrideGuard(AuthGuard('jwt'))
@@ -330,5 +350,115 @@ describe('sandbox planning HTTP (PostgreSQL)', () => {
           .findOneByOrFail({ colonyId, fieldIndex: 20 })
       ).buildingId,
     ).toBeNull();
+  });
+  it('previews the copied balance, refreshes after building, and hides a transferred source', async () => {
+    const path = `/colonies/sandboxes/${sandboxId}/preview`;
+    const initial = await http('GET', path, ownerId, undefined, 200);
+    expect(initial.body.sandbox).toEqual(initial.body.colony);
+    expect(
+      Object.values(initial.body.difference!).every((value) => value === 0),
+    ).toBe(true);
+    await http('GET', path, otherId, undefined, 404);
+    await http('GET', path, undefined, undefined, 401);
+    await http(
+      'POST',
+      actionUrl(),
+      ownerId,
+      { action: 'build', fieldIndex: 20, buildingId: 10 },
+      201,
+    );
+    const changed = await http('GET', path, ownerId, undefined, 200);
+    expect(changed.body.sandbox.energyBalance).toBe(20);
+    expect(changed.body.colony!.energyBalance).toBe(0);
+    expect(changed.body.difference!.energyBalance).toBe(20);
+    expect(
+      (
+        await source
+          .getRepository(ColonyField)
+          .findOneByOrFail({ colonyId, fieldIndex: 20 })
+      ).buildingId,
+    ).toBeNull();
+    await source
+      .getRepository(Colony)
+      .update({ id: colonyId }, { userId: otherId });
+    const transferred = await http('GET', path, ownerId, undefined, 200);
+    expect(transferred.body.colony).toBeNull();
+    expect(transferred.body.sourceColonyName).toBeNull();
+    expect(transferred.body.difference).toBeNull();
+    expect(transferred.body.sandbox.energyBalance).toBe(20);
+  });
+
+  it('captures housing without double counting existing buildings and updates every planning metric after demolition', async () => {
+    const original = structuredClone(definition);
+    Object.assign(definition, {
+      bevPro: 10,
+      bevUse: 2,
+      production: [{ commodityId: 1300, amount: 5 }],
+    });
+    try {
+      await source
+        .getRepository(ColonyField)
+        .update(
+          { colonyId, fieldIndex: 20 },
+          { buildingId: 10, isActive: true },
+        );
+      await source
+        .getRepository(ColonyChangeable)
+        .save({
+          colonyId,
+          workers: 2,
+          workless: 8,
+          maxPopulation: 110,
+          energy: 0,
+          maxEnergy: 100,
+          maxStorage: 3000,
+        });
+      const created = await http(
+        'POST',
+        `/colonies/${colonyId}/sandboxes`,
+        ownerId,
+        { name: 'Wohnplan' },
+        201,
+      );
+      sandboxId = created.body.id;
+      expect(created.body.snapshot.baseHousing).toBe(100);
+      const path = `/colonies/sandboxes/${sandboxId}/preview`;
+      const copied = await http('GET', path, ownerId, undefined, 200);
+      expect(copied.body.sandbox).toEqual(copied.body.colony);
+      expect(copied.body.sandbox).toMatchObject({
+        housing: 110,
+        workers: 2,
+        lifeStandard: 5,
+        lifeStandardPercent: 50,
+      });
+      await http(
+        'POST',
+        actionUrl(),
+        ownerId,
+        { action: 'demolish', fieldIndex: 20 },
+        201,
+      );
+      const demolished = await http('GET', path, ownerId, undefined, 200);
+      expect(demolished.body.sandbox).toMatchObject({
+        housing: 100,
+        workers: 0,
+        lifeStandard: 0,
+      });
+      expect(demolished.body.difference).toMatchObject({
+        housing: -10,
+        workers: -2,
+        lifeStandard: -5,
+        lifeStandardPercent: -50,
+      });
+      expect(
+        (
+          await source
+            .getRepository(ColonyField)
+            .findOneByOrFail({ colonyId, fieldIndex: 20 })
+        ).buildingId,
+      ).toBe(10);
+    } finally {
+      Object.assign(definition, original);
+    }
   });
 });

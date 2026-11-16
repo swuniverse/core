@@ -8,6 +8,7 @@ import type {
 import { api } from '../../../services/api';
 import type { BuildingDef, CommodityDef, TerraformingDef } from '../types';
 import { ColonyFieldDialog } from './ColonyFieldDialog';
+import { ColonySandboxPreview } from './ColonySandboxPreview';
 import { PanelBuild } from './PanelBuild';
 import { ColonyMap } from './ColonyMap';
 
@@ -270,6 +271,7 @@ export function ColonySandboxPanel({
               Sandbox löschen
             </button>
           </form>
+          <ColonySandboxPreview sandboxId={detail.id} revision={detail} />
           <fieldset
             disabled={busy}
             className="flex flex-wrap items-center gap-2"

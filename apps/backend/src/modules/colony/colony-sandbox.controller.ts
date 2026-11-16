@@ -1,3 +1,4 @@
+import { ColonySandboxPreviewService } from './colony-sandbox-preview.service';
 import {
   Body,
   Controller,
@@ -93,7 +94,13 @@ export class ColonySandboxController {
   constructor(
     private readonly sandboxes: ColonySandboxService,
     private readonly planning: ColonySandboxPlanningService,
+    private readonly previews: ColonySandboxPreviewService,
   ) {}
+
+  @Get('sandboxes/:sandboxId/preview')
+  preview(@Request() req: { user: { sub: number } }, @Param('sandboxId', ParseIntPipe) id: number) {
+    return this.previews.preview(req.user.sub, id);
+  }
 
   @Get('sandboxes/:sandboxId/fields/:fieldIndex/options')
   options(
