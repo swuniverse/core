@@ -14,9 +14,10 @@ import { Crew, CrewType } from './crew.entity';
 @Index(['colonyId'])
 @Index(['spacecraftId'])
 @Index(['escapePodId'])
+@Index(['tradePostId'])
 @Check(
   'CHK_crew_assignments_single_location',
-  `num_nonnulls("colonyId", "spacecraftId", "escapePodId") = 1`,
+  `num_nonnulls("colonyId", "spacecraftId", "escapePodId", "tradePostId") = 1`,
 )
 export class CrewAssignment {
   @PrimaryColumn()
@@ -38,6 +39,10 @@ export class CrewAssignment {
   /** Neutral escape pod holding the crew member; mutually exclusive with colony and ship. */
   @Column({ type: 'int', nullable: true })
   escapePodId!: number | null;
+
+  /** Crew waiting for its owner at a trade post. */
+  @Column({ type: 'int', nullable: true })
+  tradePostId!: number | null;
 
   @Column({ type: 'varchar', nullable: true })
   slot!: CrewType | null;

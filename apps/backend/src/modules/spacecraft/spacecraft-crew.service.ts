@@ -66,12 +66,14 @@ export class SpacecraftCrewService {
     const ship = await this.findOwnedShip(spacecraftId, userId);
     const [assignments, targets] = await Promise.all([
       this.crewAssignmentRepo.find({
-        where: { spacecraftId, userId },
+        where: { spacecraftId },
         relations: ['crew'],
         order: { crewId: 'ASC' },
       }),
       this.getPositionTargets(ship),
     ]);
+    const foreignCrew = assignments.filter((assignment) => assignment.userId !== userId).map((assignment) => ({ id: assignment.crewId, name: assignment.crew.name, ownerId: assignment.userId }));
+    const ownAssignments = assignments.filter((assignment) => assignment.userId === userId);
     const skills = await this.crewSkillRepo.find({
       where: { crewId: In(assignments.map((assignment) => assignment.crewId)) },
     });
@@ -104,14 +106,15 @@ export class SpacecraftCrewService {
       };
     };
     return {
+      foreignCrew,
       positions: SpacecraftCrewService.positionOrder.map((slot) => ({
         slot,
         target: slot === CrewType.CREWMAN ? null : (targets[slot] ?? 0),
-        crew: assignments
+        crew: ownAssignments
           .filter((assignment) => assignment.slot === slot)
           .map(member),
       })),
-      unassignedCrew: assignments
+      unassignedCrew: ownAssignments
         .filter((assignment) => assignment.slot == null)
         .map(member),
     };

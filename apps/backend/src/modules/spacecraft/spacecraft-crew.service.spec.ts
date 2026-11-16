@@ -72,6 +72,7 @@ describe('SpacecraftCrewService', () => {
     crewAssignmentRepo.find.mockResolvedValue([
       {
         crewId: 4,
+        userId: 7,
         slot: 'COMMAND',
         crew: { name: 'Leia', type: 'CAPTAIN' },
       },
@@ -108,6 +109,7 @@ describe('SpacecraftCrewService', () => {
     crewAssignmentRepo.find.mockResolvedValue([
       {
         crewId: 4,
+        userId: 7,
         slot: 'CAPTAIN',
         crew: {
           name: 'Leia',
@@ -118,6 +120,7 @@ describe('SpacecraftCrewService', () => {
       },
       {
         crewId: 5,
+        userId: 7,
         slot: null,
         crew: {
           name: 'Han',
@@ -221,6 +224,7 @@ describe('SpacecraftCrewService', () => {
     crewAssignmentRepo.find.mockResolvedValue([
       {
         crewId: 4,
+        userId: 7,
         slot: 'COMMAND',
         crew: {
           name: 'Leia',

@@ -1,3 +1,4 @@
+jest.mock('./crew-trade-post', () => ({ closestCrewTradePost: jest.fn(), CREW_LOCATION_RELATIONS: [] }));
 jest.mock('../colony/colony-crew.service', () => ({
   ColonyCrewService: class ColonyCrewService {},
 }));
@@ -35,6 +36,7 @@ jest.mock('./entities/spacecraft.entity', () => ({
   SpacecraftStatus: { IDLE: 'IDLE', IN_FLIGHT: 'IN_FLIGHT' },
 }));
 
+import { closestCrewTradePost } from './crew-trade-post';
 import { BadRequestException } from '@nestjs/common';
 import { EscapePodService } from './escape-pod.service';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
@@ -93,13 +95,14 @@ function setup(
     dataSource as any,
     {} as any,
     {} as any,
-    {} as any,
+    { sendSystem: jest.fn() } as any,
     runtimeState as any,
   );
   return { service, ship, pod, podCrew, removed, saved };
 }
 
 describe('EscapePodService.salvage', () => {
+  beforeEach(() => jest.mocked(closestCrewTradePost).mockResolvedValue({ post: { id: 10, name: 'Naboo' }, point: { x: 4, y: 5, layerId: 1 } } as never));
   it('boards own crew, charges 1 EPS and removes the emptied pod', async () => {
     const { service, ship, podCrew, removed, pod } = setup();
 
@@ -144,45 +147,26 @@ describe('EscapePodService.salvage', () => {
     await expect(service.salvage(1, 7, 9)).rejects.toThrow(BadRequestException);
   });
 
-  it('leaves foreign crew in the pod and rejects when only foreign crew is aboard', async () => {
-    const foreignOnly = setup({
-      podCrew: [
-        {
-          crewId: 3,
-          userId: 8,
-          escapePodId: 9,
-          spacecraftId: null,
-          slot: null,
-        },
-      ],
-    });
-    await expect(foreignOnly.service.salvage(1, 7, 9)).rejects.toThrow(
-      /anderen Spieler/,
-    );
-    expect(foreignOnly.ship.energy).toBe(5);
+  it('transfers foreign crew and also salvages foreign-only pods', async () => {
+    const { service, ship, podCrew, removed } = setup({ podCrew: [{ crewId: 3, userId: 8, escapePodId: 9, spacecraftId: null, slot: null }] });
+    const result = await service.salvage(1, 7, 9);
+    expect(result).toMatchObject({ salvaged: 0, foreign: 1, remaining: 0, energy: 4 });
+    expect(podCrew[0]).toMatchObject({ spacecraftId: null, escapePodId: null, tradePostId: 10 });
+    expect(ship.crew).toBe(1);
+    expect(removed).toHaveLength(1);
+  });
 
-    const mixed = setup({
-      podCrew: [
-        {
-          crewId: 1,
-          userId: 7,
-          escapePodId: 9,
-          spacecraftId: null,
-          slot: null,
-        },
-        {
-          crewId: 3,
-          userId: 8,
-          escapePodId: 9,
-          spacecraftId: null,
-          slot: null,
-        },
-      ],
-    });
-    const result = await mixed.service.salvage(1, 7, 9);
-    expect(result.salvaged).toBe(1);
-    expect(result.foreign).toBe(1);
-    expect(mixed.removed).toEqual([]);
+  it('does not modify mixed pods if even one crew owner has no reachable post', async () => {
+    jest.mocked(closestCrewTradePost).mockResolvedValueOnce(null);
+    const { service, ship, podCrew, removed, saved } = setup({ podCrew: [
+      { crewId: 1, userId: 7, escapePodId: 9, spacecraftId: null, slot: null },
+      { crewId: 3, userId: 8, escapePodId: 9, spacecraftId: null, slot: null },
+    ] });
+    await expect(service.salvage(1, 7, 9)).rejects.toThrow('Kein erreichbarer Handelsposten');
+    expect(podCrew.every((member) => member.escapePodId === 9)).toBe(true);
+    expect(ship.energy).toBe(5);
+    expect(saved).toEqual([]);
+    expect(removed).toEqual([]);
   });
 
   it('rejects pods at another location, active shields and warpdrive', async () => {

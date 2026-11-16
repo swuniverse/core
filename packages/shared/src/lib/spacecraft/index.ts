@@ -262,6 +262,7 @@ export interface SpacecraftCrewManagementMemberDto {
 }
 
 export interface SpacecraftCrewManagementDto {
+  foreignCrew?: Array<{ id: number; name: string; ownerId: number }>;
   positions: Array<{
     slot: SpacecraftCrewPosition;
     target: number | null;
@@ -1033,7 +1034,7 @@ export interface SpacecraftSalvagePodsResultDto {
   salvaged: number;
   /** Own crew that stays in the pod because the ship is full. */
   remaining: number;
-  /** Crew of other players that cannot be salvaged yet. */
+  /** Foreign crew transferred to accessible trade posts. */
   foreign: number;
   /** Source ship EPS after the action. */
   energy: number;
@@ -1054,6 +1055,20 @@ export interface LostCrewPodDto {
     systemId?: number;
     layerId?: number;
   } | null;
+}
+
+export interface LostCrewTradePostDto {
+  tradePostId: number;
+  name: string;
+  crewCount: number;
+  location: LostCrewPodDto['location'];
+}
+
+export interface LostCrewShipDto {
+  crewId: number;
+  name: string;
+  shipId: number;
+  shipName: string;
 }
 
 export interface SpacecraftEpsTransferResultDto {

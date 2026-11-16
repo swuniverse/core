@@ -1,3 +1,6 @@
+import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
+import { EscapePod, EscapePodLaunchReason } from '../spacecraft/entities/escape-pod.entity';
+import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Not, type EntityManager } from 'typeorm';
 import { MessageFolder } from '../messaging/message-folder';
@@ -119,6 +122,46 @@ export class PlayerTradePostService {
 
     const holders = [...new Set([...accounts, ...offers].map((entry) => entry.userId))].sort((left, right) => left - right);
     const coordinates = await this.coordinates(manager, post.locationId);
+    const waitingCrew = await manager.find(CrewAssignment, {
+      where: { tradePostId: post.id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (waitingCrew.length) {
+      const host = await manager.findOne(Spacecraft, {
+        where: { id: station.id },
+      });
+      const pod = await manager.save(
+        manager.create(EscapePod, {
+          locationId: post.locationId,
+          originSpacecraftId: station.id,
+          originShipName: post.name,
+          originShipClassId: host?.shipClassId ?? 0,
+          originFaction: null,
+          presentationKey: 'REBEL_ESCAPE_PODS',
+          launchReason: EscapePodLaunchReason.COMBAT_DESTRUCTION,
+        }),
+      );
+      for (const member of waitingCrew) {
+        member.tradePostId = null;
+        member.escapePodId = pod.id;
+        member.slot = null;
+      }
+      await manager.save(waitingCrew);
+      for (const ownerId of new Set(
+        waitingCrew.map((member) => member.userId),
+      )) {
+        await this.messaging.sendSystem(
+          ownerId,
+          'Crew aus Handelsposten evakuiert',
+          `Deine Crew am Handelsposten "${post.name}" hat den zerstörten Posten in Rettungskapseln verlassen.`,
+          undefined,
+          MessageFolder.SYSTEM,
+          undefined,
+          false,
+          transaction,
+        );
+      }
+    }
     await manager.delete(TradePost, { id: post.id });
     for (const userId of holders) {
       await this.messaging.sendSystem(

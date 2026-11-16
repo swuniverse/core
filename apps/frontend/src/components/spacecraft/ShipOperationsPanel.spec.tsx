@@ -208,3 +208,16 @@ describe('ShipOperationsPanel', () => {
     expect(screen.queryByRole('button', { name: 'Gelb' })).toBeNull();
   });
 });
+
+
+it('shows foreign crew with a release action and no personal editing controls', async () => {
+  const crew = { positions: [], unassignedCrew: [], foreignCrew: [{ id: 4, name: 'Gast', ownerId: 8 }] };
+  apiMocks.get.mockImplementation((path: string) => Promise.resolve(path.endsWith('/crew') ? crew : details));
+  apiMocks.post.mockResolvedValue({});
+  render(<ShipOperationsPanel shipId={2} showDetails onCloseDetails={vi.fn()} showEnergy={false} onCloseEnergy={vi.fn()} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Crew verwalten' }));
+  expect(await screen.findByText('Gast')).toBeTruthy();
+  expect(screen.queryByLabelText('Name von Gast')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Gast in Rettungskapsel ablegen' }));
+  await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/crew/4/release', {}));
+});

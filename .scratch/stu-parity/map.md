@@ -51,6 +51,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Entscheidungen
 
+- 2026-11-16 – sc-WP-CREW-3c – Fremde gerettete Crew wird pro Eigner an den nächsten erreichbaren Posten derselben Ebene überstellt (Manhattan-Distanz, aktuelle Benutzer-/Allianz-/Fraktionsrechte bei Stationsposten; eigenständige NPC-Posten öffentlich). Keine Übernahme des STU-Bugs, der den Posten des ersten Eigners für weitere Eigner wiederverwendet. Vier exklusive Crew-Standorte mit verlustfreiem Rollback-Schutz; wartende Crew wird bei Postenzerstörung in Kapseln evakuiert – siehe [Ticket](issues/sc-WP-CREW-3c-fremde-crew-an-handelsposten.md).
+
 - 2026-11-16 – sc-WP-CLOAK-2a – STU-Tachyon-Scanner heißt in SWU **Gravitationswellenscanner** (Gravitationsanomalien als kanonnaher Tarnungsindikator); Ware 19003, Forschung 60400 und Fertigung verwenden denselben Namen. 10 EPS pro Scan, 3 EPS pro aktivem Tick, 300 s standortgebundene Erkennung für LSS-Zählungen und getarnte Sektorspuren; keine Freigabe von LSS-Schiffsdetails/NBS/Angriffen. Grenzen und atomare Abbuchung mit PostgreSQL geprüft – siehe [sc-WP-CLOAK-2a](issues/sc-WP-CLOAK-2a-tachyon-scan.md).
 
 <!-- Ralph und der Product Owner ergänzen hier: Datum – Issue-ID – Entscheidung -->
@@ -397,3 +399,5 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-CLOAK-2a – Gravitationswellen-Scan mit Modul/Fertigung, atomarem EPS-Verbrauch, fünfminütiger LSS-Erkennung, 18-h-Fenster für getarnte Flugsignaturen und automatischer Kartenaktualisierung umgesetzt; alle Pflicht-Gates und PostgreSQL-Test grün – siehe [Ticket](issues/sc-WP-CLOAK-2a-tachyon-scan.md).
 
 - sc-WP-CLOAK-2b – Frisch aufgedeckte fremde getarnte Kontakte am eigenen Feld sind über die gemeinsame Angriffsregel angreifbar; akzeptierter Angriff enttarnt den Zielteilnehmer vor Kampfbeginn. NBS-Kennzeichnung und Ablaufaktualisierung, übrige Aktionen und Urlaubsschutz bleiben gesperrt bzw. wirksam; vollständige Tests und Pflicht-Gates grün – siehe [Ticket](issues/sc-WP-CLOAK-2b-getarntes-ziel-angreifen.md).
+
+- sc-WP-CREW-3c – Fremde Kapselcrew an erreichbare Handelsposten, atomare Systemnachrichten, erweiterte Verschollenenliste und autorisiertes Ablegen/Abziehen einzelner Crewmitglieder in Kapseln umgesetzt. Migration, Postenzerstörung und Nachrichten-Rollback mit PostgreSQL geprüft; alle Pflicht-Gates grün – siehe [Ticket](issues/sc-WP-CREW-3c-fremde-crew-an-handelsposten.md).

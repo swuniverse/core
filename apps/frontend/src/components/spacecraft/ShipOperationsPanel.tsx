@@ -90,6 +90,15 @@ export function ShipOperationsPanel({
     }
   };
 
+  const releaseForeignCrew = async (crewId: number) => {
+    try {
+      await api.post(`/spacecraft/${shipId}/crew/${crewId}/release`, {});
+      await loadCrew();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Crew konnte nicht abgelegt werden');
+    }
+  };
+
   const updateSlot = async (
     member: SpacecraftCrewManagementMemberDto,
     slot: SpacecraftCrewPosition | null,
@@ -311,6 +320,27 @@ export function ShipOperationsPanel({
                 </section>
               ))}
             </div>
+            {!!crew.foreignCrew?.length && (
+              <section
+                aria-label="Fremde Crew"
+                className="mt-3 border border-swu-border p-2"
+              >
+                <h4 className="font-bold">Fremde Crew</h4>
+                {crew.foreignCrew.map((member) => (
+                  <div key={member.id}>
+                    {member.name}{' '}
+                    <button
+                      type="button"
+                      onClick={() => void releaseForeignCrew(member.id)}
+                      aria-label={`${member.name} in Rettungskapsel ablegen`}
+                      className="ml-2 text-swu-accent"
+                    >
+                      Ablegen
+                    </button>
+                  </div>
+                ))}
+              </section>
+            )}
             {crew.unassignedCrew.map((member) => (
               <CrewMemberRow
                 key={member.id}

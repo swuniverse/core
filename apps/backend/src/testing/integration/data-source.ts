@@ -47,6 +47,7 @@ import { Spacecraft } from '../../modules/spacecraft/entities/spacecraft.entity'
 import { CargoItem } from '../../modules/spacecraft/entities/cargo-item.entity';
 import { SpacecraftTorpedoStorage } from '../../modules/spacecraft/entities/spacecraft-torpedo-storage.entity';
 import { SpacecraftModule } from '../../modules/spacecraft/entities/spacecraft-module.entity';
+import { DockingPrivilege } from '../../modules/spacecraft/entities/docking-privilege.entity';
 import { EscapePod } from '../../modules/spacecraft/entities/escape-pod.entity';
 import { Fleet } from '../../modules/spacecraft/entities/fleet.entity';
 import { SpacecraftTakeover } from '../../modules/spacecraft/entities/spacecraft-takeover.entity';
@@ -144,6 +145,7 @@ export const INTEGRATION_ENTITIES = [
   SpacecraftRepairTask,
   StationShipRepair,
   EscapePod,
+  DockingPrivilege,
   ShipClassDef,
   Colony,
   ColonyField,

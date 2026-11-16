@@ -378,3 +378,38 @@ describe('EscapePodService.processTick', () => {
     expect(h.removed).toHaveLength(1);
   });
 });
+
+
+describe('foreign crew release authorization', () => {
+  function releaseSetup(crewOwner = 8) {
+    const member = { crewId: 1, userId: crewOwner, spacecraftId: 9, colonyId: null, escapePodId: null, slot: 'COMMAND' };
+    const h = setup({ podCrew: [member] });
+    const host = ship();
+    const original = h.manager.findOne.getMockImplementation();
+    h.manager.findOne.mockImplementation(async (entity: Row, query: Row) => {
+      if (entity.name === 'Spacecraft') return host;
+      if (entity.name === 'CrewAssignment') return query.where.crewId === 1 ? member : null;
+      return original(entity, query);
+    });
+    h.manager.count = jest.fn(async () => 0);
+    return { ...h, member, host };
+  }
+
+  it.each([7, 8])('allows host or crew owner %s, clears the slot, and notifies the other owner', async (actorId) => {
+    const { service, member, host, messaging } = releaseSetup();
+    const result = await service.releaseForeignCrew(9, 1, actorId);
+    expect(result.podId).toBe(3);
+    expect(member).toMatchObject({ spacecraftId: null, escapePodId: 3, slot: null });
+    expect(host.crew).toBe(0);
+    expect(messaging.sendSystem).toHaveBeenCalledWith(actorId === 7 ? 8 : 7, expect.any(String), expect.stringContaining('Opfer'), undefined, expect.anything(), undefined, false, expect.objectContaining({ manager: expect.anything() }));
+  });
+
+  it('rejects outsiders and own-ship own-crew releases without writes', async () => {
+    const outsider = releaseSetup();
+    await expect(outsider.service.releaseForeignCrew(9, 1, 99)).rejects.toThrow('Crewmitglied nicht gefunden');
+    expect(outsider.saved).toEqual([]);
+    const own = releaseSetup(7);
+    await expect(own.service.releaseForeignCrew(9, 1, 7)).rejects.toThrow('Eigene Crew');
+    expect(own.saved).toEqual([]);
+  });
+});

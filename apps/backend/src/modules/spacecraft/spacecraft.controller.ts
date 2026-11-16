@@ -685,6 +685,16 @@ export class SpacecraftController {
   }
 
   /** Escape pods holding crew of the caller ("Verschollene Crew"). */
+  @Get('lost-crew/trade-posts')
+  getLostCrewAtPosts(@Request() req: { user: { sub: number } }) {
+    return this.escapePodService.listCrewAtTradePosts(req.user.sub);
+  }
+
+  @Get('lost-crew/ships')
+  getLostCrewOnShips(@Request() req: { user: { sub: number } }) {
+    return this.escapePodService.listCrewOnForeignShips(req.user.sub);
+  }
+
   @Get('lost-crew')
   getLostCrew(@Request() req: { user: { sub: number } }) {
     return this.escapePodService.listLostCrew(req.user.sub);
@@ -776,6 +786,15 @@ export class SpacecraftController {
     @Body('name') name: string,
   ) {
     return this.spacecraftService.rename(id, req.user.sub, name);
+  }
+
+  @Post(':id/crew/:crewId/release')
+  releaseForeignCrew(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('crewId', ParseIntPipe) crewId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.escapePodService.releaseForeignCrew(id, crewId, req.user.sub);
   }
 
   @Get(':id/crew')
