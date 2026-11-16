@@ -862,7 +862,11 @@ export function ColonyDetail({
   const [selectedField, setSelectedField] = useState<ColonyField | null>(null);
   const [mainView, setMainView] = useState<ColonyMainView>('information');
   const [sandboxMode, setSandboxMode] = useState(false);
-  useEffect(() => setSandboxMode(false), [colony.id]);
+  const sandboxColonyId = useRef(colony.id);
+  useEffect(() => {
+    if (sandboxColonyId.current !== colony.id) setSandboxMode(false);
+    sandboxColonyId.current = colony.id;
+  }, [colony.id]);
   const [contextView, setContextView] = useState<ColonyContextView>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<BuildingDef | null>(
     null,
