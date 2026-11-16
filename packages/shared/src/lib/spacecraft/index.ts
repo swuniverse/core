@@ -1224,3 +1224,13 @@ export interface ShuttleManagementDto {
   nearby: Array<{ id: number; name: string; blockReason: string | null }>;
   colonies: Array<{ id: number; name: string; blockReason: string | null }>;
 }
+
+export interface StationScrappingDto {
+  confirmationCode: string;
+  active: boolean;
+  immediate: boolean;
+  remainingTicks: number;
+  requiredWorkbees: number;
+  dockedWorkbees: number;
+  blockReason: string | null;
+}

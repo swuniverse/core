@@ -17,6 +17,7 @@ import { TradePostEntry } from '../components/trade/TradePostEntry';
 import { ShipModulesPanel } from '../components/spacecraft/ShipModulesPanel';
 import { ShipOperationsPanel } from '../components/spacecraft/ShipOperationsPanel';
 import { SelfDestructPanel } from '../components/spacecraft/SelfDestructPanel';
+import { StationScrappingPanel } from '../components/spacecraft/StationScrappingPanel';
 import { SensorOperationsPanel } from '../components/spacecraft/SensorOperationsPanel';
 import { DockingPanel } from '../components/spacecraft/DockingPanel';
 import { StationShipManagementPanel } from '../components/spacecraft/StationShipManagementPanel';
@@ -296,6 +297,13 @@ export function SpacecraftDetailPage() {
         onClose={() => setSelfDestructOpen(false)}
         onDestroyed={() => navigate('/spacecraft')}
       />
+
+      {ship.kind === 'STATION' && <StationScrappingPanel
+        stationId={ship.id}
+        refreshKey={shipRefreshVersion}
+        onChanged={refreshShipAndStorage}
+        onRemoved={() => navigate('/spacecraft')}
+      />}
 
       <NearbySensorPanel
         shipId={ship.id}

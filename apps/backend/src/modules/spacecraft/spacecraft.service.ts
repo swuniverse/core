@@ -148,6 +148,7 @@ import { FLOWN_FIELDS_EVENT } from '../statistics/statistic-events';
 import { StatisticsService } from '../statistics/statistics.service';
 import { FlightSignatureService } from './flight-signature.service';
 import { StationConstructionService } from './station-construction.service';
+import { StationScrappingService } from './station-scrapping.service';
 import { StationRepairService } from './station-repair.service';
 import { StationShipyardService } from './station-shipyard.service';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
@@ -297,6 +298,7 @@ export class SpacecraftService {
     private readonly databaseDiscovery?: DatabaseDiscoveryPort,
     @Optional() private readonly resourceCollection?: ResourceCollectionService,
     @Optional() private readonly resourceConversion?: ResourceConversionService,
+    @Optional() private readonly stationScrapping?: StationScrappingService,
   ) {}
 
   /**
@@ -4871,6 +4873,7 @@ export class SpacecraftService {
     ship: Spacecraft,
     options: { skipRepair?: boolean } = {},
   ): Promise<void> {
+    if (ship.kind === 'STATION' && await this.stationScrapping?.processTick(ship.id)) return;
     const construction = await this.stationConstructionService.processTick(
       ship.id,
     );
@@ -4894,7 +4897,7 @@ export class SpacecraftService {
       );
       return;
     }
-    if (ship.status === SpacecraftStatus.UNDER_CONSTRUCTION) return;
+    if (ship.status === SpacecraftStatus.UNDER_CONSTRUCTION || ship.status === SpacecraftStatus.UNDER_SCRAPPING) return;
     await this.takeoverService.processTick(ship.id);
     if (ship.kind === 'STATION') {
       await this.stationRepairService.processTick(ship.id, options);

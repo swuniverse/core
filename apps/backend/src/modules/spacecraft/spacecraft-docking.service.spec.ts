@@ -1,7 +1,7 @@
 jest.mock('./entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
   SpacecraftKind: { SHIP: 'SHIP', STATION: 'STATION' },
-  SpacecraftStatus: { IDLE: 'IDLE', IN_FLIGHT: 'IN_FLIGHT', DESTROYED: 'DESTROYED' },
+  SpacecraftStatus: { IDLE: 'IDLE', IN_FLIGHT: 'IN_FLIGHT', DESTROYED: 'DESTROYED', UNDER_SCRAPPING: 'UNDER_SCRAPPING' },
 }));
 jest.mock('./entities/fleet.entity', () => ({ Fleet: class Fleet {} }));
 jest.mock('./spacecraft-crew.service', () => ({ SpacecraftCrewService: class SpacecraftCrewService {} }));
@@ -103,6 +103,12 @@ jest.mock('typeorm', () => ({
 }));
 
 describe('SpacecraftDockingService', () => {
+  it('allows a workbee to dock while station scrapping is paused', async () => {
+    const a = ship(1);
+    const { service } = setup([a, station({ status: 'UNDER_SCRAPPING', dockCapacity: 50 })]);
+    await service.dock(1, 1, 100);
+    expect(a.dockedAtId).toBe(100);
+  });
   it('docks a foreign ship when the access rules allow it and notifies the owner', async () => {
     const a = ship(1);
     const { service, privileges } = setup(

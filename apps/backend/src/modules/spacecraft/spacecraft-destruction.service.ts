@@ -158,6 +158,11 @@ export class SpacecraftDestructionService {
       if (!persisted || persisted.status === SpacecraftStatus.DESTROYED) {
         return false;
       }
+      // A surviving combat participant must retain its ongoing scrapping lifecycle.
+      if (persisted.status === SpacecraftStatus.UNDER_SCRAPPING) {
+        ship.status = SpacecraftStatus.UNDER_SCRAPPING;
+        ship.runtimeSystems = {};
+      }
       if (original) {
         if (original.modules) {
           persisted.modules = await manager.find(SpacecraftModule, {

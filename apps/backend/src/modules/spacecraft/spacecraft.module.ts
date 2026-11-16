@@ -1,4 +1,7 @@
 import { ShuttleService } from './shuttle.service';
+import { StationScrappingService } from './station-scrapping.service';
+import { StationScrappingController } from './station-scrapping.controller';
+import { StationScrapping } from './entities/station-scrapping.entity';
 import { ShuttleController } from './shuttle.controller';
 import { ResourceConversionService } from './resource-conversion.service';
 import { ResourceConversionController } from './resource-conversion.controller';
@@ -134,6 +137,7 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
   imports: [
     TypeOrmModule.forFeature([
       Spacecraft,
+      StationScrapping,
       SpacecraftModuleEntity,
       ColonyScan,
       SpacecraftScanResult,
@@ -188,7 +192,7 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     forwardRef(() => TradeModule),
     AccountDeletionModule,
   ],
-  controllers: [ShuttleController, ResourceConversionController, SpacecraftController, NavicomputerJumpController, ResourceCollectionController, FieldMiningController],
+  controllers: [StationScrappingController, ShuttleController, ResourceConversionController, SpacecraftController, NavicomputerJumpController, ResourceCollectionController, FieldMiningController],
   providers: [
     SpacecraftDeletionHandler,
     TradeDealFulfillmentAdapter,
@@ -198,6 +202,7 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     ResourceCollectionService,
     ResourceConversionService,
     ShuttleService,
+    StationScrappingService,
     WormholeRestrictionService,
     WormholeRestrictionAccessPolicy,
     { provide: WORMHOLE_ACCESS_POLICY, useExisting: WormholeRestrictionAccessPolicy },

@@ -81,6 +81,12 @@ function createService() {
 }
 
 describe('ColonyCrewService', () => {
+  it('cannot put crew aboard a station being scrapped', async () => {
+    const { service, crewAssignmentRepo } = createService();
+    await expect(service.transferCrewFromColonyToShip({} as any, { status: 'UNDER_SCRAPPING' } as any, 1))
+      .rejects.toThrow('kann nicht bemannt werden');
+    expect(crewAssignmentRepo.save).not.toHaveBeenCalled();
+  });
   it('calculates a STU-shaped local crew limit from workers and life standard', () => {
     const { service } = createService();
     const colony = {

@@ -160,12 +160,21 @@ export class ColonyCrewService {
     ship: Spacecraft,
     amount: number,
   ): Promise<void> {
+    if (ship.status === 'UNDER_SCRAPPING')
+      throw new BadRequestException('Station wird demontiert und kann nicht bemannt werden');
     this.assertSameOwnerAndLocation(colony, ship);
     this.assertTransferAmount(amount);
     if (!this.dataSource) {
       return this.transferCrewFromColonyToShipLegacy(colony, ship, amount);
     }
     await this.dataSource.transaction(async (manager) => {
+      const currentShip = await manager.findOneOrFail(Spacecraft, {
+        where: { id: ship.id }, lock: { mode: 'pessimistic_write' },
+      });
+      if (currentShip.status === 'UNDER_SCRAPPING')
+        throw new BadRequestException('Station wird demontiert und kann nicht bemannt werden');
+      Object.assign(ship, currentShip);
+      this.assertSameOwnerAndLocation(colony, ship);
       const assignments = await manager.find(CrewAssignment, {
         where: { colonyId: colony.id },
         order: { crewId: 'ASC' },

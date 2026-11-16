@@ -1,4 +1,5 @@
 import { Research } from '../../modules/research/entities/research.entity';
+import { StationScrapping } from '../../modules/spacecraft/entities/station-scrapping.entity';
 import { ColonySandbox } from '../../modules/colony/entities/colony-sandbox.entity';
 import { join } from 'node:path';
 import { DataSource } from 'typeorm';
@@ -137,6 +138,7 @@ export const INTEGRATION_ENTITIES = [
   MapRegion,
   BorderType,
   Spacecraft,
+  StationScrapping,
   CargoItem,
   SpacecraftTorpedoStorage,
   SpacecraftModule,

@@ -197,7 +197,7 @@ export class SpacecraftDockingService {
       }
       pending.push(ship);
     }
-    if (station.status !== SpacecraftStatus.IDLE) {
+    if (station.status !== SpacecraftStatus.IDLE && station.status !== SpacecraftStatus.UNDER_SCRAPPING) {
       throw new BadRequestException('Die Station ist nicht bereit');
     }
     const occupied = await manager

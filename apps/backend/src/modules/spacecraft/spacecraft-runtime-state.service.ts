@@ -108,6 +108,10 @@ export class SpacecraftRuntimeStateService {
 export function initializeSpacecraftRuntimeSystems(
   ship: Spacecraft,
 ): SpacecraftRuntimeSystems {
+  if (ship.status === 'UNDER_SCRAPPING') {
+    ship.runtimeSystems = {};
+    return {};
+  }
   const systems = getStoredSystems(ship);
   const legacy = (
     systems as Record<string, SpacecraftRuntimeSystemState | undefined>

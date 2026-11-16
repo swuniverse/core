@@ -88,6 +88,8 @@ export class ShipManagementService {
     if (foreign || request.targetCrew == null) return;
     const amount = Math.max(0, Math.floor(request.targetCrew) - ship.crew);
     if (!amount) return;
+    if (ship.status === 'UNDER_SCRAPPING')
+      throw new BadRequestException('Station wird demontiert und kann nicht bemannt werden');
     if (
       (await source.availableCrew()) < amount ||
       ship.crew + amount > ship.crewMax

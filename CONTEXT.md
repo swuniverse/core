@@ -198,6 +198,10 @@ _Avoid_: Gebäude, Raumkörper
 Der temporäre Bauzustand einer Station. Es entsteht aus fünf einsatzfähigen Workbees sowie Baumaterial und Duranium und wird anschließend in eine fertige **Stationsrolle** ausgebaut.
 _Avoid_: Baustelle, Rohbau
 
+**Stationsdemontage**:
+Der durch einen Bestätigungscode ausgelöste, nicht abbrechbare Rückbau einer unbemannten **Station**. Die halbe Bauzeit wird nur mit ausreichend angedockten Workbees abgearbeitet. Zufällig recycelte Module gehen innerhalb der Lagergrenze an ein eigenes angedocktes Schiff; am Ende wird die Station entfernt und alle Schiffe werden abgedockt. Ein unbemanntes **Konstrukt** wird sofort entfernt.
+_Avoid_: Selbstzerstörung, Werftdemontage
+
 **Stationsrolle**:
 Die Funktion einer fertigen Station: **Versorgungsdepot**, **Logistikzentrum**, **Raumwerft**, **Sensorphalanx**, **Außenposten** oder **Raumstation**. Die Rolle bestimmt insbesondere Ort, Spielerlimit, Workbee-Bedarf und Dockplätze.
 _Avoid_: Stationsklasse, Rumpfrolle
