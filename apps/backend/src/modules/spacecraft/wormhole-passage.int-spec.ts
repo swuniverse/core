@@ -44,6 +44,8 @@ import {
 } from './field-effect-consequence';
 import { ExplorationService } from '../starmap/exploration.service';
 import { LayerKnowledgeService } from '../starmap/layer-knowledge.service';
+import { LastCombatReportService } from './last-combat-report.service';
+import { SignatureMaskService } from './signature-mask.service';
 import { FlightSignatureService } from './flight-signature.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { ShipClassService } from './ship-class.service';
@@ -135,6 +137,8 @@ describe('Atomic wormhole passage (PostgreSQL)', () => {
       ExplorationService,
       LayerKnowledgeService,
       FlightSignatureService,
+      SignatureMaskService,
+      LastCombatReportService,
       MessagingService,
       ShipClassService,
       SpacecraftRepairService,

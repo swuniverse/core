@@ -87,6 +87,8 @@ import { StarmapVisibilityService } from './starmap-visibility.service';
 import { CartographyPlanService } from './cartography-plan.service';
 import { DatabaseModule } from '../database/database.module';
 import { StatisticsModule } from '../statistics/statistics.module';
+import { SignatureMaskService } from './signature-mask.service';
+import { SignatureMaskController } from './signature-mask.controller';
 import { FlightSignatureService } from './flight-signature.service';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
 import { StationConstructionService } from './station-construction.service';
@@ -194,8 +196,9 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     forwardRef(() => TradeModule),
     AccountDeletionModule,
   ],
-  controllers: [LastCombatReportController, StationScrappingController, ShuttleController, ResourceConversionController, SpacecraftController, NavicomputerJumpController, ResourceCollectionController, FieldMiningController],
+  controllers: [SignatureMaskController, LastCombatReportController, StationScrappingController, ShuttleController, ResourceConversionController, SpacecraftController, NavicomputerJumpController, ResourceCollectionController, FieldMiningController],
   providers: [
+    SignatureMaskService,
     SpacecraftDeletionHandler,
     TradeDealFulfillmentAdapter,
     SpacecraftService,

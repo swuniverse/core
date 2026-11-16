@@ -290,6 +290,7 @@ export function ShipHeaderTable({
                       <td className="w-[20%] pr-2 align-middle">
                         <ShipQuickActions
                           hasLastCombatReport={ship.hasLastCombatReport}
+                          signatureMaskingAvailable={!!systems?.WARPDRIVE}
                           shipId={ship.id}
                           onRefresh={() => onUpdate?.()}
                           onInfo={onInfo}
@@ -368,6 +369,7 @@ export function ShipHeaderTable({
         />
         <ShipQuickActions
           hasLastCombatReport={ship.hasLastCombatReport}
+          signatureMaskingAvailable={!!systems?.WARPDRIVE}
           shipId={ship.id}
           onRefresh={() => onUpdate?.()}
           onInfo={onInfo}

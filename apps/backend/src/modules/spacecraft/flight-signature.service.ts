@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, LessThan, Repository } from 'typeorm';
 import { ShipClassDef } from './entities/ship-class-def.entity';
@@ -9,6 +9,7 @@ import {
 } from './entities/flight-signature.entity';
 import { Spacecraft } from './entities/spacecraft.entity';
 import { ShipClassService } from './ship-class.service';
+import { SignatureMaskService } from './signature-mask.service';
 import { isCloaked } from './spacecraft-cloak';
 
 const HOUR = 60 * 60 * 1000;
@@ -32,6 +33,7 @@ export class FlightSignatureService {
     @InjectRepository(FlightSignature)
     private readonly signatureRepo: Repository<FlightSignature>,
     private readonly shipClassService: ShipClassService,
+    @Optional() private readonly masks?: SignatureMaskService,
   ) {}
 
   async createMovement(
@@ -42,32 +44,42 @@ export class FlightSignatureService {
     manager?: EntityManager,
   ): Promise<void> {
     if (!origin || !destination) return;
-    const repository = manager?.getRepository(FlightSignature) ?? this.signatureRepo;
-    const shipClass = manager
-      ? await manager.findOneBy(ShipClassDef, { id: ship.shipClassId })
-      : await this.shipClassService.findById(ship.shipClassId);
-    const common = {
-      userId: ship.userId,
-      spacecraftId: ship.id,
-      spacecraftName: ship.name,
-      shipClassId: ship.shipClassId,
-      shipClassName: shipClass?.name ?? `Klasse #${ship.shipClassId}`,
-      isCloaked: isCloaked(ship),
+    const emit = async (
+      transaction?: EntityManager,
+      maskedHull: ShipClassDef | null = null,
+    ) => {
+      const repository =
+        transaction?.getRepository(FlightSignature) ?? this.signatureRepo;
+      const shipClass =
+        maskedHull ??
+        (transaction
+          ? await transaction.findOneBy(ShipClassDef, { id: ship.shipClassId })
+          : await this.shipClassService.findById(ship.shipClassId));
+      const common = {
+        userId: ship.userId,
+        spacecraftId: ship.id,
+        spacecraftName: ship.name,
+        shipClassId: shipClass?.id ?? ship.shipClassId,
+        shipClassName: shipClass?.name ?? `Klasse #${ship.shipClassId}`,
+        isCloaked: isCloaked(ship),
+      };
+      await repository.save([
+        repository.create({
+          ...common,
+          locationId: origin.id,
+          fromDirection: null,
+          toDirection: direction,
+        }),
+        repository.create({
+          ...common,
+          locationId: destination.id,
+          fromDirection: direction === null ? null : this.opposite(direction),
+          toDirection: null,
+        }),
+      ]);
     };
-    await repository.save([
-      repository.create({
-        ...common,
-        locationId: origin.id,
-        fromDirection: null,
-        toDirection: direction,
-      }),
-      repository.create({
-        ...common,
-        locationId: destination.id,
-        fromDirection: direction === null ? null : this.opposite(direction),
-        toDirection: null,
-      }),
-    ]);
+    if (this.masks) await this.masks.withSnapshot(ship, manager, emit);
+    else await emit(manager);
   }
 
   async getVisibleAt(

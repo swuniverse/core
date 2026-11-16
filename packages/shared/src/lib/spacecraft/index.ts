@@ -1236,3 +1236,16 @@ export interface StationScrappingDto {
   dockedWorkbees: number;
   blockReason: string | null;
 }
+
+export interface SignatureMaskChoiceDto {
+  shipClassId: number;
+  name: string;
+  driveLevel: number;
+  epsCost: number;
+}
+export interface SignatureMaskDto {
+  energy: number;
+  blockReason: string | null;
+  choices: SignatureMaskChoiceDto[];
+  active: { shipClassId: number; name: string; expiresAt: string } | null;
+}

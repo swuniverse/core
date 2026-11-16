@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { api } from '../../services/api';
 import { CommunicationDrawer } from './CommunicationDrawer';
 import { RepairDialog } from './RepairDialog';
+import { SignatureMaskButton } from './SignatureMaskButton';
 import { LastCombatReportButton } from './LastCombatReportButton';
 
 interface ShipQuickActionsProps {
   hasLastCombatReport?: boolean;
+  signatureMaskingAvailable?: boolean;
   shipId: number;
   onRefresh: () => void;
   onInfo: () => void;
@@ -43,6 +45,7 @@ const ACTIONS: QuickAction[] = [
 
 export function ShipQuickActions({
   hasLastCombatReport,
+  signatureMaskingAvailable,
   shipId,
   onRefresh,
   onInfo,
@@ -83,6 +86,7 @@ export function ShipQuickActions({
         aria-label="Schiffsaktionen"
       >
         <LastCombatReportButton shipId={shipId} available={hasLastCombatReport} />
+        <SignatureMaskButton shipId={shipId} available={signatureMaskingAvailable} onRefresh={onRefresh} />
         {ACTIONS.map((action, index) => (
           <button
             key={`${action.action ?? action.target ?? action.label}-${index}`}

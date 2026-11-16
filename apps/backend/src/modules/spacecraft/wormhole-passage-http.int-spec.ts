@@ -32,6 +32,7 @@ import { FlightSignature } from './entities/flight-signature.entity';
 import { GameGateway } from '../websocket/game.gateway';
 import { WormholeRestriction } from './entities/wormhole-restriction.entity';
 import { Alliance } from '../alliance/entities/alliance.entity';
+import { AllianceDepot } from '../alliance/entities/alliance-depot.entity';
 import { AllianceMembership } from '../alliance/entities/alliance-membership.entity';
 import { AllianceService } from '../alliance/alliance.service';
 import { AllianceResetService } from '../alliance/alliance-reset.service';
@@ -109,6 +110,7 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
     expect(options.synchronize).toBe(false);
     await optionsModule.close();
     source = await new DataSource(options).initialize();
+    expect(source.hasMetadata(AllianceDepot)).toBe(true);
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(ConfigService)
       .useValue(config)
@@ -222,6 +224,44 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
       },
     );
   }
+
+  it('protects signature masking endpoints and validates hull IDs in the production HTTP graph', async () => {
+    const path = `${await app.getUrl()}/api/spacecraft/${ship.id}/signature-mask`;
+    const requestMask = (method: string, userId?: number, body?: unknown) =>
+      fetch(path, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(userId == null
+            ? {}
+            : {
+                Authorization: `Bearer ${jwt.sign({ sub: userId, username: 'operator' })}`,
+              }),
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+    expect((await requestMask('GET')).status).toBe(401);
+    const stranger = await createUser(source);
+    expect((await requestMask('GET', stranger.id)).status).toBe(404);
+    expect((await requestMask('DELETE', stranger.id)).status).toBe(404);
+    const menu = await requestMask('GET', ship.userId);
+    expect(menu.status).toBe(200);
+    expect(await menu.json()).toMatchObject({
+      energy: 0,
+      active: null,
+      choices: [],
+    });
+    for (const shipClassId of [0, -1, 1.5, 2147483648, 'invalid']) {
+      expect(
+        (await requestMask('POST', ship.userId, { shipClassId })).status,
+      ).toBe(400);
+    }
+    expect((await requestMask('DELETE', ship.userId)).status).toBe(200);
+    expect(
+      (await source.getRepository(Spacecraft).findOneByOrFail({ id: ship.id }))
+        .energy,
+    ).toBe(0);
+  });
 
   it('only lets the entry-field station operator list wormhole rules through authenticated HTTP', async () => {
     const station = await source.getRepository(Spacecraft).save({

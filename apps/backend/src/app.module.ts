@@ -113,6 +113,7 @@ import { StatisticSnapshot } from './modules/statistics/entities/statistic-snaps
 import { StatisticHourCounter } from './modules/statistics/entities/statistic-hour-counter.entity';
 import { AllianceModule } from './modules/alliance/alliance.module';
 import { Alliance } from './modules/alliance/entities/alliance.entity';
+import { AllianceDepot } from './modules/alliance/entities/alliance-depot.entity';
 import { AllianceMembership } from './modules/alliance/entities/alliance-membership.entity';
 import { AllianceApplication } from './modules/alliance/entities/alliance-application.entity';
 import { AllianceRelationship } from './modules/alliance/entities/alliance-relationship.entity';
@@ -265,6 +266,7 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
           StatisticSnapshot,
           StatisticHourCounter,
           Alliance,
+          AllianceDepot,
           AllianceMembership,
           AllianceApplication,
           DiplomacyParty,
