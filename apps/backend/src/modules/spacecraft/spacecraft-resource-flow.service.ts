@@ -27,6 +27,7 @@ const SYSTEM_EPS_USAGE: Partial<Record<SpacecraftRuntimeSystemKey, number>> = {
   MATRIX_SCANNER: 0,
   LIFE_SUPPORT: 1,
   DEFLECTOR: 0,
+  BEAM_BLOCKER: 0,
   RESOURCE_COLLECTOR: 10,
   RESOURCE_CONVERTER: 10,
 };
@@ -50,6 +51,7 @@ const SYSTEM_LABELS: Partial<Record<SpacecraftRuntimeSystemKey, string>> = {
   MATRIX_SCANNER: 'Matrixsensoren',
   LIFE_SUPPORT: 'Lebenserhaltung',
   DEFLECTOR: 'Deflektor',
+  BEAM_BLOCKER: 'Beamblocker',
   SHUTTLE_RAMP: 'Shuttlerampe',
   HYPERSPACE_COIL: 'Hyperraum-Spule',
   RESOURCE_COLLECTOR: 'Ressourcen-Kollektor',

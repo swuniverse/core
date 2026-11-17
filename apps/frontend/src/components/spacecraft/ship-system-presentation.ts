@@ -127,6 +127,13 @@ export const SHIP_SYSTEMS: ShipSystemPresentation[] = [
     '⛉',
     'border-sky-400/60 bg-sky-500/10 text-sky-100',
   ),
+  system(
+    'BEAM_BLOCKER',
+    'Beamblocker',
+    'Fest eingebautes Stationssystem ohne EPS-Verbrauch',
+    '⛉',
+    'border-sky-400/60 bg-sky-500/10 text-sky-100',
+  ),
 ];
 
 export const SHIP_SYSTEM_PRESENTATION = new Map(

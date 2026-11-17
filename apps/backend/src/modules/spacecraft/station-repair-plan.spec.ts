@@ -6,6 +6,7 @@ import {
   requiredSelfRepairWorkbees,
   SPARE_PARTS_ID,
   SYSTEM_COMPONENTS_ID,
+  needsRepair,
 } from './station-repair-plan';
 import type { StationRole } from './entities/spacecraft.entity';
 import type { SpacecraftModule } from './entities/spacecraft-module.entity';
@@ -14,6 +15,34 @@ const damaged = (id: number, integrity = 100): SpacecraftModule =>
   ({ id, integrity, isActive: true, cooldown: 0 }) as SpacecraftModule;
 
 describe('station repair plan', () => {
+  it('includes the built-in beamblocker in the two-system budget and restores its destroyed default mode', () => {
+    const beam = { active: false, cooldown: 0, integrity: 0 };
+    const station = { kind: 'STATION', crew: 1, hull: 1000, hullMax: 1000, runtimeSystems: { BEAM_BLOCKER: beam } };
+    const modules = [damaged(1, 20), damaged(2, 50)];
+    expect(needsRepair(station, [])).toBe(true);
+    expect(estimateRepairSteps(station, modules)).toBe(2);
+    const first = planRepairStep(station, modules);
+    expect(first.beamBlocker).toBeUndefined();
+    applyRepairStep(station, first);
+    const second = planRepairStep(station, modules);
+    expect(second.costs).toEqual([
+      { commodityId: SPARE_PARTS_ID, amount: 1 },
+      { commodityId: SYSTEM_COMPONENTS_ID, amount: 1 },
+    ]);
+    applyRepairStep(station, second);
+    expect(beam).toMatchObject({ active: true, integrity: 100 });
+    expect(needsRepair(station, modules)).toBe(false);
+    beam.integrity = 50;
+    beam.active = false;
+    applyRepairStep(station, planRepairStep(station, modules));
+    expect(beam).toMatchObject({ active: true, integrity: 100 });
+    station.crew = 0;
+    beam.integrity = 0;
+    beam.active = false;
+    applyRepairStep(station, planRepairStep(station, modules));
+    expect(beam).toMatchObject({ active: false, integrity: 100 });
+    expect(needsRepair(station, [])).toBe(false);
+  });
   it('restores 100 hull and two damaged systems per step for one spare part and one component', () => {
     const modules = [damaged(1, 20), damaged(2, 50), damaged(3, 10), damaged(4)];
     const ship = { hull: 150, hullMax: 1000 };

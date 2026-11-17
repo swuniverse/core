@@ -2,6 +2,14 @@ import { SpacecraftResourceFlowService } from './spacecraft-resource-flow.servic
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 
 describe('SpacecraftResourceFlowService', () => {
+  it('charges no additional tick EPS for the built-in station beamblocker', () => {
+    const service = createService();
+    const ship = makeShip();
+    const station = makeShip({ kind: 'STATION', runtimeSystems: { BEAM_BLOCKER: { active: true, cooldown: 0, integrity: 100 } } });
+    expect(service.getSystemCost('BEAM_BLOCKER')).toBe(0);
+    expect(service.calculate(station as never).totalSystemConsumption).toBe(service.calculate(ship as never).totalSystemConsumption);
+    expect(service.calculate(station as never).systems).toContainEqual({ systemKey: 'BEAM_BLOCKER', label: 'Beamblocker', active: true, epsPerTick: 0 });
+  });
   function createService() {
     return new SpacecraftResourceFlowService(
       new SpacecraftRuntimeStateService(),

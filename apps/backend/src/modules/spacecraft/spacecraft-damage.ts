@@ -19,6 +19,7 @@ export interface DamageRandom {
 type SystemState = { active?: boolean; integrity?: number };
 
 const SYSTEM_NAMES: Record<string, string> = {
+  BEAM_BLOCKER: 'Beamblocker',
   DEFLECTOR: 'Deflektor',
   LONG_RANGE_SENSORS: 'Langstreckensensoren',
   SHORT_RANGE_SENSORS: 'Nahbereichssensoren',

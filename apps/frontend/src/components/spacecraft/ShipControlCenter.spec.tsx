@@ -43,6 +43,11 @@ const baseProps: {
 };
 
 describe('ShipControlCenter', () => {
+  it('shows the built-in beamblocker without an activation or deactivation button', async () => {
+    render(<ShipControlCenter shipId={2} onUpdate={onUpdate} systems={{ BEAM_BLOCKER: { active: true, cooldown: 0, integrity: 72 } }} />);
+    expect(screen.getByText(/Beamblocker · aktiv · 72% · 0 EPS/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Beamblocker/ })).toBeNull();
+  });
   beforeEach(() => {
     apiMocks.patch.mockReset();
     apiMocks.post.mockReset();

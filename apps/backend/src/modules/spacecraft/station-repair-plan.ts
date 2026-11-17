@@ -1,5 +1,19 @@
 import type { SpacecraftModule } from './entities/spacecraft-module.entity';
 import type { StationRole } from './entities/spacecraft.entity';
+import type { SpacecraftRuntimeSystemStateDto } from '@swuniverse/shared';
+
+type RepairableSpacecraft = {
+  hull: number;
+  hullMax: number;
+  kind?: string;
+  crew?: number;
+  runtimeSystems?: Record<string, unknown> | null;
+};
+
+function damagedBeamBlocker(ship: RepairableSpacecraft): SpacecraftRuntimeSystemStateDto | undefined {
+  const state = ship.runtimeSystems?.BEAM_BLOCKER as SpacecraftRuntimeSystemStateDto | undefined;
+  return ship.kind === 'STATION' && state && state.integrity < 100 ? state : undefined;
+}
 
 export const SPARE_PARTS_ID = 10001;
 export const SYSTEM_COMPONENTS_ID = 10002;
@@ -28,6 +42,7 @@ export interface RepairStep {
   hullRepair: number;
   modules: SpacecraftModule[];
   costs: RepairCost[];
+  beamBlocker?: SpacecraftRuntimeSystemStateDto;
 }
 
 export function isModuleDamaged(module: SpacecraftModule): boolean {
@@ -35,10 +50,10 @@ export function isModuleDamaged(module: SpacecraftModule): boolean {
 }
 
 export function needsRepair(
-  ship: { hull: number; hullMax: number },
+  ship: RepairableSpacecraft,
   modules: SpacecraftModule[],
 ): boolean {
-  return ship.hull < ship.hullMax || modules.some(isModuleDamaged);
+  return ship.hull < ship.hullMax || modules.some(isModuleDamaged) || !!damagedBeamBlocker(ship);
 }
 
 /** Only shipyards and bases repair docked ships (STU `StationUtility::canRepairShips`). */
@@ -52,28 +67,29 @@ export function requiredSelfRepairWorkbees(role: StationRole | null): number {
 
 /** What one passive repair step restores and which parts it consumes. */
 export function planRepairStep(
-  ship: { hull: number; hullMax: number },
+  ship: RepairableSpacecraft,
   modules: SpacecraftModule[],
 ): RepairStep {
   const hullRepair = Math.min(HULL_REPAIR_PER_STEP, Math.max(0, ship.hullMax - ship.hull));
   const repaired = modules.filter(isModuleDamaged).slice(0, SYSTEMS_REPAIR_PER_STEP);
+  const beamBlocker = repaired.length < SYSTEMS_REPAIR_PER_STEP ? damagedBeamBlocker(ship) : undefined;
   const costs: RepairCost[] = [];
-  if (hullRepair > 0 || repaired.length > 0) costs.push({ commodityId: SPARE_PARTS_ID, amount: 1 });
-  if (repaired.length > 0) costs.push({ commodityId: SYSTEM_COMPONENTS_ID, amount: 1 });
-  return { hullRepair, modules: repaired, costs };
+  if (hullRepair > 0 || repaired.length > 0 || beamBlocker) costs.push({ commodityId: SPARE_PARTS_ID, amount: 1 });
+  if (repaired.length > 0 || beamBlocker) costs.push({ commodityId: SYSTEM_COMPONENTS_ID, amount: 1 });
+  return { hullRepair, modules: repaired, costs, ...(beamBlocker ? { beamBlocker } : {}) };
 }
 
 export function estimateRepairSteps(
-  ship: { hull: number; hullMax: number },
+  ship: RepairableSpacecraft,
   modules: SpacecraftModule[],
 ): number {
   const hullSteps = Math.ceil(Math.max(0, ship.hullMax - ship.hull) / HULL_REPAIR_PER_STEP);
-  const systemSteps = Math.ceil(modules.filter(isModuleDamaged).length / SYSTEMS_REPAIR_PER_STEP);
+  const systemSteps = Math.ceil((modules.filter(isModuleDamaged).length + (damagedBeamBlocker(ship) ? 1 : 0)) / SYSTEMS_REPAIR_PER_STEP);
   return Math.max(hullSteps, systemSteps);
 }
 
 export function applyRepairStep(
-  ship: { hull: number; hullMax: number },
+  ship: RepairableSpacecraft,
   step: RepairStep,
 ): void {
   ship.hull = Math.min(ship.hullMax, ship.hull + step.hullRepair);
@@ -81,5 +97,10 @@ export function applyRepairStep(
     module.integrity = 100;
     module.isActive = true;
     module.cooldown = 0;
+  }
+  if (step.beamBlocker) {
+    // STU passive station repair restores default modes when crew is aboard.
+    if ((ship.crew ?? 0) > 0) step.beamBlocker.active = true;
+    step.beamBlocker.integrity = 100;
   }
 }

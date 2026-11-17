@@ -140,6 +140,7 @@ export const SPACECRAFT_RUNTIME_SYSTEM_KEYS = [
   'SHUTTLE_RAMP',
   'LIFE_SUPPORT',
   'DEFLECTOR',
+  'BEAM_BLOCKER',
 ] as const;
 
 export type SpacecraftRuntimeSystemKey =

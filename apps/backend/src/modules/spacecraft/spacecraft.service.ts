@@ -1132,7 +1132,7 @@ export class SpacecraftService {
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
     if (operatingMode === SpacecraftOperatingMode.STANDBY) {
       for (const [key, state] of Object.entries(systems)) {
-        if (state && key !== 'LIFE_SUPPORT') state.active = false;
+        if (state && key !== 'LIFE_SUPPORT' && key !== 'BEAM_BLOCKER') state.active = false;
       }
       systems.LIFE_SUPPORT = {
         ...(systems.LIFE_SUPPORT ?? { cooldown: 0, integrity: 100 }),
@@ -1196,6 +1196,12 @@ export class SpacecraftService {
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
     const system = systems[systemKey];
     if (!system) throw new BadRequestException(`Unknown system: ${systemKey}`);
+    if (systemKey === 'BEAM_BLOCKER' && !active)
+      throw new BadRequestException('Der Beamblocker ist ein dauerhaft aktives Stationssystem');
+    if (systemKey === 'BEAM_BLOCKER' && active) {
+      this.spacecraftRuntimeStateService.requireActivation(systems, systemKey);
+      if (!systems.EPS) throw new BadRequestException('Beamblocker benötigt ein EPS-System');
+    }
     const cloakState = systems.CLOAK;
     const labWasActive = systems.ASTROMETRY_LAB?.active === true;
     if (cloakState) {
@@ -1345,6 +1351,7 @@ export class SpacecraftService {
       SHUTTLE_RAMP: 'Shuttlerampe',
       LIFE_SUPPORT: 'Lebenserhaltung',
       DEFLECTOR: 'Deflektor',
+      BEAM_BLOCKER: 'Beamblocker',
     };
     this.gameGateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, {
       shipId: ship.id,
@@ -1423,6 +1430,7 @@ export class SpacecraftService {
   ): Promise<void> {
     const modules = ship.modules ?? [];
     if (
+      systemKey !== 'BEAM_BLOCKER' &&
       !modules.some((module) =>
         getRuntimeSystemsForModule(module).includes(systemKey),
       )

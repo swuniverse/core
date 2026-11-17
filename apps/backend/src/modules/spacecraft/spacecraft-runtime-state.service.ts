@@ -128,6 +128,7 @@ export function initializeSpacecraftRuntimeSystems(
     const smallCraft = ship.shuttleCommodityId != null ||
       ['SHUTTLE', 'WORKBEE'].includes(ship.shipClass?.role ?? '');
     const availableSystems = getAvailableSystems(ship.modules, smallCraft);
+    if (ship.kind === 'STATION') availableSystems.add('BEAM_BLOCKER');
     for (const key of Object.keys(systems) as SpacecraftRuntimeSystemKey[]) {
       if (!availableSystems.has(key)) delete systems[key];
     }
@@ -146,6 +147,7 @@ export function initializeSpacecraftRuntimeSystems(
           key !== 'RESOURCE_COLLECTOR' &&
           key !== 'RESOURCE_CONVERTER' &&
           key !== 'SHUTTLE_RAMP' &&
+          key !== 'BEAM_BLOCKER' &&
           (key === 'LIFE_SUPPORT' ||
             key === 'DEFLECTOR' ||
             backingModules.length === 0 ||
@@ -171,12 +173,22 @@ export function initializeSpacecraftRuntimeSystems(
         key === 'HYPERSPACE_COIL' ||
         key === 'RESOURCE_COLLECTOR' ||
         key === 'RESOURCE_CONVERTER' ||
-        key === 'SHUTTLE_RAMP'
+        key === 'SHUTTLE_RAMP' ||
+        key === 'BEAM_BLOCKER'
       )
         continue;
       systems[key] ??= { active: true, cooldown: 0, integrity: 100 };
     }
   }
+  // STU station defaults are independent of module hydration. Reading retains
+  // forced shutdown and damage; only startup/repair may restore their mode.
+  if (ship.kind === 'STATION') {
+    systems.BEAM_BLOCKER ??= {
+      active: false,
+      cooldown: 0,
+      integrity: 100,
+    };
+  } else delete systems.BEAM_BLOCKER;
   if (systems.EPS) {
     systems.EPS = withDefaults(systems.EPS, {
       current: ship.energy,
@@ -227,6 +239,7 @@ function getAvailableSystems(
           'RESOURCE_COLLECTOR',
           'RESOURCE_CONVERTER',
           'SHUTTLE_RAMP',
+          'BEAM_BLOCKER',
         ].includes(key)
       )
         systems.add(key);

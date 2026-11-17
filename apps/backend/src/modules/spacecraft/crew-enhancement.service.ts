@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, In } from 'typeorm';
 import { Crew } from '../colony/entities/crew.entity';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { CrewSkill } from './entities/crew-skill.entity';
@@ -24,15 +24,18 @@ export class CrewEnhancementService {
     const run = async (entityManager: EntityManager) => {
       const assignments = await entityManager.find(CrewAssignment, {
         where: { spacecraftId },
-        relations: ['crew', 'crew.skills'],
+        relations: ['crew'],
       });
+      const skills = assignments.length > 0 ? await entityManager.find(CrewSkill, {
+        where: { crewId: In(assignments.map((assignment) => assignment.crewId)) },
+      }) : [];
       const amounts = CREW_ENHANCEMENT_AMOUNTS[event];
       for (const assignment of assignments) {
         if (!assignment.slot) continue;
         const amount = amounts[assignment.slot] ?? 0;
         if (amount <= 0) continue;
         const skill =
-          assignment.crew.skills?.find((value) => value.position === assignment.slot) ??
+          skills.find((value) => value.crewId === assignment.crewId && value.position === assignment.slot) ??
           entityManager.create(CrewSkill, {
             crewId: assignment.crewId,
             position: assignment.slot,
@@ -58,11 +61,11 @@ export class CrewEnhancementService {
     await this.dataSource.transaction(async (manager) => {
       const crew = await manager.findOne(Crew, {
         where: { id: crewId, userId },
-        relations: ['skills'],
         lock: { mode: 'pessimistic_write' },
       });
       if (!crew) throw new NotFoundException('Crew member not found');
-      const highestExpertise = Math.max(0, ...(crew.skills ?? []).map((skill) => skill.expertise));
+      const skills = await manager.find(CrewSkill, { where: { crewId } });
+      const highestExpertise = Math.max(0, ...skills.map((skill) => skill.expertise));
       const next = nextPromotableRank(crew.rank ?? CrewRank.CADET, highestExpertise);
       if (!next) throw new BadRequestException('Crew member is not eligible for promotion');
       const definition = crewRankDefinition(next.rank);

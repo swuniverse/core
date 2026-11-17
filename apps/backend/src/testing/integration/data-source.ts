@@ -70,6 +70,7 @@ import { ColonyChangeable } from '../../modules/colony/entities/colony-changeabl
 import { ColonyCrewTrainingQueue } from '../../modules/colony/entities/colony-crew-training-queue.entity';
 import { Crew } from '../../modules/colony/entities/crew.entity';
 import { CrewAssignment } from '../../modules/colony/entities/crew-assignment.entity';
+import { CrewSkill } from '../../modules/spacecraft/entities/crew-skill.entity';
 import { GameStatus } from '../../modules/game-status/entities/game-status.entity';
 import { GameEvent } from '../../modules/events/entities/game-event.entity';
 import { CartographyPlan } from '../../modules/spacecraft/entities/cartography-plan.entity';
@@ -168,6 +169,7 @@ export const INTEGRATION_ENTITIES = [
   ColonyCrewTrainingQueue,
   Crew,
   CrewAssignment,
+  CrewSkill,
   GameStatus,
   GameEvent,
   CartographyPlan,

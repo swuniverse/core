@@ -8,6 +8,25 @@ import {
 } from './spacecraft-runtime-state.service';
 
 describe('SpacecraftRuntimeStateService', () => {
+  it('adds the STU beamblocker only to stations, with or without hydrated modules', () => {
+    const service = new SpacecraftRuntimeStateService();
+    for (const modules of [undefined, []]) {
+      const station = { kind: 'STATION', crew: 2, crewRequired: 2, modules, runtimeSystems: {} } as never;
+      expect(service.initialize(station).BEAM_BLOCKER).toEqual({ active: false, cooldown: 0, integrity: 100 });
+      const ship = { kind: 'SHIP', modules, runtimeSystems: { BEAM_BLOCKER: { active: true, cooldown: 0, integrity: 100 } } } as never;
+      expect(service.initialize(ship).BEAM_BLOCKER).toBeUndefined();
+    }
+  });
+
+  it('preserves beamblocker shutdown and damage, and creates an inactive default without sufficient crew', () => {
+    const service = new SpacecraftRuntimeStateService();
+    for (const integrity of [0, 75]) {
+      const station = { kind: 'STATION', modules: [], crew: 2, crewRequired: 1, runtimeSystems: { BEAM_BLOCKER: { active: false, cooldown: 0, integrity } } } as never;
+      expect(service.initialize(station).BEAM_BLOCKER).toEqual({ active: false, cooldown: 0, integrity });
+    }
+    expect(service.initialize({ kind: 'STATION', modules: [], crew: 0, crewRequired: 1, runtimeSystems: {} } as never).BEAM_BLOCKER?.active).toBe(false);
+    expect(service.initialize({ kind: 'STATION', status: 'UNDER_SCRAPPING', modules: [], runtimeSystems: {} } as never).BEAM_BLOCKER).toBeUndefined();
+  });
   it('initializes life support and preserves existing runtime state', () => {
     const service = new SpacecraftRuntimeStateService();
     const ship = {

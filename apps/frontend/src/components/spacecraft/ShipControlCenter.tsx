@@ -39,6 +39,7 @@ export const SYSTEM_ASSETS: Record<string, string> = {
   WARPDRIVE: '10.png',
   SHIELDS: '11.png',
   LIFE_SUPPORT: '13.png',
+  BEAM_BLOCKER: '22.png',
 };
 
 export function ShipControlCenter({
@@ -182,6 +183,12 @@ export function ShipControlCenter({
         {systems?.RESOURCE_COLLECTOR && <ResourceCollectionPanel shipId={shipId} onUpdate={onUpdate} refreshKey={JSON.stringify(systems)} />}
         {systemRow('SHIELDS')}
         {systemRow('WEAPONS')}
+        {systems?.BEAM_BLOCKER && (
+          <div className="flex items-center gap-2 border-b border-swu-border px-2 py-1.5 text-swu-primary">
+            <img src="/assets/system/22.png" alt="" className="size-5" />
+            Beamblocker · {systems.BEAM_BLOCKER.active ? 'aktiv' : 'inaktiv'} · {systems.BEAM_BLOCKER.integrity}% · 0 EPS
+          </div>
+        )}
         {hyperdriveBooster && (
           <button
             type="button"
