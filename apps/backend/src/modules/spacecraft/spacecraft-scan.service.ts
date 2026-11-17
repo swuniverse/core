@@ -1,3 +1,4 @@
+import { isRpgHidden } from './rpg-visibility';
 import {
   TACHYON_SCAN_ENERGY,
   TACHYON_SCAN_DURATION_MS,
@@ -92,7 +93,7 @@ export class SpacecraftScanService {
         relations: { modules: true },
         lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
       });
-      if (!ship) throw new NotFoundException('Spacecraft not found');
+      if (!ship || isRpgHidden(ship)) throw new NotFoundException('Spacecraft not found');
       assertSpacecraftNotInStandby(ship, 'einem Scan');
       if (ship.status === SpacecraftStatus.DESTROYED)
         throw new BadRequestException('Destroyed ship cannot scan');
@@ -238,7 +239,7 @@ export class SpacecraftScanService {
       where: { id: shipId, userId },
       relations: ['modules', 'location'],
     });
-    if (!ship) throw new NotFoundException('Spacecraft not found');
+    if (!ship || isRpgHidden(ship)) throw new NotFoundException('Spacecraft not found');
     const systems = this.runtimeState.initialize(ship);
     const subspace = systems.SUBSPACE_SCANNER;
     if (!subspace?.active || subspace.integrity <= 0) {
@@ -336,7 +337,7 @@ export class SpacecraftScanService {
     limit = 20,
   ): Promise<SpacecraftScanPageDto> {
     const ship = await this.shipRepo.findOneBy({ id: shipId, userId });
-    if (!ship) throw new NotFoundException('Spacecraft not found');
+    if (!ship || isRpgHidden(ship)) throw new NotFoundException('Spacecraft not found');
     const safePage = Math.max(1, page);
     const safeLimit = Math.max(1, Math.min(50, limit));
     const [rows, total] = await this.scanResultRepo.findAndCount({
@@ -369,7 +370,7 @@ export class SpacecraftScanService {
         'location.systemField',
       ],
     });
-    if (!ship) throw new NotFoundException('Spacecraft not found');
+    if (!ship || isRpgHidden(ship)) throw new NotFoundException('Spacecraft not found');
     assertSpacecraftNotInStandby(ship, 'einem Scan');
     if (ship.status === SpacecraftStatus.DESTROYED)
       throw new BadRequestException('Destroyed ship cannot scan');
@@ -476,7 +477,7 @@ export class SpacecraftScanService {
         'location.systemField',
       ],
     });
-    if (!ship) throw new NotFoundException('Spacecraft not found');
+    if (!ship || isRpgHidden(ship)) throw new NotFoundException('Spacecraft not found');
     assertSpacecraftNotInStandby(ship, 'einem Scan');
     const location = resolveSpacecraftLocation(ship);
     if (location?.scope !== 'SYSTEM') {
@@ -573,7 +574,7 @@ export class SpacecraftScanService {
         'location.systemField',
       ],
     });
-    if (!ship) throw new NotFoundException('Spacecraft not found');
+    if (!ship || isRpgHidden(ship)) throw new NotFoundException('Spacecraft not found');
     assertSpacecraftNotInStandby(ship, 'einem Scan');
     const location = resolveSpacecraftLocation(ship);
     if (location?.scope !== 'SYSTEM') {

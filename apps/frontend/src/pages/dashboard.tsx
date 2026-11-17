@@ -438,6 +438,9 @@ export function DashboardPage() {
   useSocket('DISTRESS_CHANGED', () => {
     void loadDashboard();
   });
+  useSocket('SPACECRAFT_VISIBILITY_CHANGED', () => {
+    void loadDashboard();
+  });
 
   if (loading)
     return <div className="p-4 text-swu-muted text-xs">Laden...</div>;

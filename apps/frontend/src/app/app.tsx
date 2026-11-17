@@ -33,6 +33,7 @@ import { StarmapAdminFullmapPage } from '../pages/starmap-admin-fullmap';
 import { AdminPage } from '../pages/admin';
 import { AdminTicksPage } from '../pages/admin-ticks';
 import { AdminMassMessagePage } from '../pages/admin-mass-message';
+import { AdminRpgShipsPage } from '../pages/admin-rpg-ships';
 import { AdminShipsPage } from '../pages/admin-ships';
 import { AdminInvitesPage } from '../pages/admin-invites';
 import { AdminUsersPage } from '../pages/admin-users';
@@ -167,6 +168,7 @@ export function App() {
                 </AdminRoute>
               }
             />
+            <Route path="/admin/rpg-ships" element={<AdminRoute><AdminRpgShipsPage /></AdminRoute>} />
             <Route
               path="/admin/ships"
               element={

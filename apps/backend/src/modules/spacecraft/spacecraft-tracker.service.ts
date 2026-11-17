@@ -1,3 +1,4 @@
+import { isRpgHidden } from './rpg-visibility';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { SpacecraftTrackerDto } from '@swuniverse/shared';
 import { DataSource, EntityManager } from 'typeorm';
@@ -93,7 +94,7 @@ export class SpacecraftTrackerService {
       where: { id: sourceId, userId },
       relations: { modules: true },
     });
-    if (!source) throw new NotFoundException('Spacecraft not found');
+    if (!source || isRpgHidden(source)) throw new NotFoundException('Spacecraft not found');
     this.clearTracker(source, true);
     await this.dataSource.manager.save(source);
   }
@@ -103,14 +104,14 @@ export class SpacecraftTrackerService {
       where: { id: sourceId, userId },
       relations: { modules: true },
     });
-    if (!source) throw new NotFoundException('Spacecraft not found');
+    if (!source || isRpgHidden(source)) throw new NotFoundException('Spacecraft not found');
     const tracker = this.runtimeState.initialize(source).TRACKER;
     if (!tracker?.active || tracker.targetId == null) return null;
     const target = await this.dataSource.manager.findOne(Spacecraft, {
       where: { id: tracker.targetId },
       relations: { location: { galaxyField: true, systemField: true } },
     });
-    if (!target) return null;
+    if (!target || isRpgHidden(target)) return null;
     return this.toDto(source, target);
   }
 
@@ -122,7 +123,7 @@ export class SpacecraftTrackerService {
       where: { id: tracker.targetId },
       relations: { location: { galaxyField: true, systemField: true } },
     });
-    if (!target) {
+    if (!target || isRpgHidden(target)) {
       this.clearTracker(source, true);
       return;
     }

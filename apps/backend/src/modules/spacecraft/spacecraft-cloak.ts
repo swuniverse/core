@@ -1,3 +1,4 @@
+import { isRpgHidden, type RpgVisibility } from './rpg-visibility';
 import { Faction } from '@swuniverse/shared';
 import type { Spacecraft } from './entities/spacecraft.entity';
 
@@ -30,8 +31,8 @@ export function isCloaked(
 
 /** Cloaked ships are visible to their owner only; alliances grant no exception. */
 export function isHiddenFromViewer(
-  ship: Pick<Spacecraft, 'runtimeSystems' | 'userId'>,
+  ship: Pick<Spacecraft, 'runtimeSystems' | 'userId'> & RpgVisibility,
   viewerId: number,
 ): boolean {
-  return ship.userId !== viewerId && isCloaked(ship);
+  return isRpgHidden(ship) || (ship.userId !== viewerId && isCloaked(ship));
 }

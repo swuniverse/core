@@ -34,7 +34,7 @@ export class TradeQueryService {
       }),
       this.accountRepo.find({ where: { userId } }),
       this.spacecraftRepo.find({
-        where: { userId },
+        where: { userId, rpgHidden: false },
         select: ['locationId'],
       }),
     ]);
@@ -78,7 +78,7 @@ export class TradeQueryService {
       this.postRepo.find({ select: ['id', 'locationId'] }),
       this.accountRepo.find({ where: { userId } }),
       this.spacecraftRepo.find({
-        where: { userId },
+        where: { userId, rpgHidden: false },
         select: ['id', 'name', 'shipClassId', 'kind', 'locationId'],
       }),
     ]);

@@ -1,3 +1,4 @@
+import { isRpgHidden } from './rpg-visibility';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -68,7 +69,7 @@ export class InteractionContextService {
       this.shipRepo.findOne({ where: { id: sourceId }, relations }),
       this.shipRepo.findOne({ where: { id: targetId }, relations }),
     ]);
-    if (!source || !target) throw new NotFoundException('Spacecraft not found');
+    if (!source || !target || isRpgHidden(source) || isRpgHidden(target)) throw new NotFoundException('Spacecraft not found');
 
     const [sourceHasSufficientCrew, targetOwner, stance] = await Promise.all([
       requested.has('sourceHasSufficientCrew')

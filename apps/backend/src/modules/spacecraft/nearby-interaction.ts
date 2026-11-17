@@ -1,3 +1,4 @@
+import { isRpgHidden, type RpgVisibility } from './rpg-visibility';
 import {
   checkInteraction,
   InteractionRule,
@@ -121,14 +122,16 @@ function inHyperspace(
 
 /** Pure mapping of already loaded ships (the target may also be a wreck with empty systems); fields no nearby interaction rule reads stay neutral. */
 export function buildNearbyInteractionContext(
-  source: SpacecraftLocationSource,
+  source: SpacecraftLocationSource & RpgVisibility,
   sourceSystems: SpacecraftRuntimeSystems,
-  target: SpacecraftLocationSource,
+  target: SpacecraftLocationSource & RpgVisibility,
   targetSystems: SpacecraftRuntimeSystems,
   targetOnVacation = false,
   targetCloakDetected = false,
 ): InteractionContext {
   return {
+    sourceRpgHidden: isRpgHidden(source),
+    targetRpgHidden: isRpgHidden(target),
     samePosition: sameSpacecraftLocation(source, target),
     sourceHasSufficientCrew: true,
     sourceCombatCapable: true,

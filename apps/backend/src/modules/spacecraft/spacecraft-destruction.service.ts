@@ -242,7 +242,7 @@ export class SpacecraftDestructionService {
         `${result.destroyerName ?? 'Unbekannt'} zerstörte ${result.ship.name} (${result.ship.shipClass.name}).`,
         result.ship,
       );
-      this.emitDestroyed(result.ownerId, shipId, 'Im Kampf zerstört');
+      if (!result.ship.rpgHidden) this.emitDestroyed(result.ownerId, shipId, 'Im Kampf zerstört');
       await this.messagingService.sendSystem(
         result.ownerId,
         'Schiff zerstört',
@@ -273,6 +273,10 @@ export class SpacecraftDestructionService {
     const ownerId = ship.userId;
     const { notifyAfterCommit, ...result } = await this.finalizeInManager(manager, ship, reason);
     const notify = () => {
+      if (ship.rpgHidden) {
+        void notifyAfterCommit();
+        return;
+      }
       this.emitDestroyed(
         ownerId,
         shipId,

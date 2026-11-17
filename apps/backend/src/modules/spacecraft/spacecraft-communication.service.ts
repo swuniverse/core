@@ -1,3 +1,4 @@
+import { isRpgHidden } from './rpg-visibility';
 import {
   BadRequestException,
   Injectable,
@@ -60,7 +61,7 @@ export class SpacecraftCommunicationService {
         ? ['location', 'location.galaxyField', 'location.systemField']
         : undefined,
     });
-    if (!ship) throw new NotFoundException('Ship not found');
+    if (!ship || isRpgHidden(ship)) throw new NotFoundException('Ship not found');
     if (ship.status === SpacecraftStatus.DESTROYED) {
       throw new BadRequestException('Ship is destroyed');
     }
@@ -124,6 +125,7 @@ export class SpacecraftCommunicationService {
       const otherField = resolveSpacecraftLocation(other);
       if (
         other.userId !== userId &&
+        !isRpgHidden(other) &&
         !isCloaked(other) &&
         other.status !== SpacecraftStatus.DESTROYED &&
         otherField?.scope === field.scope &&
@@ -397,7 +399,7 @@ export class SpacecraftCommunicationService {
       order: { startedAt: 'DESC' },
       take: 100,
     });
-    return signals.map((signal) => {
+    return signals.filter(signal => !isRpgHidden(signal.spacecraft)).map((signal) => {
       const location = resolveSpacecraftLocation(signal.spacecraft);
       return {
         id: signal.id,

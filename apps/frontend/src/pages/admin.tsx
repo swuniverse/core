@@ -14,6 +14,7 @@ const DEFAULT_STATUS_MESSAGES: Partial<Record<GameStatus['status'], string>> = {
 };
 
 const adminCards = [
+  { title: 'RPG-Szenenschiffe', path: '/admin/rpg-ships', description: 'Eigene RPG-Transponder zuordnen und Szenenschiffe aus Spieleransichten ausblenden.', badge: 'Rollenspiel' },
   {
     title: 'Ticks',
     path: '/admin/ticks',

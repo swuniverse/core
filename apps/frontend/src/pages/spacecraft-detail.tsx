@@ -120,6 +120,13 @@ export function SpacecraftDetailPage() {
     };
   }, [ship?.id, locationKey, shipRefreshVersion]);
 
+  useSocket(WsEventType.SPACECRAFT_VISIBILITY_CHANGED, payload => {
+    const event = payload as import('@swuniverse/shared').SpacecraftVisibilityPayload;
+    if (event.shipId !== Number(id)) return;
+    if (event.type === 'REMOVED') { setShip(null); navigate('/spacecraft'); }
+    else void fetchShip();
+  });
+
   useSocket(WsEventType.SHIP_MOVED, (payload) => {
     const event = payload as { shipId?: number };
     if (event.shipId !== Number(id)) return;

@@ -98,6 +98,8 @@ export function NearbySensorPanel({
     return () => clearTimeout(timer);
   }, [nearby?.tachyonScanExpiresAt, refreshNearby]);
 
+  useSocket(WsEventType.SPACECRAFT_VISIBILITY_CHANGED, () => void refreshNearby());
+
   useSocket(WsEventType.SPACECRAFT_EVENT, (payload) => {
     const event = payload as { shipId?: number; type?: string };
     if (event.type?.startsWith('HYPERSPACE_')) void refreshNearby();

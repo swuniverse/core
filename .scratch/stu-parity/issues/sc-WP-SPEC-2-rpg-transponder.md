@@ -1,6 +1,6 @@
 # RPG-Transponder mit Admin-Unsichtbarkeit
 
-**Status:** ready-for-agent
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** soc-E3a
@@ -28,12 +28,12 @@ Pfade relativ zu `../../st-universe/core/src/`:
 
 ## Akzeptanzkriterien
 
-- [ ] RPG-Transponder kann nur über administrierte RPG-Inhalte vergeben beziehungsweise verwendet werden.
-- [ ] Nur Administratoren können die RPG-Unsichtbarkeit umschalten.
-- [ ] Unsichtbare RPG-Spacecrafts fehlen in Spieler-Sensorik, Kartenbelegung und Echtzeitereignissen; Administratoren können sie weiterhin verwalten.
-- [ ] Beim Wiedereinblenden wird der aktuelle Zustand wieder veröffentlicht.
-- [ ] Das System beeinflusst keine Tarn-, Kampf- oder Haltungsregeln.
-- [ ] Service- und Integrationstests decken Rechte und sämtliche Sichtbarkeitspfade ab.
+- [x] RPG-Transponder kann nur über administrierte RPG-Inhalte vergeben beziehungsweise verwendet werden.
+- [x] Nur Administratoren können die RPG-Unsichtbarkeit umschalten.
+- [x] Unsichtbare RPG-Spacecrafts fehlen in Spieler-Sensorik, Kartenbelegung und Echtzeitereignissen; Administratoren können sie weiterhin verwalten.
+- [x] Beim Wiedereinblenden wird der aktuelle Zustand wieder veröffentlicht.
+- [x] Das System beeinflusst keine Tarn-, Kampf- oder Haltungsregeln.
+- [x] Service- und Integrationstests decken Rechte und sämtliche Sichtbarkeitspfade ab.
 
 ## Triage und Umsetzungsvertrag
 
@@ -43,16 +43,37 @@ STU `SetRpgModuleInvisibility` prüft Adminrolle, eigenes Schiff und eingebautes
 
 ## Ergänzte Akzeptanzkriterien
 
-- [ ] Admin-API vergibt/entfernt den Transponder und schaltet Unsichtbarkeit nur für eigene administrierte Szenenschiffe; Rollen-, Eigentums- und RPG-Bezug werden serverseitig geprüft. Entfernen beendet Unsichtbarkeit.
-- [ ] Ein separates persistiertes Merkmal und eine gemeinsame Sichtbarkeitsprüfung werden auch für Spieler-Eigentumslisten, direkte Detail-/Zielabfragen, NBS, LSS-Zählungen, Kolonie-/Orbit-Scan, geteilte Positionen, Kartenbelegung und Spieler-Echtzeitereignisse benutzt. Adminverwaltung behält Zugriff.
-- [ ] Ausblendung publiziert Entfernung nach Commit an bisherige Zuschauer, Einblendung veröffentlicht den aktuellen Zustand. Verdeckte Bewegung erzeugt keine für Spieler lesbaren neuen Flugsignaturen; vorhandene historische Signaturen werden nicht nachträglich umgeschrieben.
-- [ ] Unsichtbare Szenenschiffe nehmen nicht an automatisch ausgelösten Spieler-Kämpfen/Alarmreaktionen teil und erlauben keine Spieler-Fernaktionen als Quelle oder Ziel. Normale Tarnung/Haltung und Kampfregeln sichtbarer Schiffe bleiben erhalten.
-- [ ] HTTP-Rechtetests sowie Sichtbarkeits-/Websockettests decken Abwesenheit von IDs und Zählungen, Umschalten, Rollback und Wiederveröffentlichung ab; Frontend testet Adminaktion und unveränderte Spieleransicht.
+- [x] Admin-API vergibt/entfernt den Transponder und schaltet Unsichtbarkeit nur für eigene administrierte Szenenschiffe; Rollen-, Eigentums- und RPG-Bezug werden serverseitig geprüft. Entfernen beendet Unsichtbarkeit.
+- [x] Ein separates persistiertes Merkmal und eine gemeinsame Sichtbarkeitsprüfung werden auch für Spieler-Eigentumslisten, direkte Detail-/Zielabfragen, NBS, LSS-Zählungen, Kolonie-/Orbit-Scan, geteilte Positionen, Kartenbelegung und Spieler-Echtzeitereignisse benutzt. Adminverwaltung behält Zugriff.
+- [x] Ausblendung publiziert Entfernung nach Commit an bisherige Zuschauer, Einblendung veröffentlicht den aktuellen Zustand. Verdeckte Bewegung erzeugt keine für Spieler lesbaren neuen Flugsignaturen; vorhandene historische Signaturen werden nicht nachträglich umgeschrieben.
+- [x] Unsichtbare Szenenschiffe nehmen nicht an automatisch ausgelösten Spieler-Kämpfen/Alarmreaktionen teil und erlauben keine Spieler-Fernaktionen als Quelle oder Ziel. Normale Tarnung/Haltung und Kampfregeln sichtbarer Schiffe bleiben erhalten.
+- [x] HTTP-Rechtetests sowie Sichtbarkeits-/Websockettests decken Abwesenheit von IDs und Zählungen, Umschalten, Rollback und Wiederveröffentlichung ab; Frontend testet Adminaktion und unveränderte Spieleransicht.
 
 ## SWU-Anker
 
 `spacecraft-cloak.ts`, `starmap-visibility.service.ts`, `nearby-interaction.ts`, `spacecraft.service.ts` (Scans/Listen), `flight-signature.service.ts`, `websocket/game.gateway.ts`, `rpg/rpg-plot.service.ts` und bestehende Admin-Guards. Kein eigener Tarnungsmechanismus.
 
+## Answer
+
+Persistierter RPG-Transponder mit eigener Adminseite `/admin/rpg-ships` und rollen-, eigentums- sowie plotgeschützter API. Nur tatsächliche Datenbank-Administratoren verwalten ihre eigenen Szenenschiffe mit eigenem aktivem Plot. Zuordnen/Entfernen und Aus-/Einblenden kosten 0 EPS; Entfernen beendet die Unsichtbarkeit. Einblenden/Entfernen bleibt nach Plot-Ende möglich. `CLOAK` bleibt unabhängig und unverändert.
+
+Das separate RPG-Merkmal wird in Spielerlisten und Direktzugriffen, NBS, Galaxie-/System-LSS einschließlich Tachyon-Zählungen, Kolonie-/Orbitverwaltung, Handels-/Crew-Auswahl, Kartenkontakten, Positionsfreigaben, Peilsendern, Notrufen und schiffsbezogenen Websocketereignissen berücksichtigt. Die Adminverwaltung behält Zugriff. Sichtbarkeitswechsel publizieren Entfernung bzw. aktuellen Zustand nach Commit ausschließlich an berechtigte Zuschauer. Verdeckte Bewegung erzeugt auch bei stale Entities keine neuen Flugsignaturen; historische Signaturen bleiben erhalten.
+
+Spieler-HTTP-Aktionen und die echte Kampfausführung halten gemeinsame PostgreSQL-Advisory-Sperren über ihre Ausführung. Adminänderungen werden bei laufender Verwendung mit 409 abgewiesen; Poolplätze für Handler bleiben reserviert, verschachtelte Kämpfe benutzen dieselbe Sperrverbindung. Automatische Kämpfe prüfen auch bereits geladene Teilnehmer gegen den aktuellen Datenbankzustand. Aktive Peilsender werden beim Verbergen bereinigt. Normale Entity-Saves können den Adminzustand nicht überschreiben; Plotentfernung und Eigentümerwechsel bereinigen ihn in der Datenbank.
+
+Spieleransichten reagieren auf das Sichtbarkeitsereignis; ältere Schiffsliste-Antworten können eine bereits entfernte Szene nicht wieder einfügen. Die Migration wurde ohne Dev-DB-Reset lokal eingespielt.
+
 ## Comments
 
 - 2026-11-16 – Triage: Technische Abgrenzung und Admin-/Sichtbarkeitsvertrag konkretisiert; Umsetzung offen, Voraussetzungen erfüllt. Beschränkt auf die schon geforderte administrative Szenenfunktion. Siehe [Audit](../triage-2026-11-16.md).
+- 2026-11-17 – Umsetzung abgeschlossen und lokal migriert. Keine neue Spielerfertigung und keine zusätzlichen Plot-Mitgliedsrechte. Die vier offenen Produktentscheidungen werden durch diesen Auftrag nicht freigegeben.
+
+## Validation
+
+- Backend: `npx nx test backend --maxWorkers=2` – **241 Suites / 2.337 Tests bestanden**.
+- Frontend: `npx nx test frontend --maxWorkers=2` – **127 Dateien / 865 Tests bestanden**; Adminverwaltung, Sichtbarkeitsereignis und verspätete Schiffsliste-Antwort geprüft.
+- `npx nx affected -t lint typecheck --base=HEAD --parallel=2` – alle drei Projekte grün, bestehende Lintwarnungen ohne Fehler.
+- `npx nx run-many --targets=build` – Shared, Backend und Frontend grün; anschließende erzwungene Backend-Deklarationserzeugung ebenfalls grün.
+- PostgreSQL: Breite Auswahl `rpg-transponder|signature-mask|starmap-visibility|alert-reaction|movement-concurrency|wormhole|navicomputer|tachyon` prüfte **203 Fälle**. **197 bestanden**; die sechs Alarmfälle scheiterten ausschließlich an der alten leeren `LastCombatReportService`-Fixture. Diese verwendet jetzt den echten Dienst. Der abschließende Nachlauf `rpg-transponder|alert-reaction` besteht mit **19 Tests (13 RPG + 6 Alarm)**; damit sind alle 203 geprüften Fälle durch breite Auswahl und Nachlauf abgesichert.
+- Die 13 neuen Produktions-HTTP/PostgreSQL-Fälle prüfen Rechte, Eigentum/Plot, eigene Listen/Details, Quelle/Zielaktionen, NBS/Tachyon/LSS, Systemorbit, echte Freigaben, Signaturen/stale Saves, Zuschauer und Ereignisse nach Commit, Rollback, laufende HTTP-Aktionen und Poolreserve, stale Kampfteilnehmer, CLOAK, Plot-Ende, Rollenentzug sowie Tracking/Notrufe.
+- Lokale Dev-Migration `RpgTransponder1794877200000` erfolgreich angewendet; kein Reset. `git diff --check` grün.

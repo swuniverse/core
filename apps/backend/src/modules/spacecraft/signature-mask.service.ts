@@ -90,13 +90,14 @@ export class SignatureMaskService {
   async withSnapshot<T>(
     ship: Spacecraft,
     manager: EntityManager | undefined,
-    emit: (manager: EntityManager, hull: ShipClassDef | null) => Promise<T>,
+    emit: (manager: EntityManager, hull: ShipClassDef | null, suppressed?: boolean) => Promise<T>,
   ): Promise<T> {
     const apply = async (transaction: EntityManager) => {
       const stored = await transaction.findOne(Spacecraft, {
         where: { id: ship.id },
         lock: { mode: 'pessimistic_write' },
       });
+      if (stored?.rpgHidden) return emit(transaction, null, true);
       // A caller may have changed drive state inside its still-open transaction.
       const masked =
         stored && this.runtimeHealthy(ship)

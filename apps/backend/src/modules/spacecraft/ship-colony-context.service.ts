@@ -1,3 +1,4 @@
+import { isRpgHidden } from './rpg-visibility';
 import {
   BadRequestException,
   Injectable,
@@ -68,7 +69,7 @@ export class ShipColonyContextService {
         lock: lockFor('colonies'),
       }),
     ]);
-    if (!ship) throw new NotFoundException('Ship not found');
+    if (!ship || isRpgHidden(ship)) throw new NotFoundException('Ship not found');
     if (!colony) throw new NotFoundException('Colony not found');
     const changeable = await (
       manager?.getRepository(ColonyChangeable) ??

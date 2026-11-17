@@ -38,6 +38,7 @@ import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entit
 import { FieldTransitionExecutor } from '../spacecraft/field-transition-executor';
 import { FlightConsequencePipeline } from '../spacecraft/flight-consequence-pipeline';
 import { FlightSignatureService } from '../spacecraft/flight-signature.service';
+import { LastCombatReportService } from '../spacecraft/last-combat-report.service';
 import { leaveFleetOnDestruction } from '../spacecraft/fleet-leadership';
 import { MOVEMENT_REACTIONS, type MovementReaction } from '../spacecraft/movement-reaction.port';
 import { ShipClassService } from '../spacecraft/ship-class.service';
@@ -58,6 +59,7 @@ import { AlertReactionService } from './alert-reaction.service';
  */
 async function flightWithAlerts(dataSource: DataSource) {
   const realServices = [
+    LastCombatReportService,
     SpacecraftService,
     SpacecraftCrewService,
     SpacecraftTakeoverService,

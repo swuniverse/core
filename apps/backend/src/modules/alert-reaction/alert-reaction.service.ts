@@ -1,3 +1,4 @@
+import { isRpgHidden } from '../spacecraft/rpg-visibility';
 import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -57,6 +58,7 @@ function shuffled<T>(items: T[]): T[] {
 }
 
 const operational = (ship: Spacecraft) =>
+  !isRpgHidden(ship) &&
   ship.status === SpacecraftStatus.IDLE &&
   ship.operatingMode !== SpacecraftOperatingMode.STANDBY;
 

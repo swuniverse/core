@@ -87,6 +87,11 @@ import { StarmapVisibilityService } from './starmap-visibility.service';
 import { CartographyPlanService } from './cartography-plan.service';
 import { DatabaseModule } from '../database/database.module';
 import { StatisticsModule } from '../statistics/statistics.module';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { RpgTransponderService } from './rpg-transponder.service';
+import { RpgTransponderController } from './rpg-transponder.controller';
+import { RpgSpacecraftAccessInterceptor } from './rpg-spacecraft-access.interceptor';
+import { RpgActionLockService } from './rpg-action-lock.service';
 import { SignatureMaskService } from './signature-mask.service';
 import { SignatureMaskController } from './signature-mask.controller';
 import { FlightSignatureService } from './flight-signature.service';
@@ -196,9 +201,12 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     forwardRef(() => TradeModule),
     AccountDeletionModule,
   ],
-  controllers: [SignatureMaskController, LastCombatReportController, StationScrappingController, ShuttleController, ResourceConversionController, SpacecraftController, NavicomputerJumpController, ResourceCollectionController, FieldMiningController],
+  controllers: [RpgTransponderController, SignatureMaskController, LastCombatReportController, StationScrappingController, ShuttleController, ResourceConversionController, SpacecraftController, NavicomputerJumpController, ResourceCollectionController, FieldMiningController],
   providers: [
     SignatureMaskService,
+    RpgTransponderService,
+    RpgActionLockService,
+    { provide: APP_INTERCEPTOR, useClass: RpgSpacecraftAccessInterceptor },
     SpacecraftDeletionHandler,
     TradeDealFulfillmentAdapter,
     SpacecraftService,
@@ -300,6 +308,7 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     },
   ],
   exports: [
+    RpgActionLockService,
     ShuttleService,
     MOVEMENT_REACTIONS,
     ORBIT_ORDER_VIEW,

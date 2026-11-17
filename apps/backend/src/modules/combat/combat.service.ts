@@ -1,3 +1,4 @@
+import { isRpgHidden } from '../spacecraft/rpg-visibility';
 import type { SpacecraftRuntimeSystemsDto } from '@swuniverse/shared';
 import { canDetectCloakedTarget } from '../spacecraft/spacecraft-tachyon-scan';
 import { isCloaked } from '../spacecraft/spacecraft-cloak';
@@ -90,7 +91,7 @@ export class CombatService {
       where: { id: attackerId, userId },
       relations: this.combatLocationRelations,
     });
-    if (!attacker) throw new NotFoundException('Attacker not found');
+    if (!attacker || isRpgHidden(attacker)) throw new NotFoundException('Attacker not found');
     this.trackerService.assertTrackedTarget(attacker, targetId);
     return this.attack(attackerId, targetId, userId);
   }
@@ -104,14 +105,14 @@ export class CombatService {
       where: { id: attackerId, userId },
       relations: this.combatLocationRelations,
     });
-    if (!attacker) throw new NotFoundException('Attacker not found');
+    if (!attacker || isRpgHidden(attacker)) throw new NotFoundException('Attacker not found');
     assertSpacecraftNotInStandby(attacker, 'einem Angriff');
 
     const defender = await this.shipRepo.findOne({
       where: { id: targetId },
       relations: this.combatLocationRelations,
     });
-    if (!defender) throw new NotFoundException('Target not found');
+    if (!defender || isRpgHidden(defender)) throw new NotFoundException('Target not found');
 
     if (attacker.id === defender.id) {
       throw new BadRequestException('Cannot attack own ship');
@@ -153,6 +154,7 @@ export class CombatService {
       relations: this.combatLocationRelations,
     });
     const operational = (ship: Spacecraft) =>
+      !isRpgHidden(ship) &&
       ship.status === SpacecraftStatus.IDLE &&
       ship.operatingMode !== SpacecraftOperatingMode.STANDBY;
     const attackers = nearby.filter(
@@ -213,7 +215,7 @@ export class CombatService {
       where: { id: attackerId, userId },
       relations: ['location', 'location.systemField'],
     });
-    if (!attacker) throw new NotFoundException('Attacker not found');
+    if (!attacker || isRpgHidden(attacker)) throw new NotFoundException('Attacker not found');
     assertSpacecraftNotInStandby(attacker, 'einem Angriff');
     const colony = await this.colonyRepo.findOne({
       where: { id: colonyId },

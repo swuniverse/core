@@ -400,6 +400,7 @@ export class EscapePodService {
       .addSelect('ship.id', 'shipId')
       .addSelect('ship.name', 'shipName')
       .where('ca.userId = :userId AND ship.userId != :userId', { userId })
+      .andWhere('ship.rpgHidden = false')
       .orderBy('ca.crewId', 'ASC')
       .getRawMany<{
         crewId: number;

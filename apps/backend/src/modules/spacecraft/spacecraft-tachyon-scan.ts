@@ -1,3 +1,4 @@
+import { isRpgHidden, type RpgVisibility } from './rpg-visibility';
 import { sameSpacecraftLocation } from './spacecraft-field';
 import { isCloaked } from './spacecraft-cloak';
 import type { Spacecraft } from './entities/spacecraft.entity';
@@ -30,10 +31,11 @@ export function tachyonScanExpiresAt(
 /** A scan authorizes attacks only on foreign cloaks at the scanner's own field. */
 export function canDetectCloakedTarget(
   source: Pick<Spacecraft, 'runtimeSystems' | 'locationId' | 'location' | 'userId'>,
-  target: Pick<Spacecraft, 'runtimeSystems' | 'locationId' | 'location' | 'userId'>,
+  target: Pick<Spacecraft, 'runtimeSystems' | 'locationId' | 'location' | 'userId'> & RpgVisibility,
   now = Date.now(),
 ): boolean {
   return (
+    !isRpgHidden(target) &&
     source.userId !== target.userId &&
     isCloaked(target) &&
     sameSpacecraftLocation(source, target) &&

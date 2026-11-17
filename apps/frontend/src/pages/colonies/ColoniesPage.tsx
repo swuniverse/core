@@ -301,6 +301,11 @@ export function ColoniesPage() {
     void loadColonyDetail(colonyId);
   });
 
+  useSocket('SPACECRAFT_VISIBILITY_CHANGED', () => {
+    const currentId = targetColonyIdRef.current ?? selected?.id;
+    if (currentId) void loadColonyDetail(currentId);
+  });
+
   useSocket('SPACECRAFT_EVENT', () => {
     const currentId = targetColonyIdRef.current ?? selected?.id;
     if (currentId) void loadColonyDetail(currentId);

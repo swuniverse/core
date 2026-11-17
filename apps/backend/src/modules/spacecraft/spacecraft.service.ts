@@ -1,3 +1,4 @@
+import { isRpgHidden } from './rpg-visibility';
 import { ResourceConversionService } from './resource-conversion.service';
 import { ResourceCollectionService } from './resource-collection.service';
 import { canDetectCloakedTarget, tachyonScanExpiresAt } from './spacecraft-tachyon-scan';
@@ -435,7 +436,7 @@ export class SpacecraftService {
       ],
       order: { id: 'ASC' },
     });
-    return Promise.all(ships.map((ship) => this.toShipListDto(ship)));
+    return Promise.all(ships.filter(ship => !isRpgHidden(ship)).map((ship) => this.toShipListDto(ship)));
   }
 
   async findOne(shipId: number, userId: number): Promise<Spacecraft> {
@@ -454,7 +455,7 @@ export class SpacecraftService {
         'location.systemField.starSystem',
       ],
     });
-    if (!ship) throw new NotFoundException('Spacecraft not found');
+    if (!ship || isRpgHidden(ship)) throw new NotFoundException('Spacecraft not found');
     return this.toShipDetail(ship);
   }
 
@@ -1471,7 +1472,7 @@ export class SpacecraftService {
         'location.systemField',
       ],
     });
-    if (!ship) throw new NotFoundException('Spacecraft not found');
+    if (!ship || isRpgHidden(ship)) throw new NotFoundException('Spacecraft not found');
     const location = resolveSpacecraftLocation(ship);
     if (location?.scope !== 'SYSTEM') {
       throw new BadRequestException(
@@ -3730,7 +3731,7 @@ export class SpacecraftService {
         'location.systemField',
       ],
     });
-    if (!target || target.status === SpacecraftStatus.DESTROYED)
+    if (!target || isRpgHidden(target) || target.status === SpacecraftStatus.DESTROYED)
       throw new NotFoundException('Zielschiff nicht gefunden');
     const scanDecision = decideNearbyInteraction(
       'SCAN',
@@ -4127,16 +4128,17 @@ export class SpacecraftService {
         where: [{ attackerId: ship.id }, { targetId: ship.id }],
       }),
     ]);
+    const visibleShips = ships.filter(target => !isRpgHidden(target));
     const dockableStationIds =
       await this.dockingPrivilegeService.allowedStationIds(
         ship,
-        ships.filter((target) => target.kind === 'STATION'),
+        visibleShips.filter((target) => target.kind === 'STATION'),
       );
     return {
       actionsAvailable: !hyperdriveActive,
       tachyonScanExpiresAt: tachyonScanExpiresAt(ship),
       hyperdriveActive,
-      ships: ships
+      ships: visibleShips
         .filter(
           (target) =>
             target.id !== ship.id && (!isHiddenFromViewer(target, userId) || canDetectCloakedTarget(ship, target)),
@@ -4286,7 +4288,7 @@ export class SpacecraftService {
         'location.systemField.starSystem',
       ],
     });
-    if (!ship) throw new NotFoundException('Spacecraft not found');
+    if (!ship || isRpgHidden(ship)) throw new NotFoundException('Spacecraft not found');
     const location = resolveSpacecraftLocation(ship);
     if (!location) throw new NotFoundException('Aktuelles Feld nicht gefunden');
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
@@ -4379,7 +4381,7 @@ export class SpacecraftService {
         observer: { x: shipX, y: shipY },
         position: (field) => ({ x: field.sx, y: field.sy }),
         signatures: this.countFieldSignatures(
-          [ship, ...(scanExpiresAt !== null ? allNearbyShips : nearbyShips)],
+          [ship, ...(scanExpiresAt !== null ? allNearbyShips.filter(candidate => !isRpgHidden(candidate)) : nearbyShips)],
           (entry) => resolveSpacecraftLocation(entry)?.x ?? null,
           (entry) => resolveSpacecraftLocation(entry)?.y ?? null,
         ),
@@ -4581,7 +4583,7 @@ export class SpacecraftService {
       observer: { x: location.x, y: location.y },
       position: (field) => ({ x: field.cx, y: field.cy }),
       signatures: this.countFieldSignatures(
-        [ship, ...(scanExpiresAt !== null ? allNearbyShips : nearbyShips)],
+        [ship, ...(scanExpiresAt !== null ? allNearbyShips.filter(candidate => !isRpgHidden(candidate)) : nearbyShips)],
         (entry) => resolveSpacecraftLocation(entry)?.x ?? null,
         (entry) => resolveSpacecraftLocation(entry)?.y ?? null,
       ),
@@ -4710,7 +4712,7 @@ export class SpacecraftService {
       { x: number; y: number; visibleCount: number }
     >();
     for (const ship of ships) {
-      if (ship.status === SpacecraftStatus.DESTROYED) continue;
+      if (ship.status === SpacecraftStatus.DESTROYED || isRpgHidden(ship)) continue;
       const fieldX = x(ship);
       const fieldY = y(ship);
       if (fieldX == null || fieldY == null) continue;

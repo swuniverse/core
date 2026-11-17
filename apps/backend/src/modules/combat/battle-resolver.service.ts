@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { requirePlayerSpacecraft } from '../spacecraft/rpg-visibility';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import { RpgActionLockService } from '../spacecraft/rpg-action-lock.service';
 import {
   FieldEffect,
   knownFieldEffects,
@@ -47,13 +49,28 @@ export class BattleResolverService {
     private readonly destructionService: SpacecraftDestructionService,
     private readonly reportFormatter: CombatReportFormatter,
     private readonly statisticsService: StatisticsService,
+    @Optional() private readonly actions?: RpgActionLockService,
   ) {}
 
   async resolve(
     input: BattleResolutionInput,
   ): Promise<ReturnType<CombatReportFormatter['formatBattle']>> {
+    if (!this.actions) return this.resolveVisible(input);
+    const ids = [...input.attackers, ...input.defenders].map((ship) => ship.id);
+    return this.actions.runPlayer(ids, async (manager) => {
+      const current = await manager.find(Spacecraft, { where: { id: In(ids) } });
+      for (const id of ids)
+        requirePlayerSpacecraft(current.find((ship) => ship.id === id));
+      return this.resolveVisible(input);
+    });
+  }
+
+  private async resolveVisible(
+    input: BattleResolutionInput,
+  ): Promise<ReturnType<CombatReportFormatter['formatBattle']>> {
     const { attackers, defenders } = input;
     const participants = [...attackers, ...defenders];
+    for (const ship of participants) requirePlayerSpacecraft(ship);
     const modules = await this.moduleRepo.find({
       where: participants.map((ship) => ({ spacecraftId: ship.id })),
     });

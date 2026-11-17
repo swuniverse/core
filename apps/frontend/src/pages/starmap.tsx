@@ -181,6 +181,7 @@ export function StarmapPage() {
     return () => window.clearInterval(interval);
   }, [loadContacts, selectedLayerId]);
 
+  useSocket(WsEventType.SPACECRAFT_VISIBILITY_CHANGED, () => void loadContacts());
   useSocket(WsEventType.SHIP_MOVED, () => void loadContacts());
   useSocket(WsEventType.SPACECRAFT_EVENT, () => void loadContacts());
 

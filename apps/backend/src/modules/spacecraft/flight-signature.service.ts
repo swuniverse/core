@@ -43,11 +43,13 @@ export class FlightSignatureService {
     direction: FlightDirection | null,
     manager?: EntityManager,
   ): Promise<void> {
-    if (!origin || !destination) return;
+    if (!origin || !destination || ship.rpgHidden) return;
     const emit = async (
       transaction?: EntityManager,
       maskedHull: ShipClassDef | null = null,
+      suppressed = false,
     ) => {
+      if (suppressed) return;
       const repository =
         transaction?.getRepository(FlightSignature) ?? this.signatureRepo;
       const shipClass =

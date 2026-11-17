@@ -1,6 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { WsEventType } from '@swuniverse/shared';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { SpacecraftPage } from './spacecraft';
+
+const handlers = vi.hoisted(() => new Map<string, (payload: unknown) => void>());
+vi.mock('../hooks/use-socket', () => ({ useSocket: (event: string, handler: (payload: unknown) => void) => handlers.set(event, handler) }));
 
 const apiMocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -54,6 +58,27 @@ const ship = {
 };
 
 describe('SpacecraftPage', () => {
+  it('discards an older list response that arrives after scene removal', async () => {
+    let finish!: (ships: typeof ship[]) => void;
+    apiMocks.get.mockReset();
+    apiMocks.get.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    render(<MemoryRouter><SpacecraftPage /></MemoryRouter>);
+    apiMocks.get.mockResolvedValue([]);
+    await act(async () => { handlers.get(WsEventType.SPACECRAFT_VISIBILITY_CHANGED)?.({ type: 'REMOVED', shipId: ship.id }); });
+    await act(async () => { finish([ship]); });
+    expect(screen.queryAllByText('Falke')).toHaveLength(0);
+  });
+  it('removes a hidden scene from an already open player list and reloads after revelation', async () => {
+    apiMocks.get.mockReset(); apiMocks.get.mockResolvedValue([ship]);
+    render(<MemoryRouter><SpacecraftPage /></MemoryRouter>);
+    await screen.findAllByText('Falke');
+    apiMocks.get.mockResolvedValue([]);
+    await act(async () => { handlers.get(WsEventType.SPACECRAFT_VISIBILITY_CHANGED)?.({ type: 'REMOVED', shipId: ship.id }); });
+    expect(screen.queryAllByText('Falke')).toHaveLength(0);
+    apiMocks.get.mockResolvedValue([ship]);
+    await act(async () => { handlers.get(WsEventType.SPACECRAFT_VISIBILITY_CHANGED)?.({ type: 'STATE', shipId: ship.id }); });
+    expect(await screen.findAllByText('Falke')).toHaveLength(2);
+  });
   it('loads each ship cargo on first hover and reuses the cached hold', async () => {
     apiMocks.get.mockReset();
     apiMocks.get.mockImplementation((path: string) => {

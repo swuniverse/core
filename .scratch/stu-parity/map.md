@@ -51,6 +51,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Entscheidungen
 
+- 2026-11-17 – SPEC-2: Administrativer RPG-Transponder mit eigener Szenenverwaltung, vollständigen Spieler-Sichtbarkeitsfiltern und berechtigter Entfernung/Wiederveröffentlichung nach Commit umgesetzt. 0 EPS, unabhängig von CLOAK; laufende Aktionen/Kämpfe durch PostgreSQL-Sperren geschützt. Tests, Lint/Typecheck, Builds und lokale Migration geprüft – siehe [Ticket](issues/sc-WP-SPEC-2-rpg-transponder.md). Kein weiteres unmittelbar ausführbares Ticket; vier Produktentscheidungen und zwei blockierte Interdiktornetz-Folgetickets bleiben offen.
+
 - 2026-11-16 – SPEC-5: Signaturmaskierung ist umgesetzt. Kosten sind 25 × Standard-Hyperantriebslevel des imitierten persönlich entdeckten mobilen Rumpfs; fünf Minuten, kostenlose Deaktivierung, dauerhafte Beendigung nach Antriebsausfall/-ausbau und historische Signatur-Snapshots. API und Schiffsauswahl sind geprüft, einschließlich 183 PostgreSQL-Tests. Siehe [Ticket](issues/sc-WP-SPEC-5-signaturmaskierung.md). SPEC-2 ist als nächstes ausführbar; die vier Produktentscheidungen bleiben offen.
 
 - 2026-11-16 – Triage der sieben Resttickets: tmw-K1a2 als Fixture-/Regressionsauftrag, SPEC-2 und SPEC-5 ausführbar vorbereitet; SPEC-3/4/6 warten auf konkrete Ausstattungs-/Spieldatenentscheidungen. SPEC-1 ist nur als Tracking-Split in SPEC-1a/b/c resolved; das Interdiktornetz bleibt unimplementiert. Vier Empfehlungen sind im [Triage-Audit](triage-2026-11-16.md) ausdrücklich als Vorschläge markiert, nicht freigegeben. Der breite PostgreSQL-Bewegungslauf ist wegen einer veralteten LastCombatReport-Testfixture rot; isolierte Tests bestehen.

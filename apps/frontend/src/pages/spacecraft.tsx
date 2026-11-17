@@ -1,4 +1,6 @@
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { WsEventType, type SpacecraftVisibilityPayload } from '@swuniverse/shared';
+import { useSocket } from '../hooks/use-socket';
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   SpacecraftListDto,
   SpacecraftListSystemDto,
@@ -39,8 +41,11 @@ export function SpacecraftPage() {
   const [leaderId, setLeaderId] = useState('');
   const [fleetAlertFailures, setFleetAlertFailures] = useState<Record<number, string[]>>({});
 
+  const loadVersion = useRef(0);
   const loadShips = useCallback(async () => {
+    const version = ++loadVersion.current;
     const data = await api.get<SpacecraftListDto[]>('/spacecraft');
+    if (version !== loadVersion.current) return;
     setShips(data);
     setLoading(false);
   }, []);
@@ -48,6 +53,12 @@ export function SpacecraftPage() {
   useEffect(() => {
     void loadShips();
   }, [loadShips]);
+
+  useSocket(WsEventType.SPACECRAFT_VISIBILITY_CHANGED, payload => {
+    const event = payload as SpacecraftVisibilityPayload;
+    if (event.type === 'REMOVED') setShips(current => current.filter(ship => ship.id !== event.shipId));
+    void loadShips();
+  });
 
   const fleets = useMemo(() => {
     const grouped = new Map<number, SpacecraftListDto[]>();

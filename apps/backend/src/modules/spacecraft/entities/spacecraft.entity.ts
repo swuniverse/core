@@ -66,6 +66,13 @@ export class Spacecraft {
   @Column({ type: 'jsonb', nullable: true, select: false })
   lastCombatReport: CombatReportDto | null;
 
+  /** Admin-only scene state. Ordinary entity saves cannot overwrite it. */
+  @Column({ type: 'int', nullable: true, update: false, insert: false })
+  rpgPlotId: number | null;
+
+  @Column({ default: false, update: false, insert: false })
+  rpgHidden: boolean;
+
   @Column({ length: 255 })
   name: string;
 

@@ -1249,3 +1249,17 @@ export interface SignatureMaskDto {
   choices: SignatureMaskChoiceDto[];
   active: { shipClassId: number; name: string; expiresAt: string } | null;
 }
+
+export interface RpgSceneSpacecraftDto {
+  id: number;
+  name: string;
+  shipClassId: number;
+  plotId: number | null;
+  plotTitle: string | null;
+  hidden: boolean;
+  location: SpaceLocationDto | null;
+}
+export interface RpgScenePlotDto { id: number; title: string; }
+export type SpacecraftVisibilityPayload =
+  | { type: 'REMOVED'; shipId: number }
+  | { type: 'STATE'; shipId: number; state: SharedLivePositionDto };

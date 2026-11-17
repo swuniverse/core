@@ -1,3 +1,4 @@
+import { isRpgHidden } from '../spacecraft/rpg-visibility';
 import { ShuttleService } from '../spacecraft/shuttle.service';
 import {
   BadRequestException,
@@ -215,7 +216,7 @@ export class ColonyOrbitService implements OnModuleInit {
       order: { id: 'ASC' },
     });
     const orbitShips = ships.filter((ship) =>
-      this.isShipInColonyOrbit(colony, ship),
+      !isRpgHidden(ship) && this.isShipInColonyOrbit(colony, ship),
     );
     const shipIds = orbitShips.map((ship) => ship.id);
     const [cargo, assignments, torpedoes] = await Promise.all([
@@ -359,7 +360,7 @@ export class ColonyOrbitService implements OnModuleInit {
         where: { id: request.shipId, userId },
         relations: ['modules', 'location', 'location.systemField'],
       });
-      if (!ship || !this.isShipInColonyOrbit(colony, ship)) {
+      if (!ship || isRpgHidden(ship) || !this.isShipInColonyOrbit(colony, ship)) {
         results.push({
           shipId: request.shipId,
           applied: [],
@@ -475,7 +476,7 @@ export class ColonyOrbitService implements OnModuleInit {
       where: { id: shipId, userId },
       relations: ['fleet'],
     });
-    if (!ship) throw new NotFoundException('Spacecraft not found');
+    if (!ship || isRpgHidden(ship)) throw new NotFoundException('Spacecraft not found');
 
     const stopped = await this.colonyRepo.manager.transaction(
       async (manager) => {
@@ -586,7 +587,7 @@ export class ColonyOrbitService implements OnModuleInit {
       where: { id: shipId, userId },
       relations: ['fleet', 'location', 'location.systemField'],
     });
-    if (!ship) throw new NotFoundException('Spacecraft not found');
+    if (!ship || isRpgHidden(ship)) throw new NotFoundException('Spacecraft not found');
     const colony = await this.findColonyInOrbit(ship);
     if (
       expectedColonyId != null &&
@@ -677,7 +678,7 @@ export class ColonyOrbitService implements OnModuleInit {
       where: { id: shipId, userId },
       relations: ['fleet', 'location', 'location.systemField'],
     });
-    if (!ship) return null;
+    if (!ship || isRpgHidden(ship)) return null;
     const colony = await this.findColonyInOrbit(ship);
     const fleet = ship.fleet ?? null;
     const manager = this.colonyRepo.manager;
@@ -817,7 +818,7 @@ export class ColonyOrbitService implements OnModuleInit {
       where: { id: shipId, userId },
       relations: ['location', 'location.systemField'],
     });
-    if (!ship) throw new NotFoundException('Spacecraft not found');
+    if (!ship || isRpgHidden(ship)) throw new NotFoundException('Spacecraft not found');
     if (!this.canManageOrbitShip(colony, ship)) {
       throw new BadRequestException('Ship is not in colony orbit');
     }

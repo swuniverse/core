@@ -122,7 +122,7 @@ describe('TradeQueryService', () => {
 
     expect(accounts.find).toHaveBeenCalledWith({ where: { userId: 42 } });
     expect(spacecraft.find).toHaveBeenCalledWith({
-      where: { userId: 42 },
+      where: { userId: 42, rpgHidden: false },
       select: ['id', 'name', 'shipClassId', 'kind', 'locationId'],
     });
     expect(result.accounts).toEqual([

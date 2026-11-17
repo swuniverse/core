@@ -56,6 +56,11 @@ export class StarmapVisibilityService {
     private readonly spacecraftService: Pick<SpacecraftService, 'getSensorRange'>,
   ) {}
 
+  /** Audience permission independent of a scene's current hidden flag. */
+  async maySeeOwnerPosition(viewerId: number, ownerId: number): Promise<boolean> {
+    return (await this.visibilityByOwner(viewerId)).visibility.has(ownerId);
+  }
+
   /** Starmap contacts of the viewer on one map layer. */
   async listContacts(
     viewerId: number,

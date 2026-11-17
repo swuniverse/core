@@ -19,6 +19,8 @@ export enum InteractionRule {
 }
 
 export interface InteractionContext {
+  sourceRpgHidden?: boolean;
+  targetRpgHidden?: boolean;
   samePosition: boolean;
   sourceHasSufficientCrew: boolean;
   sourceCombatCapable: boolean;
@@ -127,6 +129,9 @@ export function checkInteraction(
   context: InteractionContext,
   rules: readonly InteractionRule[],
 ): InteractionDecision {
+  if (context.sourceRpgHidden || context.targetRpgHidden) {
+    return { allowed: false, reason: 'Spacecraft not found' };
+  }
   for (const rule of rules) {
     const check = CHECKS[rule];
     if (check.rejected(context)) {

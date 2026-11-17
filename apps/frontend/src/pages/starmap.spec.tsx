@@ -601,7 +601,7 @@ describe('StarmapPage ship layer', () => {
     ]);
   });
 
-  it.each([WsEventType.SHIP_MOVED, WsEventType.SPACECRAFT_EVENT])(
+  it.each([WsEventType.SHIP_MOVED, WsEventType.SPACECRAFT_EVENT, WsEventType.SPACECRAFT_VISIBILITY_CHANGED])(
     'reloads the contacts on the existing %s socket event',
     async (event) => {
       renderPage();
