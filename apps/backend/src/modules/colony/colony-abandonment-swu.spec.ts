@@ -40,10 +40,14 @@ import { ColonyAbandonmentService } from './colony-abandonment.service';
 import { CelestialObjectType } from '../starmap/entities/celestial-object.entity';
 import { getMappedStuClassIds } from '../starmap/generator/swu-stu-class-mapping';
 
-function setup(object: Record<string, unknown>) {
+function setup(
+  object: Record<string, unknown>,
+  fields: Array<{ terrainTileId: string | null }> = [],
+) {
   const queries: string[] = [];
   type TransactionManager = {
     query: (sql: string) => Promise<unknown[]>;
+    getRepository: () => { delete: () => unknown };
     save: (value: unknown) => Promise<unknown>;
     delete: jest.Mock;
     find: jest.Mock;
@@ -59,6 +63,7 @@ function setup(object: Record<string, unknown>) {
     save: jest.fn(async (o: unknown) => o),
     delete: jest.fn(async () => undefined),
     find: jest.fn(async () => []),
+    getRepository: jest.fn(() => ({ delete: jest.fn() })),
     transaction: jest.fn(async (fn: (m: TransactionManager) => unknown) =>
       fn(manager),
     ),
@@ -68,7 +73,7 @@ function setup(object: Record<string, unknown>) {
     name: 'Testkolonie',
     userId: 1,
     isAbandoned: false,
-    fields: [],
+    fields,
     changeable: null,
     celestialObject: object,
   };
@@ -130,6 +135,43 @@ describe('giveUpColony on a still-STU planet/moon', () => {
     expect(manager.delete).toHaveBeenCalledWith(expect.anything(), { colonyId: 5 });
     expect(colony.isAbandoned).toBe(true);
     expect(object.classId).toBe(90010);
+    expect(manager.save).toHaveBeenCalledWith(colony);
+  });
+});
+
+describe('giveUpColony on an asteroid', () => {
+  const asteroid = () => ({
+    id: 9,
+    objectType: CelestialObjectType.ASTEROID,
+    classId: 701,
+    originalClassId: null,
+    name: 'Brocken',
+  });
+
+  it('purges a colony that still has the old STU surface', async () => {
+    const { service, colonyRepo, queries } = setup(asteroid(), [
+      { terrainTileId: '70121' },
+      { terrainTileId: '101' },
+    ]);
+
+    await service.giveUpColony(5, 1, 'Testkolonie');
+
+    expect(queries.some((q) => q.startsWith('DELETE FROM "colonies"'))).toBe(
+      true,
+    );
+    expect(colonyRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('keeps ruins when the colony already has the SWU surface', async () => {
+    const { service, colony, manager, queries } = setup(asteroid(), [
+      { terrainTileId: 'G649' },
+      { terrainTileId: 'OU1E' },
+    ]);
+
+    await service.giveUpColony(5, 1, 'Testkolonie');
+
+    expect(queries).toHaveLength(0);
+    expect(colony.isAbandoned).toBe(true);
     expect(manager.save).toHaveBeenCalledWith(colony);
   });
 });

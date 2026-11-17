@@ -24,6 +24,10 @@ import {
 import type { SwuBonusMarkerType } from '../starmap/generator/swu-bonus-markers';
 import { foundSwuColony } from '../starmap/generator/swu-archetype-registry';
 import {
+  buildAsteroidSurfaceSnapshot,
+  type AsteroidSurfaceSnapshot,
+} from './colony-asteroid-surface';
+import {
   computeSwuOrbitDistance,
   solarOutputTJ,
 } from '../starmap/generator/swu-solar';
@@ -47,8 +51,8 @@ const FIELD_TYPES = {
  */
 const SWU_PLACEHOLDER_FIELD_TYPE = 0;
 
-/** Monde haben nur 6 Orbit-Spalten (Planeten 10). */
-const SWU_MOON_ORBIT_WIDTH = 6;
+/** Monde haben nur 7 Orbit-Spalten (Planeten 10) - so breit wie ihre Oberflaeche. */
+const SWU_MOON_ORBIT_WIDTH = 7;
 
 /**
  * Aurodium (Latinum)-Vorkommen: jeder Planet/Mond bekommt eines (kein
@@ -101,6 +105,8 @@ export interface CreateFollowUpSwuColonyOptions {
   name?: string;
   /** Solarertrag in TJ (siehe swu-solar.ts) - vom Aufrufer berechnet, der die Sternposition kennt. */
   solarOutputTJ?: number | null;
+  /** Gewuenschtes Startfeld als Index innerhalb der SURFACE-Ebene (y * Breite + x). */
+  initialSurfaceIndex?: number;
 }
 
 export interface CreateFollowUpColonyOptions {
@@ -112,6 +118,8 @@ export interface CreateFollowUpColonyOptions {
   name?: string;
   initialFieldIndex?: number;
   systemFieldId?: number | null;
+  /** Solarertrag in TJ (siehe swu-solar.ts); nur fuer SWU-Asteroiden gesetzt. */
+  solarOutputTJ?: number | null;
 }
 
 @Injectable()
@@ -278,6 +286,8 @@ export class ColonySeedService {
       relations: ['starSystem'],
     });
     const classId = object?.classId ?? 0;
+    // Monde haben niemals einen Untergrund.
+    const isMoon = object?.objectType === CelestialObjectType.MOON;
     const founded = foundSwuColony(
       options.archetype,
       options.rotation,
@@ -285,16 +295,9 @@ export class ColonySeedService {
       options.zoneSlot,
       `colony-${options.userId}-${options.celestialObjectId}`,
       (tile) => this.gameData.getCategoriesForTerrainTile(tile),
+      isMoon ? SWU_MOON_ORBIT_WIDTH : undefined,
     );
-    // Monde haben niemals einen Untergrund.
-    const isMoon = object?.objectType === CelestialObjectType.MOON;
-    const orbit = isMoon
-      ? {
-          upper: founded.orbit.upper.slice(0, SWU_MOON_ORBIT_WIDTH),
-          lower: founded.orbit.lower.slice(0, SWU_MOON_ORBIT_WIDTH),
-        }
-      : founded.orbit;
-    const fields = this.flattenSwuFoundedColony({ ...founded, orbit }, !isMoon);
+    const fields = this.flattenSwuFoundedColony(founded, !isMoon);
     const surfaceWidth = founded.surface[0]?.length ?? 10;
     const mask = Buffer.from(
       JSON.stringify(
@@ -329,9 +332,18 @@ export class ColonySeedService {
     });
     await this.colonyRepo.save(colony);
 
+    // initialSurfaceIndex zaehlt nur innerhalb der SURFACE-Ebene (y * Breite + x).
+    const initialFieldIndex =
+      options.initialSurfaceIndex != null
+        ? fields.filter((field) => field.layer === 'SURFACE')[
+            options.initialSurfaceIndex
+          ]?.fieldIndex
+        : undefined;
     await this.generateSwuFields(colony, {
       buildingId: options.buildingId,
       fields,
+      surfaceWidth,
+      initialFieldIndex,
     });
     await this.createInitialStats(colony);
     await this.createInitialChangeable(colony);
@@ -344,6 +356,98 @@ export class ColonySeedService {
 
     this.logger.log(
       `SWU follow-up colony created for user ${options.username} (id: ${colony.id}, archetype: ${options.archetype.typeName}, zone: ${options.zoneSlot})`,
+    );
+    return colony;
+  }
+
+  /**
+   * Asteroiden-Oberflaeche (6x6, nur SURFACE) aus dem SWU-Generator, fuer die
+   * STU-Asteroidenklassen 701-709/716-718. null bei allen anderen Klassen.
+   * `selectable` = Startfeld-tauglich (Kategorie "standard"); die Randkacheln
+   * G9xx haben keine Kategorie und sind damit unbebaubar.
+   */
+  generateAsteroidSnapshot(
+    classId: number | null | undefined,
+    seed: string,
+  ): AsteroidSurfaceSnapshot | null {
+    return buildAsteroidSurfaceSnapshot(classId, seed, (tile) =>
+      this.gameData.getCategoriesForTerrainTile(tile),
+    );
+  }
+
+  /** Gruendet eine Kolonie auf einem Asteroiden mit der SWU-Oberflaeche (siehe generateAsteroidSnapshot). */
+  async createFollowUpAsteroidColony(
+    options: CreateFollowUpColonyOptions,
+  ): Promise<Colony> {
+    const object = await this.objectRepo.findOne({
+      where: { id: options.celestialObjectId, isColonizable: true },
+      relations: ['starSystem'],
+    });
+    const classId = object?.classId ?? 0;
+    const snapshot = this.generateAsteroidSnapshot(
+      classId,
+      `colony-${options.userId}-${options.celestialObjectId}`,
+    );
+    if (!snapshot) {
+      throw new BadRequestException('Kein Asteroidenfeld');
+    }
+    const systemField = object
+      ? await this.systemFieldRepo.findOneBy({
+          starSystemId: object.systemId,
+          sx: object.posX,
+          sy: object.posY,
+        })
+      : null;
+    const mask = Buffer.from(
+      JSON.stringify(
+        snapshot.fields.map((field) => ({
+          fieldIndex: field.fieldIndex,
+          fieldType: field.fieldType,
+          terrainTileId: field.terrainTileId,
+          layer: field.layer,
+        })),
+      ),
+    ).toString('base64');
+
+    const colony = this.colonyRepo.create({
+      name: options.name?.trim() || `${options.username}'s Kolonie`,
+      userId: options.userId,
+      starSystemId: object?.systemId || null,
+      systemFieldId: options.systemFieldId ?? systemField?.id ?? null,
+      celestialObjectId: object?.id || null,
+      posX: object?.posX || 10,
+      posY: object?.posY || 10,
+      colonyClassId: classId,
+      solarOutputTJ: options.solarOutputTJ ?? null,
+      surfaceMask: mask,
+      surfaceWidth: snapshot.width,
+      rotationFactor: 1,
+      energy: 50,
+      energyMax: 100,
+      population: 10,
+      populationMax: 100,
+      storageUsed: 0,
+      storageMax: 1500,
+    });
+    await this.colonyRepo.save(colony);
+
+    await this.generateSwuFields(colony, {
+      buildingId: options.buildingId,
+      fields: snapshot.fields,
+      surfaceWidth: snapshot.width,
+      initialFieldIndex: options.initialFieldIndex,
+    });
+    await this.createInitialStats(colony);
+    await this.createInitialChangeable(colony);
+    assertOwnedColony(colony);
+    await this.createInitialDepositMining(colony, object);
+    await this.grantStartingResources(
+      colony,
+      options.resources ?? FOLLOW_UP_STARTING_COMMODITIES,
+    );
+
+    this.logger.log(
+      `Asteroid colony created for user ${options.username} (id: ${colony.id}, class: ${classId})`,
     );
     return colony;
   }
@@ -455,7 +559,13 @@ export class ColonySeedService {
 
   private async generateSwuFields(
     colony: Colony,
-    options: { buildingId: number; fields: SwuColonyFieldSeed[] },
+    options: {
+      buildingId: number;
+      fields: SwuColonyFieldSeed[];
+      /** Breite der SURFACE-Ebene (Default 10) und gewuenschtes Startfeld, wenn es bebaubar ist. */
+      surfaceWidth?: number;
+      initialFieldIndex?: number;
+    },
   ): Promise<void> {
     const fields = options.fields.map((field) =>
       this.fieldRepo.create({
@@ -471,7 +581,15 @@ export class ColonySeedService {
     );
 
     // Das Startgebaeude ersetzt das Terrain NICHT - das Feld behaelt seinen Code.
-    const hqField = this.findSwuHeadquartersField(fields);
+    const preferred = fields.find(
+      (field) =>
+        field.fieldIndex === options.initialFieldIndex &&
+        field.layer === 'SURFACE' &&
+        this.isSwuStandardField(field),
+    );
+    const hqField =
+      preferred ??
+      this.findSwuHeadquartersField(fields, options.surfaceWidth);
     hqField.buildingId = options.buildingId;
     hqField.buildProgress = 100;
     hqField.isActive = true;
@@ -492,12 +610,8 @@ export class ColonySeedService {
     surfaceWidth = 10,
   ): ColonyField {
     const surfaceFields = fields.filter((field) => field.layer === 'SURFACE');
-    const standardFields = surfaceFields.filter(
-      (field) =>
-        field.terrainTileId != null &&
-        this.gameData
-          .getCategoriesForTerrainTile(field.terrainTileId)
-          .includes('standard'),
+    const standardFields = surfaceFields.filter((field) =>
+      this.isSwuStandardField(field),
     );
     const candidates = standardFields.length > 0 ? standardFields : surfaceFields;
     if (candidates.length === 0) return fields[0];
@@ -514,6 +628,15 @@ export class ColonySeedService {
     };
     return candidates.reduce((best, field) =>
       distance(field) < distance(best) ? field : best,
+    );
+  }
+
+  private isSwuStandardField(field: Pick<ColonyField, 'terrainTileId'>): boolean {
+    return (
+      field.terrainTileId != null &&
+      this.gameData
+        .getCategoriesForTerrainTile(field.terrainTileId)
+        .includes('standard')
     );
   }
 

@@ -64,8 +64,6 @@ function setup(checks: AccountAccessCheck[] = []) {
   const service = new AuthService(
     userRepo as never,
     {} as never,
-    {} as never,
-    {} as never,
     jwt as never,
     {} as never,
     { isMaintenance: jest.fn(async () => false) } as never,

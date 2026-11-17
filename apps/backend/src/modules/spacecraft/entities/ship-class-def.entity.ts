@@ -24,6 +24,7 @@ export class ShipClassDef {
   @Column({ type: 'int', nullable: true })
   unlockTechId: number | null;
 
+  /** Build duration in seconds (despite the name). */
   @Column({ default: 0 })
   buildTimeTicks: number;
 

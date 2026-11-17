@@ -18,7 +18,7 @@ function createService() {
     delete: jest.fn(async ({ userId }) => { if (lock?.userId === userId) lock = null; }),
   };
   const service = new AuthService(
-    userRepo as never, {} as never, {} as never, {} as never, {} as never,
+    userRepo as never, {} as never, {} as never,
     {} as never, {} as never, {} as never, { get: jest.fn() } as never,
     {} as never, [], lockRepo as never,
   );

@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { ColonyTickEvent } from '@swuniverse/shared';
+import {
+  pickWreckShip,
+  WRECK_SALVAGED_TILE_ID,
+  type ColonyTickEvent,
+} from '@swuniverse/shared';
 import { Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
 import { FactionService } from '../faction/faction.service';
@@ -294,6 +298,46 @@ export class ColonyTickProcessorService {
         await this.fieldRepo.save(field);
         events.push({
           type: 'TERRAFORMING_FINISHED',
+          fieldIndex: field.fieldIndex,
+        });
+      }
+
+      if (field.wreckRepairFinishesAt && field.wreckRepairFinishesAt <= now) {
+        const hangarDef = this.gameData.getHangarShipDef(
+          pickWreckShip(Math.random()),
+        );
+        if (hangarDef) {
+          const maxStorage =
+            this.colonyStatsService.calculateSummary(
+              colony,
+            ).effectiveStorageMax;
+          const stored = await this.colonyStorageService.upperStorage(
+            colony,
+            hangarDef.hangarCommodityId,
+            1,
+            maxStorage,
+          );
+          if (stored > 0) {
+            field.wreckRepaired = true;
+            field.wreckRepairFinishesAt = null;
+            field.terrainTileId = WRECK_SALVAGED_TILE_ID;
+            await this.fieldRepo.save(field);
+            events.push({
+              type: 'WRECK_REPAIRED',
+              fieldIndex: field.fieldIndex,
+              reason: hangarDef.displayName.replace(/ Rumpf$/, ''),
+            });
+          }
+          // Lager voll: Reparatur bleibt faellig und wird im naechsten Tick erneut versucht.
+        }
+      }
+
+      if (field.domeFinishesAt && field.domeFinishesAt <= now) {
+        field.hasDome = true;
+        field.domeFinishesAt = null;
+        await this.fieldRepo.save(field);
+        events.push({
+          type: 'DOME_FINISHED',
           fieldIndex: field.fieldIndex,
         });
       }

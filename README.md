@@ -6,7 +6,7 @@ Star Wars Universe ist ein tickbasiertes Browser-Strategiespiel im Star-Wars-Set
 
 Der Workspace deckt bereits die zentralen Spielsysteme und Verwaltungsoberflächen ab:
 
-- **Authentifizierung & Einladungen** — Registrierung, Login, Token-Refresh, Profilabruf sowie Spieler- und Admin-Invite-Flows
+- **Authentifizierung** — offene Registrierung mit E-Mail-Verifizierung, Login, Token-Refresh und Profilabruf
 - **Onboarding & Fraktionswahl** — Fraktion wählen, Startsektoren/Systeme/Planeten durchsuchen und Heimatwelt beanspruchen
 - **Kolonien** — 7x7-Felder, Gebäude, Terraforming, Aktivierung/Deaktivierung, Lager, Crew, Fabrication, Reparaturen, Bau-/Retrofit-Warteschlangen und Orbit-Befehle
 - **Kolonisierung** — Kolonieschiffe prüfen Ziele und gründen neue Kolonien direkt aus der Schiffsansicht
@@ -15,7 +15,7 @@ Der Workspace deckt bereits die zentralen Spielsysteme und Verwaltungsoberfläch
 - **Kampf & Verteidigung** — Kampfsystem, Schilde, Orbit-Verteidigung/Blockade und torpedobasierte Kolonieverteidigung
 - **Forschung & Freischaltungen** — Forschungsübersicht, Forschungsbaum und Unlock-abhängige Inhalte
 - **Community & Spielerprofile** — Nachrichten, HoloNet, öffentliche Datenbank, Rankings, Spielerprofile, persönliche Notizen und Kontoeinstellungen
-- **Administration** — Admin-Dashboard, Benutzerrechte, Invite-Verwaltung und Schiffs-Spawn-Werkzeuge
+- **Administration** — Admin-Dashboard, Benutzerrechte und Schiffs-Spawn-Werkzeuge
 
 ## Laufzeitarchitektur
 

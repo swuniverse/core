@@ -53,8 +53,6 @@ function setup(options: { enabled?: boolean; mail?: boolean } = {}) {
   };
   const service = new AuthService(
     userRepo as never,
-    {} as never,
-    {} as never,
     dataSource as never,
     {} as never,
     mail as never,

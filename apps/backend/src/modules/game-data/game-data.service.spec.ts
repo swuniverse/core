@@ -639,7 +639,7 @@ describe('GameDataService hangar ship definitions', () => {
     expect(service.getHangarShipDefByCommodity(21401)).toMatchObject({
       shipClassKey: 'REBEL_SHUTTLE_LAAT',
     });
-    expect(service.getAllHangarShipDefs()).toHaveLength(13);
+    expect(service.getAllHangarShipDefs()).toHaveLength(18);
 
     expect(service.getHangarShipDef('REBEL_FIGHTER_X_WING')).toMatchObject({
       hangarCommodityId: 21201,
@@ -750,10 +750,14 @@ describe('GameDataService ship class slot rules', () => {
         baseSensorRange: definition.sensorRangeBase,
         baseWarpdrive: definition.warpdriveBase,
       });
-      expect(service.getShipyardRumpCrew(definition.stuRumpId)).toMatchObject({
-        baseCrew: definition.crewMin,
-        maxCrew: definition.crewMax,
-      });
+      if (!definition.crewFromClass) {
+        expect(
+          service.getShipyardRumpCrew(definition.stuRumpId),
+        ).toMatchObject({
+          baseCrew: definition.crewMin,
+          maxCrew: definition.crewMax,
+        });
+      }
       expect(
         service.getShipyardRumpModuleRules(definition.stuRumpId),
       ).toBeDefined();

@@ -31,6 +31,18 @@ export interface ColonyField {
   buildFinishesAt: string | null;
   terraformingId?: string | null;
   terraformingFinishesAt?: string | null;
+  /** Kuppel fertig / im Bau (Fertigstellung). */
+  hasDome?: boolean;
+  domeFinishesAt?: string | null;
+  /** Wrack-Kachel: repariert / Fertigstellung / Reparaturplan (nur solange offen). */
+  wreckRepaired?: boolean;
+  wreckRepairFinishesAt?: string | null;
+  wreckRepair?: {
+    damage: number;
+    costs: Array<{ commodityId: number; amount: number }>;
+    durationMinutes: number;
+    hasRepairStationBonus: boolean;
+  } | null;
   availableUpgrades?: ColonyFieldUpgrade[];
   /** Untergrund vor Forschung "Untergrund-Wissen" gesperrt. */
   locked?: boolean;

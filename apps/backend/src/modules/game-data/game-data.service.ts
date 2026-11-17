@@ -438,6 +438,8 @@ export interface HangarShipDef {
   shipClassKey: string;
   crewRequired: number;
   hangarCommodityId: number;
+  /** Only obtainable by salvage (e.g. crashed wrecks), never buildable at an airfield. */
+  salvageOnly?: boolean;
   displayName: string;
   airfieldFunctionId: number;
   startEnergyCost: number;
@@ -469,10 +471,13 @@ export interface ShipClassYamlDef {
   factionKey?: string | null;
   allowedBuildingFunctionIds?: number[];
   unlockTechId: number | null;
+  /** Build duration in seconds (despite the name). */
   buildTimeTicks: number;
   cargoCapacity: number;
   crewMin: number;
   crewMax: number;
+  /** Keep crewMin/crewMax from the class instead of the STU rump (e.g. droid fighters). */
+  crewFromClass?: boolean;
   hullBase: number;
   shieldBase: number;
   epsBase: number;
@@ -1116,7 +1121,9 @@ export class GameDataService implements OnModuleInit {
       'ship-building/ship-classes.yaml',
     );
     this.shipClassDefs = (data?.shipClasses ?? []).map((definition) => {
-      const crew = this.getShipyardRumpCrew(definition.stuRumpId);
+      const crew = definition.crewFromClass
+        ? undefined
+        : this.getShipyardRumpCrew(definition.stuRumpId);
       return crew
         ? { ...definition, crewMin: crew.baseCrew, crewMax: crew.maxCrew }
         : definition;

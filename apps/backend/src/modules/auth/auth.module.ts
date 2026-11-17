@@ -12,8 +12,6 @@ import { LastActivityService } from './last-activity.service';
 import { AdminGuard } from './admin.guard';
 import { AdminBootstrapService } from './admin-bootstrap.service';
 import { User } from './user.entity';
-import { InviteKey } from './invite-key.entity';
-import { InviteQuota } from './invite-quota.entity';
 import { AccountToken } from './account-token.entity';
 import { AccountTokenService } from './account-token.service';
 import { FactionEntity } from '../faction/entities/faction.entity';
@@ -35,8 +33,6 @@ import { AccountDeletionModule } from '../account-deletion/account-deletion.modu
     TypeOrmModule.forFeature([
       User,
       FactionEntity,
-      InviteKey,
-      InviteQuota,
       AccountToken,
       UserLock,
     ]),

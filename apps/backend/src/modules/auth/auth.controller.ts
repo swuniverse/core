@@ -14,16 +14,16 @@ import { AuthGuard } from '@nestjs/passport';
 import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { AuthService } from './auth.service';
 import { RegisterRequestDto } from './dto/register.dto';
+import {
+  ResendVerificationRequestDto,
+  VerifyEmailRequestDto,
+} from './dto/verify-email.dto';
 import { LoginRequestDto } from './dto/login.dto';
 import {
   LostPasswordRequestDto,
   ResetPasswordRequestDto,
 } from './dto/password-reset.dto';
 import { AdminGuard } from './admin.guard';
-import {
-  UpdateVerificationEmailRequestDto,
-  VerifyEmailRequestDto,
-} from './dto/email-verification.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -37,6 +37,16 @@ export class AuthController {
   @Post('login')
   login(@Body() dto: LoginRequestDto) {
     return this.authService.login(dto);
+  }
+
+  @Post('verify-email')
+  verifyEmail(@Body() dto: VerifyEmailRequestDto) {
+    return this.authService.verifyEmail(dto.token);
+  }
+
+  @Post('resend-verification')
+  resendVerification(@Body() dto: ResendVerificationRequestDto) {
+    return this.authService.resendVerification(dto.email);
   }
 
   @Post('refresh')
@@ -70,62 +80,10 @@ export class AuthController {
     return this.authService.confirmDeletion(token);
   }
 
-  @Post('verify-email')
-  verifyEmail(@Body() dto: VerifyEmailRequestDto) {
-    return this.authService.verifyEmail(dto);
-  }
-
-  @UseGuards(AuthGuard('jwt'))
-  @Post('verification/resend')
-  resendEmailVerification(@Request() req: { user: { sub: number } }) {
-    return this.authService.resendEmailVerification(req.user.sub);
-  }
-
-  @UseGuards(AuthGuard('jwt'))
-  @Patch('verification/email')
-  updateVerificationEmail(
-    @Request() req: { user: { sub: number } },
-    @Body() dto: UpdateVerificationEmailRequestDto,
-  ) {
-    return this.authService.updateVerificationEmail(req.user.sub, dto);
-  }
-
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
   getProfile(@Request() req: { user: { sub: number } }) {
     return this.authService.getProfile(req.user.sub);
-  }
-
-  @RequiresGameAccess()
-  @UseGuards(AuthGuard('jwt'))
-  @Get('invites')
-  getMyInvites(@Request() req: { user: { sub: number } }) {
-    return this.authService.getMyInvites(req.user.sub);
-  }
-
-  @RequiresGameAccess()
-  @UseGuards(AuthGuard('jwt'))
-  @Post('invites')
-  createMyInvite(@Request() req: { user: { sub: number } }) {
-    return this.authService.createMyInvite(req.user.sub);
-  }
-
-  @RequiresGameAccess()
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
-  @Get('admin/invites')
-  getAdminInvites() {
-    return this.authService.getAdminInvites();
-  }
-
-  @RequiresGameAccess()
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
-  @Post('admin/invites')
-  adminCreateInvites(
-    @Request() req: { user: { sub: number } },
-    @Body()
-    body: { ownerUserId?: number; keyCount?: number; additionalQuota?: number },
-  ) {
-    return this.authService.adminCreateInvites(req.user.sub, body ?? {});
   }
 
   @RequiresGameAccess()

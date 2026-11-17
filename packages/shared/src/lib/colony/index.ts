@@ -1,6 +1,8 @@
 export * from './sandbox.js';
 import type { AnomalyViewDto } from '../starmap/anomalies.js';
 export * from './asteroid.js';
+export * from './dome.js';
+export * from './wreck.js';
 export * from './solar-buildings.js';
 export * from './telescope.js';
 
@@ -9,6 +11,8 @@ export type ColonyTickEventType =
   | 'STORAGE_FULL'
   | 'BUILDING_FINISHED'
   | 'TERRAFORMING_FINISHED'
+  | 'DOME_FINISHED'
+  | 'WRECK_REPAIRED'
   | 'CREW_LIMIT_EXCEEDED';
 
 export interface ColonyTickEvent {

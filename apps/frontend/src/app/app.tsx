@@ -35,7 +35,6 @@ import { AdminTicksPage } from '../pages/admin-ticks';
 import { AdminMassMessagePage } from '../pages/admin-mass-message';
 import { AdminRpgShipsPage } from '../pages/admin-rpg-ships';
 import { AdminShipsPage } from '../pages/admin-ships';
-import { AdminInvitesPage } from '../pages/admin-invites';
 import { AdminUsersPage } from '../pages/admin-users';
 import { AdminFactionsPage } from '../pages/admin-factions';
 import { AdminAwardsPage } from '../pages/admin-awards';
@@ -112,6 +111,7 @@ export function App() {
               </PublicOnlyRoute>
             }
           />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route
             path="/lost-password"
             element={
@@ -128,7 +128,6 @@ export function App() {
               </PublicOnlyRoute>
             }
           />
-          <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/confirm-deletion" element={<ConfirmDeletionPage />} />
           <Route
             element={
@@ -183,14 +182,6 @@ export function App() {
                 <MapEditorRoute>
                   <StarmapAdminFullmapPage />
                 </MapEditorRoute>
-              }
-            />
-            <Route
-              path="/admin/invites"
-              element={
-                <AdminRoute>
-                  <AdminInvitesPage />
-                </AdminRoute>
               }
             />
             <Route

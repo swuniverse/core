@@ -6,6 +6,7 @@ import type { ColonyTickReportPayload, TutorialView } from '@swuniverse/shared';
 import { Header } from './header';
 import { Sidebar } from './sidebar';
 import { BottomNav } from './bottom-nav';
+import { OrderBroadcastOverlay } from '../OrderBroadcastOverlay';
 import { useSocket } from '../../hooks/use-socket';
 import type { UserProfile } from '@swuniverse/shared';
 import { api } from '../../services/api';
@@ -48,6 +49,12 @@ function formatColonyTickReport(payload: ColonyTickReportPayload): string {
   if (first.type === 'TERRAFORMING_FINISHED') {
     return `Kolonie ${payload.colonyId}: Geoengineering abgeschlossen${suffix}`;
   }
+  if (first.type === 'WRECK_REPAIRED') {
+    return `Kolonie ${payload.colonyId}: Wrack repariert${suffix}`;
+  }
+  if (first.type === 'DOME_FINISHED') {
+    return `Kolonie ${payload.colonyId}: Kuppel fertiggestellt${suffix}`;
+  }
   return `Kolonie ${payload.colonyId}: ${payload.events.length} Tick-Ereignis(se)`;
 }
 
@@ -76,17 +83,14 @@ export function AppShell() {
   }, [setUser]);
 
   useEffect(() => {
-    void api.get<GameStatus>('/game-status').then(setGameStatus).catch(() => undefined);
+    void api
+      .get<GameStatus>('/game-status')
+      .then(setGameStatus)
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
     if (!user) return;
-    if (!user.isAdmin && user.emailVerifiedAt === null) {
-      if (location.pathname !== '/verify-email') {
-        navigate('/verify-email', { replace: true });
-      }
-      return;
-    }
     if (!user.onboardingCompleted && location.pathname !== '/claim-colony') {
       navigate('/claim-colony', { replace: true });
     }
@@ -107,6 +111,7 @@ export function AppShell() {
       <Sidebar />
       <BottomNav />
       <TutorialPadd view={tutorialViewForPath(location.pathname)} />
+      <OrderBroadcastOverlay />
       {gameStatus?.status !== 'ONLINE' && (
         <div
           className={`fixed inset-x-0 top-[58px] z-40 border-b px-3 py-2 text-center text-xs md:top-[86px] ${

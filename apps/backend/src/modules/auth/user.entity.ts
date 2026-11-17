@@ -30,6 +30,16 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   emailVerifiedAt: Date | null;
 
+  @Index()
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  emailVerificationTokenHash: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  emailVerificationExpiresAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  emailVerificationSentAt: Date | null;
+
   @Column({
     type: 'enum',
     enum: ['REBEL_ALLIANCE', 'GALACTIC_EMPIRE'],

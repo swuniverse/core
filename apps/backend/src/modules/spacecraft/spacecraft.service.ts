@@ -1720,6 +1720,11 @@ export class SpacecraftService {
       where: { spacecraftId: ship.id },
     });
 
+    const flagshipClassKey = await this.resolveFlagshipClassKey(
+      ship,
+      shipClass?.key ?? null,
+    );
+
     return Object.assign(ship, {
       hasLastCombatReport: await this.lastReports?.has(ship.id) ?? false,
       shipClassName: shipClass?.name || `Class ${ship.shipClassId}`,
@@ -1744,7 +1749,25 @@ export class SpacecraftService {
           id: member.id,
           name: member.name,
         })) ?? [],
+      fleetFlagshipClassKey: flagshipClassKey,
     });
+  }
+
+  /** Class key of the fleet's flagship (the leader); null when not in a fleet. */
+  private async resolveFlagshipClassKey(
+    ship: Spacecraft,
+    ownClassKey: string | null,
+  ): Promise<string | null> {
+    if (!ship.fleet) return null;
+    if (ship.fleet.leaderId === ship.id) return ownClassKey;
+    const leader = await this.shipRepo.findOne({
+      where: { id: ship.fleet.leaderId },
+      select: { id: true, shipClassId: true },
+    });
+    if (!leader) return null;
+    return (
+      (await this.shipClassService.findById(leader.shipClassId))?.key ?? null
+    );
   }
 
   private async toShipDetail(ship: Spacecraft): Promise<Spacecraft> {

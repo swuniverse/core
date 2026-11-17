@@ -82,6 +82,19 @@ export function solarOutputTJ(
 }
 
 /**
+ * Solarertrag in TJ fuer einen Asteroiden: kein Archetyp und keine Zonen, also
+ * ein luftloser (E), rotierender Koerper in der Referenzzone - nur die Distanz
+ * zum Stern bestimmt den Ertrag.
+ */
+export function asteroidSolarOutputTJ(orbitDistance: number): number {
+  const factor = solarOutputFactor(orbitDistance, 2, 'rotating', 'E');
+  return Math.min(
+    SWU_SOLAR_MAX_OUTPUT_TJ,
+    Math.round(factor * SWU_SOLAR_BASE_OUTPUT_TJ),
+  );
+}
+
+/**
  * Distanz zum Systemstern, normiert 0 (sonnennah) bis 1 (sonnenfern) relativ
  * zur maximal moeglichen Distanz innerhalb der Systemgrenzen (maxX/maxY).
  * 0.5 (neutral) als Fallback, wenn kein Stern oder keine Systemgroesse bekannt ist.

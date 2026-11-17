@@ -59,7 +59,7 @@ describe('StationShipyardService', () => {
     getCommodity: jest.fn(() => ({ name: 'Laserkanone' })),
   };
   const dataSource: any = { transaction: (fn: any) => fn(manager), manager };
-  const core = new ShipbuildingCoreService(gameData as never, { isShipClassUnlocked: async () => true, hasTech: async () => true } as never, dataSource, stats as never, { dateAfterScaledMinutes: () => new Date() } as never);
+  const core = new ShipbuildingCoreService(gameData as never, { isShipClassUnlocked: async () => true, hasTech: async () => true } as never, dataSource, stats as never, { dateAfterScaledMinutes: () => new Date(), dateAfterScaledSeconds: () => new Date() } as never);
   const service = new StationShipyardService(
     { transaction: (fn: any) => fn(manager), manager } as never,
     queueRepo as never,

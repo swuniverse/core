@@ -28,7 +28,7 @@ function createService() {
     { get: (key: string) => key === 'EMAIL_BLOCKLIST_PEPPER' ? 'pepper' : undefined } as never,
   );
   const service = new AuthService(
-    userRepo as never, {} as never, {} as never, dataSource as never, {} as never,
+    userRepo as never, dataSource as never, {} as never,
     {} as never, {} as never, {} as never, { get: jest.fn() } as never,
     {} as never, [], undefined, undefined, blocklist,
   );

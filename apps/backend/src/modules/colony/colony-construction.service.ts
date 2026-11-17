@@ -6,6 +6,11 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
+import {
+  DOME_BUILD_SECONDS,
+  DOME_COSTS,
+  isDomeTerrainTile,
+} from '@swuniverse/shared';
 import { BuildingDef, GameDataService } from '../game-data/game-data.service';
 import { findArchetypeBySwuClassId } from '../starmap/generator/swu-archetype-registry';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
@@ -24,6 +29,7 @@ import {
 import { ColonyStorageService } from './colony-storage.service';
 import { ColonyTimingService } from './colony-timing.service';
 import { COLONY_BUILDING_ID_SETS } from './colony.constants';
+import { colonyWreckRepairPlan, isWreckColonyField } from './wreck-repair';
 import {
   ColonyEventSeverity,
   ColonyEventType,
@@ -88,16 +94,18 @@ export class ColonyConstructionService {
     if (colonyId != null) {
       const colony = await this.findOne(colonyId, userId);
       const reachable = this.getReachableFieldIdentities(colony);
+      const domedFields = (colony.fields ?? []).filter((f) => f.hasDome);
       buildings = buildings.filter(
         (building) =>
-          !this.lacksRequiredAtmosphere(colony, building) &&
-          reachable.some((identity) =>
-            this.isBuildingAllowedOnFieldIdentity(
-              building,
-              identity.fieldType,
-              identity.terrainTileId,
-            ),
-          ),
+          (!this.lacksRequiredAtmosphere(colony, building) &&
+            reachable.some((identity) =>
+              this.isBuildingAllowedOnFieldIdentity(
+                building,
+                identity.fieldType,
+                identity.terrainTileId,
+              ),
+            )) ||
+          domedFields.some((f) => this.isBuildingAllowedOnField(building, f)),
       );
     }
     const result = [];
@@ -226,7 +234,14 @@ export class ColonyConstructionService {
       if (!lockedColony) throw new NotFoundException('Colony not found');
       colony = await repository.findOne({
         where: { id: colonyId, userId, isAbandoned: false },
-        relations: ['fields', 'storage', 'stats', 'changeable'],
+        // celestialObject: fuer die Atmosphaeren-Pruefung (Planetenklasse).
+        relations: [
+          'fields',
+          'storage',
+          'stats',
+          'changeable',
+          'celestialObject',
+        ],
       });
     } else {
       colony = await this.findOne(colonyId, userId);
@@ -315,7 +330,7 @@ export class ColonyConstructionService {
       );
     }
     this.assertOrbitAllowed(colony, field, 'build in orbit');
-    this.assertAtmosphereAllowed(colony, buildingDef);
+    this.assertAtmosphereAllowed(colony, buildingDef, field);
 
     if (buildingDef.researchId != null) {
       const unlocked = await this.unlockResolver.isBuildingUnlocked(
@@ -360,8 +375,11 @@ export class ColonyConstructionService {
   private lacksRequiredAtmosphere(
     colony: Colony,
     buildingDef: BuildingDef,
+    field?: ColonyField,
   ): boolean {
     if (!buildingDef.requiresAtmosphere) return false;
+    // Eine fertige Kuppel gibt dem Feld Atmosphaere.
+    if (field?.hasDome) return false;
     const classId = colony.celestialObject?.classId;
     const archetype = classId ? findArchetypeBySwuClassId(classId) : null;
     return archetype?.atmosphere === 'Keine';
@@ -370,8 +388,9 @@ export class ColonyConstructionService {
   private assertAtmosphereAllowed(
     colony: Colony,
     buildingDef: BuildingDef,
+    field?: ColonyField,
   ): void {
-    if (this.lacksRequiredAtmosphere(colony, buildingDef)) {
+    if (this.lacksRequiredAtmosphere(colony, buildingDef, field)) {
       throw new BadRequestException(
         'This building requires an atmosphere, which this planet does not have',
       );
@@ -585,6 +604,7 @@ export class ColonyConstructionService {
       buildingDef,
       field.fieldType,
       field.terrainTileId ?? null,
+      field.hasDome,
     );
   }
 
@@ -592,6 +612,7 @@ export class ColonyConstructionService {
     buildingDef: BuildingDef,
     fieldType: number | null,
     terrainTileId: string | null,
+    domed = false,
   ): boolean {
     if (
       fieldType != null &&
@@ -607,7 +628,13 @@ export class ColonyConstructionService {
     // swu-field-build-categories.yaml). "any"-Kategorien erlauben jedes
     // Gebaeude (gegated ueber dessen eigene researchId, siehe build()).
     if (!terrainTileId) return false;
-    const categories = this.gameData.getCategoriesForTerrainTile(terrainTileId);
+    const tileCategories =
+      this.gameData.getCategoriesForTerrainTile(terrainTileId);
+    // Ueberkuppeltes Feld hat Atmosphaere: alle "standard"-Gebaeude sind baubar.
+    const categories =
+      domed && !tileCategories.includes('standard')
+        ? [...tileCategories, 'standard']
+        : tileCategories;
     return categories.some(
       (category) =>
         this.gameData.isCategoryOpenToAnyBuilding(category) ||
@@ -620,7 +647,10 @@ export class ColonyConstructionService {
     const candidates = this.getFieldTypeCandidates(field).map((candidate) =>
       String(candidate),
     );
-    if (field.terrainTileId != null && !candidates.includes(field.terrainTileId)) {
+    if (
+      field.terrainTileId != null &&
+      !candidates.includes(field.terrainTileId)
+    ) {
       candidates.push(field.terrainTileId);
     }
     return candidates;
@@ -723,7 +753,8 @@ export class ColonyConstructionService {
         .filter(
           (production) =>
             production.amount > 0 &&
-            (production.commodityId === 1801 || production.commodityId === 1802),
+            (production.commodityId === 1801 ||
+              production.commodityId === 1802),
         )
         .map((production) => production.commodityId),
     );
@@ -1044,6 +1075,62 @@ export class ColonyConstructionService {
       terraforming.duration,
     );
     await this.colonyRepo.save(colony);
+    return this.fieldRepo.save(field);
+  }
+
+  /**
+   * Kuppel ueber einem geraeumten Krater. Liegt als Overlay ueber Feld und
+   * Gebaeude, das Feld bleibt waehrenddessen normal nutzbar.
+   */
+  async buildDome(
+    colonyId: number,
+    userId: number,
+    fieldIndex: number,
+  ): Promise<ColonyField> {
+    const colony = await this.findOne(colonyId, userId);
+    const field = colony.fields.find((f) => f.fieldIndex === fieldIndex);
+    if (!field) throw new NotFoundException('Field not found');
+    if (!isDomeTerrainTile(field.terrainTileId)) {
+      throw new BadRequestException('A dome cannot be built on this terrain');
+    }
+    if (field.hasDome || field.domeFinishesAt) {
+      throw new BadRequestException('This field already has a dome');
+    }
+    if (field.terraformingId) {
+      throw new BadRequestException(
+        'Cannot build a dome on a field being terraformed',
+      );
+    }
+
+    await this.deductBuildCosts(colony, [...DOME_COSTS]);
+    await this.colonyRepo.save(colony);
+    field.domeFinishesAt =
+      this.timing.dateAfterScaledSeconds(DOME_BUILD_SECONDS);
+    return this.fieldRepo.save(field);
+  }
+
+  /** Repariert ein abgestuerztes Wrack (Kategorie "wrack"); Ergebnis: Schiff im Inventar. */
+  async repairWreck(
+    colonyId: number,
+    userId: number,
+    fieldIndex: number,
+  ): Promise<ColonyField> {
+    const colony = await this.findOne(colonyId, userId);
+    const field = colony.fields.find((f) => f.fieldIndex === fieldIndex);
+    if (!field) throw new NotFoundException('Field not found');
+    if (!isWreckColonyField(this.gameData, field)) {
+      throw new BadRequestException('This field is not a wreck');
+    }
+    if (field.wreckRepaired || field.wreckRepairFinishesAt) {
+      throw new BadRequestException('This wreck is already repaired');
+    }
+
+    const plan = colonyWreckRepairPlan(this.gameData, colony, field);
+    await this.deductBuildCosts(colony, plan.costs);
+    await this.colonyRepo.save(colony);
+    field.wreckRepairFinishesAt = this.timing.dateAfterScaledMinutes(
+      plan.durationMinutes,
+    );
     return this.fieldRepo.save(field);
   }
 

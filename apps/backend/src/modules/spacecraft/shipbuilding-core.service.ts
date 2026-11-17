@@ -228,7 +228,8 @@ export class ShipbuildingCoreService {
         spacecraftId: null,
         repairSnapshot: null,
         retrofitSnapshot: null,
-        finishesAt: this.timing.dateAfterScaledMinutes(
+        // buildTimeTicks are seconds (STU: finish_date = time() + buildtime).
+        finishesAt: this.timing.dateAfterScaledSeconds(
           Math.max(1, hull.buildTimeTicks || 1),
         ),
         stoppedAt: null,

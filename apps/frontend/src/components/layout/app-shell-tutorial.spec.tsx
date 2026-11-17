@@ -8,6 +8,7 @@ vi.mock('../../hooks/use-socket', () => ({ useSocket: vi.fn() }));
 vi.mock('./header', () => ({ Header: () => null }));
 vi.mock('./sidebar', () => ({ Sidebar: () => null }));
 vi.mock('./bottom-nav', () => ({ BottomNav: () => null }));
+vi.mock('../OrderBroadcastOverlay', () => ({ OrderBroadcastOverlay: () => null }));
 vi.mock('../../stores/auth.store', () => ({
   useAuthStore: (selector: (state: unknown) => unknown) => selector({ user: null, setUser: vi.fn() }),
 }));

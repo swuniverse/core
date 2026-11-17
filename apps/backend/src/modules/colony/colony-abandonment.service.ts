@@ -20,6 +20,7 @@ import { ColonyStorage } from './entities/colony-storage.entity';
 import { CrewAssignment } from './entities/crew-assignment.entity';
 import { Crew } from './entities/crew.entity';
 import { Colony } from './entities/colony.entity';
+import { ColonyField } from './entities/colony-field.entity';
 import {
   CelestialObject,
   CelestialObjectType,
@@ -29,6 +30,17 @@ import {
   getSwuClassIdForStuClassId,
 } from '../starmap/generator/swu-stu-class-mapping';
 import { purgeColonies } from './colony-purge';
+
+/** Alte STU-Oberflaechen haben ausschliesslich numerische Kachel-Codes, SWU-Felder alphanumerische (z.B. "G649"). */
+function hasStuSurface(fields: Array<Pick<ColonyField, 'terrainTileId'>>): boolean {
+  return (
+    fields.length > 0 &&
+    !fields.some(
+      (field) =>
+        field.terrainTileId != null && !/^\d+$/.test(field.terrainTileId),
+    )
+  );
+}
 
 @Injectable()
 export class ColonyAbandonmentService {
@@ -94,6 +106,12 @@ export class ColonyAbandonmentService {
   async abandonInManager(manager: EntityManager, colony: Colony, userId: number): Promise<void> {
     if (this.purgedInsteadOfRuin(colony)) {
       const object = colony.celestialObject as CelestialObject;
+      if (object.objectType === CelestialObjectType.ASTEROID) {
+        // Lagerstaetten pro Account (asteroid_resource_deposits) bleiben
+        // bestehen, ein erschoepfter Asteroid bleibt erschoepft.
+        await purgeColonies(manager, [colony.id]);
+        return;
+      }
       convertObjectToSwu(object);
       await purgeColonies(manager, [colony.id]);
       await manager.save(object);
@@ -122,6 +140,8 @@ export class ColonyAbandonmentService {
       field.reactivateAfterUpgrade = null;
       field.terraformingId = null;
       field.terraformingFinishesAt = null;
+      field.domeFinishesAt = null;
+      field.wreckRepairFinishesAt = null;
       if (field.isBuilding) {
         // A construction site has no completed ruin to preserve.
         field.buildingId = null;
@@ -166,6 +186,16 @@ export class ColonyAbandonmentService {
    */
   private purgedInsteadOfRuin(colony: Colony): boolean {
     const object = colony.celestialObject;
+    // Asteroiden mit noch alter STU-Oberflaeche (nur numerische Kachel-Codes)
+    // werden ebenfalls gesaeubert: die naechste Besiedlung erzeugt dann die
+    // SWU-Oberflaeche (siehe swu-asteroid-biomes.ts) statt die alte Ruine zu
+    // uebernehmen.
+    if (
+      object?.objectType === CelestialObjectType.ASTEROID &&
+      hasStuSurface(colony.fields ?? [])
+    ) {
+      return true;
+    }
     return Boolean(
       object &&
         (object.objectType === CelestialObjectType.PLANET ||

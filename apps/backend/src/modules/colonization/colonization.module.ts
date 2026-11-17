@@ -4,6 +4,7 @@ import { ColonizationController } from './colonization.controller';
 import { ColonizationService } from './colonization.service';
 import { User } from '../auth/user.entity';
 import { Colony } from '../colony/entities/colony.entity';
+import { ColonyField } from '../colony/entities/colony-field.entity';
 import { ColonyChangeable } from '../colony/entities/colony-changeable.entity';
 import { AsteroidResourceDeposit } from '../colony/entities/asteroid-resource-deposit.entity';
 import { ColonyModule } from '../colony/colony.module';
@@ -18,6 +19,7 @@ import { ResearchModule } from '../research/research.module';
     TypeOrmModule.forFeature([
       User,
       Colony,
+      ColonyField,
       ColonyChangeable,
       AsteroidResourceDeposit,
       CelestialObject,

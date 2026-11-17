@@ -320,6 +320,8 @@ export class TickService {
           terraformingId: Not(IsNull()),
           terraformingFinishesAt: LessThanOrEqual(now),
         },
+        { domeFinishesAt: LessThanOrEqual(now) },
+        { wreckRepairFinishesAt: LessThanOrEqual(now) },
       ],
       select: { id: true, colonyId: true },
     });
@@ -391,6 +393,14 @@ export class TickService {
     );
     await mgr.query(
       `UPDATE colony_fields SET "terraformingFinishesAt" = $1 WHERE "terraformingId" IS NOT NULL`,
+      [past],
+    );
+    await mgr.query(
+      `UPDATE colony_fields SET "wreckRepairFinishesAt" = $1 WHERE "wreckRepairFinishesAt" IS NOT NULL`,
+      [past],
+    );
+    await mgr.query(
+      `UPDATE colony_fields SET "domeFinishesAt" = $1 WHERE "domeFinishesAt" IS NOT NULL`,
       [past],
     );
     await mgr.query(

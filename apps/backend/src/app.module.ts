@@ -24,10 +24,11 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { DatabaseModule } from './modules/database/database.module';
 import { MailModule } from './modules/mail/mail.module';
 import { EventsModule } from './modules/events/events.module';
+import { OrderBroadcastModule } from './modules/order-broadcast/order-broadcast.module';
+import { OrderBroadcast } from './modules/order-broadcast/entities/order-broadcast.entity';
+import { OrderBroadcastAck } from './modules/order-broadcast/entities/order-broadcast-ack.entity';
 import { GameStatusModule } from './modules/game-status/game-status.module';
 import { User } from './modules/auth/user.entity';
-import { InviteKey } from './modules/auth/invite-key.entity';
-import { InviteQuota } from './modules/auth/invite-quota.entity';
 import { UserLock } from './modules/auth/user-lock.entity';
 import { BlockedUser } from './modules/settings/entities/blocked-user.entity';
 import { DatabaseCategoryAward } from './modules/awards/entities/database-category-award.entity';
@@ -181,8 +182,6 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
           Anomaly,
           AnomalyType,
           User,
-          InviteKey,
-          InviteQuota,
           UserLock,
           BlockedUser,
           DatabaseCategoryAward,
@@ -265,6 +264,8 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
           ProfileVisit,
           GameEvent,
           GameStatus,
+          OrderBroadcast,
+          OrderBroadcastAck,
           PrestigeHistoryEntry,
           DashboardSnapshot,
           StatisticSnapshot,
@@ -316,6 +317,7 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
     GameStatusModule,
     NewsModule,
     AccountDeletionModule,
+    OrderBroadcastModule,
     AuthModule,
     OnboardingModule,
     ColonyModule,

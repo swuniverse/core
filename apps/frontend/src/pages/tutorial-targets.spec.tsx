@@ -25,6 +25,7 @@ vi.mock('../lib/assets', () => ({
   spaceBackgroundTile: () => '/space.png',
   starTileImage: () => '/star.png',
   systemTypeImage: () => '/system.png',
+  shipCursorImage: () => null,
 }));
 vi.mock('../components/Toast', () => ({ useToast: () => ({ info: vi.fn(), error: vi.fn() }) }));
 vi.mock('../components/spacecraft/LssMap', () => ({

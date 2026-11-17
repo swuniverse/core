@@ -663,7 +663,7 @@ export class ColonyShipyardService {
       true,
     );
 
-    const buildMinutes = Math.max(1, shipClass.buildTimeTicks || 1);
+    const buildSeconds = Math.max(1, shipClass.buildTimeTicks || 1);
     const queue = this.shipBuildQueueRepo.create({
       colonyId: colony.id,
       userId,
@@ -686,7 +686,7 @@ export class ColonyShipyardService {
         returnedModuleCommodityIds: [],
         consumedModuleCommodityIds,
       },
-      finishesAt: this.timing.dateAfterScaledMinutes(buildMinutes),
+      finishesAt: this.timing.dateAfterScaledSeconds(buildSeconds),
       status: ColonyShipBuildQueueStatus.QUEUED,
     });
 

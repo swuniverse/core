@@ -17,6 +17,20 @@ export function alertStateImage(
   return `${ASSET_BASE}/buttons/alert${color}.png`;
 }
 
+/** Bild für Spielleitungs-Nachrichten (Order-66-Overlay), je Fraktion. */
+export function orderBroadcastImage(
+  faction: 'REBEL_ALLIANCE' | 'GALACTIC_EMPIRE' | null | undefined,
+): string | null {
+  switch (faction) {
+    case 'REBEL_ALLIANCE':
+      return `${ASSET_BASE}/avatars/Avatar_Rebellen.png`;
+    case 'GALACTIC_EMPIRE':
+      return `${ASSET_BASE}/avatars/Avatar_Imperium.png`;
+    default:
+      return null;
+  }
+}
+
 export function factionAvatarImage(
   faction: 'REBEL_ALLIANCE' | 'GALACTIC_EMPIRE' | null | undefined,
 ): string | null {
@@ -114,7 +128,38 @@ const SHIP_CLASS_KEY_FILES: Record<string, string> = {
   REBEL_FREIGHTER_GR75: 'gr75-medium-transport.png',
   EMPIRE_COLONIZER_SENTINEL: 'sentinel-class-landing-craft.png',
   EMPIRE_FREIGHTER_GOZANTI: 'gozanti-class-cruiser.png',
+  REBEL_FIGHTER_X_WING: 'x-wing.png',
+  REBEL_FIGHTER_A_WING: 'a-wing.png',
+  REBEL_SHUTTLE_U_WING: 'u-wing.png',
+  EMPIRE_FIGHTER_TIE_LN: 'tie-ln.png',
+  EMPIRE_FIGHTER_TIE_INTERCEPTOR: 'tie-interceptor.png',
+  SALVAGE_FIGHTER_N1: 'n1.png',
+  SALVAGE_FIGHTER_ARC_170: 'arc-170.png',
+  SALVAGE_FIGHTER_ETA_2: 'eta-2.png',
+  SALVAGE_FIGHTER_DELTA_7: 'delta-7.png',
+  SALVAGE_FIGHTER_VULTURE_DROID: 'vulture-droid.png',
 };
+
+/** Top-down graphic drawn on the overview map in place of the position marker. */
+const SHIP_CLASS_KEY_CURSOR_FILES: Record<string, string> = {
+  REBEL_FIGHTER_X_WING: 'x-wing-cursor.png',
+  REBEL_FIGHTER_A_WING: 'a-wing-cursor.png',
+  REBEL_SHUTTLE_U_WING: 'u-wing-cursor.png',
+  EMPIRE_FIGHTER_TIE_LN: 'tie-ln-cursor.png',
+  EMPIRE_FIGHTER_TIE_INTERCEPTOR: 'tie-interceptor-cursor.png',
+  SALVAGE_FIGHTER_N1: 'n1-cursor.png',
+  SALVAGE_FIGHTER_ARC_170: 'arc-170-cursor.png',
+  SALVAGE_FIGHTER_ETA_2: 'eta-2-cursor.png',
+  SALVAGE_FIGHTER_DELTA_7: 'delta-7-cursor.png',
+  SALVAGE_FIGHTER_VULTURE_DROID: 'vulture-droid-cursor.png',
+};
+
+export function shipCursorImage(shipClassKey?: string | null): string | null {
+  const file = shipClassKey
+    ? SHIP_CLASS_KEY_CURSOR_FILES[shipClassKey]
+    : undefined;
+  return file ? `${ASSET_BASE}/ships/${file}` : null;
+}
 
 export function shipImage(
   shipClassId: number,
@@ -484,9 +529,20 @@ export function colonyFieldTileImage(
   // (z.B. "A540", "OU1A", "U101") liegen in generated/SWUfields, dort mit
   // Praefix t (Tag) / n (Nacht); Untergrund-Codes (U...) ohne Praefix.
   const id = String(tileId);
-  if (/^\d+$/.test(id)) return `${ASSET_BASE}/generated/fields/${id}.png`;
+  if (/^\d+$/.test(id)) {
+    // STU-Asteroidenklassen (701-718) erzeugen 6-stellige Kachel-IDs
+    // (Klasse*1000 + n*10, z.B. 718080); die Dateien heissen ohne die
+    // letzte Null (71808.png).
+    const file = id.length === 6 && id.endsWith('0') ? id.slice(0, -1) : id;
+    return `${ASSET_BASE}/generated/fields/${file}.png`;
+  }
   const prefix = id.startsWith('U') ? '' : timeState === 'night' ? 'n' : 't';
   return `${ASSET_BASE}/generated/SWUfields/${prefix}${id}.png`;
+}
+
+/** Kuppel-Overlay (150x150, transparent) fuer geraeumte Krater-Kacheln. */
+export function colonyDomeImage(tileId: string): string {
+  return `${ASSET_BASE}/generated/SWUdomes/${tileId}.png`;
 }
 
 export function researchImage(techId: number): string {

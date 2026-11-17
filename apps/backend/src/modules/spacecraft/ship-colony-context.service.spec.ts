@@ -62,7 +62,7 @@ describe('transfer energy cost', () => {
 
 describe('chargeTransferEnergy', () => {
   const service = new ShipColonyContextService(
-    ...(Array(8).fill(undefined) as ConstructorParameters<
+    ...(Array(9).fill(undefined) as ConstructorParameters<
       typeof ShipColonyContextService
     >),
   );

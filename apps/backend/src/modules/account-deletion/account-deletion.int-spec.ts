@@ -119,10 +119,6 @@ describe('Account deletion with game content (PostgreSQL, AppModule)', () => {
       await source.getRepository('UserSetting').save({ userId: doomed.id, key: 'show_pm_read_receipt', value: 'false' });
       await source.getRepository('Note').save({ userId: doomed.id, title: 'Notiz', text: 'geheim' });
       await source.getRepository('PrestigeHistoryEntry').save({ userId: doomed.id, amount: 5, description: 'Prestige' });
-      await source.getRepository('InviteKey').save([
-        { keyHash: 'unused', keyPreview: 'unused', createdByUserId: doomed.id },
-        { keyHash: 'used', keyPreview: 'used', createdByUserId: doomed.id, usedByUserId: other.id, status: 'used' },
-      ]);
       await source.getRepository('News').save({ title: 'News', text: 'Text', authorId: doomed.id });
 
       await deletions.delete(doomed.id);
@@ -149,9 +145,6 @@ describe('Account deletion with game content (PostgreSQL, AppModule)', () => {
       for (const entity of ['UserSetting', 'Note', 'PrestigeHistoryEntry']) {
         expect(await count(entity, { userId: doomed.id })).toBe(0);
       }
-      expect(await source.getRepository('InviteKey').find()).toEqual([
-        expect.objectContaining({ keyHash: 'used', createdByUserId: null, usedByUserId: other.id }),
-      ]);
       expect(await source.getRepository('News').findOneByOrFail({ title: 'News' })).toMatchObject({ authorId: null });
     });
 

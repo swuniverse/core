@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, Not, IsNull } from 'typeorm';
 import { TradePost } from '../trade/entities/trade-post.entity';
 import { TradePostActivityRanking } from './trade-post-activity.ranking';
 import { tradeNetworkName } from '../trade/trade-network';
@@ -254,7 +254,7 @@ export class DatabaseService {
 
   async getOverview() {
     const [settlers, colonies, ships] = await Promise.all([
-      this.userRepo.count(),
+      this.userRepo.count({ where: { emailVerifiedAt: Not(IsNull()) } }),
       this.colonyRepo.count(),
       this.shipRepo.count(),
     ]);

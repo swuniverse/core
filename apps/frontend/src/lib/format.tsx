@@ -1,7 +1,5 @@
 import type { ComponentPropsWithoutRef } from 'react';
 
-export type InviteStatus = 'available' | 'used' | 'revoked';
-
 const numberFormatter = new Intl.NumberFormat('de-DE');
 
 export function formatNumber(value: number): string {
@@ -73,17 +71,4 @@ export function formatGameDate(value: string): string {
 export function formatGameDateTime(value: string): string {
   const parts = gameParts(dateTimeFormatter, value);
   return `${parts.date}, ${parts.hour}:${parts.minute}`;
-}
-
-export function formatInviteStatus(status: InviteStatus): string {
-  switch (status) {
-    case 'available':
-      return 'Verfuegbar';
-    case 'used':
-      return 'Verwendet';
-    case 'revoked':
-      return 'Widerrufen';
-    default:
-      return status;
-  }
 }

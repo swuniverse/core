@@ -16,6 +16,7 @@ import {
 } from '@swuniverse/shared';
 import { User } from '../auth/user.entity';
 import { Colony } from '../colony/entities/colony.entity';
+import { ColonyField } from '../colony/entities/colony-field.entity';
 import { AsteroidResourceDeposit } from '../colony/entities/asteroid-resource-deposit.entity';
 import {
   ColonySeedService,
@@ -56,6 +57,7 @@ import {
 import {
   computeSwuOrbitDistance,
   solarOutputTJ,
+  asteroidSolarOutputTJ,
 } from '../starmap/generator/swu-solar';
 import { GameDataService } from '../game-data/game-data.service';
 import {
@@ -134,10 +136,29 @@ export interface ColonizationTargetCheckDto {
     fields: Array<{
       fieldIndex: number;
       fieldType: number;
-      terrainTileId: number | null;
+      terrainTileId: number | string | null;
       layer: string | null;
       selectable: boolean;
     }>;
+  } | null;
+  /**
+   * Nur bei Ruinen-Uebernahme: Zustand der Koloniezentrale. Fehlt sie (oder
+   * gehoert sie einer fremden Fraktion), wird sie beim Uebernehmen ersetzt bzw.
+   * muss der Spieler ein Feld dafuer waehlen.
+   */
+  ruins?: {
+    /** Keine Koloniezentrale/Vorstufe vorhanden - der Spieler muss ein Feld waehlen. */
+    needsHeadquarters: boolean;
+    /** Eine fremde Koloniezentrale wird durch die eigene Fraktion ersetzt. */
+    replacesForeignHeadquarters: boolean;
+    surface: {
+      width: number;
+      fields: Array<{
+        fieldIndex: number;
+        terrainTileId: string | null;
+        selectable: boolean;
+      }>;
+    } | null;
   } | null;
   /** Zonen-Vorschlaege (Cold/Mid/Hot) fuer SWU-Archetyp-Ziele - Alternative zum STU surface-Feld. */
   swu?: {
@@ -166,6 +187,29 @@ export interface ColonizationTargetCheckDto {
     colonizationBuildingId: number | null;
   } | null;
 }
+/**
+ * Koloniezentrale und Vorstufe (Aussenposten) je Fraktion; gleiche Position =
+ * gleiche Stufe. Beim Uebernehmen einer Ruine wird eine fremde Zentrale durch
+ * die Entsprechung der eigenen Fraktion ersetzt.
+ */
+const HQ_BUILDINGS_BY_FACTION = {
+  rebel: [81010100, 82010100, 82010199],
+  imperial: [81010300, 82010300, 82010399],
+} as const;
+type HqFaction = keyof typeof HQ_BUILDINGS_BY_FACTION;
+const HQ_FACTION_BY_BUILDING_ID = new Map<number, HqFaction>();
+const HQ_KIND_BY_BUILDING_ID = new Map<number, number>();
+const HQ_COUNTERPART_BY_FACTION: Record<HqFaction, number[]> = {
+  rebel: [...HQ_BUILDINGS_BY_FACTION.rebel],
+  imperial: [...HQ_BUILDINGS_BY_FACTION.imperial],
+};
+for (const faction of Object.keys(HQ_BUILDINGS_BY_FACTION) as HqFaction[]) {
+  HQ_BUILDINGS_BY_FACTION[faction].forEach((id, kind) => {
+    HQ_FACTION_BY_BUILDING_ID.set(id, faction);
+    HQ_KIND_BY_BUILDING_ID.set(id, kind);
+  });
+}
+
 const STARTER_NOOBZONE_MAX_ACCOUNT_AGE_MS = 12_960_000 * 1000;
 const STARTER_NOOBZONE_MAX_COLONIES_PER_LAYER = 4;
 
@@ -184,6 +228,8 @@ export class ColonizationService {
     private readonly shipClassRepo: Repository<ShipClassDef>,
     @InjectRepository(CrewAssignment)
     private readonly crewAssignmentRepo: Repository<CrewAssignment>,
+    @InjectRepository(ColonyField)
+    private readonly fieldRepo: Repository<ColonyField>,
     private readonly unlockResolver: UnlockResolverService,
     private readonly colonySeedService: ColonySeedService,
     private readonly colonyEventService: ColonyEventService,
@@ -428,10 +474,32 @@ export class ColonizationService {
         reclaimed: existing?.isAbandoned === true,
       },
       status,
+      ruins: existing?.isAbandoned
+        ? await this.assessRuinsHeadquarters(
+            existing,
+            ship ? (shipClass?.colonizationBuildingId ?? null) : null,
+          )
+        : null,
       surface:
         existing?.isAbandoned || swuArchetype
           ? null
           : (() => {
+              const asteroid = this.colonySeedService.generateAsteroidSnapshot(
+                target.classId,
+                `colony-${userId}-${target.id}`,
+              );
+              if (asteroid) {
+                return {
+                  width: asteroid.width,
+                  fields: asteroid.fields.map((field) => ({
+                    fieldIndex: field.fieldIndex,
+                    fieldType: field.fieldType,
+                    terrainTileId: field.terrainTileId ?? null,
+                    layer: field.layer ?? null,
+                    selectable: field.selectable,
+                  })),
+                };
+              }
               const surface = this.colonySeedService.generateSurfaceSnapshot(
                 target.classId ?? 0,
                 `colony-${userId}-${target.id}`,
@@ -500,6 +568,11 @@ export class ColonizationService {
                   );
                   return {
                     ...proposal,
+                    // Fuer die Startfeld-Wahl: welche Oberflaechenfelder duerfen die Koloniezentrale tragen.
+                    startable:
+                      proposal.previewSurface?.map((row) =>
+                        row.map((tile) => this.isSwuStartTile(tile)),
+                      ) ?? null,
                     ores,
                     settlement: this.assessSwuZone(
                       swuArchetype,
@@ -580,6 +653,31 @@ export class ColonizationService {
             'Gewählte Zone ist nicht kolonisierbar',
           );
         }
+        if (initialFieldIndex != null) {
+          const surface = getColonizationProposals(
+            swuArchetype,
+            swuInstance!.rotation,
+            {
+              seed: `colony-${userId}-${target.id}`,
+              bodyFeature: swuInstance!.bodyFeature,
+            },
+          ).find((entry) => entry.zoneSlot === swuZoneSlot)?.previewSurface;
+          const width = surface?.[0]?.length ?? 0;
+          const tile = surface?.[Math.floor(initialFieldIndex / width)]?.[
+            initialFieldIndex % width
+          ];
+          if (!tile || !this.isSwuStartTile(tile)) {
+            throw new BadRequestException('Ungültiges Startfeld');
+          }
+        }
+      } else if (
+        this.colonySeedService.generateAsteroidSnapshot(
+          target.classId,
+          `colony-${userId}-${target.id}`,
+        )
+      ) {
+        // Asteroiden: das Startfeld ist optional, ohne gueltige Angabe waehlt
+        // die Gruendung das mittlerste bebaubare Feld.
       } else {
         const surface = this.colonySeedService.generateSurfaceSnapshot(
           target.classId ?? 0,
@@ -594,8 +692,34 @@ export class ColonizationService {
         }
       }
     }
+    if (abandonedColony) {
+      // Vor dem Uebernehmen validieren, damit bei ungueltigem Feld nichts veraendert wird.
+      const ruins = await this.assessRuinsHeadquarters(
+        abandonedColony,
+        shipClass.colonizationBuildingId,
+      );
+      if (ruins.needsHeadquarters) {
+        const field = ruins.surface?.fields.find(
+          (entry) => entry.fieldIndex === initialFieldIndex,
+        );
+        if (!field?.selectable) {
+          throw new BadRequestException(
+            'Für die Koloniezentrale muss ein freies Feld gewählt werden',
+          );
+        }
+      }
+    }
+    const asteroidSnapshot = this.colonySeedService.generateAsteroidSnapshot(
+      target.classId,
+      `colony-${userId}-${target.id}`,
+    );
     const colony = abandonedColony
-      ? await this.reclaimAbandonedColony(abandonedColony, userId)
+      ? await this.reclaimAbandonedColony(
+          abandonedColony,
+          userId,
+          shipClass.colonizationBuildingId,
+          initialFieldIndex,
+        )
       : swuArchetype
         ? await this.colonySeedService.createFollowUpSwuColony({
             userId,
@@ -606,6 +730,7 @@ export class ColonizationService {
             rotation: swuInstance!.rotation,
             bodyFeature: swuInstance!.bodyFeature,
             zoneSlot: swuZoneSlot!,
+            initialSurfaceIndex: initialFieldIndex,
             // Aendert sich nach der Gruendung nie mehr (Zone/Rotation/Archetyp/
             // Orbit-Distanz sind fix) - einmalig berechnen und speichern, statt
             // bei jeder Tick-Berechnung erneut die Sternposition abzufragen.
@@ -617,12 +742,18 @@ export class ColonizationService {
               swuArchetype.variant,
             ),
           })
-        : await this.colonySeedService.createFollowUpColony({
+        : await (asteroidSnapshot
+            ? this.colonySeedService.createFollowUpAsteroidColony
+            : this.colonySeedService.createFollowUpColony
+          ).call(this.colonySeedService, {
             userId,
             username: user.username,
             celestialObjectId,
             buildingId: shipClass.colonizationBuildingId,
             initialFieldIndex,
+            solarOutputTJ: asteroidSnapshot
+              ? asteroidSolarOutputTJ(await this.computeSwuOrbitDistance(target))
+              : undefined,
           });
     if (target.objectType === CelestialObjectType.ASTEROID) {
       await this.colonySeedService.ensureAsteroidDepositMining(userId, target);
@@ -654,13 +785,11 @@ export class ColonizationService {
         consumedShipId: ship.id,
         shipClassId: ship.shipClassId,
         colonizerTier: shipClass.colonizerTier,
-        initialBuildingId: abandonedColony
-          ? null
-          : shipClass.colonizationBuildingId,
+        initialBuildingId: shipClass.colonizationBuildingId,
         reclaimed: !!abandonedColony,
         ruinsPreserved: !!abandonedColony,
         transferredCrewCount: crewAssignments.length,
-        initialFieldIndex: abandonedColony ? null : (initialFieldIndex ?? null),
+        initialFieldIndex: initialFieldIndex ?? null,
         swuZoneSlot: abandonedColony ? null : (swuZoneSlot ?? null),
       },
     });
@@ -674,10 +803,82 @@ export class ColonizationService {
     };
   }
 
+  /**
+   * Prueft die Koloniezentrale (Aussenposten/Kommandozentrale) einer Ruine
+   * gegen die Fraktion des Kolonieschiffs: richtige Fraktion -> bleibt,
+   * fremde -> wird ersetzt, keine -> Spieler waehlt das Feld.
+   */
+  private async assessRuinsHeadquarters(
+    colony: Colony,
+    shipBuildingId: number | null,
+  ): Promise<NonNullable<ColonizationTargetCheckDto['ruins']>> {
+    const fields = await this.fieldRepo.find({
+      where: { colonyId: colony.id },
+      order: { fieldIndex: 'ASC' },
+    });
+    const hqFields = fields.filter(
+      (field) => field.buildingId != null && HQ_FACTION_BY_BUILDING_ID.has(field.buildingId),
+    );
+    const ownFaction = shipBuildingId != null ? HQ_FACTION_BY_BUILDING_ID.get(shipBuildingId) : undefined;
+    const replacesForeignHeadquarters =
+      ownFaction != null &&
+      hqFields.some((field) => HQ_FACTION_BY_BUILDING_ID.get(field.buildingId!) !== ownFaction);
+    if (hqFields.length > 0) {
+      return { needsHeadquarters: false, replacesForeignHeadquarters, surface: null };
+    }
+    const isSwu = colony.swuZoneSlot != null;
+    const surfaceFields = fields.filter((field) => field.layer === 'SURFACE');
+    return {
+      needsHeadquarters: true,
+      replacesForeignHeadquarters: false,
+      surface: {
+        width: colony.surfaceWidth ?? 10,
+        fields: surfaceFields.map((field) => ({
+          fieldIndex: field.fieldIndex,
+          terrainTileId: field.terrainTileId,
+          selectable:
+            field.buildingId == null &&
+            !field.isBuilding &&
+            (isSwu
+              ? field.terrainTileId != null && this.isSwuStartTile(field.terrainTileId)
+              : field.fieldType !== 201),
+        })),
+      },
+    };
+  }
+
   private async reclaimAbandonedColony(
     colony: Colony,
     userId: number,
+    shipBuildingId: number,
+    initialFieldIndex?: number,
   ): Promise<Colony> {
+    const ruins = await this.assessRuinsHeadquarters(colony, shipBuildingId);
+    const fields = await this.fieldRepo.find({ where: { colonyId: colony.id } });
+    if (ruins.needsHeadquarters) {
+      const field = fields.find((entry) => entry.fieldIndex === initialFieldIndex);
+      if (field) {
+        field.buildingId = shipBuildingId;
+        field.isBuilding = false;
+        field.buildProgress = 100;
+        field.isActive = true;
+        await this.fieldRepo.save(field);
+      }
+    } else if (ruins.replacesForeignHeadquarters) {
+      const ownFaction = HQ_FACTION_BY_BUILDING_ID.get(shipBuildingId)!;
+      const replaced = fields.filter(
+        (field) =>
+          field.buildingId != null &&
+          HQ_FACTION_BY_BUILDING_ID.get(field.buildingId) !== undefined &&
+          HQ_FACTION_BY_BUILDING_ID.get(field.buildingId) !== ownFaction,
+      );
+      for (const field of replaced) {
+        field.buildingId = HQ_COUNTERPART_BY_FACTION[ownFaction][
+          HQ_KIND_BY_BUILDING_ID.get(field.buildingId!)!
+        ];
+      }
+      if (replaced.length) await this.fieldRepo.save(replaced);
+    }
     colony.userId = userId;
     colony.isAbandoned = false;
     colony.abandonedAt = null;
@@ -825,6 +1026,11 @@ export class ColonizationService {
    * fuer swu-solar.ts. 0.5 (neutral) als Fallback, wenn kein Stern gefunden
    * wird oder Systemgroesse fehlt (sollte in der Praxis nicht vorkommen).
    */
+  /** Die Koloniezentrale darf nur auf "standard"-Felder (siehe swu-field-build-categories). */
+  private isSwuStartTile(tile: string): boolean {
+    return this.gameData.getCategoriesForTerrainTile(tile).includes('standard');
+  }
+
   private async computeSwuOrbitDistance(
     target: CelestialObject,
   ): Promise<number> {

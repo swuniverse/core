@@ -438,6 +438,8 @@ export function ColonySandboxPanel({
                 onOpenBuildMenu={noop}
                 onFilterBuildMenuByCommodity={noop}
                 onOpenAcademy={noop}
+                onBuildDome={noop}
+                onRepairWreck={noop}
                 onTerraform={(fieldIndex, terraformingId) =>
                   plan({ action: 'terraform', fieldIndex, terraformingId })
                 }

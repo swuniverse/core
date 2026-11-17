@@ -113,7 +113,7 @@ function fixture() {
     unlocks,
     dataSource,
     new SpacecraftStatsService(gameData),
-    { dateAfterScaledMinutes: () => new Date(0) } as never,
+    { dateAfterScaledMinutes: () => new Date(0), dateAfterScaledSeconds: () => new Date(0) } as never,
   );
   let full = false;
   const adapter: any = {

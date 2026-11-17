@@ -128,7 +128,6 @@ const buildStorageRows = (
   });
 };
 
-
 const isHeadquartersField = (field: ColonyField) =>
   field.buildingId != null &&
   [1, 82010100, 82010300].includes(field.buildingId);
@@ -201,36 +200,33 @@ export function ColoniesPage() {
     setColonies(data);
   }, []);
 
-  const loadColonyDetail = useCallback(
-    async (id: number) => {
-      const requestSequence = ++detailRequestSequenceRef.current;
-      targetColonyIdRef.current = id;
-      const [detail, buildings] = await Promise.all([
-        colonyApi.fetchColonyDetail(id),
-        // Pro Kolonie gefiltert: nur Gebaeude, die hier (ggf. via Terraforming) baubar sind.
-        colonyApi.fetchAvailableBuildings(id),
-      ]);
-      if (requestSequence !== detailRequestSequenceRef.current) return;
-      setBuildingDefs(buildings);
-      setSelected(detail);
-      setSearchParamsRef.current({ selected: String(id) }, { replace: true });
-      setEnvironmentScan(null);
-      setEnvironmentScanError(null);
-      void colonyApi
-        .fetchEnvironmentScan(id)
-        .then((scan) => {
-          if (requestSequence === detailRequestSequenceRef.current) {
-            setEnvironmentScan(scan);
-          }
-        })
-        .catch((error: unknown) => {
-          if (requestSequence === detailRequestSequenceRef.current) {
-            setEnvironmentScanError(errorMessage(error));
-          }
-        });
-    },
-    [],
-  );
+  const loadColonyDetail = useCallback(async (id: number) => {
+    const requestSequence = ++detailRequestSequenceRef.current;
+    targetColonyIdRef.current = id;
+    const [detail, buildings] = await Promise.all([
+      colonyApi.fetchColonyDetail(id),
+      // Pro Kolonie gefiltert: nur Gebaeude, die hier (ggf. via Terraforming) baubar sind.
+      colonyApi.fetchAvailableBuildings(id),
+    ]);
+    if (requestSequence !== detailRequestSequenceRef.current) return;
+    setBuildingDefs(buildings);
+    setSelected(detail);
+    setSearchParamsRef.current({ selected: String(id) }, { replace: true });
+    setEnvironmentScan(null);
+    setEnvironmentScanError(null);
+    void colonyApi
+      .fetchEnvironmentScan(id)
+      .then((scan) => {
+        if (requestSequence === detailRequestSequenceRef.current) {
+          setEnvironmentScan(scan);
+        }
+      })
+      .catch((error: unknown) => {
+        if (requestSequence === detailRequestSequenceRef.current) {
+          setEnvironmentScanError(errorMessage(error));
+        }
+      });
+  }, []);
 
   const loadAvailableBuildings = useCallback(async (colonyId?: number) => {
     const buildings = await colonyApi.fetchAvailableBuildings(colonyId);
@@ -240,15 +236,21 @@ export function ColoniesPage() {
   const loadInitial = useCallback(async () => {
     setLoading(true);
     try {
-      const [comms, buildings, allBuildings, terraforming, categories, classes] =
-        await Promise.all([
-          colonyApi.fetchCommodities(),
-          colonyApi.fetchAvailableBuildings(),
-          colonyApi.fetchAllBuildings(),
-          colonyApi.fetchTerraforming(),
-          colonyApi.fetchFieldCategories(),
-          colonyApi.fetchShipClasses(),
-        ]);
+      const [
+        comms,
+        buildings,
+        allBuildings,
+        terraforming,
+        categories,
+        classes,
+      ] = await Promise.all([
+        colonyApi.fetchCommodities(),
+        colonyApi.fetchAvailableBuildings(),
+        colonyApi.fetchAllBuildings(),
+        colonyApi.fetchTerraforming(),
+        colonyApi.fetchFieldCategories(),
+        colonyApi.fetchShipClasses(),
+      ]);
       setCommodities(comms);
       setBuildingDefs(buildings);
       setAllBuildingDefs(allBuildings);
@@ -391,6 +393,21 @@ export function ColoniesPage() {
           await api.post(`/colonies/${selected.id}/fields/${fi}/terraform`, {
             terraformingId: ti,
           });
+          loadColonyDetail(selected.id);
+        })
+      }
+      onBuildDome={(fi) =>
+        act(async () => {
+          await api.post(`/colonies/${selected.id}/fields/${fi}/dome`, {});
+          loadColonyDetail(selected.id);
+        })
+      }
+      onRepairWreck={(fi) =>
+        act(async () => {
+          await api.post(
+            `/colonies/${selected.id}/fields/${fi}/repair-wreck`,
+            {},
+          );
           loadColonyDetail(selected.id);
         })
       }
@@ -704,6 +721,8 @@ export function ColonyDetail({
   onDemolish,
   onToggle,
   onTerraform,
+  onBuildDome,
+  onRepairWreck,
   onBuildShip,
   onStartFabrication,
   onCancelFabrication,
@@ -752,6 +771,8 @@ export function ColonyDetail({
   onDemolish: (fi: number) => Promise<void> | void;
   onToggle: (fi: number) => Promise<void> | void;
   onTerraform: (fi: number, ti: string) => Promise<void> | void;
+  onBuildDome: (fi: number) => Promise<void> | void;
+  onRepairWreck: (fi: number) => Promise<void> | void;
   onBuildShip: (
     sci: number,
     name: string,
@@ -1472,6 +1493,8 @@ export function ColonyDetail({
           }}
           onOpenAcademy={() => handleMainViewChange('social')}
           onTerraform={onTerraform}
+          onBuildDome={onBuildDome}
+          onRepairWreck={onRepairWreck}
           onUpgrade={onUpgradeBuilding}
           onDemolish={onDemolish}
           onToggle={onToggle}

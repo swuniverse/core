@@ -172,6 +172,10 @@ interface LssMapProps {
   localMap: LocalMapResponse;
   navTarget: { x: number; y: number } | null;
   cartographyPoints?: Array<{ x: number; y: number }>;
+  /** Replaces the plain ring marker on the ship's own field. */
+  shipCursorUrl?: string | null;
+  /** Clockwise rotation of the cursor in degrees; 0 = pointing right. */
+  shipHeading?: number;
   onFieldClick: (x: number, y: number) => void;
   onScanExpired?: () => void;
 }
@@ -238,6 +242,8 @@ export function LssMap({
   localMap,
   navTarget,
   cartographyPoints = [],
+  shipCursorUrl = null,
+  shipHeading = 0,
   onFieldClick,
   onScanExpired,
 }: LssMapProps) {
@@ -321,7 +327,9 @@ export function LssMap({
               {xValues.map((x) => {
                 const isShip = x === shipX && y === shipY;
                 const isTarget = navTarget?.x === x && navTarget?.y === y;
-                const isCartographyPoint = cartographyPointKeys.has(`${x}:${y}`);
+                const isCartographyPoint = cartographyPointKeys.has(
+                  `${x}:${y}`,
+                );
                 const signatureCount = signaturesByPosition.get(`${x},${y}`);
                 const subspaceTraces = tracesByPosition.get(`${x},${y}`) ?? [];
                 const signatureLabel = signatureCount
@@ -403,8 +411,24 @@ export function LssMap({
                         : getGalaxyFieldMarker(field.fieldType.key)}
                       <AnomalyMarkers anomalies={field.anomalies} />
                       <SubspaceTraces traces={subspaceTraces} />
+                      {isShip && shipCursorUrl && (
+                        <img
+                          src={shipCursorUrl}
+                          alt=""
+                          data-testid="ship-cursor"
+                          style={{ transform: `rotate(${shipHeading}deg)` }}
+                          className="pointer-events-none absolute inset-0 z-30 h-full w-full object-contain drop-shadow-[0_0_3px_black]"
+                        />
+                      )}
                       {signatureCount != null && (
-                        <span className="absolute inset-0 z-20 grid place-items-center font-bold text-white drop-shadow-[0_1px_1px_black]">
+                        <span
+                          className={[
+                            'absolute z-40 font-bold text-white drop-shadow-[0_1px_1px_black]',
+                            isShip && shipCursorUrl
+                              ? 'bottom-0 right-0.5 text-xs leading-none'
+                              : 'inset-0 grid place-items-center',
+                          ].join(' ')}
+                        >
                           {signatureCount}
                         </span>
                       )}
@@ -550,8 +574,24 @@ export function LssMap({
                     )}
                     <AnomalyMarkers anomalies={field.anomalies} />
                     <SubspaceTraces traces={subspaceTraces} />
+                    {isShip && shipCursorUrl && (
+                      <img
+                        src={shipCursorUrl}
+                        alt=""
+                        data-testid="ship-cursor"
+                        style={{ transform: `rotate(${shipHeading}deg)` }}
+                        className="pointer-events-none absolute inset-0 z-30 h-full w-full object-contain drop-shadow-[0_0_3px_black]"
+                      />
+                    )}
                     {signatureCount != null && (
-                      <span className="absolute inset-0 z-20 grid place-items-center font-bold text-white drop-shadow-[0_1px_1px_black]">
+                      <span
+                        className={[
+                          'absolute z-40 font-bold text-white drop-shadow-[0_1px_1px_black]',
+                          isShip && shipCursorUrl
+                            ? 'bottom-0 right-0.5 text-xs leading-none'
+                            : 'inset-0 grid place-items-center',
+                        ].join(' ')}
+                      >
                         {signatureCount}
                       </span>
                     )}

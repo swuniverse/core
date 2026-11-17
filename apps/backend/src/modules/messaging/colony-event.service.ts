@@ -127,6 +127,22 @@ export class ColonyEventService {
           message: `Geoengineering auf Feld ${event.fieldIndex ?? '?'} wurde abgeschlossen.`,
           payload: { ...event },
         };
+      case 'WRECK_REPAIRED':
+        return {
+          type: ColonyEventType.WRECK_REPAIRED,
+          severity: ColonyEventSeverity.INFO,
+          title: 'Wrack repariert',
+          message: `Das Wrack auf Feld ${event.fieldIndex ?? '?'} wurde repariert${event.reason ? `: ${event.reason} liegt im Inventar` : ''}.`,
+          payload: { ...event },
+        };
+      case 'DOME_FINISHED':
+        return {
+          type: ColonyEventType.DOME_FINISHED,
+          severity: ColonyEventSeverity.INFO,
+          title: 'Kuppel fertiggestellt',
+          message: `Die Kuppel auf Feld ${event.fieldIndex ?? '?'} wurde fertiggestellt.`,
+          payload: { ...event },
+        };
       case 'CREW_LIMIT_EXCEEDED':
         return {
           type: ColonyEventType.CREW_LIMIT_EXCEEDED,

@@ -118,6 +118,8 @@ const defaultProps = {
   onFilterBuildMenuByCommodity: vi.fn(),
   onOpenAcademy: vi.fn(),
   onTerraform: vi.fn(),
+  onBuildDome: vi.fn(),
+  onRepairWreck: vi.fn(),
   onUpgrade: vi.fn(),
   onDemolish: vi.fn(),
   onToggle: vi.fn(),

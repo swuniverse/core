@@ -13,6 +13,8 @@ vi.mock('../../lib/assets', () => ({
   spaceBackgroundTile: () => '/space.png',
   starTileImage: () => '/star.png',
   systemTypeImage: () => '/system.png',
+  shipCursorImage: (key?: string | null) =>
+    key === 'REBEL_FIGHTER_X_WING' ? '/x-wing-cursor.png' : null,
 }));
 
 const map = {
@@ -155,6 +157,39 @@ describe('NavigationPanel', () => {
     fireEvent.click(within(first).getByRole('button', { name: /Schlie/ }));
     const second = await screen.findByRole('dialog', { name: 'Kampfbericht' });
     expect(within(second).getByText(/Patrouille feuert auf X-Wing/)).toBeTruthy();
+  });
+
+  it('draws the class cursor graphic on the ship field when one exists', async () => {
+    apiMocks.get.mockResolvedValue(map);
+    const { rerender } = render(
+      <NavigationPanel ship={ship} onShipUpdate={vi.fn()} />,
+    );
+    await screen.findByRole('button', { name: /Feld 6,5/ });
+    expect(screen.queryByTestId('ship-cursor')).toBeNull();
+
+    rerender(
+      <NavigationPanel
+        ship={{ ...ship, shipClassKey: 'REBEL_FIGHTER_X_WING' }}
+        onShipUpdate={vi.fn()}
+      />,
+    );
+    const cursor = await screen.findByTestId('ship-cursor');
+    expect(cursor.getAttribute('src')).toBe('/x-wing-cursor.png');
+    expect(cursor.style.transform).toBe('rotate(0deg)');
+
+    const xWing = { ...ship, shipClassKey: 'REBEL_FIGHTER_X_WING' };
+    // Flying up (towards smaller y) turns the graphic 90° counter-clockwise.
+    rerender(
+      <NavigationPanel
+        ship={{ ...xWing, location: { ...ship.location, y: 4 } }}
+        onShipUpdate={vi.fn()}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('ship-cursor').style.transform).toBe(
+        'rotate(-90deg)',
+      ),
+    );
   });
 
   it('marks planned measurement points only in cartography mode', async () => {
