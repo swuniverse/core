@@ -162,7 +162,6 @@ import {
   type FlightConsequenceField,
 } from './flight-consequence-pipeline';
 import { StationUplinkService, hasStationUplink } from './station-uplink.service';
-import { isReserveCore } from './reactor-fuel-profile';
 import { CrewEnhancementEvent } from './crew-expertise';
 import { FieldEffectQuery } from '../starmap/field-effect-query';
 import { EscapePodService } from './escape-pod.service';
@@ -1134,7 +1133,7 @@ export class SpacecraftService {
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
     if (operatingMode === SpacecraftOperatingMode.STANDBY) {
       for (const [key, state] of Object.entries(systems)) {
-        if (state && key !== 'LIFE_SUPPORT' && key !== 'BEAM_BLOCKER' && !(key === 'REACTOR' && ship.modules?.some(isReserveCore))) state.active = false;
+        if (state && key !== 'LIFE_SUPPORT' && key !== 'BEAM_BLOCKER') state.active = false;
       }
       systems.LIFE_SUPPORT = {
         ...(systems.LIFE_SUPPORT ?? { cooldown: 0, integrity: 100 }),
@@ -1203,10 +1202,6 @@ export class SpacecraftService {
     const systems = this.spacecraftRuntimeStateService.initialize(ship);
     const system = systems[systemKey];
     if (!system) throw new BadRequestException(`Unknown system: ${systemKey}`);
-    if (systemKey === 'REACTOR' && ship.modules?.some(isReserveCore) && !active)
-      throw new BadRequestException('Der Hypermaterie-Reservekern ist dauerhaft aktiv');
-    if (systemKey === 'WARPDRIVE' && active && ship.modules?.some(isReserveCore) && (systems.REACTOR?.integrity ?? 0) <= 0)
-      throw new BadRequestException('Hypermaterie-Reservekern ist zerstört');
     if (systemKey === 'BEAM_BLOCKER' && !active)
       throw new BadRequestException('Der Beamblocker ist ein dauerhaft aktives Stationssystem');
     if (systemKey === 'BEAM_BLOCKER' && active) {

@@ -1,7 +1,6 @@
 import type { SpacecraftModule } from './entities/spacecraft-module.entity';
 import type { StationRole } from './entities/spacecraft.entity';
 import type { SpacecraftRuntimeSystemStateDto } from '@swuniverse/shared';
-import { restoreReserveCoreRuntime } from './reactor-fuel-profile';
 
 type RepairableSpacecraft = {
   hull: number;
@@ -101,7 +100,6 @@ export function applyRepairStep(
     module.isActive = true;
     module.cooldown = 0;
   }
-  restoreReserveCoreRuntime(ship, step.modules);
   if (step.beamBlocker) {
     // STU passive station repair restores default modes when crew is aboard.
     if ((ship.crew ?? 0) > 0) step.beamBlocker.active = true;

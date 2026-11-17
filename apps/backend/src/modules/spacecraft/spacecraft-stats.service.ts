@@ -3,11 +3,7 @@ import { GameDataService, ModuleDef } from '../game-data/game-data.service';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { Spacecraft } from './entities/spacecraft.entity';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
-import {
-  installedReactor,
-  isReserveCore,
-  reactorFuelProfile,
-} from './reactor-fuel-profile';
+import { reactorFuelProfile } from './reactor-fuel-profile';
 
 export interface CalculatedSpacecraftStats {
   hullMax: number;
@@ -45,36 +41,7 @@ export class SpacecraftStatsService {
       evadeChance: shipClass.evadeBase,
     };
 
-    const reactor = installedReactor(modules);
     for (const module of modules) {
-      if (module === reactor && isReserveCore(module)) {
-        const hullDef = this.gameData.getShipClassDefByKey?.(shipClass.key);
-        const hullLevel =
-          this.gameData.getShipyardRumpStats?.(hullDef?.stuRumpId)
-            ?.moduleLevel ?? module.level;
-        const item = this.gameData
-          .getAllFabricationItems?.()
-          .find(
-            (item) =>
-              item.moduleType === module.moduleType &&
-              item.moduleLevel === module.level,
-          );
-        const factors = item?.shipyardModuleStats;
-        if (!factors)
-          throw new Error(
-            'STU-Modulewerte für Hypermaterie-Reservekern fehlen',
-          );
-        const factor =
-          hullLevel > module.level
-            ? -factors.downgradeFactor
-            : hullLevel < module.level
-              ? factors.upgradeFactor
-              : factors.defaultFactor;
-        stats.reactorOutput = Math.round(
-          shipClass.reactorBase * (1 + factor / 100),
-        );
-        continue;
-      }
       if (!module.isActive || module.integrity <= 0) continue;
       const definition = this.findModuleDefinition(module.moduleType);
       if (!definition) continue;

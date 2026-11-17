@@ -14,7 +14,6 @@ import {
 } from '../game-data/game-data.service';
 import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
 import { FieldEffect } from '@swuniverse/shared';
-import { isReserveCore, shutDownReserveCore } from '../spacecraft/reactor-fuel-profile';
 
 export enum CombatAction {
   ENERGY_HIT = 'ENERGY_HIT',
@@ -514,7 +513,6 @@ export class CombatEngine {
 
         if (randomMod.integrity === 0) {
           randomMod.isActive = false;
-          if (isReserveCore(randomMod)) shutDownReserveCore(target.ship.runtimeSystems);
         }
       }
 

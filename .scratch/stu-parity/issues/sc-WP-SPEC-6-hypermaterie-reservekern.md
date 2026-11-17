@@ -1,9 +1,19 @@
 # Hypermaterie-Reservekern als Hochkapazitätsreaktor
 
-**Status:** resolved
+**Status:** wontfix
 **Priority:** P3
 **Size:** M
 **Blocked by:** col-A2, sc-WP-ENG-5
+
+## Aktuelle Entscheidung – Umsetzung zurückgenommen
+
+2026-11-17: Auf ausdrücklichen Nutzerwunsch entfällt STUs romulanischer Singularitätsreaktor vollständig. „Hypermaterie-Reservekern“ war eine freie SWU-Zuordnung und kein belegtes Star-Wars-Pendant. Keine Ersatzmechanik beauftragt; bewusste Ausnahme von der STU-Parität.
+
+Moduldefinition, sechs Waren-/Fertigungs-/Statistikklassen 10521–10526, Ladeprofil, Leistungs-/Schadens-/Reparatursonderregeln, Standby-/Antriebskopplung und Reservekern-Anzeigen wurden entfernt. Die bereits ausgeführte historische Migration bleibt nachvollziehbar; eine Folgemigration entfernt beide Datenbanktrigger und Funktionen. Die lokale Datenbank enthält vor dem Rückbau keine eingebauten Kerne und keine zugehörigen Waren-, Bauplan-, Auftrags- oder Snapshotreferenzen.
+
+Allgemeine Korrekturen an Ladungsbegrenzung, expliziten Standard-/Leichtreaktorprofilen und Testfixtures bleiben erhalten. Die nachfolgende Umsetzung und ihre damalige Abnahme sind ausschließlich historische Dokumentation und kein gültiger Auftrag.
+
+## Historischer Auftrag und Umsetzung
 
 ## Ziel
 
@@ -88,3 +98,14 @@ Soll der Reservekern mit der vorhandenen Warenzuordnung und der unveränderten S
 - Einbau/Ausbau/Retrofit aktualisiert Leistung und Kapazität ohne neue Gratisladung; Überschuss beim Kapazitätswechsel nach vorhandener Modulwechselregel begrenzen und anzeigen.
 - Zerstörung des Kerns schaltet den vorhandenen Hyperantrieb aus; Reparatur startet ihn nicht automatisch. Bestehende Startbedingungen bleiben maßgeblich.
 - Tests: Rezeptur/Bestandslimit, genau 85 Ladung, Kapazitätsgrenze, Leistung/Verteilung, Transfer, Modulwechsel, Recycling, Defekt/Reparatur, Rollback und UI-Unterscheidung.
+
+## Rückbau-Abnahme
+
+- Spieldaten-Rückbau `c8f0e5b`: alle vier betroffenen Dateien entsprechen wieder dem Stand vor `f185012`; sechs Waren-/Fertigungsklassen und Moduldefinition entfernt.
+- Keine Reservekern-Referenzen mehr in aktivem Anwendungscode, Shared-DTOs oder aktiven Spieldaten. Die Originalmigration bleibt ausschließlich als Migrationshistorie für bestehende Datenbanken/Rollbacks erhalten.
+- `RemoveReserveReactor1794927600000` lokal erfolgreich ausgeführt und committed; beide Trigger und Funktionen sind nachweislich entfernt. Vorherige Prüfung sämtlicher JSONB- und Waren-ID-Referenzen ergab keine zu bereinigenden lokalen Datensätze. Kein Datenbankreset.
+- PostgreSQL: **5 Suites / 54 Tests bestanden**, einschließlich Rückbau, Wiederholung/Rollback, echtem Werftablauf, Demontage, Beamblocker und Kooperationsuplink.
+- Backend-Gesamtlauf: **2.345 bestanden / 1 Passworttest-Timeout**; gezielter Nachlauf **7 Suites / 61 Tests bestanden**, einschließlich des Passworttests und der betroffenen Reaktor-/Laufzeit-/Kampfpfade.
+- Frontend-Gesamtlauf: **867 bestanden / 2 Wurmloch-UI-Fälle fehlgeschlagen**; gezielter Nachlauf **3 Dateien / 18 Tests bestanden**, einschließlich beider Wurmlochfälle, ReactorPanel und PanelShipyard. Keine Änderung an den Wurmloch- oder Passworttests.
+- Alle drei Builds und alle vier Lintziele erfolgreich (nur bestehende Warnungen). Backend-Deklarationen nach gemeinsamem Build-Ausgabezugriff neu erzeugt; abschließender Typecheck separat geprüft.
+- `git diff --check` erfolgreich; fremde untracked Audit-/Output-Dateien unverändert.

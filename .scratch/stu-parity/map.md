@@ -51,6 +51,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Entscheidungen
 
+- 2026-11-17 – SPEC-6: **wontfix**, bisherige Umsetzung auf ausdrücklichen Nutzerwunsch vollständig zurückgenommen. STUs Singularitätsreaktor erhält kein frei erfundenes Star-Wars-Pendant. Reservekern-Code, Oberfläche und sechs Spieldatenklassen entfallen; eine Folgemigration entfernt die historischen Trigger/Funktionen. Keine Ersatzmechanik beauftragt – siehe [Ticket](issues/sc-WP-SPEC-6-hypermaterie-reservekern.md). Der frühere Umsetzungseintrag ist aufgehoben; keine offenen Tickets.
+
 - 2026-11-17 – SPEC-1/1a/1b/1c: **wontfix** auf ausdrückliche Nutzerentscheidung. Das STU-Tholianische Netz wird mangels eines passenden Star-Wars-Pendants für diesen Spielumfang nicht als Interdiktornetz umgesetzt. Aufbau/Projektor, Fangzustand/Bewegungssperre und Implosion entfallen vollständig; bewusste Ausnahme von der STU-Parität. Frühere Umsetzungsvorschläge sind aufgehoben, historische Planung bleibt erhalten – siehe [Parent](issues/sc-WP-SPEC-1-interdiktornetz.md). Damit bleiben keine offenen Umsetzungstickets in diesem Tracker.
 
 - 2026-11-17 – SPEC-6: STU-Singularitätsreaktor als **Hypermaterie-Reservekern** umgesetzt. Romulanische Fertigung wird wie Tarntechnik dem Galaktischen Imperium zugeordnet; eingebaute Kerne bleiben bei Besitzerwechsel nutzbar. Sechs Originalklassen/-kosten, 85 Ladung aus 2 Kyber-Kristallen + 3 Antimaterie + 2 Plasma, Kapazität ×20 und Rumpf-/Modulfaktoren statt vorgeschlagener Basisleistung. Dauerhaft aktiv, proportionale Schadensleistung, Kernzerstörung schaltet Hyperantrieb aus, Reparatur startet ihn nicht mit. Gemeinsame Lade-/Tick-/Transfer-/Recyclingpfade, echter Werft-/Retrofit-Abschluss und lokale Migration geprüft; Spieldaten `f185012`, Pflicht-Gates grün – siehe [Ticket](issues/sc-WP-SPEC-6-hypermaterie-reservekern.md). Offen bleibt **SPEC-1a → 1b → 1c** zum Interdiktornetz.
@@ -197,7 +199,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-28 – sc-WP-CLEAN-2 – Der Uplink wird zum **Kooperationsuplink**: Er erlaubt berechtigte fremde Crew auf Stationen und bleibt damit eine organisatorische Stationsfunktion.
 - 2026-10-28 – sc-WP-CLEAN-2 – Der Beam-Blocker wird zum **Transferstörsender**: ein passives Feld, das Waren- und Crewtransfer blockiert.
 - 2026-10-28 – sc-WP-CLEAN-2 – Die falsche Warpsignatur wird zur **Signaturmaskierung**: Flugsignaturen geben zeitweise einen bekannten fremden Rumpf vor und passen so zum feldweisen Galaxieflug.
-- 2026-10-28 – sc-WP-CLEAN-2 – Der Singularitätsreaktor wird zum **Hypermaterie-Reservekern**: alternativer Hochkapazitätsreaktor ohne Star-Trek-Singularitätsterminologie.
+- 2026-10-28 – sc-WP-CLEAN-2 – Historische Zuordnung des Singularitätsreaktors als **Hypermaterie-Reservekern**; am 2026-11-17 aufgehoben, Feature vollständig entfernt (SPEC-6 `wontfix`).
 - 2026-10-29 – soc-A8 – Fraktionswillkommen wird als idempotente Systemnachricht vom **Oberkommando der Rebellenallianz** beziehungsweise **Imperialen Oberkommando** versandt.
 - 2026-11-13 – tmw-T12a – Spieler-IDs beginnen wie in STU bei 100; Spielerhandelsnetze tragen die Eigentümer-ID und kollidieren nie mit den NPC-Netzen 1–3
 - 2026-11-13 – tmw-T12c – Statt STU `USER_NOONE` hat ein verlassener Handelsposten keinen Eigentümer (`trade_posts.ownerId` nullable); SWU legt keinen Platzhalter-Spieler an

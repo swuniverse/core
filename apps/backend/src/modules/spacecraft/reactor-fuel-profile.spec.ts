@@ -1,28 +1,10 @@
-import {
-  reactorFuelProfile,
-  recoverableReactorFuel,
-} from './reactor-fuel-profile';
+import { reactorFuelProfile } from './reactor-fuel-profile';
 
 describe('reactorFuelProfile', () => {
-  it('preserves the reserve recipe through damage and recovers whole loads only', () => {
-    const modules = [
-      { moduleType: 'Hypermaterie-Reservekern', isActive: false, integrity: 0 },
-    ] as never;
-    expect(reactorFuelProfile(modules)).toMatchObject({
-      key: 'RESERVE_HYPERMATTER',
-      loadUnits: 85,
-      capacityMultiplier: 20,
-    });
-    expect(recoverableReactorFuel(169, modules)).toEqual([
-      { commodityId: 8, amount: 2 },
-      { commodityId: 6, amount: 3 },
-      { commodityId: 7, amount: 2 },
-    ]);
-  });
   it('rejects simultaneous alternative cores rather than summing their performance', () => {
     expect(() =>
       reactorFuelProfile([
-        { moduleType: 'Hypermaterie-Reservekern' },
+        { moduleType: 'Leichter Hypermaterie-Reaktor' },
         { moduleType: 'Hypermaterie-Reaktor' },
       ] as never),
     ).toThrow('Nur ein alternatives Reaktormodul');

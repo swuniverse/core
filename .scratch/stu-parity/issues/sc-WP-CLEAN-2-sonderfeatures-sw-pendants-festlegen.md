@@ -32,3 +32,5 @@ Pfade relativ zu `../../st-universe/core/src/`:
 ## Comments
 
 2026-10-28: Sechs Star-Wars-Pendants in `map.md` festgelegt und als `sc-WP-SPEC-1` bis `sc-WP-SPEC-6` mit konkreten STU-Quellen, Abhängigkeiten und Akzeptanzkriterien zur Triage angelegt. Produktcode blieb unverändert.
+
+2026-11-17: Die frühere Zuordnung des Singularitätsreaktors als Hypermaterie-Reservekern ist auf Nutzerwunsch aufgehoben. SPEC-6 ist `wontfix`; die bereits erfolgte Umsetzung wird vollständig zurückgenommen. Keine Ersatzmechanik.

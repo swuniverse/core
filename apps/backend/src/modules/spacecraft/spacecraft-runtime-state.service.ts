@@ -7,7 +7,6 @@ import type {
 } from '@swuniverse/shared';
 import { Spacecraft } from './entities/spacecraft.entity';
 import type { SpacecraftModule } from './entities/spacecraft-module.entity';
-import { installedReactor, isReserveCore } from './reactor-fuel-profile';
 
 export type SpacecraftRuntimeSystemState = SpacecraftRuntimeSystemStateDto;
 export type SpacecraftRuntimeSystems = SpacecraftRuntimeSystemsDto;
@@ -33,7 +32,7 @@ export function getRuntimeSystemsForModule(
   if (category === 'SENSORS') {
     return ['LONG_RANGE_SENSORS', 'SHORT_RANGE_SENSORS'];
   }
-  if (category === 'REACTOR' || name.includes('reaktor') || isReserveCore(module)) return ['REACTOR'];
+  if (category === 'REACTOR' || name.includes('reaktor')) return ['REACTOR'];
   if (category === 'EPS' || name.includes('energieverteiler')) return ['EPS'];
   if (category === 'TRACTOR_BEAM') return ['TRACTOR_BEAM'];
   if (category === 'SPECIAL') {
@@ -209,16 +208,6 @@ export function initializeSpacecraftRuntimeSystems(
     });
   }
   if (systems.REACTOR) {
-    const reserve = ship.modules?.find(isReserveCore);
-    if (reserve) systems.REACTOR.integrity = Math.min(systems.REACTOR.integrity, reserve.integrity);
-    if (reserve && (reserve.integrity <= 0 || systems.REACTOR.integrity <= 0)) {
-      systems.REACTOR.active = false;
-      systems.REACTOR.integrity = 0;
-      if (systems.WARPDRIVE) systems.WARPDRIVE.active = false;
-    } else if (reserve) {
-      systems.REACTOR.active = true; // STU MODE_ALWAYS_ON, including standby.
-    }
-    if (ship.modules) installedReactor(ship.modules);
     systems.REACTOR = withDefaults(systems.REACTOR, {
       current: ship.reactorOutput,
       max: ship.reactorOutput,

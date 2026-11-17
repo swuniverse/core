@@ -1686,13 +1686,6 @@ export function PanelShipyard({
                 <div className="font-semibold text-swu-primary">
                   Retrofit-Delta
                 </div>
-                {selectedLayout.slots.some((slot) =>
-                  slot.moduleCategory === 'REACTOR' &&
-                  (selectedShip.modules ?? []).find((module) => module.slotId === slot.slotId)?.commodityId !==
-                    designerModuleSelections.find((selection) => selection.slotId === slot.slotId)?.commodityId,
-                ) && (
-                  <p>Bei einem Reaktorwechsel bleibt die Ladung erhalten. Ladung über der neuen Kapazität verfällt.</p>
-                )}
                 {selectedLayout.slots.map((slot) => {
                   const previousCommodityId = (selectedShip.modules ?? []).find(
                     (module) => module.slotId === slot.slotId,

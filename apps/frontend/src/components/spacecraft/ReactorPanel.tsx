@@ -221,8 +221,7 @@ export function ReactorPanel({
             className="size-4"
           />
           <span className="flex-1 font-mono text-swu-primary">
-            {flow?.reactorProfile?.label ?? 'Reaktor'} · Ladung {reactorFuel}/
-            {reactorFuelMax}
+            Reaktortreibstoff {reactorFuel}/{reactorFuelMax}
           </span>
           <EngineeringControls
             label="aufladen"
@@ -242,20 +241,6 @@ export function ReactorPanel({
             </button>
           )}
         </div>
-
-        {flow?.reactorProfile && (
-          <div className="p-2 text-swu-muted">
-            Leistung: {flow.reactorOutput}/
-            {flow.reactorTheoreticalOutput ?? flow.reactorOutput} · Je Ladung: +
-            {flow.reactorProfile.loadUnits} aus{' '}
-            {flow.reactorProfile.costs
-              .map(
-                (cost) =>
-                  `${cost.amount} ${cost.commodityId === 8 ? 'Kyber-Kristalle' : cost.commodityId === 6 ? 'Antimaterie' : cost.commodityId === 7 ? 'Plasma' : 'Hypermaterie'}`,
-              )
-              .join(' + ')}
-          </div>
-        )}
 
         {transferTargets && (
           <div className="space-y-1 p-2">

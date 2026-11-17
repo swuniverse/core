@@ -6,7 +6,6 @@ import {
   SpacecraftRuntimeSystemKey,
   SpacecraftRuntimeSystems,
 } from './spacecraft-runtime-state.service';
-import { reactorFuelProfile, isReserveCore } from './reactor-fuel-profile';
 
 // STU-aligned system EPS costs per tick when active
 const SYSTEM_EPS_USAGE: Partial<Record<SpacecraftRuntimeSystemKey, number>> = {
@@ -94,15 +93,8 @@ export class SpacecraftResourceFlowService {
 
   calculate(ship: Spacecraft, flightCost = 1): SpacecraftEnergyFlowDto {
     const systems = this.runtimeState.initialize(ship);
-    const profile = reactorFuelProfile(ship.modules ?? []);
-    const reserve = ship.modules?.find(isReserveCore);
-    const availableOutput = reserve
-      ? systems.REACTOR?.active
-        ? Math.ceil(ship.reactorOutput * systems.REACTOR.integrity / 100)
-        : 0
-      : ship.reactorOutput;
     const reactorOutput = Math.min(
-      Math.max(0, availableOutput),
+      Math.max(0, ship.reactorOutput),
       Math.max(0, ship.reactorFuel ?? 0),
     );
     const totalSystemConsumption = this.calculateEpsUsage(systems);
@@ -155,8 +147,6 @@ export class SpacecraftResourceFlowService {
         max: ship.reactorFuelMax ?? 0,
         commodityId: SPACECRAFT_REACTOR_FUEL_COMMODITY_ID,
       },
-      reactorProfile: profile,
-      reactorTheoreticalOutput: ship.reactorOutput,
       reactorOutput,
       reactorWarpSplit: split,
       reactorAutoCarryOver: ship.reactorAutoCarryOver ?? false,

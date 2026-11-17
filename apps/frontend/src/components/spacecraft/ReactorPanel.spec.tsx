@@ -70,34 +70,6 @@ describe('ReactorPanel', () => {
     expect(screen.getByRole('button', { name: 'deaktivieren' })).toBeTruthy();
   });
 
-  it('distinguishes reserve charge, capacity, damaged output and its exact recipe', async () => {
-    apiMocks.get.mockResolvedValue({
-      epsProduction: 10,
-      warpProduction: 0,
-      reactorOutput: 11,
-      reactorTheoreticalOutput: 21,
-      reactorProfile: {
-        key: 'RESERVE_HYPERMATTER',
-        label: 'Hypermaterie-Reservekern',
-        loadUnits: 85,
-        costs: [
-          { commodityId: 8, amount: 2 },
-          { commodityId: 6, amount: 3 },
-          { commodityId: 7, amount: 2 },
-        ],
-      },
-    });
-    render(<ReactorPanel {...props} reactorFuel={85} reactorFuelMax={420} />);
-    await waitFor(() =>
-      expect(
-        screen.getByText(/Hypermaterie-Reservekern · Ladung 85\/420/),
-      ).toBeTruthy(),
-    );
-    expect(screen.getByText(/Leistung: 11\/21/).textContent).toContain(
-      '+85 aus 2 Kyber-Kristalle + 3 Antimaterie + 2 Plasma',
-    );
-  });
-
   it('hides hyperdrive controls inside a star system', () => {
     render(<ReactorPanel {...props} inSystem />);
     expect(screen.queryByText('Hyperantrieb 5/20')).toBeNull();
