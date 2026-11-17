@@ -15,7 +15,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 1. **Abweichungen einzeln entscheiden.** Wo SWU heute ohne ADR von STU abweicht (z. B. Forschungsqueue, Reparatur-Vorabzahlung, Fertigungskosten), wird nichts eigenmächtig umgebaut oder festgeschrieben. Solche Issues stehen auf `needs-info` mit konkreter Frage; der Product Owner antwortet unter `## Comments` und setzt `ready-for-agent`.
 2. **Star-Trek-Inhalte → Star-Wars-Äquivalent durch den Agenten.** Ferengi, Kazon, Award-Katalog, Stationsrollen/-namen, Tarnberechtigung u. ä.: Der umsetzende Agent wählt ein passendes, kanonnahes Star-Wars-Äquivalent, hält es unter „Entscheidungen“ in dieser Datei fest und bleibt danach konsistent. Inhaltlich Heikles (Orion-Sklavenhandel) entfällt.
 3. **Scope:** Handel, Stationen, RPG (Charaktere, Plots), Awards und Tutorial sind **im Scope**. **Nicht im Scope:** Piraten-KI, Quests. NPC-Konten werden nur so weit gebaut, wie Handel (NPC-Handelsposten, NPC-Händler) sie braucht.
-4. **Betrieb/Recht hinter Flag.** E-Mail-Versand an Spieler, E-Mail-Verifikation, Konto- und Inaktivitätslöschung, Massenmails sowie Impressum und Datenschutz werden vollständig gebaut, aber hinter Konfiguration bzw. Feature-Flag, **standardmäßig aus**. Rechtstexte erhalten klar markierte Platzhalter.
+4. **Aufgehoben am 2026-11-17: Betrieb/Recht hinter Flag.** Laut PO-Entscheidung sind E-Mail-Verifikation, Passwort-Reset, Konto- und Inaktivitätslöschung, Spieler-/Massenmail sowie Impressum, Datenschutz und Hilfe immer aktiv; die bisherigen Flags entfallen. Persönliche Mail-Einstellungen bleiben wirksam, Rechtstexte behalten klar markierte Betreiber-Platzhalter. Umgesetzt in [sh-AUD-01](issues/sh-AUD-01-feature-flags-entfernen.md).
 5. Maßstab ist funktionale Spielerparität plus STU-typische Informationsdichte, nicht Quellcodeparität. Bekannte STU-Bugs und Sicherheitslücken werden nicht übernommen.
 
 ## Issue-Konventionen
@@ -50,6 +50,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 | Piraten | – (out of scope) | tmw-W5 … W9 |
 
 ## Entscheidungen
+
+- 2026-11-17 – **sh-AUD-01 resolved**: Alle sechs Betriebs-/Rechtsflags entfernt; bestehende 24-h-Verifikation aus dem Main-Merge verpflichtend, Reset und Löschbestätigung/Widerruf immer verfügbar. Inaktivitätswartung läuft aktiv, Trockenlauf nur über `POST /api/admin/idle-users/preview`. Mail ohne SMTP lokal im Log, fehlender Produktionstransport als Startfehler im Log; Rechts-/Hilfelinks überall sichtbar. Fehlende `AccountToken`-Registrierung in der Anwendungsdatenquelle ergänzt. 83 Backend-Unit-Tests, 18 PostgreSQL-Tests und 20 Frontend-Tests sowie Lint, Typechecks und Builds grün – siehe [Ticket](issues/sh-AUD-01-feature-flags-entfernen.md). Tracker-Stand: alte Runde 278 resolved / 8 wontfix / 0 offen; Auditrunde 1 resolved / 92 ready-for-agent / 5 needs-triage / 2 needs-info / 3 ready-for-human.
 
 - 2026-11-17 – SPEC-6: **wontfix**, bisherige Umsetzung auf ausdrücklichen Nutzerwunsch vollständig zurückgenommen. STUs Singularitätsreaktor erhält kein frei erfundenes Star-Wars-Pendant. Reservekern-Code, Oberfläche und sechs Spieldatenklassen entfallen; eine Folgemigration entfernt die historischen Trigger/Funktionen. Keine Ersatzmechanik beauftragt – siehe [Ticket](issues/sc-WP-SPEC-6-hypermaterie-reservekern.md). Der frühere Umsetzungseintrag ist aufgehoben; keine offenen Tickets.
 

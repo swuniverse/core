@@ -136,3 +136,30 @@ describe('Fleet and reactor creation defaults', () => {
     await waitFor(() => expect(apiMocks.patch).toHaveBeenCalledWith('/user/settings', { reactor_auto_carryover_default: '0' }));
   });
 });
+
+
+describe('SettingsPage always active account and legal flows', () => {
+  beforeEach(() => {
+    apiMocks.get.mockReset().mockResolvedValue({ deletionMark: 0 });
+    apiMocks.post.mockReset().mockResolvedValue({});
+  });
+
+  it('always links to legal pages and help', () => {
+    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+    for (const [name, href] of [['Impressum', '/impressum'], ['Datenschutz', '/datenschutz'], ['Hilfe', '/hilfe']]) {
+      expect(screen.getByRole('link', { name }).getAttribute('href')).toBe(href);
+    }
+  });
+
+  it('requires email confirmation for deletion and offers revocation', async () => {
+    render(<MemoryRouter><SettingsPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Gefahrenzone' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Konto löschen...' }));
+    fireEvent.change(screen.getByPlaceholderText('Passwort bestaetigen'), { target: { value: 'secret' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Endgültig löschen' }));
+    expect(await screen.findByText('Löschung beantragt. Bitte bestätige den Link in der E-Mail.')).toBeTruthy();
+    expect(apiMocks.post).toHaveBeenCalledWith('/user/delete', { password: 'secret' });
+    fireEvent.click(screen.getByRole('button', { name: 'Löschantrag zurückziehen' }));
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/user/delete/revoke', {}));
+  });
+});

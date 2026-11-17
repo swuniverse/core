@@ -40,7 +40,11 @@ export class MailService {
         : null;
 
     if (!this.transporter) {
-      this.logger.log('SMTP not configured; outbound mail disabled');
+      if (this.config.get<string>('NODE_ENV') === 'production') {
+        this.logger.error('SMTP not configured: outbound mail cannot be delivered in production');
+      } else {
+        this.logger.log('SMTP not configured; outbound mail is written to the local log');
+      }
     }
   }
 
@@ -50,7 +54,11 @@ export class MailService {
 
   async sendMail(input: SendMailInput): Promise<boolean> {
     if (!this.transporter) {
-      this.logger.debug(`Skipped mail to ${input.to}: SMTP not configured`);
+      if (this.config.get<string>('NODE_ENV') !== 'production') {
+        this.logger.log(`Mail to ${input.to} — ${input.subject}\n${input.text}`);
+      } else {
+        this.logger.error(`Cannot send mail to ${input.to}: SMTP not configured`);
+      }
       return false;
     }
 
@@ -83,10 +91,6 @@ export class MailService {
       'http://localhost:5173'
     ).replace(/\/+$/, '');
     const link = `${baseUrl}/verify-email?token=${encodeURIComponent(token)}`;
-
-    if (!this.transporter) {
-      this.logger.warn(`Verification link for ${to}: ${link}`);
-    }
 
     const subject = 'Bestaetige deine E-Mail-Adresse - Star Wars Universe';
     const text = [

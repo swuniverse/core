@@ -77,14 +77,13 @@ export class AuthService {
 
   features(): AuthFeaturesDto {
     return {
-      passwordReset: this.isPasswordResetEnabled(),
-      emailVerification: this.isEmailVerificationEnabled(),
-      accountDeletion: this.isAccountDeletionEnabled(),
+      passwordReset: true,
+      emailVerification: true,
+      accountDeletion: true,
     };
   }
 
   async confirmDeletion(token: string): Promise<AuthMessageDto> {
-    this.assertAccountDeletionEnabled();
     const confirmed = await this.dataSource.transaction(async (manager) => {
       const accountToken = await this.accountTokenService.consume(
         token,
@@ -106,7 +105,6 @@ export class AuthService {
   }
 
   async deleteUserNow(userId: number): Promise<void> {
-    this.assertAccountDeletionEnabled();
     const user = await this.userRepo.findOneBy({ id: userId });
     if (!user) return;
     if (user.isAdmin) throw new BadRequestException('Admins können nicht gelöscht werden');
@@ -117,7 +115,6 @@ export class AuthService {
   }
 
   async lostPassword(dto: LostPasswordDto): Promise<AuthMessageDto> {
-    this.assertPasswordResetEnabled();
     const user = await this.userRepo.findOne({
       where: [
         {
@@ -163,7 +160,6 @@ export class AuthService {
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<AuthMessageDto> {
-    this.assertPasswordResetEnabled();
     const passwordHash = await bcrypt.hash(dto.password, 12);
     const updated = await this.dataSource.transaction(async (manager) => {
       const accountToken = await this.accountTokenService.consume(
@@ -184,34 +180,10 @@ export class AuthService {
     return { message: 'Das Passwort wurde geändert' };
   }
 
-  private isPasswordResetEnabled(): boolean {
-    return (
-      this.config.get<string>('PASSWORD_RESET_ENABLED') === 'true' &&
-      this.mailService.isEnabled()
-    );
-  }
-
-  private assertPasswordResetEnabled(): void {
-    if (!this.isPasswordResetEnabled()) throw new NotFoundException();
-  }
-
-  private isAccountDeletionEnabled(): boolean {
-    return this.config.get<string>('ACCOUNT_DELETION_ENABLED') === 'true';
-  }
-
-  private assertAccountDeletionEnabled(): void {
-    if (!this.isAccountDeletionEnabled()) throw new NotFoundException();
-  }
-
-  private isEmailVerificationEnabled(): boolean {
-    return this.config.get<string>('EMAIL_VERIFICATION_ENABLED') === 'true';
-  }
-
-  async register(dto: RegisterDto): Promise<AuthResponse | RegisterResponse> {
+  async register(dto: RegisterDto): Promise<RegisterResponse> {
     const passwordHash = await bcrypt.hash(dto.password, 12);
     const email = dto.email.trim().toLowerCase();
     await this.assertEmailNotBlocked(email);
-    const verificationRequired = this.isEmailVerificationEnabled();
     const verification = this.createVerificationToken();
 
     const user = await this.dataSource.transaction(async (manager) => {
@@ -256,22 +228,13 @@ export class AuthService {
         factionId: faction.id,
         onboardingCompleted: false,
         isAdmin: userCount === 0,
-        ...(verificationRequired
-          ? {
-              emailVerifiedAt: null,
-              emailVerificationTokenHash: verification.hash,
-              emailVerificationExpiresAt: verification.expiresAt,
-              emailVerificationSentAt: new Date(),
-            }
-          : { emailVerifiedAt: new Date() }),
+        emailVerifiedAt: null,
+        emailVerificationTokenHash: verification.hash,
+        emailVerificationExpiresAt: verification.expiresAt,
+        emailVerificationSentAt: new Date(),
       });
       return userRepo.save(createdUser);
     });
-
-    if (!verificationRequired) {
-      void this.mailService.sendWelcomeMail(user.email, user.username);
-      return this.generateTokens(user);
-    }
 
     void this.mailService.sendVerificationMail(
       user.email,

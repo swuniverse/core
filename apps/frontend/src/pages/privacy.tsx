@@ -47,8 +47,8 @@ export function PrivacyPage() {
       <InfoSection title="4. Speicherdauer und Inaktivitätslöschung">
         <p>
           Kontodaten und Spielstände werden grundsätzlich für die Dauer des Spielkontos
-          gespeichert. Eine konfigurierbare Inaktivitätslöschung kann inaktive Konten nach
-          vorheriger Ankündigung entfernen; sie ist standardmäßig deaktiviert. Server-Logs
+          gespeichert. Inaktive und unbestätigte Konten werden nach den geltenden Fristen
+          und vorheriger Ankündigung automatisch gelöscht. Server-Logs
           werden nur so lange aufbewahrt, wie dies für Sicherheit und Fehleranalyse
           erforderlich ist. Gesetzliche Aufbewahrungspflichten bleiben unberührt.
         </p>
@@ -56,9 +56,9 @@ export function PrivacyPage() {
 
       <InfoSection title="5. E-Mail-Versand">
         <p>
-          E-Mails werden nur für aktivierte Funktionen wie Passwort-Wiederherstellung,
-          Sicherheits- oder Kontohinweise versandt. Der Versand ist standardmäßig
-          deaktiviert und setzt eine konfigurierte Mail-Infrastruktur voraus. Eine
+          E-Mails werden für E-Mail-Bestätigung, Passwort-Wiederherstellung sowie
+          Sicherheits- und Kontohinweise versandt. Nachrichtenbenachrichtigungen
+          berücksichtigen die persönlichen Einstellungen. Eine
           werbliche Nutzung erfolgt nicht ohne gesonderte Einwilligung.
         </p>
       </InfoSection>

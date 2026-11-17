@@ -4,6 +4,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { AdminGuard } from '../auth/admin.guard';
 import { TickAdminService } from './tick-admin.service';
 import { TickService } from './tick.service';
+import { IdleUserMaintenanceService } from '../account-deletion/idle-user-maintenance.service';
 
 @Controller('admin')
 @UseGuards(AuthGuard('jwt'), AdminGuard)
@@ -11,6 +12,7 @@ export class TickController {
   constructor(
     private readonly tickService: TickService,
     private readonly tickAdminService: TickAdminService,
+    private readonly idleUsers: IdleUserMaintenanceService,
   ) {}
 
   @Get('ticks')
@@ -24,6 +26,11 @@ export class TickController {
       throw new BadRequestException('Unbekannter Tick-Typ');
     }
     return this.tickAdminService.run(type as TickRunType);
+  }
+
+  @Post('idle-users/preview')
+  async previewIdleUsers() {
+    return { summary: await this.idleUsers.preview(new Date()) };
   }
 
   @Post('tick/trigger')

@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
@@ -10,7 +9,6 @@ import { UserSettingsReader } from '../settings/user-settings-reader';
 export class PrivateMessageNotificationService {
   private readonly logger = new Logger(PrivateMessageNotificationService.name);
   constructor(
-    private readonly config: ConfigService,
     private readonly mail: MailService,
     private readonly settings: UserSettingsReader,
     @InjectRepository(User) private readonly users: Repository<User>,
@@ -19,12 +17,6 @@ export class PrivateMessageNotificationService {
   /** Called after delivery; owns all failures so mail never blocks the PM. */
   async notify(senderId: number, recipientId: number): Promise<void> {
     try {
-      if (
-        this.config.get<string>('PLAYER_MAIL_NOTIFICATIONS_ENABLED') !==
-          'true' ||
-        !this.mail.isEnabled()
-      )
-        return;
       if (!(await this.settings.getBoolean(recipientId, 'email_notification')))
         return;
       const [sender, recipient] = await Promise.all([

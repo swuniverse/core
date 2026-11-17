@@ -70,7 +70,7 @@ describe('admin broadcast (Postgres, HTTP)', () => {
 
   beforeEach(async () => {
     await resetDatabase(dataSource);
-    env = { JWT_SECRET, PLAYER_MAIL_NOTIFICATIONS_ENABLED: 'true' };
+    env = { JWT_SECRET };
     sendMail.mockClear();
     emitToUser.mockClear();
   });
@@ -167,18 +167,6 @@ describe('admin broadcast (Postgres, HTTP)', () => {
     expect(sendMail).toHaveBeenCalledWith(
       expect.objectContaining({ subject: 'Wartung', text: 'Morgen ab 20 Uhr ist [b]Wartung[/b].' }),
     );
-  });
-
-  it('rejects email delivery while player mail notifications are disabled', async () => {
-    const { admin } = await world();
-    env.PLAYER_MAIL_NOTIFICATIONS_ENABLED = 'false';
-
-    const audience = await call(admin, 'GET', '/admin/broadcast/audience');
-    const result = await call(admin, 'POST', '/admin/broadcast', broadcast({ alsoEmail: true }));
-
-    expect(audience.body).toEqual({ recipients: 4, emailRecipients: 0, emailEnabled: false });
-    expect(result.status).toBe(400);
-    expect(await systemMessages()).toHaveLength(0);
   });
 
   it('validates subject, body, target and broadcast id', async () => {

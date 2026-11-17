@@ -1,5 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type {
   AdminBroadcastAudienceDto,
@@ -23,23 +22,18 @@ export class AdminBroadcastService {
     private readonly messagingService: MessagingService,
     private readonly settingsReader: UserSettingsReader,
     private readonly mailService: MailService,
-    private readonly config: ConfigService,
   ) {}
 
   async audience(target: AdminBroadcastTarget): Promise<AdminBroadcastAudienceDto> {
     const recipients = await this.recipients(target);
-    const emailEnabled = this.isEmailEnabled();
     return {
       recipients: recipients.length,
-      emailRecipients: emailEnabled ? (await this.emailRecipients(recipients)).length : 0,
-      emailEnabled,
+      emailRecipients: (await this.emailRecipients(recipients)).length,
+      emailEnabled: true,
     };
   }
 
   async broadcast(dto: AdminBroadcastDto): Promise<AdminBroadcastResultDto> {
-    if (dto.alsoEmail && !this.isEmailEnabled()) {
-      throw new BadRequestException('Der E-Mail-Versand ist deaktiviert');
-    }
     const recipients = await this.recipients(dto.target);
     const delivered = new Set(
       await this.messagingService.sendSystemToMany(
@@ -76,12 +70,5 @@ export class AdminBroadcastService {
       'email_notification',
     );
     return users.filter((user) => wanted.get(user.id));
-  }
-
-  private isEmailEnabled(): boolean {
-    return (
-      this.config.get<string>('PLAYER_MAIL_NOTIFICATIONS_ENABLED') === 'true' &&
-      this.mailService.isEnabled()
-    );
   }
 }

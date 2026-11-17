@@ -12,6 +12,7 @@ import type { UserProfile } from '@swuniverse/shared';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../stores/auth.store';
 import { TutorialPadd } from '../tutorial/TutorialPadd';
+import { LegalLinks } from '../legal/LegalLinks';
 
 type GameStatus = {
   status: 'ONLINE' | 'TICK' | 'MAINTENANCE_ANNOUNCED' | 'MAINTENANCE';
@@ -144,6 +145,9 @@ export function AppShell() {
       )}
       <main className="mt-[58px] px-3 py-2 pb-[calc(56px+env(safe-area-inset-bottom,0px)+8px)] md:ml-[68px] md:mt-[86px] md:px-4 md:pb-2">
         <Outlet />
+        <footer className="mt-6 border-t border-swu-border py-3 text-xs text-swu-muted">
+          <LegalLinks className="flex flex-wrap justify-center gap-4" />
+        </footer>
       </main>
     </div>
   );

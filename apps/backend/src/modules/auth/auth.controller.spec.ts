@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 
 describe('AuthController password reset endpoints', () => {
@@ -19,9 +19,9 @@ describe('AuthController password reset endpoints', () => {
     });
   });
 
-  it('preserves 404 behavior when password reset is disabled', async () => {
-    const service = { lostPassword: jest.fn(async () => { throw new NotFoundException(); }) };
+  it('propagates invalid reset token errors', async () => {
+    const service = { resetPassword: jest.fn(async () => { throw new BadRequestException('Invalid token'); }) };
     const controller = new AuthController(service as never);
-    await expect(controller.lostPassword({ login: 'Leia' })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(controller.resetPassword({ token: 'invalid', password: 'password' })).rejects.toBeInstanceOf(BadRequestException);
   });
 });

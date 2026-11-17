@@ -2,7 +2,6 @@ import { PrivateMessageNotificationService } from './private-message-notificatio
 import { MessagingService } from './messaging.service';
 
 describe('Private message email', () => {
-  const config = { get: jest.fn() };
   const mail = {
     isEnabled: jest.fn(),
     sendPrivateMessageNotification: jest.fn(),
@@ -12,7 +11,6 @@ describe('Private message email', () => {
   let service: PrivateMessageNotificationService;
   beforeEach(() => {
     jest.resetAllMocks();
-    config.get.mockReturnValue('true');
     mail.isEnabled.mockReturnValue(true);
     settings.getBoolean.mockResolvedValue(true);
     users.findOneBy.mockImplementation(async ({ id }) => ({
@@ -22,24 +20,15 @@ describe('Private message email', () => {
       isNpc: false,
     }));
     service = new PrivateMessageNotificationService(
-      config as never,
       mail as never,
       settings as never,
       users as never,
     );
   });
-  it.each(['false', undefined])(
-    'skips a disabled operator flag %s',
-    async (flag) => {
-      config.get.mockReturnValue(flag);
-      await service.notify(1, 2);
-      expect(mail.sendPrivateMessageNotification).not.toHaveBeenCalled();
-    },
-  );
-  it('skips unconfigured SMTP', async () => {
+  it('still passes mail to the local log fallback without SMTP', async () => {
     mail.isEnabled.mockReturnValue(false);
     await service.notify(1, 2);
-    expect(settings.getBoolean).not.toHaveBeenCalled();
+    expect(mail.sendPrivateMessageNotification).toHaveBeenCalledTimes(1);
   });
   it('mails only the opted-in account', async () => {
     await service.notify(1, 2);

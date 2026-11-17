@@ -49,7 +49,7 @@ describe('GameStatusGuard', () => {
       reflector as never,
       service as never,
       jwt as never,
-      { get: jest.fn((key: string) => key === 'EMAIL_VERIFICATION_ENABLED' ? 'true' : 'secret') } as never,
+      config as never,
       { findOneBy: jest.fn(async () => ({ isAdmin: false, emailVerifiedAt: null })) } as never,
     );
 

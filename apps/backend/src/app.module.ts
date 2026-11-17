@@ -30,6 +30,7 @@ import { OrderBroadcastAck } from './modules/order-broadcast/entities/order-broa
 import { GameStatusModule } from './modules/game-status/game-status.module';
 import { User } from './modules/auth/user.entity';
 import { UserLock } from './modules/auth/user-lock.entity';
+import { AccountToken } from './modules/auth/account-token.entity';
 import { BlockedUser } from './modules/settings/entities/blocked-user.entity';
 import { DatabaseCategoryAward } from './modules/awards/entities/database-category-award.entity';
 import { Colony } from './modules/colony/entities/colony.entity';
@@ -183,6 +184,7 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
           AnomalyType,
           User,
           UserLock,
+          AccountToken,
           BlockedUser,
           DatabaseCategoryAward,
           Colony,

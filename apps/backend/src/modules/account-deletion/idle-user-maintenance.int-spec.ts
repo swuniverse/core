@@ -25,7 +25,7 @@ describe('idle user maintenance (PostgreSQL)', () => {
   function service(config: Record<string, string> = {}, deletions?: Partial<PlayerDeletionService>) {
     mails = [];
     deleted = [];
-    const values: Record<string, string> = { IDLE_DELETION_ENABLED: 'true', ...config };
+    const values: Record<string, string> = config;
     return new IdleUserMaintenanceService(
       source.getRepository(User),
       { get: (key: string) => values[key] } as never,
@@ -95,14 +95,12 @@ describe('idle user maintenance (PostgreSQL)', () => {
     expect(deleted).toEqual([]);
   });
 
-  it('handles unverified registrations only with e-mail verification enabled', async () => {
+  it('warns and deletes unverified registrations without configuration', async () => {
     const stale = await user('stale', { emailVerifiedAt: null, lastActiveAt: null, createdAt: ago(3 * DAY_MS + 1) });
     const fresh = await user('fresh', { emailVerifiedAt: null, lastActiveAt: null, createdAt: ago(2.5 * DAY_MS) });
     await user('newest', { emailVerifiedAt: null, lastActiveAt: null, createdAt: ago(1.5 * DAY_MS) });
 
-    await expect(service().run(NOW)).resolves.toBe('0 Warnungen, 0 Löschungen');
-
-    await expect(service({ EMAIL_VERIFICATION_ENABLED: 'true' }).run(NOW)).resolves.toBe('1 Warnungen, 1 Löschungen');
+    await expect(service().run(NOW)).resolves.toBe('1 Warnungen, 1 Löschungen');
     expect(deleted).toEqual([stale.id]);
     expect(mails.map((mail) => [mail.to, mail.subject])).toEqual([
       [fresh.email, 'Star Wars Universe – Löschung wegen fehlender Bestätigung in 24 Stunden'],
@@ -121,7 +119,7 @@ describe('idle user maintenance (PostgreSQL)', () => {
     await user('inactive', { lastActiveAt: ago(INACTIVE_MS + 1) });
     await user('in24', { lastActiveAt: ago(INACTIVE_MS - 12 * HOUR_MS) });
 
-    await expect(service({ IDLE_DELETION_ENABLED: 'false' }).run(NOW)).resolves.toBe('Trockenlauf: 1 Warnungen, 1 Löschungen');
+    await expect(service().preview(NOW)).resolves.toBe('Trockenlauf: 1 Warnungen, 1 Löschungen');
     expect(mails).toEqual([]);
     expect(deleted).toEqual([]);
     expect(await source.getRepository(User).count()).toBe(2);

@@ -35,6 +35,9 @@ describe('AppShell tutorial route integration', () => {
       </MemoryRouter>,
     );
     expect(await screen.findByRole('heading', { name: 'Forschung lernen' })).toBeTruthy();
+    for (const name of ['Impressum', 'Datenschutz', 'Hilfe']) {
+      expect(screen.getByRole('link', { name })).toBeTruthy();
+    }
     await waitFor(() => expect(apiMocks.get).toHaveBeenCalledWith('/tutorial/research'));
   });
 

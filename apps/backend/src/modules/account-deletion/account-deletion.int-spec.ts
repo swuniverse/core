@@ -1,11 +1,12 @@
 import 'reflect-metadata';
+import * as bcrypt from 'bcrypt';
 import { type DynamicModule, type INestApplication } from '@nestjs/common';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource, type DataSourceOptions } from 'typeorm';
-import { AllianceRole, Faction, FORUM_DELETED_AUTHOR_NAME } from '@swuniverse/shared';
+import { AccountDeletionMark, AllianceRole, Faction, FORUM_DELETED_AUTHOR_NAME } from '@swuniverse/shared';
 import { AppModule } from '../../app.module';
 import {
   connectIntegrationDatabase,
@@ -18,6 +19,9 @@ import { HolonetService } from '../holonet/holonet.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { GameGateway } from '../websocket/game.gateway';
 import { PlayerDeletionService } from './player-deletion.service';
+import { AuthService } from '../auth/auth.service';
+import { SettingsService } from '../settings/settings.service';
+import { MailService } from '../mail/mail.service';
 
 /**
  * sh-AP-05b/05c through the production module graph, so every registered
@@ -94,6 +98,34 @@ describe('Account deletion with game content (PostgreSQL, AppModule)', () => {
   });
 
   const count = (entity: string, where: Record<string, unknown>) => source.getRepository(entity).countBy(where);
+
+  describe('always active account deletion', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    async function request() {
+      const url = jest.spyOn(app.get(MailService), 'sendAccountDeletionMail').mockResolvedValue(true);
+      await source.getRepository('User').update(doomed.id, { passwordHash: await bcrypt.hash('correct-password', 4) });
+      await app.get(SettingsService).requestDeletion(doomed.id, 'correct-password');
+      expect(url).toHaveBeenCalledTimes(1);
+      return new URL(url.mock.calls[0][2], 'https://game.test').searchParams.get('token')!;
+    }
+
+    it('confirms a mailed request without flags and invalidates the session and token', async () => {
+      const token = await request();
+      await expect(app.get(AuthService).confirmDeletion(token)).resolves.toEqual({ message: 'Kontolöschung bestätigt' });
+      expect(await source.getRepository('User').findOneByOrFail({ id: doomed.id })).toMatchObject({
+        deletionMark: AccountDeletionMark.Confirmed, refreshToken: null,
+      });
+      await expect(app.get(AuthService).confirmDeletion(token)).rejects.toThrow('Der Link ist ungültig oder abgelaufen');
+    });
+
+    it('keeps a revoked request safe from its old confirmation link', async () => {
+      const token = await request();
+      await app.get(SettingsService).revokeDeletion(doomed.id);
+      await expect(app.get(AuthService).confirmDeletion(token)).rejects.toThrow('Der Link ist ungültig oder abgelaufen');
+      expect(await source.getRepository('User').findOneByOrFail({ id: doomed.id })).toMatchObject({ deletionMark: AccountDeletionMark.None });
+    });
+  });
 
   describe('account and communication (sh-AP-05b)', () => {
     it('keeps what others see under "Gelöschter Siedler" and removes personal data', async () => {

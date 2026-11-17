@@ -181,52 +181,12 @@ describe('LoginPage', () => {
     expect(localStorage.getItem('swu-remember-login')).toBe('false');
   });
 
-  it('shows a lost-password link only when password reset is active', async () => {
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path === '/auth/features') {
-        return Promise.resolve({ passwordReset: true });
-      }
-      if (path === '/game-status') {
-        return Promise.resolve({ status: 'ONLINE', message: '' });
-      }
-      return Promise.resolve(null);
-    });
-
-    const { rerender } = render(
-      <MemoryRouter>
-        <LoginPage />
-      </MemoryRouter>,
-    );
-
-    const lostPasswordLink = await screen.findByRole('link', {
-      name: 'Passwort vergessen?',
-      hidden: true,
-    });
-    expect(lostPasswordLink.getAttribute('href')).toBe('/lost-password');
-
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path === '/auth/features') {
-        return Promise.resolve({ passwordReset: false });
-      }
-      if (path === '/game-status') {
-        return Promise.resolve({ status: 'ONLINE', message: '' });
-      }
-      return Promise.resolve(null);
-    });
-    rerender(
-      <MemoryRouter>
-        <LoginPage key="inactive" />
-      </MemoryRouter>,
-    );
-
-    await waitFor(() =>
-      expect(
-        screen.queryByRole('link', {
-          name: 'Passwort vergessen?',
-          hidden: true,
-        }),
-      ).toBeNull(),
-    );
+  it('always shows password reset and legal links without configuration', () => {
+    render(<MemoryRouter><LoginPage /></MemoryRouter>);
+    expect(screen.getByRole('link', { name: 'Passwort vergessen?', hidden: true }).getAttribute('href')).toBe('/lost-password');
+    for (const [name, href] of [['Impressum', '/impressum'], ['Datenschutz', '/datenschutz'], ['Hilfe', '/hilfe']]) {
+      expect(screen.getByRole('link', { name }).getAttribute('href')).toBe(href);
+    }
   });
 
   it('renders system news and safe public links', async () => {

@@ -1,4 +1,3 @@
-import { NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AccountTokenPurpose } from './account-token.entity';
 import { AuthService } from './auth.service';
@@ -7,7 +6,7 @@ const MESSAGE = {
   message: 'Falls ein Konto existiert, wurde eine E-Mail verschickt',
 };
 
-function setup(options: { enabled?: boolean; mail?: boolean } = {}) {
+function setup(options: { mail?: boolean } = {}) {
   const user = {
     id: 4,
     username: 'Leia',
@@ -40,11 +39,7 @@ function setup(options: { enabled?: boolean; mail?: boolean } = {}) {
     sendPasswordResetMail: jest.fn(async () => true),
   };
   const config = {
-    get: jest.fn((key: string) =>
-      key === 'PASSWORD_RESET_ENABLED'
-        ? String(options.enabled ?? true)
-        : 'https://game.test',
-    ),
+    get: jest.fn((key: string) => key === 'APP_BASE_URL' ? 'https://game.test' : undefined),
   };
   const dataSource = {
     transaction: jest.fn(async (work) =>
@@ -85,18 +80,13 @@ describe('password reset behavior', () => {
     expect(mail.sendPasswordResetMail).not.toHaveBeenCalled();
   });
 
-  it('returns 404 when the feature flag or SMTP is unavailable', async () => {
-    await expect(
-      setup({ enabled: false }).service.lostPassword({ login: 'Leia' }),
-    ).rejects.toBeInstanceOf(NotFoundException);
-    await expect(
-      setup({ mail: false }).service.lostPassword({ login: 'Leia' }),
-    ).rejects.toBeInstanceOf(NotFoundException);
-    expect(setup().service.features()).toEqual({
-      passwordReset: true,
-      emailVerification: false,
-      accountDeletion: false,
+  it('offers all account flows without flags or SMTP', async () => {
+    const { service, mail } = setup({ mail: false });
+    expect(service.features()).toEqual({
+      passwordReset: true, emailVerification: true, accountDeletion: true,
     });
+    await expect(service.lostPassword({ login: 'Leia' })).resolves.toEqual(MESSAGE);
+    expect(mail.sendPasswordResetMail).toHaveBeenCalledTimes(1);
   });
 
   it('sets a registered-strength password, clears sessions, and consumes the token', async () => {

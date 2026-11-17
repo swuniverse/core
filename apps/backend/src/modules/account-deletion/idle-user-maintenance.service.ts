@@ -38,8 +38,8 @@ const SIGNATURE = ['', 'Möge die Macht mit dir sein!', 'Das Team von Star Wars 
  * `IdleUserDeletion`): first warnings 48 h and 24 h before a deadline, then
  * deletions with a closing mail. Admins, NPCs and accounts with deletion
  * forbidden are never touched; verified accounts without recorded activity
- * neither (STU `la.timestamp > 0`). Behind `IDLE_DELETION_ENABLED`; without
- * it the run only logs whom it would warn and delete.
+ * neither (STU `la.timestamp > 0`). Scheduled runs always execute; preview
+ * is a separate, read-only admin action.
  */
 @Injectable()
 export class IdleUserMaintenanceService implements MaintenanceHandler {
@@ -54,15 +54,10 @@ export class IdleUserMaintenanceService implements MaintenanceHandler {
   ) {}
 
   async run(now: Date): Promise<string> {
-    const enabled = this.config.get<string>('IDLE_DELETION_ENABLED') === 'true';
     const warnings = await this.warnings(now);
     const candidates = await this.candidates(now);
-    const prefix = enabled ? '' : 'Trockenlauf: ';
-    this.logger.log(`${prefix}${warnings.length} Warnungen: ${this.ids(warnings)}`);
-    this.logger.log(`${prefix}${candidates.length} Löschungen: ${this.ids(candidates)}`);
-    if (!enabled) {
-      return `Trockenlauf: ${warnings.length} Warnungen, ${candidates.length} Löschungen`;
-    }
+    this.logger.log(`${warnings.length} Warnungen: ${this.ids(warnings)}`);
+    this.logger.log(`${candidates.length} Löschungen: ${this.ids(candidates)}`);
 
     const errors: string[] = [];
     for (const warning of warnings) {
@@ -82,6 +77,13 @@ export class IdleUserMaintenanceService implements MaintenanceHandler {
     return summary;
   }
 
+  /** Explicit admin preview: never sends mail or changes accounts. */
+  async preview(now: Date): Promise<string> {
+    const warnings = await this.warnings(now);
+    const candidates = await this.candidates(now);
+    return `Trockenlauf: ${warnings.length} Warnungen, ${candidates.length} Löschungen`;
+  }
+
   /** Accounts due for deletion now. */
   async candidates(now: Date): Promise<IdleDeletionCandidate[]> {
     const inactive = this.threshold(now, 'IDLE_DELETION_DAYS', DEFAULT_IDLE_DELETION_DAYS);
@@ -91,7 +93,7 @@ export class IdleUserMaintenanceService implements MaintenanceHandler {
         `(user.deletionMark = :confirmed
           OR (user.vacationMode = false AND user.lastActiveAt IS NOT NULL AND user.lastActiveAt < :inactive)
           OR (user.vacationMode = true AND user.lastActiveAt IS NOT NULL AND user.lastActiveAt < :vacation)
-          ${this.unverifiedEnabled() ? 'OR (user.emailVerifiedAt IS NULL AND user.createdAt < :unverified)' : ''})`,
+          OR (user.emailVerifiedAt IS NULL AND user.createdAt < :unverified))`,
         {
           confirmed: AccountDeletionMark.Confirmed,
           inactive,
@@ -113,9 +115,7 @@ export class IdleUserMaintenanceService implements MaintenanceHandler {
       { key: 'IDLE_DELETION_DAYS', fallback: DEFAULT_IDLE_DELETION_DAYS, column: 'lastActiveAt', extra: 'user.vacationMode = false AND user.lastActiveAt IS NOT NULL', unverified: false },
       { key: 'IDLE_DELETION_VACATION_DAYS', fallback: DEFAULT_IDLE_DELETION_VACATION_DAYS, column: 'lastActiveAt', extra: 'user.vacationMode = true AND user.lastActiveAt IS NOT NULL', unverified: false },
     ];
-    if (this.unverifiedEnabled()) {
-      windows.push({ key: 'IDLE_UNVERIFIED_DAYS', fallback: DEFAULT_IDLE_UNVERIFIED_DAYS, column: 'createdAt', extra: 'user.emailVerifiedAt IS NULL', unverified: true });
-    }
+    windows.push({ key: 'IDLE_UNVERIFIED_DAYS', fallback: DEFAULT_IDLE_UNVERIFIED_DAYS, column: 'createdAt', extra: 'user.emailVerifiedAt IS NULL', unverified: true });
     const warned = new Map<number, IdleWarning>();
     for (const window of windows) {
       const deadline = this.threshold(now, window.key, window.fallback);
@@ -157,10 +157,6 @@ export class IdleUserMaintenanceService implements MaintenanceHandler {
     const configured = Number(this.config.get<string>(key));
     const days = Number.isFinite(configured) && configured > 0 ? configured : fallback;
     return new Date(now.getTime() - days * DAY_MS);
-  }
-
-  private unverifiedEnabled(): boolean {
-    return this.config.get<string>('EMAIL_VERIFICATION_ENABLED') === 'true';
   }
 
   private async attempt(errors: string[], userId: number, work: () => Promise<unknown>): Promise<void> {

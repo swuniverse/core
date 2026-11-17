@@ -29,8 +29,8 @@ const createService = (
     sendAccountDeletionMail: jest.fn(async () => true),
   };
   const config = {
-    get: jest.fn<string, [string]>((key: string) =>
-      key === 'ACCOUNT_DELETION_ENABLED' ? 'true' : 'https://game.test',
+    get: jest.fn<string | undefined, [string]>((key: string) =>
+      key === 'APP_BASE_URL' ? 'https://game.test' : undefined,
     ),
   };
   return {
@@ -260,24 +260,6 @@ describe('SettingsService account deletion', () => {
       user.username,
       'https://game.test/confirm-deletion?token=deletion-token',
     );
-  });
-
-  it('keeps the existing request-only behavior while the feature is disabled', async () => {
-    const user = {
-      id: 7,
-      passwordHash: 'hash',
-      deletionMark: AccountDeletionMark.None,
-    };
-    const setup = createService(user);
-    setup.config.get.mockImplementation((key: string) =>
-      key === 'ACCOUNT_DELETION_ENABLED' ? 'false' : 'https://game.test',
-    );
-
-    await setup.service.requestDeletion(user.id, 'secret');
-
-    expect(user.deletionMark).toBe(AccountDeletionMark.Requested);
-    expect(setup.tokenService.create).not.toHaveBeenCalled();
-    expect(setup.mail.sendAccountDeletionMail).not.toHaveBeenCalled();
   });
 
   it('revokes only a pending deletion request', async () => {

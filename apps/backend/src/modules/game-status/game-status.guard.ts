@@ -72,10 +72,7 @@ export class GameStatusGuard implements CanActivate {
     const isAdmin = request.user?.isAdmin || payload?.isAdmin;
     if (isAdmin) return true;
 
-    if (
-      this.config.get<string>('EMAIL_VERIFICATION_ENABLED') === 'true' &&
-      payload?.sub
-    ) {
+    if (payload?.sub) {
       const user = await this.userRepository.findOneBy({ id: payload.sub });
       if (user && !user.emailVerifiedAt) {
         throw new ForbiddenException({

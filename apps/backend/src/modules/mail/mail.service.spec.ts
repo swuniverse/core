@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { MailService } from './mail.service';
 
 describe('MailService password reset mail', () => {
@@ -37,5 +38,29 @@ describe('Private message mail content', () => {
       subject: 'Neue Nachricht von Leia',
       text: 'Du hast eine neue persönliche Nachricht von Leia.\n\nhttps://game.test/messages',
     });
+  });
+});
+
+
+describe('MailService without SMTP', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('starts locally and logs complete mail content including action links', async () => {
+    const log = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const service = new MailService({ get: () => undefined } as never);
+    expect(service.isEnabled()).toBe(false);
+    await service.sendPasswordResetMail('leia@example.test', 'Leia', 'http://localhost:5173/reset-password?token=local-token');
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('http://localhost:5173/reset-password?token=local-token'));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('leia@example.test'));
+  });
+
+  it('reports missing SMTP at production startup and never logs action tokens', async () => {
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const log = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const service = new MailService({ get: (key: string) => key === 'NODE_ENV' ? 'production' : undefined } as never);
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('SMTP not configured'));
+    await service.sendVerificationMail('leia@example.test', 'Leia', 'secret-token');
+    expect(log).not.toHaveBeenCalled();
+    expect(error).not.toHaveBeenCalledWith(expect.stringContaining('secret-token'));
   });
 });

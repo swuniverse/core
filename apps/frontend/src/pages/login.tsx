@@ -22,10 +22,6 @@ interface GalaxyStats {
   buildingTypes: number;
 }
 
-interface AuthFeatures {
-  passwordReset: boolean;
-}
-
 function getRememberLoginPreference(): boolean {
   try {
     return localStorage.getItem('swu-remember-login') !== 'false';
@@ -173,7 +169,6 @@ export function LoginPage() {
     'idle',
   );
   const [stats, setStats] = useState<GalaxyStats | null>(null);
-  const [authFeatures, setAuthFeatures] = useState<AuthFeatures | null>(null);
   const [news, setNews] = useState<PublicNews[]>([]);
   const [gameStatus, setGameStatus] = useState<GameStatus>({
     status: 'ONLINE',
@@ -197,10 +192,6 @@ export function LoginPage() {
       .catch(() => undefined);
     api.get<GameStatus>('/game-status').then(setGameStatus).catch(() => undefined);
     api.get<PublicNews[]>('/news').then((items) => setNews(Array.isArray(items) ? items : [])).catch(() => undefined);
-    api
-      .get<AuthFeatures>('/auth/features')
-      .then(setAuthFeatures)
-      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -714,11 +705,9 @@ export function LoginPage() {
                 Registrieren
               </Link>
             )}
-            {authFeatures?.passwordReset && (
-              <Link to="/lost-password" tabIndex={loginOpen ? 0 : -1}>
-                Passwort vergessen?
-              </Link>
-            )}
+            <Link to="/lost-password" tabIndex={loginOpen ? 0 : -1}>
+              Passwort vergessen?
+            </Link>
             <a
               href="https://discord.com/invite/vvUwR6UZbB"
               target="_blank"

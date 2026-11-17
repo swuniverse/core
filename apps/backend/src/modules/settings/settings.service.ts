@@ -299,7 +299,6 @@ export class SettingsService {
 
     user.deletionMark = AccountDeletionMark.Requested;
     await this.userRepo.save(user);
-    if (this.config.get<string>('ACCOUNT_DELETION_ENABLED') !== 'true') return;
 
     const { token } = await this.accountTokenService.create(
       user.id,

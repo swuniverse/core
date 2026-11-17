@@ -40,7 +40,6 @@ function setup(
     existing?: boolean;
     faction?: { id: number; key: string } | null;
     userCount?: number;
-    verificationEnabled?: boolean;
   } = {},
 ) {
   const users = options.users ?? [];
@@ -100,13 +99,7 @@ function setup(
   };
   const gameStatusService = { isMaintenance: jest.fn(async () => false) };
 
-  const config = {
-    get: jest.fn((key: string) =>
-      key === 'EMAIL_VERIFICATION_ENABLED'
-        ? String(options.verificationEnabled ?? true)
-        : undefined,
-    ),
-  };
+  const config = { get: jest.fn(() => undefined) };
 
   const service = new AuthService(
     userRepo as never,
@@ -117,7 +110,7 @@ function setup(
     {} as never,
     config as never,
     { getSettings: jest.fn(async () => ({ default_view: 'maindesk' })) } as never,
-    [new EmailVerificationAccessCheck(config as never)],
+    [new EmailVerificationAccessCheck()],
   );
 
   return { service, userRepo, txUserRepo, mailService };
@@ -189,24 +182,6 @@ describe('AuthService email verification', () => {
       const { service } = setup({ userCount: 10 });
 
       await expect(service.register(dto)).resolves.toBeDefined();
-    });
-
-    it('activates the account at once while verification is switched off', async () => {
-      const { service, txUserRepo, mailService } = setup({
-        verificationEnabled: false,
-      });
-
-      const result = await service.register(dto);
-
-      expect(result).toHaveProperty('accessToken', 'signed');
-      expect(txUserRepo.create.mock.calls[0][0]).toMatchObject({
-        emailVerifiedAt: NOW,
-      });
-      expect(mailService.sendVerificationMail).not.toHaveBeenCalled();
-      expect(mailService.sendWelcomeMail).toHaveBeenCalledWith(
-        dto.email,
-        dto.username,
-      );
     });
 
     it('rejects duplicate username or email and sends no mail', async () => {
