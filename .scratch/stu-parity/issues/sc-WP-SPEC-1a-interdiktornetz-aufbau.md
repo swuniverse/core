@@ -1,9 +1,13 @@
 # Interdiktornetz: Ausstattung, Datenmodell und Aufbau
 
-**Status:** needs-info
+**Status:** wontfix
 **Priority:** P3
 **Size:** M
 **Blocked by:** sc-WP-ENG-2a, sc-WP-COMBAT-3
+
+## Entscheidung – keine Umsetzung
+
+Auf ausdrückliche Nutzerentscheidung vom 2026-11-17 wird dieses Ticket nicht umgesetzt: Das STU-Tholianische Netz erhält kein Interdiktornetz-Pendant in SWU, weil ein passendes Star-Wars-Äquivalent für diesen Spielumfang fehlt. Das gesamte Feature einschließlich Aufbau, Bewegungssperre und Implosion ist `wontfix`; die bisherigen Spezifikationen und ungecheckten Kriterien bleiben als historische Planung erhalten.
 
 ## Ziel
 
@@ -41,3 +45,9 @@ Welche Schiffe erhalten den Projektor und welche sichere Verlustregel gilt für 
 ## Comments
 
 - 2026-11-16 – Triage: Kind des Tracking-Splits [SPEC-1](sc-WP-SPEC-1-interdiktornetz.md). Vorschläge sind erst nach Freigabe verbindlich; kein Produktcode geändert. Siehe [Audit](../triage-2026-11-16.md).
+
+- 2026-11-17 – Nutzerentscheidung: Das STU-Tholianische Netz hat für diesen Spielumfang kein passendes Star-Wars-Pendant. Interdiktornetz, Projektor, Fangzustand und Implosion werden nicht umgesetzt. Bewusste Ausnahme von der STU-Parität; keine alternative Fangmechanik ableiten.
+
+## Answer
+
+`wontfix` auf Nutzerentscheidung. Dieses Ticket sowie das Parent und die übrigen Interdiktornetz-Kinder werden nicht umgesetzt; es besteht kein weiterer Freigabe- oder Umsetzungsauftrag.

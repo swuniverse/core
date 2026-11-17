@@ -1,9 +1,13 @@
 # Interdiktornetz für Schiffe
 
-**Status:** resolved
+**Status:** wontfix
 **Priority:** P3
 **Size:** M
 **Blocked by:** sc-WP-ENG-2a, sc-WP-COMBAT-3
+
+## Entscheidung – keine Umsetzung
+
+Auf ausdrückliche Nutzerentscheidung vom 2026-11-17 wird dieses Ticket nicht umgesetzt: Das STU-Tholianische Netz erhält kein Interdiktornetz-Pendant in SWU, weil ein passendes Star-Wars-Äquivalent für diesen Spielumfang fehlt. Das gesamte Feature einschließlich Aufbau, Bewegungssperre und Implosion ist `wontfix`; die bisherigen Spezifikationen und ungecheckten Kriterien bleiben als historische Planung erhalten.
 
 ## Ziel
 
@@ -38,7 +42,7 @@ Pfade relativ zu `../../st-universe/core/src/`:
 - [ ] Interdiktornetz-Modul, Shared-DTOs, API und verdichtete Schiff-UI sind vorhanden.
 - [ ] Service- und Integrationstests decken Aufbau, Unterstützung, Sperre, Auflösung, Implosion und Berechtigungen ab.
 
-## Answer – Tracking-Split nach Triage
+## Historische Answer – Tracking-Split nach Triage
 
 Das Parent ist als **Tracking-Split** abgeschlossen, nicht als fertige Funktion. Die ursprünglichen Feature-Kriterien oben bleiben zur Übersicht ungecheckt; verbindliche Umsetzung und Nachweise liegen in drei Kindtickets:
 
@@ -51,3 +55,9 @@ STU-Belege: `WebEmitterShipSystem` (30 EPS Aktivierung, 10/Tick, 24 h Cooldown),
 ## Comments
 
 - 2026-11-16 – Triage: Autorisierter Tracking-Split in SPEC-1a/b/c; keine Netzfunktion umgesetzt. Siehe [Audit](../triage-2026-11-16.md).
+
+- 2026-11-17 – Nutzerentscheidung: Das STU-Tholianische Netz hat für diesen Spielumfang kein passendes Star-Wars-Pendant. Interdiktornetz, Projektor, Fangzustand und Implosion werden nicht umgesetzt. Bewusste Ausnahme von der STU-Parität; keine alternative Fangmechanik ableiten.
+
+## Answer
+
+Das Parent und alle drei Kindtickets SPEC-1a/b/c sind `wontfix`. Der frühere `resolved`-Status bezeichnete ausschließlich den Tracking-Split. Die Funktion wurde nicht implementiert und wird auf Nutzerentscheidung nicht gebaut.
