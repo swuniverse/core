@@ -1735,6 +1735,11 @@ export class SpacecraftController {
     return this.stationShipyardService.build(id, req.user.sub, dto);
   }
 
+  @Get(':id/uplink')
+  uplinkOverview(@Param('id', ParseIntPipe) id: number, @Request() req: { user: { sub: number } }) {
+    return this.transferService.getUplinkOverview(id, req.user.sub);
+  }
+
   @Get(':id/station-repair')
   stationRepair(
     @Param('id', ParseIntPipe) id: number,

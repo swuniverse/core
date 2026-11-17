@@ -8,6 +8,16 @@ import {
 } from './spacecraft-runtime-state.service';
 
 describe('SpacecraftRuntimeStateService', () => {
+  it('creates an OFF uplink only for sensor stations and preserves shutdown on reads', () => {
+    const service = new SpacecraftRuntimeStateService();
+    for (const modules of [undefined, []]) {
+      const station = { kind: 'STATION', stationRole: 'SENSOR', modules, runtimeSystems: {} } as never;
+      expect(service.initialize(station).UPLINK).toMatchObject({ active: false, integrity: 100 });
+      expect(service.initialize({ kind: 'STATION', stationRole: 'BASE', modules, runtimeSystems: {} } as never).UPLINK).toBeUndefined();
+      expect(service.initialize({ kind: 'SHIP', stationRole: 'SENSOR', modules, runtimeSystems: {} } as never).UPLINK).toBeUndefined();
+    }
+    expect(service.initialize({ kind: 'STATION', stationRole: 'SENSOR', modules: [], runtimeSystems: { UPLINK: { active: false, cooldown: 0, integrity: 20 } } } as never).UPLINK).toMatchObject({ active: false, integrity: 20 });
+  });
   it('adds the STU beamblocker only to stations, with or without hydrated modules', () => {
     const service = new SpacecraftRuntimeStateService();
     for (const modules of [undefined, []]) {

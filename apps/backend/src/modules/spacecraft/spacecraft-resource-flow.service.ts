@@ -28,6 +28,7 @@ const SYSTEM_EPS_USAGE: Partial<Record<SpacecraftRuntimeSystemKey, number>> = {
   LIFE_SUPPORT: 1,
   DEFLECTOR: 0,
   BEAM_BLOCKER: 0,
+  UPLINK: 5,
   RESOURCE_COLLECTOR: 10,
   RESOURCE_CONVERTER: 10,
 };
@@ -52,6 +53,7 @@ const SYSTEM_LABELS: Partial<Record<SpacecraftRuntimeSystemKey, string>> = {
   LIFE_SUPPORT: 'Lebenserhaltung',
   DEFLECTOR: 'Deflektor',
   BEAM_BLOCKER: 'Beamblocker',
+  UPLINK: 'Kooperationsuplink',
   SHUTTLE_RAMP: 'Shuttlerampe',
   HYPERSPACE_COIL: 'Hyperraum-Spule',
   RESOURCE_COLLECTOR: 'Ressourcen-Kollektor',
@@ -198,6 +200,7 @@ export class SpacecraftResourceFlowService {
       'ASTROMETRY_LAB',
       'RESOURCE_COLLECTOR',
       'RESOURCE_CONVERTER',
+      'UPLINK',
       'SPECIAL',
       'TORPEDO_BANK',
       'WEAPONS',
@@ -213,9 +216,18 @@ export class SpacecraftResourceFlowService {
       if (!system || system.active === false) continue;
       const cost = SYSTEM_EPS_USAGE[key] ?? 0;
       if (cost <= 0) continue;
+      // STU considers stored EPS when deciding whether the uplink can run.
+      if (key === 'UPLINK' && ship.energy + ship.battery >= remaining) {
+        const needed = Math.min(cost, remaining);
+        const fromEps = Math.min(ship.energy, needed);
+        ship.energy -= fromEps;
+        ship.battery -= needed - fromEps;
+        remaining -= needed;
+        continue;
+      }
       systems[key] = { ...system, active: false };
       deactivatedSystems.push(SYSTEM_LABELS[key] ?? key);
-      remaining -= cost;
+      remaining = Math.max(0, remaining - cost);
     }
 
     // Drain EPS + battery for any remaining deficit

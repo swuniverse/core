@@ -15,6 +15,16 @@ const damaged = (id: number, integrity = 100): SpacecraftModule =>
   ({ id, integrity, isActive: true, cooldown: 0 }) as SpacecraftModule;
 
 describe('station repair plan', () => {
+  it('repairs a built-in uplink using the shared system budget but restores its OFF default', () => {
+    const uplink = { active: true, cooldown: 0, integrity: 50 };
+    const station = { kind: 'STATION', crew: 2, hull: 1000, hullMax: 1000, runtimeSystems: { UPLINK: uplink } };
+    expect(needsRepair(station, [])).toBe(true);
+    const step = planRepairStep(station, []);
+    expect(step.costs).toHaveLength(2);
+    applyRepairStep(station, step);
+    expect(uplink).toMatchObject({ active: false, integrity: 100 });
+    expect(needsRepair(station, [])).toBe(false);
+  });
   it('includes the built-in beamblocker in the two-system budget and restores its destroyed default mode', () => {
     const beam = { active: false, cooldown: 0, integrity: 0 };
     const station = { kind: 'STATION', crew: 1, hull: 1000, hullMax: 1000, runtimeSystems: { BEAM_BLOCKER: beam } };

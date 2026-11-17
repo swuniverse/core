@@ -141,6 +141,7 @@ export const SPACECRAFT_RUNTIME_SYSTEM_KEYS = [
   'LIFE_SUPPORT',
   'DEFLECTOR',
   'BEAM_BLOCKER',
+  'UPLINK',
 ] as const;
 
 export type SpacecraftRuntimeSystemKey =
@@ -276,6 +277,17 @@ export interface SpacecraftCrewManagementDto {
     crew: SpacecraftCrewManagementMemberDto[];
   }>;
   unassignedCrew: SpacecraftCrewManagementMemberDto[];
+}
+
+export interface StationUplinkDto {
+  system: SpacecraftRuntimeSystemStateDto;
+  ownCrew: number;
+  crewRequired: number;
+  capacity: number;
+  activationEps: number;
+  epsPerTick: number;
+  activationReason: string | null;
+  guests: Array<{ id: number; name: string; ownerId: number; ownerName: string }>;
 }
 
 export interface SpacecraftEffectiveStatsDto {

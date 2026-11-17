@@ -2,6 +2,17 @@ import { SpacecraftResourceFlowService } from './spacecraft-resource-flow.servic
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 
 describe('SpacecraftResourceFlowService', () => {
+  it('pays five EPS for uplink from stored energy and keeps guests on brownout', () => {
+    const ship = makeShip({ kind: 'STATION', stationRole: 'SENSOR', reactorOutput: 0, reactorFuel: 0, energy: 10, battery: 0, modules: [], runtimeSystems: { LIFE_SUPPORT: { active: false, cooldown: 0, integrity: 100 }, UPLINK: { active: true, cooldown: 0, integrity: 100, current: 2 } } });
+    const service = createService();
+    service.recharge(ship as never);
+    expect(ship.energy).toBe(5);
+    service.recharge(ship as never);
+    expect(ship.energy).toBe(0);
+    expect(service.recharge(ship as never).deactivatedSystems).toContain('Kooperationsuplink');
+    expect(ship.energy).toBe(0);
+    expect((ship.runtimeSystems as any).UPLINK).toMatchObject({ active: false, current: 2 });
+  });
   it('charges no additional tick EPS for the built-in station beamblocker', () => {
     const service = createService();
     const ship = makeShip();

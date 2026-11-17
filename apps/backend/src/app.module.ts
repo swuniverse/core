@@ -46,6 +46,7 @@ import { ColonyOrbitAssignment } from './modules/colony/entities/colony-orbit-as
 import { Crew } from './modules/colony/entities/crew.entity';
 import { CrewAssignment } from './modules/colony/entities/crew-assignment.entity';
 import { CrewSkill } from './modules/spacecraft/entities/crew-skill.entity';
+import { StationScrapping } from './modules/spacecraft/entities/station-scrapping.entity';
 import { Layer } from './modules/starmap/entities/layer.entity';
 import { LayerKnowledge } from './modules/starmap/entities/layer-knowledge.entity';
 import { LayerExploredEvent } from './modules/starmap/entities/layer-explored-event.entity';
@@ -201,6 +202,7 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
           Crew,
           CrewAssignment,
           CrewSkill,
+          StationScrapping,
           Layer,
           LayerKnowledge,
           LayerExploredEvent,

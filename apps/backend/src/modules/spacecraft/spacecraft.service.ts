@@ -161,6 +161,7 @@ import {
   FlightConsequencePipeline,
   type FlightConsequenceField,
 } from './flight-consequence-pipeline';
+import { StationUplinkService, hasStationUplink } from './station-uplink.service';
 import { CrewEnhancementEvent } from './crew-expertise';
 import { FieldEffectQuery } from '../starmap/field-effect-query';
 import { EscapePodService } from './escape-pod.service';
@@ -1187,6 +1188,11 @@ export class SpacecraftService {
     active: boolean,
   ): Promise<{ systems: unknown }> {
     if (systemKey === 'SHUTTLE_RAMP') throw new BadRequestException('Die Shuttlerampe ist ein passives System');
+    if (systemKey === 'UPLINK') {
+      const result = await new StationUplinkService(this.dataSource).toggle(shipId, userId, active);
+      this.gameGateway.emitToUser(userId, WsEventType.SPACECRAFT_EVENT, { shipId, type: 'SYSTEM_TOGGLED', detail: `Kooperationsuplink ${active ? 'aktiviert' : 'deaktiviert'}` });
+      return result;
+    }
     if (systemKey === 'RESOURCE_CONVERTER') throw new BadRequestException('Bitte das Raffinerie-Fenster verwenden');
     if (systemKey === 'RESOURCE_COLLECTOR') throw new BadRequestException('Bitte das Ressourcensammel-Fenster verwenden');
     const ship = await this.findOne(shipId, userId);
@@ -1352,6 +1358,7 @@ export class SpacecraftService {
       LIFE_SUPPORT: 'Lebenserhaltung',
       DEFLECTOR: 'Deflektor',
       BEAM_BLOCKER: 'Beamblocker',
+      UPLINK: 'Kooperationsuplink',
     };
     this.gameGateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, {
       shipId: ship.id,
@@ -1438,7 +1445,7 @@ export class SpacecraftService {
       return;
     const [crewNeeded, assigned] = await Promise.all([
       this.spacecraftCrewService.getRequiredCrew(ship),
-      this.spacecraftCrewService.getAssignedCrewCount(ship.id),
+      ship.kind === 'STATION' ? this.spacecraftCrewService.getOwnCrewCount(ship) : this.spacecraftCrewService.getAssignedCrewCount(ship.id),
     ]);
     if (crewNeeded > assigned) {
       throw new BadRequestException(
@@ -4226,7 +4233,7 @@ export class SpacecraftService {
               contact:
                 target.userId !== ship.userId &&
                 interactionDecision('CONTACT').allowed,
-              transfer: interactionDecision('TRANSFER').allowed,
+              transfer: interactionDecision('TRANSFER').allowed || (hasStationUplink(target) && !targetOnVacation && !hyperdriveActive && !targetHyperdriveActive && systems.CLOAK?.active !== true && targetSystems.CLOAK?.active !== true && systems.SHIELDS?.active !== true && targetSystems.SHIELDS?.active !== true),
               energyTransfer: interactionDecision('TRANSFER').allowed,
               tractor:
                 target.kind === 'SHIP' &&
@@ -4930,6 +4937,7 @@ export class SpacecraftService {
     ]);
     ship.modules = modules;
     if (shipClass) ship.shipClass = shipClass;
+    if (hasStationUplink(ship)) await new StationUplinkService(this.dataSource).prepareTick(ship);
     const energyBefore = ship.energy;
     const resourceFlow = this.spacecraftResourceFlowService.recharge(
       ship,

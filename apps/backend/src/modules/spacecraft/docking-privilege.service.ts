@@ -218,7 +218,9 @@ export class DockingPrivilegeService implements OnModuleInit {
     stationId: number,
     userId: number,
   ): Promise<Spacecraft> {
-    const station = await manager.findOneBy(Spacecraft, { id: stationId, userId });
+    const station = manager.queryRunner?.isTransactionActive
+      ? await manager.findOne(Spacecraft, { where: { id: stationId, userId }, lock: { mode: 'pessimistic_write' } })
+      : await manager.findOneBy(Spacecraft, { id: stationId, userId });
     if (!station || station.kind !== SpacecraftKind.STATION) {
       throw new NotFoundException('Station nicht gefunden');
     }

@@ -134,6 +134,7 @@ export const SHIP_SYSTEMS: ShipSystemPresentation[] = [
     '⛉',
     'border-sky-400/60 bg-sky-500/10 text-sky-100',
   ),
+  system('UPLINK', 'Kooperationsuplink', 'Fremde Crew an Sensorphalanx-Stationen · 5 EPS pro Tick', '⌁', 'border-sky-400/60 bg-sky-500/10 text-sky-100'),
 ];
 
 export const SHIP_SYSTEM_PRESENTATION = new Map(

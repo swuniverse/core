@@ -1,6 +1,7 @@
 import { ShuttleManagementPanel } from './ShuttleManagementPanel';
 import { ResourceConversionPanel } from './ResourceConversionPanel';
 import { ResourceCollectionPanel } from './ResourceCollectionPanel';
+import { StationUplinkPanel } from './StationUplinkPanel';
 import { useEffect, useState } from 'react';
 import type { SpacecraftTrackerDto } from '@swuniverse/shared';
 import { commodityImage } from '../../lib/assets';
@@ -183,6 +184,7 @@ export function ShipControlCenter({
         {systems?.RESOURCE_COLLECTOR && <ResourceCollectionPanel shipId={shipId} onUpdate={onUpdate} refreshKey={JSON.stringify(systems)} />}
         {systemRow('SHIELDS')}
         {systemRow('WEAPONS')}
+        {systems?.UPLINK && <StationUplinkPanel shipId={shipId} refreshKey={JSON.stringify(systems)} onUpdate={onUpdate} />}
         {systems?.BEAM_BLOCKER && (
           <div className="flex items-center gap-2 border-b border-swu-border px-2 py-1.5 text-swu-primary">
             <img src="/assets/system/22.png" alt="" className="size-5" />

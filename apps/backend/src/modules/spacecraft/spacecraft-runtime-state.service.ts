@@ -129,6 +129,7 @@ export function initializeSpacecraftRuntimeSystems(
       ['SHUTTLE', 'WORKBEE'].includes(ship.shipClass?.role ?? '');
     const availableSystems = getAvailableSystems(ship.modules, smallCraft);
     if (ship.kind === 'STATION') availableSystems.add('BEAM_BLOCKER');
+    if (ship.kind === 'STATION' && ship.stationRole === 'SENSOR') availableSystems.add('UPLINK');
     for (const key of Object.keys(systems) as SpacecraftRuntimeSystemKey[]) {
       if (!availableSystems.has(key)) delete systems[key];
     }
@@ -148,6 +149,7 @@ export function initializeSpacecraftRuntimeSystems(
           key !== 'RESOURCE_CONVERTER' &&
           key !== 'SHUTTLE_RAMP' &&
           key !== 'BEAM_BLOCKER' &&
+          key !== 'UPLINK' &&
           (key === 'LIFE_SUPPORT' ||
             key === 'DEFLECTOR' ||
             backingModules.length === 0 ||
@@ -174,7 +176,8 @@ export function initializeSpacecraftRuntimeSystems(
         key === 'RESOURCE_COLLECTOR' ||
         key === 'RESOURCE_CONVERTER' ||
         key === 'SHUTTLE_RAMP' ||
-        key === 'BEAM_BLOCKER'
+        key === 'BEAM_BLOCKER' ||
+        key === 'UPLINK'
       )
         continue;
       systems[key] ??= { active: true, cooldown: 0, integrity: 100 };
@@ -189,6 +192,9 @@ export function initializeSpacecraftRuntimeSystems(
       integrity: 100,
     };
   } else delete systems.BEAM_BLOCKER;
+  if (ship.kind === 'STATION' && ship.stationRole === 'SENSOR') {
+    systems.UPLINK ??= { active: false, cooldown: 0, integrity: 100, current: 0, max: 3 };
+  } else delete systems.UPLINK;
   if (systems.EPS) {
     systems.EPS = withDefaults(systems.EPS, {
       current: ship.energy,
@@ -240,6 +246,7 @@ function getAvailableSystems(
           'RESOURCE_CONVERTER',
           'SHUTTLE_RAMP',
           'BEAM_BLOCKER',
+          'UPLINK',
         ].includes(key)
       )
         systems.add(key);

@@ -50,6 +50,7 @@ export function TransferDialog({
     targetCrewMax: number;
     crewTransferAvailable: boolean;
     crewTransferReason: string | null;
+    crewTransferMaximum?: number;
     sourceTorpedoes: { torpedoTypeId: number; amount: number } | null;
     targetTorpedoes: { torpedoTypeId: number; amount: number } | null;
     torpedoTransferAvailable: boolean;
@@ -113,6 +114,7 @@ export function TransferDialog({
     const amount = isShipTransfer
       ? Math.min(
           crewAmount,
+          shipQuote?.crewTransferMaximum ?? Number.MAX_SAFE_INTEGER,
           unload ? (shipQuote?.sourceCrew ?? 0) : (shipQuote?.targetCrew ?? 0),
           unload
             ? Math.max(
@@ -227,12 +229,15 @@ export function TransferDialog({
           </button>
         </header>
         <div className="border-b border-swu-border px-3 py-2 text-xs text-swu-muted">
-          {isShipTransfer
+          {isShipTransfer && transferType === 'CREW'
+            ? `Eigene Crewübertragung · Maximal ${shipQuote?.crewTransferMaximum ?? '—'} Crewmitglieder`
+            : isShipTransfer
             ? `Eigenes Lager: ${shipQuote?.sourceUsed ?? '—'}/${shipQuote?.sourceMax ?? '—'} · Ziel-Lager: ${shipQuote?.targetUsed ?? '—'}/${shipQuote?.targetMax ?? '—'} · Freie Kapazität: ${capacity}`
             : transferType !== 'CARGO'
               ? `Kein Energieverbrauch · Freie Kapazität: ${capacity}`
               : `Energie: ${initiator === 'COLONY' ? 'Kolonie' : 'Schiff'} · Transferkapazität pro Energie: ${quote?.energyPerCapacity ?? '—'} · Freie Kapazität: ${capacity}`}
-          {shipQuote?.reason && ` · ${shipQuote.reason}`}
+          {transferType === 'CARGO' && shipQuote?.reason && ` · ${shipQuote.reason}`}
+          {transferType === 'CREW' && shipQuote?.crewTransferReason && ` · ${shipQuote.crewTransferReason}`}
         </div>
         {(isShipTransfer || colonyId != null) && (
           <div className="flex border-b border-swu-border text-xs">
@@ -290,6 +295,7 @@ export function TransferDialog({
                 type="number"
                 min={1}
                 max={
+                  isShipTransfer && shipQuote?.crewTransferMaximum != null ? shipQuote.crewTransferMaximum :
                   isShipTransfer
                     ? unload
                       ? shipQuote?.sourceCrew

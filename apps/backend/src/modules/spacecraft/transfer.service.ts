@@ -11,6 +11,8 @@ import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import { getColonyChangeable } from '../colony/colony-stats.service';
 import { ColonyCrewService } from '../colony/colony-crew.service';
+import { StationUplinkService, hasStationUplink } from './station-uplink.service';
+import { CrewType } from '../colony/entities/crew.entity';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import {
   RelationshipResolverService,
@@ -64,6 +66,10 @@ export class TransferService {
     private readonly relationshipResolver: RelationshipResolverService,
     private readonly interactionContext: InteractionContextService,
   ) {}
+
+  async getUplinkOverview(id: number, userId: number) {
+    return new StationUplinkService(this.dataSource).getOverview(id, userId);
+  }
 
   private assertCommodityBeamable(
     commodityId: number,
@@ -237,6 +243,7 @@ export class TransferService {
     targetCrewMax: number;
     crewTransferAvailable: boolean;
     crewTransferReason: string | null;
+    crewTransferMaximum: number;
     sourceTorpedoes: SpacecraftTorpedoStorage | null;
     targetTorpedoes: SpacecraftTorpedoStorage | null;
     torpedoTransferAvailable: boolean;
@@ -257,6 +264,11 @@ export class TransferService {
       targetShip,
       direction,
     );
+    const crewDirectionReason = await this.shipTransferBlockReason(sourceShip, targetShip, direction, true);
+    const from = direction === 'TO_TARGET' ? sourceShip : targetShip;
+    const to = direction === 'TO_TARGET' ? targetShip : sourceShip;
+    const crewLimit = hasStationUplink(from) || hasStationUplink(to) ? await new StationUplinkService(this.dataSource).transferLimit(this.dataSource.manager, from, to, userId) : null;
+    const crewReason = crewDirectionReason ?? crewLimit?.reason ?? null;
     const [
       sourceCargo,
       targetCargo,
@@ -294,7 +306,7 @@ export class TransferService {
       available: reason === null,
       reason,
       sourceCargo: this.withCommodityNames(sourceCargo),
-      targetCargo: this.withCommodityNames(targetCargo),
+      targetCargo: reason === null ? this.withCommodityNames(targetCargo) : [],
       sourceUsed,
       sourceMax: sourceShip.cargoMax,
       targetUsed,
@@ -303,8 +315,9 @@ export class TransferService {
       sourceCrewMax: sourceShip.crewMax,
       targetCrew,
       targetCrewMax: targetShip.crewMax,
-      crewTransferAvailable: reason === null,
-      crewTransferReason: reason,
+      crewTransferAvailable: crewReason === null,
+      crewTransferReason: crewReason,
+      crewTransferMaximum: crewReason === null ? (crewLimit?.maximum ?? Math.min(direction === 'TO_TARGET' ? sourceCrew : targetCrew, direction === 'TO_TARGET' ? Math.max(0, targetShip.crewMax - targetCrew) : Math.max(0, sourceShip.crewMax - sourceCrew))) : 0,
       sourceTorpedoes,
       targetTorpedoes,
       torpedoTransferAvailable: reason === null,
@@ -322,36 +335,49 @@ export class TransferService {
     await this.dataSource.transaction(async (manager) => {
       const ships = await manager.getRepository(Spacecraft).find({
         where: [{ id: shipId, userId }, { id: targetShipId }],
+        order: { id: 'ASC' },
         relations: { location: { galaxyField: true, systemField: true } },
         lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
       });
+      if (!ships.some((ship) => ship.id === shipId && ship.userId === userId) || shipId === targetShipId) throw new BadRequestException('Schiff nicht gefunden');
       const { sourceShip, targetShip } = await this.assertShipTransferAllowed(
         ships,
         shipId,
         targetShipId,
         direction,
+        true,
       );
       const from = direction === 'TO_TARGET' ? sourceShip : targetShip;
       const to = direction === 'TO_TARGET' ? targetShip : sourceShip;
       const crewRepo = manager.getRepository(CrewAssignment);
       const crew = await crewRepo.find({
-        where: { spacecraftId: from.id },
+        where: { spacecraftId: from.id, userId },
         order: { crewId: 'ASC' },
         lock: { mode: 'pessimistic_write' },
       });
       const targetCrew = await crewRepo.count({
         where: { spacecraftId: to.id },
       });
+      const stationTransfer = hasStationUplink(from) || hasStationUplink(to);
+      if (stationTransfer) {
+        const limit = await new StationUplinkService(this.dataSource).transferLimit(manager, from, to, userId);
+        if (limit.reason || amount > limit.maximum) throw new BadRequestException(limit.reason ?? `Höchstens ${limit.maximum} eigene Crewmitglieder können transferiert werden`);
+      }
       if (crew.length < amount)
         throw new BadRequestException('Nicht genug Crew an Bord');
       if (targetCrew + amount > to.crewMax)
         throw new BadRequestException('Nicht genug Crewkapazität');
-      for (const assignment of crew.slice(0, amount))
+      for (const assignment of crew.slice(0, amount)) {
         assignment.spacecraftId = to.id;
+        assignment.slot = to.userId === userId ? assignment.slot : CrewType.CREWMAN;
+      }
       await crewRepo.save(crew.slice(0, amount));
-      from.crew = crew.length - amount;
+      from.crew = stationTransfer ? await crewRepo.count({ where: { spacecraftId: from.id } }) : crew.length - amount;
       to.crew = targetCrew + amount;
-      await manager.save([from, to]);
+      if (stationTransfer) {
+        await manager.update(Spacecraft, from.id, { crew: from.crew });
+        await manager.update(Spacecraft, to.id, { crew: to.crew });
+      } else await manager.save([from, to]);
     });
   }
 
@@ -674,6 +700,7 @@ export class TransferService {
     shipId: number,
     targetShipId: number,
     direction: ShipTransferDirection,
+    crewTransfer = false,
   ): Promise<{ sourceShip: Spacecraft; targetShip: Spacecraft }> {
     const sourceShip = ships.find((ship) => ship.id === shipId);
     const targetShip = ships.find((ship) => ship.id === targetShipId);
@@ -683,6 +710,7 @@ export class TransferService {
       sourceShip,
       targetShip,
       direction,
+      crewTransfer,
     );
     if (reason) throw new BadRequestException(reason);
     return { sourceShip, targetShip };
@@ -692,6 +720,7 @@ export class TransferService {
     sourceShip: Spacecraft,
     targetShip: Spacecraft,
     direction: ShipTransferDirection,
+    crewTransfer = false,
   ): Promise<string | null> {
     const systems = (ship: Spacecraft) =>
       ship.runtimeSystems as Record<string, { active?: boolean }>;
@@ -721,8 +750,9 @@ export class TransferService {
       sourceShip,
       targetShip,
     );
+    const stationCrewTransfer = crewTransfer && (hasStationUplink(sourceShip) || hasStationUplink(targetShip));
     if (
-      !(provisionsProtectedTarget
+      !stationCrewTransfer && !(provisionsProtectedTarget
         ? capabilities.mayProvisionProtectedShip
         : capabilities.mayTransferSafely)
     )

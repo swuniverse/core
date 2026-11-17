@@ -214,9 +214,13 @@ export class SpacecraftCrewService {
     );
   }
 
+  async getOwnCrewCount(ship: Spacecraft): Promise<number> {
+    return this.crewAssignmentRepo.count({ where: { spacecraftId: ship.id, userId: ship.userId } });
+  }
+
   async hasEnoughCrew(ship: Spacecraft): Promise<boolean> {
     const [assigned, required] = await Promise.all([
-      this.getAssignedCrewCount(ship.id),
+      ship.kind === 'STATION' ? this.getOwnCrewCount(ship) : this.getAssignedCrewCount(ship.id),
       this.getRequiredCrew(ship),
     ]);
     return required <= 0 || assigned >= required;
