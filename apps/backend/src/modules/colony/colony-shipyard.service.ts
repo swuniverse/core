@@ -17,6 +17,7 @@ import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entit
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { SpacecraftStatsService } from '../spacecraft/spacecraft-stats.service';
 import { initializeSpacecraftRuntimeSystems } from '../spacecraft/spacecraft-runtime-state.service';
+import { isReserveCore, restoreReserveCoreRuntime } from '../spacecraft/reactor-fuel-profile';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { SystemField } from '../starmap/entities/system-field.entity';
 import { ColonyEventService } from '../messaging/colony-event.service';
@@ -1400,6 +1401,7 @@ export class ColonyShipyardService {
       await this.spacecraftModuleRepo.save(modulesToRepair);
     }
     this.spacecraftStatsService.applyStats(ship, shipClass, modules);
+    restoreReserveCoreRuntime(ship, modulesToRepair);
     ship.shields = Math.min(ship.shieldsMax, Math.max(ship.shields, 0));
     ship.energy = Math.min(ship.energyMax, Math.max(ship.energy, 0));
     await this.shipRepo.save(ship);
@@ -1529,6 +1531,7 @@ export class ColonyShipyardService {
     }
 
     const finalModules = [...modulesToKeep, ...createdModules];
+    if (createdModules.some(isReserveCore) && ship.runtimeSystems) delete ship.runtimeSystems.REACTOR;
     this.spacecraftStatsService.applyStats(ship, shipClass, finalModules);
     ship.crewRequired = this.calculateCrewRequired(
       shipClass,

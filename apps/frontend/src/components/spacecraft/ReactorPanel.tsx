@@ -51,7 +51,9 @@ export function ReactorPanel({
   const [transferTargets, setTransferTargets] = useState<
     SpacecraftReactorTransferTargetDto[] | null
   >(null);
-  const [transferAmounts, setTransferAmounts] = useState<Record<number, number>>({});
+  const [transferAmounts, setTransferAmounts] = useState<
+    Record<number, number>
+  >({});
   const [transferringCharge, setTransferringCharge] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -219,7 +221,8 @@ export function ReactorPanel({
             className="size-4"
           />
           <span className="flex-1 font-mono text-swu-primary">
-            Reaktortreibstoff {reactorFuel}/{reactorFuelMax}
+            {flow?.reactorProfile?.label ?? 'Reaktor'} · Ladung {reactorFuel}/
+            {reactorFuelMax}
           </span>
           <EngineeringControls
             label="aufladen"
@@ -239,6 +242,20 @@ export function ReactorPanel({
             </button>
           )}
         </div>
+
+        {flow?.reactorProfile && (
+          <div className="p-2 text-swu-muted">
+            Leistung: {flow.reactorOutput}/
+            {flow.reactorTheoreticalOutput ?? flow.reactorOutput} · Je Ladung: +
+            {flow.reactorProfile.loadUnits} aus{' '}
+            {flow.reactorProfile.costs
+              .map(
+                (cost) =>
+                  `${cost.amount} ${cost.commodityId === 8 ? 'Kyber-Kristalle' : cost.commodityId === 6 ? 'Antimaterie' : cost.commodityId === 7 ? 'Plasma' : 'Hypermaterie'}`,
+              )
+              .join(' + ')}
+          </div>
+        )}
 
         {transferTargets && (
           <div className="space-y-1 p-2">
@@ -288,7 +305,9 @@ export function ReactorPanel({
               aria-hidden="true"
               className="size-5"
             />
-            <span className="w-6 font-mono text-swu-primary">{warpProduction}</span>
+            <span className="w-6 font-mono text-swu-primary">
+              {warpProduction}
+            </span>
             <button
               type="button"
               onClick={() => updateDistribution(split - 5, autoCarryOver)}
@@ -324,7 +343,9 @@ export function ReactorPanel({
               aria-hidden="true"
               className="size-5"
             />
-            <span className="w-6 font-mono text-swu-primary">+{epsProduction}</span>
+            <span className="w-6 font-mono text-swu-primary">
+              +{epsProduction}
+            </span>
           </div>
           <label
             title="Überschüssige Energie wird in andere Speicher übertragen"
@@ -380,7 +401,9 @@ export function ReactorPanel({
             pending={engineering === 'battery'}
             amount={amount}
             onAmount={setAmount}
-            onSubmit={(value) => transferEngineering('battery/discharge', value)}
+            onSubmit={(value) =>
+              transferEngineering('battery/discharge', value)
+            }
           />
         </div>
       </div>

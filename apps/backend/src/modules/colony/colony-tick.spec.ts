@@ -827,7 +827,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
           queueType: 'MODULE',
           displayName: 'Hypermaterie-Reaktor (Klasse 1)',
           outputCommodityId: 10501,
-          moduleType: 'Energieverteiler',
+          moduleType: 'Hypermaterie-Reaktor',
           moduleCategory: 'SPECIAL',
           shipyardType: 'REACTOR',
           moduleLevel: 1,

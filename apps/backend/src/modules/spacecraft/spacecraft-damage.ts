@@ -1,4 +1,6 @@
 import type { Spacecraft } from './entities/spacecraft.entity';
+import { isReserveCore, shutDownReserveCore } from './reactor-fuel-profile';
+import type { SpacecraftRuntimeSystemsDto } from '@swuniverse/shared';
 
 /** Port of STU `DamageWrapper` as far as non-combat damage needs it. */
 export interface DamageRequest {
@@ -47,6 +49,8 @@ export class SpacecraftDamage {
     const hullDamage = Math.round((damage.netDamage / 100) * damage.hullDamageFactor);
     if (ship.hull > hullDamage) {
       this.damageHull(ship, systems, damage, hullDamage, info);
+      if (ship.modules?.some(isReserveCore) && (systems.REACTOR?.integrity ?? 100) <= 0)
+        shutDownReserveCore(systems as SpacecraftRuntimeSystemsDto);
       return { destroyed: false };
     }
     if (damage.isCrit) info.push('- Kritischer Hüllen-Treffer');

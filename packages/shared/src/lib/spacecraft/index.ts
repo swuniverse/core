@@ -664,6 +664,14 @@ export interface SpacecraftEnergyFlowRowDto {
 }
 
 export interface SpacecraftEnergyFlowDto {
+  reactorTheoreticalOutput?: number;
+  reactorProfile?: {
+    key: string;
+    label: string;
+    loadUnits: number;
+    capacityMultiplier: number;
+    costs: ReadonlyArray<{ commodityId: number; amount: number }>;
+  };
   energy: { current: number; max: number };
   warpdrive: { current: number; max: number };
   battery: { current: number; max: number };

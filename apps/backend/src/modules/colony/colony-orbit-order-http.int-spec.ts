@@ -18,6 +18,7 @@ import {
   resetDatabase,
 } from '../../testing/integration/database';
 import { GameGateway } from '../websocket/game.gateway';
+import { GameStatusService } from '../game-status/game-status.service';
 import { User } from '../auth/user.entity';
 import { Contact } from '../contacts/entities/contact.entity';
 import { Message } from '../messaging/entities/message.entity';
@@ -115,6 +116,7 @@ describe('Ship-based colony orbit orders through the production application (Pos
 
   beforeEach(async () => {
     await resetDatabase(source);
+    await app.get(GameStatusService).getPublicStatus();
     actorId = (await createUser(source)).id;
     ownerId = (await createUser(source)).id;
     const layer = await source
