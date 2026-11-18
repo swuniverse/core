@@ -7,6 +7,7 @@ jest.mock('./colony-function-manager.service', () => ({
 jest.mock('../starmap/entities/layer.entity', () => ({ Layer: class {} }));
 
 import { BadRequestException } from '@nestjs/common';
+import { Not } from 'typeorm';
 
 jest.mock('../spacecraft/entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
@@ -35,7 +36,7 @@ function createService(active = true) {
       { status: 'IDLE', kind: 'SHIP', shipClass: { category: 'Jäger' } },
       { status: 'IDLE', kind: 'SHIP', shipClass: { category: 'Kreuzer' } },
       { status: 'DESTROYED', kind: 'SHIP', shipClass: { category: 'Wrack' } },
-      { status: 'IDLE', kind: 'STATION', shipClass: { category: 'Station' } },
+      { status: 'IDLE', kind: 'STATION', shipClass: { category: 'STATION' } },
     ]),
   };
   const service = new ColonyTelescopeService(
@@ -55,8 +56,9 @@ function createService(active = true) {
 }
 
 describe('ColonyTelescopeService', () => {
-  it('scans current ship counts by hull category and deducts energy', async () => {
-    colony.changeable.energy = 123;
+  beforeEach(() => { colony.changeable.energy = 123; });
+
+  it('scans current ship and station counts by hull category and deducts energy', async () => {
     const { service, colonyRepo, shipRepo } = createService();
 
     await expect(service.scan(1, 9, { targetX: 51, targetY: 51 })).resolves.toEqual({
@@ -65,13 +67,14 @@ describe('ColonyTelescopeService', () => {
       categories: [
         { category: 'Jäger', amount: 2 },
         { category: 'Kreuzer', amount: 1 },
+        { category: 'STATION', amount: 1 },
       ],
     });
 
     expect(shipRepo.find).toHaveBeenCalledWith({
       where: {
-        kind: 'SHIP',
-        status: 'IDLE',
+        status: Not('DESTROYED'),
+        rpgHidden: false,
         location: { galaxyField: { layerId: 3, cx: 51, cy: 51 } },
       },
       relations: ['shipClass'],
@@ -85,12 +88,68 @@ describe('ColonyTelescopeService', () => {
     const { service, colonyRepo, shipRepo } = createService();
 
     await expect(service.scan(1, 9, { targetX: 51, targetY: 51 })).rejects.toThrow(
-      'Not enough energy',
+      'Nicht genug Energie: benötigt 110, vorhanden 10',
     );
 
     expect(shipRepo.find).not.toHaveBeenCalled();
     expect(colonyRepo.save).not.toHaveBeenCalled();
     expect(colony.changeable.energy).toBe(10);
+  });
+
+  it.each(['IDLE', 'IN_COMBAT', 'UNDER_CONSTRUCTION', 'UNDER_SCRAPPING', 'FLYING', 'REPAIRING'])(
+    'counts an uncloaked ship in status %s', async status => {
+      const { service, shipRepo } = createService();
+      shipRepo.find.mockResolvedValue([
+        { status, kind: 'SHIP', shipClass: { category: 'FRIGATE' }, runtimeSystems: { CLOAK: { active: false } } },
+      ]);
+      const result = await service.scan(1, 9, { targetX: 1, targetY: 1 });
+      expect(result.categories).toEqual([{ category: 'FRIGATE', amount: 1 }]);
+    },
+  );
+
+  it('excludes cloaked spacecraft owned by the viewer as well as other owners', async () => {
+    const { service, shipRepo } = createService();
+    const visibleShip = { userId: 9, status: 'IDLE', kind: 'SHIP', shipClass: { category: 'FIGHTER' }, runtimeSystems: {} };
+    const visibleStation = { userId: 3, status: 'UNDER_CONSTRUCTION', kind: 'STATION', shipClass: { category: 'STATION' }, runtimeSystems: {} };
+    shipRepo.find.mockResolvedValue([
+      visibleShip,
+      visibleStation,
+      { ...visibleShip, runtimeSystems: { CLOAK: { active: true } } },
+      { ...visibleShip, userId: 3, runtimeSystems: { CLOAK: { active: true } } },
+      { ...visibleStation, userId: 9, runtimeSystems: { CLOAK: { active: true } } },
+      { ...visibleStation, runtimeSystems: { CLOAK: { active: true } } },
+    ]);
+    const result = await service.scan(1, 9, { targetX: 1, targetY: 1 });
+    expect(result.categories).toEqual([
+      { category: 'FIGHTER', amount: 1 },
+      { category: 'STATION', amount: 1 },
+    ]);
+  });
+
+  it('returns no category or count when every spacecraft is cloaked or destroyed', async () => {
+    const { service, shipRepo } = createService();
+    shipRepo.find.mockResolvedValue([
+      { status: 'IDLE', kind: 'SHIP', shipClass: { category: 'FIGHTER' }, runtimeSystems: { CLOAK: { active: true } } },
+      { status: 'DESTROYED', kind: 'STATION', shipClass: { category: 'STATION' }, runtimeSystems: {} },
+    ]);
+    expect((await service.scan(1, 9, { targetX: 1, targetY: 1 })).categories).toEqual([]);
+  });
+
+  it('preserves administrative RPG hiding for the owner and other viewers', async () => {
+    const { service, shipRepo } = createService();
+    shipRepo.find.mockResolvedValue([
+      { userId: 9, status: 'IDLE', kind: 'SHIP', rpgHidden: true, shipClass: { category: 'FIGHTER' } },
+      { userId: 3, status: 'IDLE', kind: 'STATION', rpgHidden: true, shipClass: { category: 'STATION' } },
+    ]);
+    expect((await service.scan(1, 9, { targetX: 1, targetY: 1 })).categories).toEqual([]);
+  });
+
+  it('allows scanning with exactly the required energy', async () => {
+    colony.changeable.energy = 110;
+    const { service, colonyRepo } = createService();
+    const result = await service.scan(1, 9, { targetX: 51, targetY: 51 });
+    expect(result.energy).toEqual({ available: 0, spent: 110 });
+    expect(colonyRepo.save).toHaveBeenCalledWith(colony);
   });
 
   it('uses the STU cost formula at origin, midpoint, and opposite corner', () => {

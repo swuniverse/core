@@ -1,13 +1,14 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { ColonyTelescopeDto, ColonyTelescopeScanDto } from '@swuniverse/shared';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { ExplorationService } from '../starmap/exploration.service';
 import {
   Spacecraft,
-  SpacecraftKind,
   SpacecraftStatus,
 } from '../spacecraft/entities/spacecraft.entity';
+import { isCloaked } from '../spacecraft/spacecraft-cloak';
+import { isRpgHidden } from '../spacecraft/rpg-visibility';
 import { Layer } from '../starmap/entities/layer.entity';
 import { StarmapQueryService } from '../starmap/starmap-query.service';
 import { ColonyFunctionManagerService } from './colony-function-manager.service';
@@ -134,19 +135,27 @@ export class ColonyTelescopeService {
       layer.width,
       layer.height,
     );
-    deductColonyEnergy(colony, cost);
+    deductColonyEnergy(
+      colony,
+      cost,
+      `Nicht genug Energie: benötigt ${cost}, vorhanden ${getColonyChangeable(colony).energy}`,
+    );
 
     const ships = await this.shipRepo.find({
       where: {
-        kind: SpacecraftKind.SHIP,
-        status: SpacecraftStatus.IDLE,
+        status: Not(SpacecraftStatus.DESTROYED),
+        rpgHidden: false,
         location: { galaxyField: { layerId: layer.id, cx: x, cy: y } },
       },
       relations: ['shipClass'],
     });
     const counts = new Map<string, number>();
     for (const ship of ships) {
-      if (ship.kind !== 'SHIP' || ship.status === 'DESTROYED') continue;
+      if (
+        ship.status === SpacecraftStatus.DESTROYED ||
+        isCloaked(ship) ||
+        isRpgHidden(ship)
+      ) continue;
       counts.set(ship.shipClass.category, (counts.get(ship.shipClass.category) ?? 0) + 1);
     }
     await this.colonyRepo.save(colony);

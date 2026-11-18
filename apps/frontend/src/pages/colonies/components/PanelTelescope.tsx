@@ -9,6 +9,23 @@ import { colonyApi } from '../api';
 
 type Center = { x: number; y: number };
 
+const HULL_CATEGORY_LABELS: Record<string, string> = {
+  FIGHTER: 'Jäger',
+  ESCORT: 'Eskortschiff',
+  CORVETTE: 'Korvette',
+  FRIGATE: 'Fregatte',
+  CRUISER: 'Kreuzer',
+  DESTROYER: 'Zerstörer',
+  FREIGHTER: 'Frachter',
+  STATION: 'Station',
+};
+
+function hullCategoryLabel(category: string): string {
+  return Object.prototype.hasOwnProperty.call(HULL_CATEGORY_LABELS, category)
+    ? HULL_CATEGORY_LABELS[category]
+    : category;
+}
+
 export function PanelTelescope({ colonyId }: { colonyId: number }) {
   const [center, setCenter] = useState<Center | null>(null);
   const [selected, setSelected] = useState<Center | null>(null);
@@ -127,14 +144,16 @@ export function PanelTelescope({ colonyId }: { colonyId: number }) {
           <tbody>
             {result.categories.map((entry) => (
               <tr key={entry.category}>
-                <td className="border border-swu-border px-2 py-1">{entry.category}</td>
+                <td className="border border-swu-border px-2 py-1">
+                  {hullCategoryLabel(entry.category)}
+                </td>
                 <td className="border border-swu-border px-2 py-1">{entry.amount}</td>
               </tr>
             ))}
             {result.categories.length === 0 && (
               <tr>
                 <td colSpan={2} className="border border-swu-border px-2 py-1 text-swu-muted">
-                  Keine Schiffe erfasst.
+                  Keine Schiffe oder Stationen erfasst.
                 </td>
               </tr>
             )}

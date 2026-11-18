@@ -93,4 +93,68 @@ describe('PanelTelescope', () => {
       (screen.getByRole('button', { name: /Scan starten/ }) as HTMLButtonElement).disabled,
     ).toBe(false);
   });
+
+  it('shows a German label for station hull categories', async () => {
+    vi.mocked(colonyApi.fetchTelescope).mockImplementation(
+      (_colonyId, _centerX, _centerY, targetX, targetY) =>
+        Promise.resolve(view(targetX != null && targetY != null ? 23 : null)),
+    );
+    vi.mocked(colonyApi.scanTelescope).mockResolvedValue({
+      target: { x: 2, y: 2 },
+      energy: { available: 100, spent: 23 },
+      categories: [{ category: 'STATION', amount: 1 }],
+    });
+
+    render(<PanelTelescope colonyId={7} />);
+
+    fireEvent.click(await screen.findByTitle('2|2 · Leerer Raum'));
+    const scanButton = await screen.findByRole('button', { name: 'Scan starten' });
+    await waitFor(() => expect((scanButton as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(scanButton);
+
+    expect(await screen.findByText('Station')).toBeTruthy();
+    expect(screen.queryByText('STATION')).toBeNull();
+  });
+
+  it('keeps an unknown inherited-property category unchanged', async () => {
+    vi.mocked(colonyApi.fetchTelescope).mockImplementation(
+      (_colonyId, _centerX, _centerY, targetX, targetY) =>
+        Promise.resolve(view(targetX != null && targetY != null ? 23 : null)),
+    );
+    vi.mocked(colonyApi.scanTelescope).mockResolvedValue({
+      target: { x: 2, y: 2 },
+      energy: { available: 100, spent: 23 },
+      categories: [{ category: 'toString', amount: 1 }],
+    });
+
+    render(<PanelTelescope colonyId={7} />);
+
+    fireEvent.click(await screen.findByTitle('2|2 · Leerer Raum'));
+    const scanButton = await screen.findByRole('button', { name: 'Scan starten' });
+    await waitFor(() => expect((scanButton as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(scanButton);
+
+    expect(await screen.findByText('toString')).toBeTruthy();
+  });
+
+  it('shows the German backend energy-shortage message', async () => {
+    vi.mocked(colonyApi.fetchTelescope).mockImplementation(
+      (_colonyId, _centerX, _centerY, targetX, targetY) =>
+        Promise.resolve(view(targetX != null && targetY != null ? 23 : null)),
+    );
+    vi.mocked(colonyApi.scanTelescope).mockRejectedValue(
+      new Error('Nicht genug Energie: benötigt 23, vorhanden 12'),
+    );
+
+    render(<PanelTelescope colonyId={7} />);
+
+    fireEvent.click(await screen.findByTitle('2|2 · Leerer Raum'));
+    const scanButton = await screen.findByRole('button', { name: 'Scan starten' });
+    await waitFor(() => expect((scanButton as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(scanButton);
+
+    expect(
+      await screen.findByText('Nicht genug Energie: benötigt 23, vorhanden 12'),
+    ).toBeTruthy();
+  });
 });

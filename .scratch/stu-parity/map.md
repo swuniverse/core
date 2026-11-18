@@ -51,6 +51,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Entscheidungen
 
+- 2026-11-18 – **col-AUD-15 umgesetzt, Prüfung ausstehend**: Teleskop zählt ungetarnte Schiffe und Stationen aller Zustände außer DESTROYED; eigene Tarnung und administrative RPG-Sichtbarkeit bleiben geschützt. Deutsche Energiefehler und Kategorienamen, ADR-/col-G1b-Abgleich. 16 Backend- und 5 Frontend-Tests erfolgreich; Abschlussreview, Lint, Typechecks, Tarnungsregression, visuelle Prüfung und gemeinsamer Build ausstehend. Status `claimed` – siehe [Ticket](issues/col-AUD-15-teleskop-scan-wie-stu.md).
+
 - 2026-11-18 – **col-AUD-08a umgesetzt, Prüfung ausstehend**: Waren/Vorkommen → Wohnraum → Energie, deterministische Auswahl ohne Zentralen-Ausnahme und ohne pauschale 100-Runden-Grenze. 232 gezielte Tick-Tests und ein Snapshot erfolgreich; Abschlussreview, Lint, Typecheck, weitere Kolonie-Regressionen und gemeinsamer Build bleiben für den getrennten Prüfpass offen. Status `claimed`, col-AUD-08b weiter blockiert. Prüfablauf auf Nutzerwunsch in [Workflow](../../docs/agents/ticket-workflow.md) festgehalten – siehe [Ticket](issues/col-AUD-08a-tick-abschaltreihenfolge-und-wohnraum.md).
 
 - 2026-11-18 – **col-AUD-07 resolved**: Upgrades aktiver Orbitalwartungsquellen deaktivieren und markieren ihre Verbraucher. Gemeinsamer Haupt-/Minutentick-Abschluss reaktiviert zulässige Verbraucher, meldet die Anzahl und bereinigt Markierungen auch bei fehlender Aktivierung, Ersatz oder Abriss. 253 Backend- und 4 Frontend-Tests sowie Typechecks, Lint ohne Fehler und Builds erfolgreich – siehe [Ticket](issues/col-AUD-07-reaktivierung-nach-upgrade.md).
@@ -136,7 +138,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-21 – col-A8 – Option a: STU-Komponentensatz 1:1; `Ersatzteil` wird zum **Instandhaltungsset**, `Systemkomponente` zur **Schiffssystem-Baugruppe**; Commodity-IDs 10001/10002 und STU-Kosten bleiben erhalten
 - 2026-10-21 – col-A9 – Option b: Jägerwerft baut Rümpfe ins Lager, Start über Hangar
 - 2026-10-21 – col-E2 – Option a: Ruinenmodell der Kolonieabgabe bleibt; ADR, kein Umbau
-- 2026-10-21 – col-G1b – Option a: Teleskop-Scan zeigt momentan Schiffe je Rumpfkategorie, ohne Speicherung; Nachtrag ADR-0002
+- 2026-10-21 – col-G1b – Option a: Teleskop-Scan zeigt momentan Schiffe je Rumpfkategorie, ohne Speicherung; Nachtrag ADR-0002; Scan-Zählweise durch PO-Entscheidung 2026-11-17 aufgehoben: ungetarnte Schiffe und Stationen aller Zustände außer DESTROYED, siehe col-AUD-15 (umgesetzt, Prüfung ausstehend).
 - 2026-10-30 – col-G1a – Teleskop-Zielkarte zeigt ausschließlich persönliche dauerhafte Felderkundung über den bestehenden `UNKNOWN`/`TERRAIN`/`FULL`-Redaktionsvertrag; keine aktuelle Sensorabdeckung, Kontakte, Schiffe, Allianz-Livepositionen oder dynamischen Overlays
 - 2026-10-21 – col-G3a – Option a: Kolonie-Sandbox vollständig, Höchstzahl 3 je Spieler (Vorschlag übernommen, konfigurierbar)
 - 2026-10-21 – col-G3b – folgt col-G3a (Option a): umsetzen
