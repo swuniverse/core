@@ -98,6 +98,7 @@ import { AdminShipBuildplan } from './modules/spacecraft/entities/admin-ship-bui
 import { Research } from './modules/research/entities/research.entity';
 import { ResearchRewardGrant } from './modules/research/entities/research-reward-grant.entity';
 import { Message } from './modules/messaging/entities/message.entity';
+import { AdminBroadcastDelivery } from './modules/messaging/entities/admin-broadcast-delivery.entity';
 import { HolonetPost } from './modules/holonet/entities/holonet-post.entity';
 import { HolonetComment } from './modules/holonet/entities/holonet-comment.entity';
 import { HolonetRating } from './modules/holonet/entities/holonet-rating.entity';
@@ -254,6 +255,7 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
           Research,
           ResearchRewardGrant,
           Message,
+          AdminBroadcastDelivery,
           UserMessageFolder,
           HolonetPost,
           HolonetComment,

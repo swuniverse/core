@@ -27,22 +27,38 @@ describe('Private message email', () => {
   });
   it('still passes mail to the local log fallback without SMTP', async () => {
     mail.isEnabled.mockReturnValue(false);
-    await service.notify(1, 2);
+    await service.notify(1, 2, 'Ein [b]persönlicher[/b] Text');
     expect(mail.sendPrivateMessageNotification).toHaveBeenCalledTimes(1);
   });
   it('mails only the opted-in account', async () => {
-    await service.notify(1, 2);
+    await service.notify(1, 2, 'Ein [b]persönlicher[/b] Text');
     expect(mail.sendPrivateMessageNotification).toHaveBeenCalledWith(
       'han@example.test',
       'Leia',
+      'Ein persönlicher Text',
     );
     settings.getBoolean.mockResolvedValue(false);
-    await service.notify(1, 2);
+    await service.notify(1, 2, 'Ein [b]persönlicher[/b] Text');
     expect(mail.sendPrivateMessageNotification).toHaveBeenCalledTimes(1);
+  });
+  it('passes the full persisted PM text to the notification', async () => {
+    const notify = jest.fn();
+    const repo = { create: (v: unknown) => v, save: jest.fn(async (v) => ({ id: 42, ...v })) };
+    const messaging = new MessagingService(repo as never, users as never, { countEvent: jest.fn() } as never, { emitToUser: jest.fn() } as never, settings as never, { notify } as never);
+    await messaging.send(1, 2, ' Betreff ', ' voller Text ');
+    expect(notify).toHaveBeenCalledWith(1, 2, 'voller Text');
+  });
+  it('removes name BBCode and never mails an NPC recipient', async () => {
+    users.findOneBy.mockImplementation(async ({ id }) => ({ id, username: 'Leia', displayName: '[b]Leia[/b]', email: 'leia@example.test', isNpc: id === 2 }));
+    await service.notify(1, 2, 'Text');
+    expect(mail.sendPrivateMessageNotification).not.toHaveBeenCalled();
+    users.findOneBy.mockImplementation(async ({ id }) => ({ id, username: 'Leia', displayName: '[b]Leia[/b]', email: 'leia@example.test', isNpc: false }));
+    await service.notify(1, 2, 'Text');
+    expect(mail.sendPrivateMessageNotification).toHaveBeenCalledWith('leia@example.test', 'Leia', 'Text');
   });
   it('excludes NPC senders', async () => {
     users.findOneBy.mockResolvedValue({ isNpc: true });
-    await service.notify(1, 2);
+    await service.notify(1, 2, 'Ein [b]persönlicher[/b] Text');
     expect(mail.sendPrivateMessageNotification).not.toHaveBeenCalled();
   });
   it('keeps delivery independent of pending or rejected SMTP', async () => {

@@ -62,9 +62,18 @@ describe('MaintenanceService', () => {
       expect.objectContaining({
         tickType: GameTickType.MAINTENANCE,
         status: GameTickStatus.FAILED,
-        error: 'broken: failure',
+        error: expect.stringContaining('broken: Error: failure'),
       }),
     );
+  });
+
+  it('notifies the configured mail service for a scheduled maintenance failure', async () => {
+    const { service } = createService([{ name: 'broken', run: async () => { throw new Error('maintenance failed'); } }]);
+    const notify = jest.fn(async () => undefined);
+    Object.assign(service, { failureMail: { notify } });
+    await service.handleScheduledMaintenance();
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ status: GameTickStatus.FAILED, error: expect.stringContaining('maintenance failed') }));
   });
 
   it('does not repeat a completed maintenance run on the same calendar day', async () => {
@@ -87,6 +96,17 @@ describe('MaintenanceService', () => {
     expect(result).toBe(existing);
     expect(handler.run).not.toHaveBeenCalled();
     expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it('mails database failures that prevent maintenance from being recorded', async () => {
+    const { service, repository } = createService([]);
+    const failure = new Error('maintenance database unavailable');
+    repository.findOne.mockRejectedValueOnce(failure);
+    const notify = jest.fn(async () => undefined);
+    Object.assign(service, { failureMail: { notify } });
+    await expect(service.run()).rejects.toBe(failure);
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ tickType: GameTickType.MAINTENANCE, status: GameTickStatus.FAILED, error: expect.stringContaining(failure.message) }));
   });
 });
 

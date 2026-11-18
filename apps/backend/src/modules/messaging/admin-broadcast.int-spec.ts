@@ -20,6 +20,7 @@ import { UserSettingsReader } from '../settings/user-settings-reader';
 import { StatisticsService } from '../statistics/statistics.service';
 import { GameGateway } from '../websocket/game.gateway';
 import { AdminBroadcastService } from './admin-broadcast.service';
+import { AdminBroadcastDelivery } from './entities/admin-broadcast-delivery.entity';
 import { Message } from './entities/message.entity';
 import { MessagingController } from './messaging.controller';
 import { MessagingService } from './messaging.service';
@@ -47,6 +48,7 @@ describe('admin broadcast (Postgres, HTTP)', () => {
         { provide: ConfigService, useValue: { get: (key: string) => env[key] } },
         repo(User),
         repo(Message),
+        repo(AdminBroadcastDelivery),
         repo(UserSetting),
         JwtStrategy,
         MessagingService,
@@ -102,7 +104,7 @@ describe('admin broadcast (Postgres, HTTP)', () => {
     subject: 'Wartung',
     body: 'Morgen ab 20 Uhr ist [b]Wartung[/b].',
     target: 'ALL',
-    alsoEmail: false,
+    medium: 'PM',
     ...overrides,
   });
 
@@ -144,29 +146,50 @@ describe('admin broadcast (Postgres, HTTP)', () => {
     const audience = await call(admin, 'GET', `/admin/broadcast/audience?target=${Faction.GALACTIC_EMPIRE}`);
     const result = await call(admin, 'POST', '/admin/broadcast', broadcast({ target: Faction.GALACTIC_EMPIRE }));
 
-    expect(audience.body).toEqual({ recipients: 1, emailRecipients: 1, emailEnabled: true });
+    expect(audience.body).toEqual({ recipients: 1, emailRecipients: 1 });
     expect(result.body).toEqual({ recipients: 1, emailsSent: 0 });
     expect((await systemMessages()).map((message) => message.recipientId)).toEqual([imperial.id]);
   });
 
-  it('mails only players with email notifications, once, and counts only sent mails', async () => {
+  it('mails all addressed players regardless of PM opt-in, without a PM, once, and counts sent mails', async () => {
     const { admin } = await world();
-    const request = broadcast({ alsoEmail: true });
+    const request = broadcast({ medium: 'EMAIL' });
 
     const audience = await call(admin, 'GET', '/admin/broadcast/audience');
     const first = await call(admin, 'POST', '/admin/broadcast', request);
     await call(admin, 'POST', '/admin/broadcast', request);
 
-    expect(audience.body).toEqual({ recipients: 4, emailRecipients: 3, emailEnabled: true });
-    expect(first.body).toEqual({ recipients: 4, emailsSent: 2 });
+    expect(audience.body).toEqual({ recipients: 4, emailRecipients: 4 });
+    expect(first.body).toEqual({ recipients: 4, emailsSent: 3 });
     expect(sendMail.mock.calls.map(([mail]) => mail.to).sort()).toEqual([
       'broken@example.test',
+      'muted@example.test',
       expect.stringMatching(/^pilot\d+@example\.test$/),
       'rebel@example.test',
     ]);
+    expect(await systemMessages()).toHaveLength(0);
     expect(sendMail).toHaveBeenCalledWith(
-      expect.objectContaining({ subject: 'Wartung', text: 'Morgen ab 20 Uhr ist [b]Wartung[/b].' }),
+      expect.objectContaining({ subject: 'Wartung', text: 'Morgen ab 20 Uhr ist Wartung.' }),
     );
+  });
+
+  it('claims email recipients exactly once across overlapping requests', async () => {
+    const { admin } = await world();
+    const request = broadcast({ medium: 'EMAIL' });
+    const results = await Promise.all([call(admin, 'POST', '/admin/broadcast', request), call(admin, 'POST', '/admin/broadcast', request)]);
+    expect(results.every(result => result.status === 201)).toBe(true);
+    expect(sendMail).toHaveBeenCalledTimes(4);
+    expect(await systemMessages()).toHaveLength(0);
+    expect(await dataSource.getRepository(AdminBroadcastDelivery).countBy({ broadcastId: request.broadcastId })).toBe(4);
+  });
+
+  it('omits blank email addresses while keeping those players in the PM audience', async () => {
+    const { admin, rebel } = await world();
+    await dataSource.getRepository(User).update(rebel.id, { email: '' });
+    expect((await call(admin, 'GET', '/admin/broadcast/audience')).body).toEqual({ recipients: 4, emailRecipients: 3 });
+    expect((await call(admin, 'POST', '/admin/broadcast', broadcast({ medium: 'EMAIL' }))).body).toEqual({ recipients: 3, emailsSent: 2 });
+    expect(sendMail).toHaveBeenCalledTimes(3);
+    expect(await systemMessages()).toHaveLength(0);
   });
 
   it('validates subject, body, target and broadcast id', async () => {
@@ -178,6 +201,7 @@ describe('admin broadcast (Postgres, HTTP)', () => {
       { body: 'kurz' },
       { target: 'HUTTS' },
       { broadcastId: 'nope' },
+      { medium: 'BOTH' },
     ]) {
       expect((await call(admin, 'POST', '/admin/broadcast', broadcast(invalid))).status).toBe(400);
     }

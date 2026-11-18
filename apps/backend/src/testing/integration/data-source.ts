@@ -25,6 +25,7 @@ import { ForumBoard } from '../../modules/alliance/entities/forum-board.entity';
 import { ForumTopic } from '../../modules/alliance/entities/forum-topic.entity';
 import { ForumPost } from '../../modules/alliance/entities/forum-post.entity';
 import { Message } from '../../modules/messaging/entities/message.entity';
+import { AdminBroadcastDelivery } from '../../modules/messaging/entities/admin-broadcast-delivery.entity';
 import { Layer } from '../../modules/starmap/entities/layer.entity';
 import { Contact } from '../../modules/contacts/entities/contact.entity';
 import { DatabaseCategoryAward } from '../../modules/awards/entities/database-category-award.entity';
@@ -121,6 +122,7 @@ export const INTEGRATION_ENTITIES = [
   ForumTopic,
   ForumPost,
   Message,
+  AdminBroadcastDelivery,
   UserMessageFolder,
   Layer,
   LayerKnowledge,

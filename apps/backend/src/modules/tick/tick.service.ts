@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import type { ColonyTickEvent } from '@swuniverse/shared';
@@ -13,6 +13,7 @@ import { FlightSignatureService } from '../spacecraft/flight-signature.service';
 import { ColonyCrewService } from '../colony/colony-crew.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { MessageFolder } from '../messaging/message-folder';
+import { TickFailureMailService } from './tick-failure-mail.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, LessThanOrEqual, Not, Repository } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
@@ -78,6 +79,7 @@ export class TickService {
     private readonly wreckDecayService?: WreckDecayService,
     private readonly escapePodService?: EscapePodService,
     private readonly anomalyService?: AnomalyService,
+    @Optional() private readonly failureMail?: TickFailureMailService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR, {
@@ -129,6 +131,18 @@ export class TickService {
     manualTickNumber?: number,
   ): Promise<{ tickNumber: number; status: string }> {
     const tickNumber = manualTickNumber ?? this.getMainTickNumber(new Date());
+    try {
+      return await this.runMainTick(tickNumber);
+    } catch (error) {
+      await this.failureMail?.notify({
+        tickType: GameTickType.MAIN, tickNumber, status: GameTickStatus.FAILED,
+        completedAt: new Date(), error: error instanceof Error ? (error.stack ?? error.message) : String(error),
+      });
+      throw error;
+    }
+  }
+
+  private async runMainTick(tickNumber: number): Promise<{ tickNumber: number; status: string }> {
     const { tickState, shouldRun } = await this.startTick(
       GameTickType.MAIN,
       tickNumber,
@@ -292,7 +306,7 @@ export class TickService {
       await this.finishTick(
         tickState,
         GameTickStatus.FAILED,
-        error instanceof Error ? error.message : 'Unknown tick error',
+        error instanceof Error ? (error.stack ?? error.message) : String(error),
       );
       throw error;
     } finally {
@@ -320,6 +334,19 @@ export class TickService {
     timeZone: process.env.GAME_TIMEZONE?.trim() || DEFAULT_GAME_TIMEZONE,
   })
   async checkBuildingCompletions(recordEmptyRun = false) {
+    const tickNumber = Date.now();
+    try {
+      return await this.runBuildingCompletions(recordEmptyRun, tickNumber);
+    } catch (error) {
+      await this.failureMail?.notify({
+        tickType: GameTickType.BUILDING_COMPLETION, tickNumber, status: GameTickStatus.FAILED,
+        completedAt: new Date(), error: error instanceof Error ? (error.stack ?? error.message) : String(error),
+      });
+      throw error;
+    }
+  }
+
+  private async runBuildingCompletions(recordEmptyRun: boolean, tickNumber: number) {
     const now = new Date();
     const activeBuilds = await this.fieldRepo.find({
       where: [
@@ -336,7 +363,6 @@ export class TickService {
     // Nichts fällig: für den Cron keinen game_tick_states-Eintrag pro Minute schreiben.
     if (activeBuilds.length === 0 && !recordEmptyRun) return;
 
-    const tickNumber = Date.now();
     const { tickState, shouldRun } = await this.startTick(
       GameTickType.BUILDING_COMPLETION,
       tickNumber,
@@ -377,9 +403,7 @@ export class TickService {
       await this.finishTick(
         tickState,
         GameTickStatus.FAILED,
-        error instanceof Error
-          ? error.message
-          : 'Unknown building completion error',
+        error instanceof Error ? (error.stack ?? error.message) : String(error),
       );
       throw error;
     }

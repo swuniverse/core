@@ -1,59 +1,57 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type {
-  AdminBroadcastAudienceDto,
-  AdminBroadcastDto,
-  AdminBroadcastResultDto,
-  AdminBroadcastTarget,
-} from '@swuniverse/shared';
+import type { AdminBroadcastAudienceDto, AdminBroadcastDto, AdminBroadcastResultDto, AdminBroadcastTarget } from '@swuniverse/shared';
 import { Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
 import { NON_NPC_USER_WHERE } from '../auth/non-npc-users';
 import { MailService } from '../mail/mail.service';
-import { UserSettingsReader } from '../settings/user-settings-reader';
+import { mailPlainText } from '../mail/mail-plain-text';
 import { MessagingService } from './messaging.service';
+import { AdminBroadcastDelivery } from './entities/admin-broadcast-delivery.entity';
 
-/** Admin mass message (STU `SendMassMail`) as system message, optionally mailed. */
+/** Admin mass message delivered through exactly one selected medium. */
 @Injectable()
 export class AdminBroadcastService {
+  private readonly logger = new Logger(AdminBroadcastService.name);
+
   constructor(
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly messagingService: MessagingService,
-    private readonly settingsReader: UserSettingsReader,
     private readonly mailService: MailService,
+    @InjectRepository(AdminBroadcastDelivery) private readonly deliveries: Repository<AdminBroadcastDelivery>,
   ) {}
 
   async audience(target: AdminBroadcastTarget): Promise<AdminBroadcastAudienceDto> {
     const recipients = await this.recipients(target);
-    return {
-      recipients: recipients.length,
-      emailRecipients: (await this.emailRecipients(recipients)).length,
-      emailEnabled: true,
-    };
+    return { recipients: recipients.length, emailRecipients: recipients.filter(user => user.email.trim()).length };
   }
 
   async broadcast(dto: AdminBroadcastDto): Promise<AdminBroadcastResultDto> {
     const recipients = await this.recipients(dto.target);
-    const delivered = new Set(
+    if (dto.medium === 'PM') {
       await this.messagingService.sendSystemToMany(
-        recipients.map((user) => user.id),
-        dto.subject,
-        dto.body,
-        (userId) => `broadcast:${dto.broadcastId}:${userId}`,
-      ),
-    );
+        recipients.map(user => user.id), dto.subject, dto.body,
+        userId => `broadcast:${dto.broadcastId}:${userId}`,
+      );
+      return { recipients: recipients.length, emailsSent: 0 };
+    }
 
-    let emailsSent = 0;
-    if (dto.alsoEmail) {
-      const newRecipients = recipients.filter((user) => delivered.has(user.id));
-      for (const user of await this.emailRecipients(newRecipients)) {
-        if (await this.mailService.sendMail({ to: user.email, subject: dto.subject, text: dto.body })) {
-          emailsSent += 1;
-        }
+    const emailRecipients = recipients.filter(user => user.email.trim());
+    for (const user of emailRecipients) {
+      // Commit the claim before touching SMTP. A crash or failure may lose this
+      // attempt, but a concurrent/retried HTTP request cannot send it twice.
+      const claimed = await this.deliveries.createQueryBuilder().insert()
+        .values({ broadcastId: dto.broadcastId, userId: user.id })
+        .orIgnore().returning(['userId']).execute();
+      if (!claimed.raw.length) continue;
+      try {
+        const sent = await this.mailService.sendMail({ to: user.email, subject: mailPlainText(dto.subject), text: mailPlainText(dto.body) });
+        await this.deliveries.update({ broadcastId: dto.broadcastId, userId: user.id }, { sent });
+      } catch (error) {
+        this.logger.error(`Broadcast mail failed for player ${user.id}`, error instanceof Error ? error.stack : String(error));
       }
     }
-    return { recipients: recipients.length, emailsSent };
+    return { recipients: emailRecipients.length, emailsSent: await this.deliveries.countBy({ broadcastId: dto.broadcastId, sent: true }) };
   }
 
   private recipients(target: AdminBroadcastTarget): Promise<Pick<User, 'id' | 'email'>[]> {
@@ -62,13 +60,5 @@ export class AdminBroadcastService {
       where: { ...NON_NPC_USER_WHERE, ...(target === 'ALL' ? {} : { faction: target }) },
       order: { id: 'ASC' },
     });
-  }
-
-  private async emailRecipients<T extends { id: number }>(users: T[]): Promise<T[]> {
-    const wanted = await this.settingsReader.getManyBoolean(
-      users.map((user) => user.id),
-      'email_notification',
-    );
-    return users.filter((user) => wanted.get(user.id));
   }
 }

@@ -16,11 +16,12 @@ import { MessagingDeletionHandler } from './messaging-deletion.handler';
 import { MailModule } from '../mail/mail.module';
 import { PrivateMessageNotificationService } from './private-message-notification.service';
 import { AdminBroadcastService } from './admin-broadcast.service';
+import { AdminBroadcastDelivery } from './entities/admin-broadcast-delivery.entity';
 
 @Global()
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Message, User, UserMessageFolder]),
+    TypeOrmModule.forFeature([Message, User, UserMessageFolder, AdminBroadcastDelivery]),
     StatisticsModule,
     SettingsModule,
     WebsocketModule,

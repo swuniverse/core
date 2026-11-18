@@ -17,25 +17,25 @@ describe('AdminMassMessagePage', () => {
   beforeEach(() => {
     apiMocks.get.mockImplementation(async (path: string) =>
       path.endsWith('GALACTIC_EMPIRE')
-        ? { recipients: 3, emailRecipients: 2, emailEnabled: true }
-        : { recipients: 12, emailRecipients: 8, emailEnabled: true },
+        ? { recipients: 3, emailRecipients: 2 }
+        : { recipients: 12, emailRecipients: 8 },
     );
     apiMocks.post.mockResolvedValue({ recipients: 3, emailsSent: 2 });
   });
 
   it('previews BBCode, confirms with the recipient count and shows the result', async () => {
     renderPage();
-    expect(await screen.findByText('12 Spieler, davon 8 mit E-Mail-Benachrichtigung')).toBeTruthy();
+    expect(await screen.findByText('12 Spieler, davon 8 mit E-Mail-Adresse')).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText('Zielgruppe'), { target: { value: 'GALACTIC_EMPIRE' } });
-    expect(await screen.findByText('3 Spieler, davon 2 mit E-Mail-Benachrichtigung')).toBeTruthy();
+    expect(await screen.findByText('3 Spieler, davon 2 mit E-Mail-Adresse')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Betreff'), { target: { value: 'Wartung' } });
     fireEvent.change(screen.getByLabelText('Nachricht'), { target: { value: 'Heute [b]20 Uhr[/b]' } });
     expect(screen.getByText('20 Uhr').tagName).toBe('STRONG');
-    fireEvent.click(screen.getByLabelText(/Zusätzlich als E-Mail/));
+    fireEvent.change(screen.getByLabelText('Versandmedium'), { target: { value: 'EMAIL' } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Nachricht senden' }));
-    expect(screen.getByText('An 3 Spieler senden?')).toBeTruthy();
+    expect(screen.getByText('An 2 Spieler senden?')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Jetzt senden' }));
 
     await waitFor(() =>
@@ -44,18 +44,25 @@ describe('AdminMassMessagePage', () => {
         subject: 'Wartung',
         body: 'Heute [b]20 Uhr[/b]',
         target: 'GALACTIC_EMPIRE',
-        alsoEmail: true,
+        medium: 'EMAIL',
       }),
     );
-    expect(await screen.findByText('Nachricht an 3 Spieler verschickt, 2 E-Mails versendet.')).toBeTruthy();
+    expect(await screen.findByText('2 von 3 E-Mails versendet.')).toBeTruthy();
   });
 
-  it('disables the email option while email delivery is off', async () => {
-    apiMocks.get.mockResolvedValue({ recipients: 12, emailRecipients: 0, emailEnabled: false });
+  it('sends through PM by default and only disables email sends for an empty email audience', async () => {
+    apiMocks.get.mockResolvedValue({ recipients: 12, emailRecipients: 0 });
+    apiMocks.post.mockResolvedValue({ recipients: 12, emailsSent: 0 });
     renderPage();
-
-    expect(await screen.findByText('(E-Mail-Versand deaktiviert)')).toBeTruthy();
-    expect((screen.getByLabelText(/Zusätzlich als E-Mail/) as HTMLInputElement).disabled).toBe(true);
+    expect(await screen.findByText('12 Spieler, davon 0 mit E-Mail-Adresse')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Betreff'), { target: { value: 'Wartung' } });
+    fireEvent.change(screen.getByLabelText('Nachricht'), { target: { value: 'Heute 20 Uhr' } });
+    fireEvent.change(screen.getByLabelText('Versandmedium'), { target: { value: 'EMAIL' } });
     expect((screen.getByRole('button', { name: 'Nachricht senden' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Versandmedium'), { target: { value: 'PM' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Nachricht senden' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Jetzt senden' }));
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/messages/admin/broadcast', expect.objectContaining({ medium: 'PM' })));
+    expect(await screen.findByText('Persönliche Nachricht an 12 Spieler verschickt.')).toBeTruthy();
   });
 });

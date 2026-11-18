@@ -14,7 +14,6 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Transform } from 'class-transformer';
 import {
-  IsBoolean,
   IsIn,
   IsInt,
   IsString,
@@ -85,8 +84,8 @@ export class AdminBroadcastDto implements SharedAdminBroadcastDto {
   @IsIn(BROADCAST_TARGETS, { message: 'Unbekannte Zielgruppe' })
   target: AdminBroadcastTarget;
 
-  @IsBoolean({ message: 'alsoEmail muss true oder false sein' })
-  alsoEmail: boolean;
+  @IsIn(['PM', 'EMAIL'], { message: 'Unbekanntes Versandmedium' })
+  medium: 'PM' | 'EMAIL';
 }
 
 @Controller('messages')

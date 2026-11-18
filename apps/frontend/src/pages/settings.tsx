@@ -362,7 +362,7 @@ function NotificationsTab() {
       <Section title="Benachrichtigungen">
         <Toggle
           label="E-Mail-Benachrichtigungen"
-          description="E-Mails bei neuen persönlichen Nachrichten werden nur verschickt, wenn der Betreiber den Versand aktiviert hat."
+          description="Wenn aktiviert, erhältst du neue persönliche Nachrichten zusätzlich per E-Mail mit dem vollständigen Nachrichtentext. Standardmäßig ausgeschaltet."
           checked={settings.email_notification === '1'}
           onChange={() => toggle('email_notification')}
         />

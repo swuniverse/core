@@ -7173,6 +7173,46 @@ describe('main tick idempotency', () => {
       { recordSnapshots: jest.fn() } as any,
     );
 
+  it('mails the failure from an actual main tick runner without masking the original error', async () => {
+    const service = createTickService();
+    const notify = jest.fn(async () => undefined);
+    const failure = new Error('main worker failed');
+    Object.assign(service, { failureMail: { notify }, userRepo: { find: jest.fn(async () => { throw failure; }) } });
+    await expect(service.handleTick(1234)).rejects.toBe(failure);
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ tickType: GameTickType.MAIN, status: GameTickStatus.FAILED, error: expect.stringContaining('main worker failed') }));
+  });
+
+  it('mails a failure from the actual minute completion runner', async () => {
+    const service = createTickService();
+    const notify = jest.fn(async () => undefined);
+    const failure = new Error('completion failed');
+    Object.assign(service, {
+      failureMail: { notify },
+      fieldRepo: { find: jest.fn(async () => [{ colonyId: 4 }]) },
+      colonyRepo: { find: jest.fn(async () => [{ id: 4, userId: 7 }]) },
+      colonyService: { checkBuildingCompletions: jest.fn(async () => { throw failure; }) },
+    });
+    await expect(service.checkBuildingCompletions()).rejects.toBe(failure);
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ tickType: GameTickType.BUILDING_COMPLETION, status: GameTickStatus.FAILED, error: expect.stringContaining('completion failed') }));
+  });
+
+  it.each(['state', 'game-status', 'minute-query'])('mails early %s failures even before a run can be recorded', async stage => {
+    const service = createTickService();
+    const failure = new Error('database unavailable');
+    const reject = jest.fn(async () => { throw failure; });
+    const notify = jest.fn(async () => undefined);
+    Object.assign(service, { failureMail: { notify } });
+    if (stage === 'state') Object.assign(service, { tickStateRepo: { findOne: reject } });
+    if (stage === 'game-status') Object.assign(service, { gameStatusService: { beginMainTick: reject } });
+    if (stage === 'minute-query') Object.assign(service, { fieldRepo: { find: reject } });
+    const run = stage === 'minute-query' ? service.checkBuildingCompletions() : service.handleTick(1234);
+    await expect(run).rejects.toBe(failure);
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ status: GameTickStatus.FAILED, error: expect.stringContaining('database unavailable') }));
+  });
+
   it('suppresses storage-full events when the user disabled storage notifications', async () => {
     const colony = { id: 4, userId: 7, isAbandoned: false };
     const colonyRepo = {
@@ -8072,7 +8112,7 @@ describe('main tick idempotency', () => {
     expect(tickStateRepo.save).toHaveBeenLastCalledWith(
       expect.objectContaining({
         status: GameTickStatus.FAILED,
-        error: 'completion save failed',
+        error: expect.stringContaining('Error: completion save failed'),
       }),
     );
   });
@@ -8110,7 +8150,7 @@ describe('main tick idempotency', () => {
     expect(tickStateRepo.save).toHaveBeenLastCalledWith(
       expect.objectContaining({
         status: GameTickStatus.FAILED,
-        error: 'tick failed',
+        error: expect.stringContaining('Error: tick failed'),
       }),
     );
   });

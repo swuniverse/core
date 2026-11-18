@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
 import { MailService } from '../mail/mail.service';
 import { UserSettingsReader } from '../settings/user-settings-reader';
+import { mailPlainText } from '../mail/mail-plain-text';
 
 @Injectable()
 export class PrivateMessageNotificationService {
@@ -15,7 +16,7 @@ export class PrivateMessageNotificationService {
   ) {}
 
   /** Called after delivery; owns all failures so mail never blocks the PM. */
-  async notify(senderId: number, recipientId: number): Promise<void> {
+  async notify(senderId: number, recipientId: number, body: string): Promise<void> {
     try {
       if (!(await this.settings.getBoolean(recipientId, 'email_notification')))
         return;
@@ -26,7 +27,8 @@ export class PrivateMessageNotificationService {
       if (!sender || sender.isNpc || !recipient || recipient.isNpc) return;
       await this.mail.sendPrivateMessageNotification(
         recipient.email,
-        sender.displayName || sender.username,
+        mailPlainText(sender.displayName || sender.username).replace(/\s+/g, ' ').trim(),
+        mailPlainText(body),
       );
     } catch (error) {
       this.logger.error(

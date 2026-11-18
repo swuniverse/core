@@ -52,6 +52,12 @@ const createService = (
 };
 
 describe('SettingsService settings validation', () => {
+  it('defaults PM mail to off and preserves an explicit opt-in', async () => {
+    const { service, settingRepo } = createService();
+    await expect(service.getSettings(7)).resolves.toMatchObject({ email_notification: '0' });
+    settingRepo.find.mockResolvedValueOnce([{ key: 'email_notification', value: '1' }] as never);
+    await expect(service.getSettings(7)).resolves.toMatchObject({ email_notification: '1' });
+  });
   it('defaults to no territorial color and saves normalized colors or an empty reset', async () => {
     const { service, settingRepo } = createService();
 

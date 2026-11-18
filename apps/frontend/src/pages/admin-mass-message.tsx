@@ -4,6 +4,7 @@ import {
   type AdminBroadcastAudienceDto,
   type AdminBroadcastResultDto,
   type AdminBroadcastTarget,
+  type AdminBroadcastMedium,
 } from '@swuniverse/shared';
 import { BbCodeText } from '../components/BbCodeText';
 import { PageHeader } from '../components/PageHeader';
@@ -12,7 +13,7 @@ import { api } from '../services/api';
 
 const TARGET_LABELS: Record<AdminBroadcastTarget, string> = {
   ALL: 'Alle Spieler',
-  [Faction.REBEL_ALLIANCE]: 'Rebellen-Allianz',
+  [Faction.REBEL_ALLIANCE]: 'Rebellenallianz',
   [Faction.GALACTIC_EMPIRE]: 'Galaktisches Imperium',
 };
 
@@ -23,11 +24,11 @@ export function AdminMassMessagePage() {
   const [target, setTarget] = useState<AdminBroadcastTarget>('ALL');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
-  const [alsoEmail, setAlsoEmail] = useState(false);
+  const [medium, setMedium] = useState<AdminBroadcastMedium>('PM');
   const [audience, setAudience] = useState<AdminBroadcastAudienceDto | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [sending, setSending] = useState(false);
-  const [result, setResult] = useState<AdminBroadcastResultDto | null>(null);
+  const [result, setResult] = useState<(AdminBroadcastResultDto & { medium: AdminBroadcastMedium }) | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,7 +37,6 @@ export function AdminMassMessagePage() {
       .get<AdminBroadcastAudienceDto>(`/messages/admin/broadcast/audience?target=${target}`)
       .then((next) => {
         setAudience(next);
-        if (!next.emailEnabled) setAlsoEmail(false);
       })
       .catch((reason) => setError(getErrorMessage(reason, 'Empfänger konnten nicht ermittelt werden.')));
   }, [target]);
@@ -52,9 +52,9 @@ export function AdminMassMessagePage() {
         subject: subject.trim(),
         body: body.trim(),
         target,
-        alsoEmail,
+        medium,
       });
-      setResult(sent);
+      setResult({ ...sent, medium });
       setSubject('');
       setBody('');
       setBroadcastId(crypto.randomUUID());
@@ -71,7 +71,7 @@ export function AdminMassMessagePage() {
       <PageHeader segments={[{ label: 'Admin', to: '/admin' }, { label: 'Massennachricht' }]} />
       {result && (
         <p role="status" className="border border-swu-positive px-3 py-2 text-sm text-swu-positive">
-          Nachricht an {result.recipients} Spieler verschickt, {result.emailsSent} E-Mails versendet.
+          {result.medium === 'EMAIL' ? `${result.emailsSent} von ${result.recipients} E-Mails versendet.` : `Persönliche Nachricht an ${result.recipients} Spieler verschickt.`}
         </p>
       )}
       {error && <p role="alert" className="border border-swu-negative px-3 py-2 text-sm text-swu-negative">{error}</p>}
@@ -87,7 +87,7 @@ export function AdminMassMessagePage() {
           </label>
           <p className="text-xs text-swu-muted">
             {audience
-              ? `${audience.recipients} Spieler${audience.emailEnabled ? `, davon ${audience.emailRecipients} mit E-Mail-Benachrichtigung` : ''}`
+              ? `${audience.recipients} Spieler, davon ${audience.emailRecipients} mit E-Mail-Adresse`
               : 'Ermittle Empfänger …'}
           </p>
           <label className="block text-xs text-swu-muted">
@@ -98,15 +98,17 @@ export function AdminMassMessagePage() {
             Nachricht
             <textarea className={`${inputClass} h-48`} value={body} onChange={(event) => setBody(event.target.value)} />
           </label>
-          <label className="flex items-center gap-2 text-xs text-swu-muted">
-            <input type="checkbox" checked={alsoEmail} disabled={!audience?.emailEnabled} onChange={() => setAlsoEmail((value) => !value)} />
-            Zusätzlich als E-Mail senden
-            {audience && !audience.emailEnabled && <span>(E-Mail-Versand deaktiviert)</span>}
+          <label className="block text-xs text-swu-muted">
+            Versandmedium
+            <select className={inputClass} value={medium} onChange={event => setMedium(event.target.value as AdminBroadcastMedium)}>
+              <option value="PM">Persönliche Nachricht</option>
+              <option value="EMAIL">E-Mail</option>
+            </select>
           </label>
           <button
             type="button"
             className="border border-swu-primary px-3 py-1 text-swu-primary disabled:opacity-50"
-            disabled={!valid || !audience || audience.recipients === 0 || sending}
+            disabled={!valid || !audience || (medium === 'EMAIL' ? audience.emailRecipients : audience.recipients) === 0 || sending}
             onClick={() => setConfirming(true)}
           >
             Nachricht senden
@@ -123,10 +125,10 @@ export function AdminMassMessagePage() {
       {confirming && audience && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 grid place-items-center bg-black/70">
           <div className="w-96 border border-swu-border bg-swu-surface p-4">
-            <h2 className="text-swu-primary">An {audience.recipients} Spieler senden?</h2>
+            <h2 className="text-swu-primary">An {medium === 'EMAIL' ? audience.emailRecipients : audience.recipients} Spieler senden?</h2>
             <p className="my-3 text-sm text-swu-muted">
               {TARGET_LABELS[target]}
-              {alsoEmail ? `, zusätzlich ${audience.emailRecipients} E-Mails` : ''}
+              {medium === 'EMAIL' ? ', per E-Mail' : ', als persönliche Nachricht'}
             </p>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setConfirming(false)}>Abbrechen</button>

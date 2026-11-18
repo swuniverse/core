@@ -24,7 +24,7 @@ import { parsePlayerName, INTERFACE_COLOR_SCHEMES, RpgBehavior } from '@swuniver
 
 const SETTING_DEFAULTS: Record<string, string> = {
   show_online_status: '1',
-  email_notification: '1',
+  email_notification: '0',
   storage_notification: '0',
   show_pm_read_receipt: '1',
   profile_visit_optout: '0',

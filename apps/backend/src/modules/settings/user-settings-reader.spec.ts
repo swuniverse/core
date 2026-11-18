@@ -4,16 +4,19 @@ import { RpgBehavior } from '@swuniverse/shared';
 describe('UserSettingsReader', () => {
   it('returns boolean defaults and overrides for one user', async () => {
     const repository = {
-      find: jest.fn(async () => [
-        { userId: 7, key: 'storage_notification', value: '0' },
-      ]),
+      find: jest.fn(async ({ where }: { where: { userId: number; key: string } }) => {
+        if (where.key === 'storage_notification') return [{ userId: 7, key: where.key, value: '0' }];
+        if (where.key === 'email_notification') return [{ userId: 7, key: where.key, value: '1' }];
+        return [];
+      }),
     };
     const reader = new UserSettingsReader(repository as any);
 
     await expect(reader.getBoolean(7, 'storage_notification')).resolves.toBe(
       false,
     );
-    await expect(reader.getBoolean(8, 'email_notification')).resolves.toBe(true);
+    await expect(reader.getBoolean(8, 'email_notification')).resolves.toBe(false);
+    await expect(reader.getBoolean(7, 'email_notification')).resolves.toBe(true);
   });
 
   it('keeps RPG behavior default aligned with settings and returns a stored value', async () => {

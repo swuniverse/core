@@ -152,10 +152,17 @@ describe('Account deletion with game content (PostgreSQL, AppModule)', () => {
       await source.getRepository('Note').save({ userId: doomed.id, title: 'Notiz', text: 'geheim' });
       await source.getRepository('PrestigeHistoryEntry').save({ userId: doomed.id, amount: 5, description: 'Prestige' });
       await source.getRepository('News').save({ title: 'News', text: 'Text', authorId: doomed.id });
+      const broadcastId = '00000000-0000-4000-8000-000000000006';
+      await source.getRepository('AdminBroadcastDelivery').save([
+        { broadcastId, userId: doomed.id, sent: true },
+        { broadcastId, userId: other.id, sent: true },
+      ]);
 
       await deletions.delete(doomed.id);
 
       expect(await count('User', { id: doomed.id })).toBe(0);
+      expect(await count('AdminBroadcastDelivery', { userId: doomed.id })).toBe(0);
+      expect(await count('AdminBroadcastDelivery', { userId: other.id })).toBe(1);
       const inbox = await messaging.getInbox(other.id);
       expect(inbox.data.find((message) => message.subject === 'Hallo')).toMatchObject({
         senderId: null, sender: { username: FORUM_DELETED_AUTHOR_NAME },

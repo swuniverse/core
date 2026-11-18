@@ -8,7 +8,7 @@ export const BOOLEAN_SETTING_DEFAULTS = {
   fleet_fixed_default: false,
   reactor_auto_carryover_default: false,
   show_online_status: true,
-  email_notification: true,
+  email_notification: false,
   storage_notification: false,
   show_pm_read_receipt: true,
   profile_visit_optout: false,
@@ -19,7 +19,7 @@ export type BooleanSettingKey = keyof typeof BOOLEAN_SETTING_DEFAULTS;
 
 const SETTING_DEFAULTS: Record<string, string> = {
   show_online_status: '1',
-  email_notification: '1',
+  email_notification: '0',
   storage_notification: '0',
   show_pm_read_receipt: '1',
   profile_visit_optout: '0',

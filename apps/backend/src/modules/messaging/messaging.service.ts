@@ -300,7 +300,7 @@ export class MessagingService {
     });
     const saved = await this.messageRepo.save(message);
     this.notifyRecipient(recipientId, MessageFolder.PERSONAL);
-    void this.pmNotification?.notify(senderId, recipientId);
+    void this.pmNotification?.notify(senderId, recipientId, saved.body);
     await this.statisticsService.countEvent(PRIVATE_MESSAGES_EVENT);
     return saved;
   }

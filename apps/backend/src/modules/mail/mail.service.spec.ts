@@ -26,17 +26,12 @@ describe('MailService password reset mail', () => {
 });
 
 describe('Private message mail content', () => {
-  it('contains only the sender hint and messages link', async () => {
-    const config = { get: jest.fn(() => 'https://game.test/') };
-    const service = Object.assign(Object.create(MailService.prototype), {
-      config,
-    }) as MailService;
+  it('contains the canonical sender subject and the entire plain PM text', async () => {
+    const service = Object.create(MailService.prototype) as MailService;
     const send = jest.spyOn(service, 'sendMail').mockResolvedValue(true);
-    await service.sendPrivateMessageNotification('han@example.test', 'Leia');
+    await service.sendPrivateMessageNotification('han@example.test', 'Leia', 'Hallo Han!\nEine Nachricht.');
     expect(send).toHaveBeenCalledWith({
-      to: 'han@example.test',
-      subject: 'Neue Nachricht von Leia',
-      text: 'Du hast eine neue persönliche Nachricht von Leia.\n\nhttps://game.test/messages',
+      to: 'han@example.test', subject: 'Neue Privatnachricht von Spieler Leia', text: 'Hallo Han!\nEine Nachricht.',
     });
   });
 });

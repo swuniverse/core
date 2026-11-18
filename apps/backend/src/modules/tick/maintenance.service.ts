@@ -1,6 +1,7 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
+import { TickFailureMailService } from './tick-failure-mail.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -61,6 +62,7 @@ export class MaintenanceService {
     config: ConfigService,
     @Inject(MAINTENANCE_HANDLERS)
     private readonly handlers: MaintenanceHandler[],
+    @Optional() private readonly failureMail?: TickFailureMailService,
   ) {
     this.timezone = validateGameTimezone(config.get<string>('GAME_TIMEZONE'));
   }
@@ -74,6 +76,20 @@ export class MaintenanceService {
 
   async run(now = new Date()): Promise<GameTickState> {
     const tickNumber = getCalendarDateNumber(now, this.timezone);
+    try {
+      const result = await this.runMaintenance(now, tickNumber);
+      if (result.status === GameTickStatus.FAILED) await this.failureMail?.notify(result);
+      return result;
+    } catch (error) {
+      await this.failureMail?.notify({
+        tickType: GameTickType.MAINTENANCE, tickNumber, status: GameTickStatus.FAILED,
+        completedAt: new Date(), error: error instanceof Error ? (error.stack ?? error.message) : String(error),
+      });
+      throw error;
+    }
+  }
+
+  private async runMaintenance(now: Date, tickNumber: number): Promise<GameTickState> {
     const existing = await this.tickStateRepo.findOne({
       where: { tickType: GameTickType.MAINTENANCE, tickNumber },
     });
@@ -97,7 +113,7 @@ export class MaintenanceService {
       try {
         await handler.run(now);
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
         errors.push(`${handler.name}: ${message}`);
         this.logger.error(`Maintenance handler ${handler.name} failed: ${message}`);
       }

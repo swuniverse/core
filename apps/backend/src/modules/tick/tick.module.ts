@@ -44,6 +44,7 @@ import { TradeLotteryService } from '../trade/trade-lottery.service';
 import { AccountDeletionModule } from '../account-deletion/account-deletion.module';
 import { IdleUserMaintenanceService } from '../account-deletion/idle-user-maintenance.service';
 import { MailModule } from '../mail/mail.module';
+import { TickFailureMailService } from './tick-failure-mail.service';
 
 @Module({
   imports: [
@@ -80,6 +81,7 @@ import { MailModule } from '../mail/mail.module';
     TickService,
     { provide: 'TickService', useExisting: TickService },
     TickAdminService,
+    TickFailureMailService,
     MaintenanceService,
     TopFlightsRewardService,
     WreckDecayService,
