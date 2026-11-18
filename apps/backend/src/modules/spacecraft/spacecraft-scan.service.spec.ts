@@ -109,6 +109,9 @@ function createService() {
   const colonyScanProjection = {
     allAccessible: jest.fn(),
   };
+  const flightSignatureService = {
+    getVisibleAt: jest.fn().mockResolvedValue({ signatures: [], fadedSignatures: { uncloaked: 0, cloaked: 0 } }),
+  };
   const service = new SpacecraftScanService(
     shipRepo as any,
     moduleRepo as any,
@@ -127,9 +130,12 @@ function createService() {
     systemTypeDiscoveryService as any,
     celestialClassDiscoveryService as any,
     colonyScanProjection as any,
+    { find: jest.fn().mockResolvedValue([]) } as any,
+    flightSignatureService as any,
   );
   return {
     service,
+    flightSignatureService,
     shipRepo,
     moduleRepo,
     objectRepo,
@@ -144,6 +150,51 @@ function createService() {
     systemFieldRepo,
   };
 }
+
+describe('SpacecraftScanService subspace analysis', () => {
+  function fixture() {
+    const f = createService();
+    const ship = {
+      id: 10, userId: 1, locationId: 9, energy: 150, modules: [],
+      runtimeSystems: {
+        SUBSPACE_SCANNER: { active: true, integrity: 100 },
+        MATRIX_SCANNER: { active: false, integrity: 100 },
+      },
+      analyzedFlightSignatureId: null,
+    };
+    f.shipRepo.findOne.mockResolvedValue(ship);
+    f.flightSignatureService.getVisibleAt.mockResolvedValue({ signatures: [
+      { id: 41, spacecraftId: 20, spacecraftName: 'Falke' },
+      { id: 42, spacecraftId: 20, spacecraftName: 'Falke' },
+    ], fadedSignatures: { uncloaked: 0, cloaked: 0 } } as never);
+    return { ...f, ship };
+  }
+
+  it('analyzes the exact visible signature ID and deducts 100 EPS with passive matrix sensors', async () => {
+    const { service, ship, shipRepo, flightSignatureService } = fixture();
+    await expect(service.analyzeSubspace(10, 1, 42)).resolves.toEqual({ signatureId: 42, spacecraftId: 20, spacecraftName: 'Falke', energy: 50 });
+    expect(ship.analyzedFlightSignatureId).toBe(42);
+    expect(shipRepo.findOne).toHaveBeenCalledWith({ where: { id: 10, userId: 1 }, relations: ['modules', 'location'] });
+    expect(flightSignatureService.getVisibleAt).toHaveBeenCalledWith(9, 1);
+    expect(shipRepo.save).toHaveBeenCalledWith(ship);
+  });
+
+  it.each(['scanner-off', 'scanner-destroyed', 'matrix-destroyed', 'eps', 'unknown-signature', 'foreign-ship'])(
+    'rejects %s without charging or persisting analysis', async (reason) => {
+      const { service, ship, shipRepo } = fixture();
+      if (reason === 'scanner-off') ship.runtimeSystems.SUBSPACE_SCANNER.active = false;
+      if (reason === 'scanner-destroyed') ship.runtimeSystems.SUBSPACE_SCANNER.integrity = 0;
+      if (reason === 'matrix-destroyed') ship.runtimeSystems.MATRIX_SCANNER.integrity = 0;
+      if (reason === 'eps') ship.energy = 99;
+      if (reason === 'foreign-ship') shipRepo.findOne.mockResolvedValue(null);
+      const initial = ship.energy;
+      await expect(service.analyzeSubspace(10, 1, reason === 'unknown-signature' ? 99 : 42)).rejects.toThrow();
+      expect(ship.energy).toBe(initial);
+      expect(ship.analyzedFlightSignatureId).toBeNull();
+      expect(shipRepo.save).not.toHaveBeenCalled();
+    },
+  );
+});
 
 describe('SpacecraftScanService systemFieldScan', () => {
   it('does not discover the system while scanning one of its fields', async () => {

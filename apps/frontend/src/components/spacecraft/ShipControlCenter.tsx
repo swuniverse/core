@@ -2,7 +2,7 @@ import { ShuttleManagementPanel } from './ShuttleManagementPanel';
 import { ResourceConversionPanel } from './ResourceConversionPanel';
 import { ResourceCollectionPanel } from './ResourceCollectionPanel';
 import { StationUplinkPanel } from './StationUplinkPanel';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SpacecraftTrackerDto } from '@swuniverse/shared';
 import { commodityImage } from '../../lib/assets';
 import { api } from '../../services/api';
@@ -41,6 +41,8 @@ export const SYSTEM_ASSETS: Record<string, string> = {
   SHIELDS: '11.png',
   LIFE_SUPPORT: '13.png',
   BEAM_BLOCKER: '22.png',
+  SUBSPACE_SCANNER: '18.png',
+  TACHYON_SCANNER: '12.png',
 };
 
 export function ShipControlCenter({
@@ -52,6 +54,14 @@ export function ShipControlCenter({
 }: ShipControlCenterProps) {
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const toggleRequest = useRef<number | null>(null);
+  const toggleSequence = useRef(0);
+  const currentShipId = useRef(shipId);
+  if (currentShipId.current !== shipId) {
+    currentShipId.current = shipId;
+    toggleSequence.current++;
+    toggleRequest.current = null;
+  }
   const [torpedoes, setTorpedoes] = useState<TorpedoStorage | null>(null);
   const [tracker, setTracker] = useState<SpacecraftTrackerDto | null>(null);
   const [combatReport, setCombatReport] = useState<unknown>(null);
@@ -66,24 +76,37 @@ export function ShipControlCenter({
       .then(setTracker)
       .catch(() => setTracker(null));
   useEffect(() => {
+    setPending(null);
+    setError(null);
+  }, [shipId]);
+  useEffect(() => {
     void loadTorpedoes();
     if (systems?.TRACKER) void loadTracker();
     else setTracker(null);
   }, [shipId, systems?.TRACKER?.active]);
   async function toggle(key: string, active: boolean) {
+    if (toggleRequest.current !== null) return;
+    const requestShipId = shipId;
+    const requestId = ++toggleSequence.current;
+    toggleRequest.current = requestId;
     setPending(key);
     setError(null);
     try {
-      await api.patch(`/spacecraft/${shipId}/systems/${key}`, { active });
-      onUpdate();
+      await api.patch(`/spacecraft/${requestShipId}/systems/${key}`, { active });
+      if (currentShipId.current === requestShipId && toggleSequence.current === requestId) onUpdate();
     } catch (err: unknown) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'System konnte nicht umgeschaltet werden',
-      );
+      if (currentShipId.current === requestShipId && toggleSequence.current === requestId) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'System konnte nicht umgeschaltet werden',
+        );
+      }
     } finally {
-      setPending(null);
+      if (toggleRequest.current === requestId) {
+        toggleRequest.current = null;
+        setPending(null);
+      }
     }
   }
   async function selectTorpedo(torpedoTypeId: number) {
@@ -126,6 +149,10 @@ export function ShipControlCenter({
   const cloak = systems?.CLOAK;
   const trackerSystem = systems?.TRACKER;
   const hyperdriveBooster = systems?.HYPERDRIVE_BOOSTER;
+  const scanners = [
+    { key: 'SUBSPACE_SCANNER', label: 'Hyperraumfeldscanner', activation: 30, tick: 15 },
+    { key: 'TACHYON_SCANNER', label: 'Gravitationswellenscanner', activation: 1, tick: 3 },
+  ] as const;
   async function deactivateTracker() {
     setPending('TRACKER');
     setError(null);
@@ -184,6 +211,25 @@ export function ShipControlCenter({
         {systems?.RESOURCE_COLLECTOR && <ResourceCollectionPanel shipId={shipId} onUpdate={onUpdate} refreshKey={JSON.stringify(systems)} />}
         {systemRow('SHIELDS')}
         {systemRow('WEAPONS')}
+        {scanners.map(({ key, label, activation, tick }) => {
+          const state = systems?.[key];
+          if (!state) return null;
+          return (
+            <button
+              key={key}
+              type="button"
+              disabled={pending !== null || toggleRequest.current !== null}
+              onClick={() => void toggle(key, !state.active)}
+              className="flex w-full items-center gap-2 border-b border-swu-border px-2 py-1.5 text-left text-swu-primary hover:bg-white/5 disabled:opacity-40"
+            >
+              <img src={`/assets/system/${SYSTEM_ASSETS[key]}`} alt="" className="size-5" />
+              <span>{label} {state.active ? 'deaktivieren' : 'aktivieren'}</span>
+              <span className="ml-auto text-swu-muted">
+                {state.active ? `${tick} EPS/Tick` : `${activation} EPS beim Aktivieren · ${tick} EPS/Tick`}
+              </span>
+            </button>
+          );
+        })}
         {systems?.UPLINK && <StationUplinkPanel shipId={shipId} refreshKey={JSON.stringify(systems)} onUpdate={onUpdate} />}
         {systems?.BEAM_BLOCKER && (
           <div className="flex items-center gap-2 border-b border-swu-border px-2 py-1.5 text-swu-primary">

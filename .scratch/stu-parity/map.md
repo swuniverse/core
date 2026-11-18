@@ -51,6 +51,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Entscheidungen
 
+- 2026-11-18 – **sc-AUD-02 umgesetzt, Prüfung ausstehend**: Zentrale STU-Startmodi, Scanner initial aus, Retrofit-Zustände ersetzt, einmalige Scanner-OFF-Migration vorbereitet. Scanner-Schalter (Subraum 30 EPS, Tachyon 1 EPS) und Signaturanalyse für 100 EPS mit ID-Auswahl und Anfragenschutz. 86 Backend- und 56 Frontend-Tests erfolgreich; PostgreSQL-Migration, Stations-/Sensorregressionen, Abschlussreview, Browser, Typechecks/Lint und gemeinsamer Build ausstehend. Status `claimed` – siehe [Ticket](issues/sc-AUD-02-systeme-aus-beim-bau-und-scanner-ui.md).
+
 - 2026-11-18 – **col-AUD-15 umgesetzt, Prüfung ausstehend**: Teleskop zählt ungetarnte Schiffe und Stationen aller Zustände außer DESTROYED; eigene Tarnung und administrative RPG-Sichtbarkeit bleiben geschützt. Deutsche Energiefehler und Kategorienamen, ADR-/col-G1b-Abgleich. 16 Backend- und 5 Frontend-Tests erfolgreich; Abschlussreview, Lint, Typechecks, Tarnungsregression, visuelle Prüfung und gemeinsamer Build ausstehend. Status `claimed` – siehe [Ticket](issues/col-AUD-15-teleskop-scan-wie-stu.md).
 
 - 2026-11-18 – **col-AUD-08a umgesetzt, Prüfung ausstehend**: Waren/Vorkommen → Wohnraum → Energie, deterministische Auswahl ohne Zentralen-Ausnahme und ohne pauschale 100-Runden-Grenze. 232 gezielte Tick-Tests und ein Snapshot erfolgreich; Abschlussreview, Lint, Typecheck, weitere Kolonie-Regressionen und gemeinsamer Build bleiben für den getrennten Prüfpass offen. Status `claimed`, col-AUD-08b weiter blockiert. Prüfablauf auf Nutzerwunsch in [Workflow](../../docs/agents/ticket-workflow.md) festgehalten – siehe [Ticket](issues/col-AUD-08a-tick-abschaltreihenfolge-und-wohnraum.md).

@@ -8,6 +8,40 @@ import {
 } from './spacecraft-runtime-state.service';
 
 describe('SpacecraftRuntimeStateService', () => {
+  it('uses explicit STU startup modes while leaving installation health intact', () => {
+    const modules = [
+      ['COMPUTER', 'Computer'], ['SPECIAL', 'Hypermaterie-Reaktor'],
+      ['SPECIAL', 'Energieverteiler'], ['SPECIAL', 'Hypermaterie-Transferkoppler'],
+      ['SHIELDS', 'Schilde'], ['HYPERDRIVE', 'Hyperantrieb'],
+      ['SENSORS', 'Sensoren'], ['SUBLIGHT_ENGINE', 'Triebwerk'],
+      ['ENERGY_WEAPON', 'Laser'], ['PROJECTILE', 'Torpedobank'],
+      ['SPECIAL', 'Hyperraumfeldscanner'], ['SPECIAL', 'Gravitationswellenscanner'],
+      ['SPECIAL', 'Shuttlerampe'], ['SPECIAL', 'Matrixsensoren'],
+    ].map(([category, moduleType]) => ({ category, moduleType, isActive: true, integrity: 100, cooldown: 0 }));
+    const systems = new SpacecraftRuntimeStateService().initialize({ modules, runtimeSystems: {} } as never);
+    expect(Object.entries(systems).filter(([, state]) => state?.active).map(([key]) => key).sort()).toEqual([
+      'COMPUTER', 'EPS', 'LIFE_SUPPORT', 'REACTOR', 'REACTOR_CHARGE_TRANSFER',
+    ]);
+    expect(systems.SUBSPACE_SCANNER).toMatchObject({ active: false, integrity: 100 });
+    expect(systems.TACHYON_SCANNER).toMatchObject({ active: false, integrity: 100 });
+    expect(modules.every((module) => module.isActive)).toBe(true);
+  });
+
+  it('does not invent scanner capabilities without modules and preserves deliberate activation on reads', () => {
+    const service = new SpacecraftRuntimeStateService();
+    const empty = service.initialize({ runtimeSystems: {} } as never);
+    expect(empty.SUBSPACE_SCANNER).toBeUndefined();
+    expect(empty.TACHYON_SCANNER).toBeUndefined();
+    for (const modules of [undefined, [
+      { category: 'SPECIAL', moduleType: 'Hyperraumfeldscanner' },
+      { category: 'SPECIAL', moduleType: 'Gravitationswellenscanner' },
+    ]]) {
+      const state = { active: true, cooldown: 2, integrity: 75, lastScanAt: 123 };
+      const ship = { modules, runtimeSystems: { SUBSPACE_SCANNER: { ...state }, TACHYON_SCANNER: { ...state } } } as never;
+      expect(service.initialize(ship).SUBSPACE_SCANNER).toEqual(state);
+      expect(service.initialize(ship).TACHYON_SCANNER).toEqual(state);
+    }
+  });
   it('creates an OFF uplink only for sensor stations and preserves shutdown on reads', () => {
     const service = new SpacecraftRuntimeStateService();
     for (const modules of [undefined, []]) {

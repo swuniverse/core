@@ -5,6 +5,8 @@ import type { Spacecraft } from './entities/spacecraft.entity';
 import type { SpacecraftRuntimeSystemsDto } from '@swuniverse/shared';
 
 export const TACHYON_SCAN_ENERGY = 10;
+// TachyonScanner inherits STU AbstractSpacecraftSystemType's activation cost.
+export const TACHYON_ACTIVATION_EPS = 1;
 export const TACHYON_SCAN_DURATION_MS = 300_000;
 
 /** Detection belongs to the scan location and ends exactly at the STU deadline. */

@@ -12,6 +12,19 @@ export type SpacecraftRuntimeSystemState = SpacecraftRuntimeSystemStateDto;
 export type SpacecraftRuntimeSystems = SpacecraftRuntimeSystemsDto;
 export type { SpacecraftRuntimeSystemKey } from '@swuniverse/shared';
 
+/** STU startup modes. EPS is SWU's passive energy-store capability.
+ * Module isActive denotes installation health (stats/repair), not this switch.
+ * WARPDRIVE is the drive, not a warpcore; the removed reserve core stays removed.
+ * Station beamblockers start on through the existing crew-startup lifecycle.
+ */
+const STARTUP_ACTIVE_SYSTEMS = new Set<SpacecraftRuntimeSystemKey>([
+  'COMPUTER',
+  'LIFE_SUPPORT',
+  'REACTOR',
+  'EPS',
+  'REACTOR_CHARGE_TRANSFER',
+]);
+
 export function getRuntimeSystemsForModule(
   module: Pick<SpacecraftModule, 'category' | 'moduleType'>,
 ): SpacecraftRuntimeSystemKey[] {
@@ -138,21 +151,9 @@ export function initializeSpacecraftRuntimeSystems(
         getRuntimeSystemsForModule(module).includes(key),
       );
       systems[key] ??= {
-        // The cloak never starts engaged: it costs energy and shuts down
-        // shields and weapons, so the owner has to switch it on explicitly.
         active:
-          key !== 'CLOAK' &&
-          key !== 'TRACTOR_BEAM' &&
-          key !== 'TRACKER' &&
-          key !== 'HYPERSPACE_COIL' &&
-          key !== 'RESOURCE_COLLECTOR' &&
-          key !== 'RESOURCE_CONVERTER' &&
-          key !== 'SHUTTLE_RAMP' &&
-          key !== 'BEAM_BLOCKER' &&
-          key !== 'UPLINK' &&
-          (key === 'LIFE_SUPPORT' ||
-            key === 'DEFLECTOR' ||
-            backingModules.length === 0 ||
+          STARTUP_ACTIVE_SYSTEMS.has(key) &&
+          (backingModules.length === 0 ||
             backingModules.some((module) => module.isActive !== false)),
         cooldown: Math.max(
           0,
@@ -171,6 +172,7 @@ export function initializeSpacecraftRuntimeSystems(
       if (
         key === 'ASTROMETRY_LAB' ||
         key === 'CLOAK' ||
+        key === 'SUBSPACE_SCANNER' ||
         key === 'TACHYON_SCANNER' ||
         key === 'HYPERSPACE_COIL' ||
         key === 'RESOURCE_COLLECTOR' ||
@@ -180,7 +182,11 @@ export function initializeSpacecraftRuntimeSystems(
         key === 'UPLINK'
       )
         continue;
-      systems[key] ??= { active: true, cooldown: 0, integrity: 100 };
+      systems[key] ??= {
+        active: STARTUP_ACTIVE_SYSTEMS.has(key),
+        cooldown: 0,
+        integrity: 100,
+      };
     }
   }
   // STU station defaults are independent of module hydration. Reading retains

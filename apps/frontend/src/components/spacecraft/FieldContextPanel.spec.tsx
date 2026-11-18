@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { FieldContextPanel } from './FieldContextPanel';
 
@@ -893,6 +893,7 @@ describe('FieldContextPanel', () => {
         discovery: null,
         signatures: [
           {
+            id: 101,
             spacecraftId: 9,
             shipClassId: 4,
             shipClassName: 'CR90-Korvette',
@@ -930,6 +931,229 @@ describe('FieldContextPanel', () => {
     expect(screen.getByText('nach Ost')).toBeTruthy();
     expect(screen.getByText('Ungetarnt: 2')).toBeTruthy();
     expect(screen.getByText('Getarnt: 1')).toBeTruthy();
+  });
+
+  it('analyzes the selected signature by signature id even when two traces share one ship', async () => {
+    apiMocks.post
+      .mockResolvedValueOnce({
+        result: {
+          field: {
+            x: 5,
+            y: 23,
+            fieldType: { id: 1, name: 'Leerer Raum' },
+            movementEnergyCost: 1,
+            damage: 0,
+            specialDamage: 0,
+            effects: [],
+            celestialObject: null,
+          },
+          discovery: null,
+          signatures: [
+            {
+              id: 51,
+              spacecraftId: 9,
+              shipClassId: 4,
+              shipClassName: 'CR90-Korvette',
+              spacecraftName: 'Tantive IV',
+              fromDirection: null,
+              toDirection: 'EAST',
+              isCloaked: false,
+              createdAt: new Date().toISOString(),
+            },
+            {
+              id: 52,
+              spacecraftId: 9,
+              shipClassId: 4,
+              shipClassName: 'CR90-Korvette',
+              spacecraftName: 'Tantive IV',
+              fromDirection: null,
+              toDirection: 'NORTH',
+              isCloaked: false,
+              createdAt: new Date().toISOString(),
+            },
+          ],
+          fadedSignatures: { uncloaked: 0, cloaked: 0 },
+        },
+        energyCost: 1,
+      })
+      .mockResolvedValueOnce({
+        signatureId: 51,
+        spacecraftId: 9,
+        spacecraftName: null,
+        energy: 899,
+      });
+    const onUpdate = vi.fn();
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            wormholePassages: [],
+            coordinates: { x: 5, y: 23 },
+            starSystem: null,
+            colony: null,
+            information: { canSectorScan: true, cartographyKnown: true },
+          }}
+          runtimeSystems={{
+            SUBSPACE_SCANNER: { active: true, cooldown: 0, integrity: 100 },
+            MATRIX_SCANNER: { active: false, cooldown: 0, integrity: 100 },
+          }}
+          onUpdate={onUpdate}
+        />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Sektor .* scannen/ }));
+    const analyzeButtons = await screen.findAllByRole('button', {
+      name: 'Analysieren · 100 EPS',
+    });
+    expect(analyzeButtons).toHaveLength(2);
+    fireEvent.click(analyzeButtons[0]);
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenLastCalledWith(
+        '/spacecraft/1/subspace-analysis/51',
+        {},
+      ),
+    );
+    expect(
+      await screen.findByText(
+        'Signatur 51 analysiert: ? · 899 EPS verbleibend.',
+      ),
+    ).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Analysiert' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(onUpdate).toHaveBeenCalledTimes(2);
+  });
+
+  it('disables analysis until both scanner systems are ready', async () => {
+    apiMocks.post.mockResolvedValueOnce({
+      result: {
+        field: {
+          x: 5,
+          y: 23,
+          fieldType: { id: 1, name: 'Leerer Raum' },
+          movementEnergyCost: 1,
+          damage: 0,
+          specialDamage: 0,
+          effects: [],
+          celestialObject: null,
+        },
+        signatures: [{
+          id: 61,
+          spacecraftId: 9,
+          shipClassId: 4,
+          shipClassName: 'CR90-Korvette',
+          spacecraftName: 'Tantive IV',
+          fromDirection: null,
+          toDirection: 'EAST',
+          isCloaked: false,
+          createdAt: new Date().toISOString(),
+        }],
+        fadedSignatures: { uncloaked: 0, cloaked: 0 },
+      },
+      energyCost: 1,
+    });
+    render(
+      <MemoryRouter>
+        <FieldContextPanel
+          shipId={1}
+          context={{
+            wormholePassages: [],
+            coordinates: { x: 5, y: 23 },
+            starSystem: null,
+            colony: null,
+            information: { canSectorScan: true, cartographyKnown: true },
+          }}
+          runtimeSystems={{
+            SUBSPACE_SCANNER: { active: false, cooldown: 0, integrity: 100 },
+          }}
+          onUpdate={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Sektor .* scannen/ }));
+
+    const analyze = await screen.findByRole('button', {
+      name: 'Analysieren · 100 EPS',
+    });
+    expect((analyze as HTMLButtonElement).disabled).toBe(true);
+    expect(analyze.getAttribute('title')).toBe(
+      'Hyperraumfeldscanner ist ausgeschaltet',
+    );
+    fireEvent.click(analyze);
+    expect(apiMocks.post).toHaveBeenCalledTimes(1);
+  });
+
+  it('discards a pending analysis when the selected ship changes', async () => {
+    apiMocks.post.mockResolvedValueOnce({
+      result: {
+        field: {
+          x: 5,
+          y: 23,
+          fieldType: { id: 1, name: 'Leerer Raum' },
+          movementEnergyCost: 1,
+          damage: 0,
+          specialDamage: 0,
+          effects: [],
+          celestialObject: null,
+        },
+        signatures: [{
+          id: 71,
+          spacecraftId: 9,
+          shipClassId: 4,
+          shipClassName: 'CR90-Korvette',
+          spacecraftName: 'Tantive IV',
+          fromDirection: null,
+          toDirection: 'EAST',
+          isCloaked: false,
+          createdAt: new Date().toISOString(),
+        }],
+        fadedSignatures: { uncloaked: 0, cloaked: 0 },
+      },
+      energyCost: 1,
+    });
+    let resolveAnalysis: (value: unknown) => void = () => undefined;
+    apiMocks.post.mockImplementationOnce(
+      () => new Promise((resolve) => { resolveAnalysis = resolve; }),
+    );
+    const onUpdate = vi.fn();
+    const context = {
+      wormholePassages: [],
+      coordinates: { x: 5, y: 23 },
+      starSystem: null,
+      colony: null,
+      information: { canSectorScan: true, cartographyKnown: true },
+    };
+    const systems = {
+      SUBSPACE_SCANNER: { active: true, cooldown: 0, integrity: 100 },
+      MATRIX_SCANNER: { active: false, cooldown: 0, integrity: 100 },
+    };
+    const { rerender } = render(
+      <MemoryRouter>
+        <FieldContextPanel shipId={1} context={context} runtimeSystems={systems} onUpdate={onUpdate} />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Sektor .* scannen/ }));
+    const analyze = await screen.findByRole('button', {
+      name: 'Analysieren · 100 EPS',
+    });
+    fireEvent.click(analyze);
+    fireEvent.click(analyze);
+    expect(apiMocks.post).toHaveBeenCalledTimes(2);
+
+    rerender(
+      <MemoryRouter>
+        <FieldContextPanel shipId={2} context={context} runtimeSystems={systems} onUpdate={onUpdate} />
+      </MemoryRouter>,
+    );
+    await act(async () => resolveAnalysis({
+      signatureId: 71,
+      spacecraftId: 9,
+      spacecraftName: 'Tantive IV',
+      energy: 899,
+    }));
+    expect(screen.queryByRole('dialog', { name: 'Sektor-Scan' })).toBeNull();
+    expect(onUpdate).toHaveBeenCalledTimes(1);
   });
 
   it('does not show a notification for an already known planet class', async () => {

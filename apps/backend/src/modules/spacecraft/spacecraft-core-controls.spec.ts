@@ -335,12 +335,30 @@ describe('spacecraft core detail controls', () => {
 
     expect(ship.energy).toBe(70);
     expect((ship.runtimeSystems as any).SUBSPACE_SCANNER.active).toBe(true);
+    await service.toggleSystem(2, 1, 'SUBSPACE_SCANNER', true);
+    expect(ship.energy).toBe(70);
 
     (ship.runtimeSystems as any).SUBSPACE_SCANNER.active = false;
     (ship.runtimeSystems as any).CLOAK.active = true;
     await expect(
       service.toggleSystem(2, 1, 'SUBSPACE_SCANNER', true),
     ).rejects.toThrow('Tarnung');
+  });
+
+  it('charges one EPS once for tachyon activation, permits cloak, and rejects insufficient EPS', async () => {
+    const { service, ship } = createService();
+    ship.energy = 1;
+    ship.modules = [{ category: 'SPECIAL', moduleType: 'Gravitationswellenscanner', isActive: true, integrity: 100 } as never];
+    ship.runtimeSystems = { TACHYON_SCANNER: { active: false, integrity: 100, cooldown: 0 }, CLOAK: { active: true, integrity: 100, cooldown: 0 } };
+    (service as any).userRepo = { findOneBy: jest.fn(async () => ({ faction: 'GALACTIC_EMPIRE' })) };
+    (service as any).spacecraftCrewService.getAssignedCrewCount.mockResolvedValue(1);
+    await service.toggleSystem(2, 1, 'TACHYON_SCANNER', true);
+    expect(ship.energy).toBe(0);
+    await service.toggleSystem(2, 1, 'TACHYON_SCANNER', true);
+    expect(ship.energy).toBe(0);
+    await service.toggleSystem(2, 1, 'TACHYON_SCANNER', false);
+    await expect(service.toggleSystem(2, 1, 'TACHYON_SCANNER', true)).rejects.toThrow('Nicht genug EPS');
+    expect((ship.runtimeSystems as any).TACHYON_SCANNER.active).toBe(false);
   });
 
   it.each(['SHORT_RANGE_SENSORS', 'LONG_RANGE_SENSORS'] as const)(

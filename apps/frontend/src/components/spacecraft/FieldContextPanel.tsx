@@ -1,5 +1,5 @@
 import { OpenSeasonalAnomalyButton } from './OpenSeasonalAnomalyButton';
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type {
   CartographyPlanDto,
@@ -46,6 +46,7 @@ type SectorScanResult = {
     name: string;
   } | null;
   signatures: Array<{
+    id: number;
     spacecraftId: number;
     shipClassId: number | null;
     shipClassName: string | null;
@@ -56,6 +57,13 @@ type SectorScanResult = {
     createdAt: string;
   }>;
   fadedSignatures: { uncloaked: number; cloaked: number };
+};
+
+type SubspaceAnalysisResult = {
+  signatureId: number;
+  spacecraftId: number;
+  spacecraftName: string | null;
+  energy: number;
 };
 
 export function FieldContextPanel({
@@ -83,7 +91,26 @@ export function FieldContextPanel({
   const [scan, setScan] = useState<{
     result: SectorScanResult;
     energyCost: number;
+    contextIdentity: string;
   } | null>(null);
+  const [scanPending, setScanPending] = useState(false);
+  const scanPendingRef = useRef(false);
+  const scanRequest = useRef(0);
+  const [analysisPendingId, setAnalysisPendingId] = useState<number | null>(null);
+  const analysisPendingRef = useRef(false);
+  const analysisRequest = useRef(0);
+  const [selectedSignatureId, setSelectedSignatureId] = useState<number | null>(null);
+  const [analysis, setAnalysis] = useState<SubspaceAnalysisResult | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const contextIdentity = `${shipId}:${context?.starSystem?.id ?? ''}:${context?.region?.id ?? ''}:${context?.coordinates.x ?? ''}:${context?.coordinates.y ?? ''}`;
+  const currentContextIdentity = useRef(contextIdentity);
+  if (currentContextIdentity.current !== contextIdentity) {
+    currentContextIdentity.current = contextIdentity;
+    scanRequest.current++;
+    analysisRequest.current++;
+    scanPendingRef.current = false;
+    analysisPendingRef.current = false;
+  }
   const [message, setMessage] = useState<{
     colonyName: string;
     message: string | null;
@@ -112,6 +139,15 @@ export function FieldContextPanel({
   );
   const [enteringWormhole, setEnteringWormhole] = useState(false);
   const [orbitBusy, setOrbitBusy] = useState(false);
+
+  useEffect(() => {
+    setScan(null);
+    setScanPending(false);
+    setAnalysisPendingId(null);
+    setSelectedSignatureId(null);
+    setAnalysis(null);
+    setAnalysisError(null);
+  }, [contextIdentity]);
 
   useEffect(() => {
     setCartographyDialog(null);
@@ -229,21 +265,81 @@ export function FieldContextPanel({
   }
 
   async function scanSector() {
+    if (scanPendingRef.current) return;
+    const requestShipId = shipId;
+    const requestIdentity = contextIdentity;
+    const requestId = ++scanRequest.current;
+    analysisRequest.current++;
+    analysisPendingRef.current = false;
+    setAnalysisPendingId(null);
+    scanPendingRef.current = true;
+    setScanPending(true);
+    setScan(null);
     setError(null);
+    setAnalysis(null);
+    setSelectedSignatureId(null);
+    setAnalysisError(null);
     try {
       const result = await api.post<{
         result: SectorScanResult;
         energyCost: number;
-      }>(`/spacecraft/${shipId}/sector-scan`, {});
-      setScan(result);
-      onUpdate();
+      }>(`/spacecraft/${requestShipId}/sector-scan`, {});
+      if (currentContextIdentity.current === requestIdentity && scanRequest.current === requestId) {
+        setScan({ ...result, contextIdentity: requestIdentity });
+        void onUpdate();
+      }
     } catch (err: unknown) {
-      setActionMessage({
-        title: 'Sektor-Scan',
-        message:
-          err instanceof Error ? err.message : 'Sektor-Scan fehlgeschlagen',
-      });
+      if (currentContextIdentity.current === requestIdentity && scanRequest.current === requestId) {
+        setActionMessage({
+          title: 'Sektor-Scan',
+          message:
+            err instanceof Error ? err.message : 'Sektor-Scan fehlgeschlagen',
+        });
+      }
+    } finally {
+      if (scanRequest.current === requestId) {
+        scanPendingRef.current = false;
+        setScanPending(false);
+      }
     }
+  }
+
+  async function analyzeSubspace(signatureId: number) {
+    if (analysisPendingRef.current || !scan || !canAnalyzeSubspace(runtimeSystems)) return;
+    const requestIdentity = contextIdentity;
+    const requestShipId = shipId;
+    const requestId = ++analysisRequest.current;
+    analysisPendingRef.current = true;
+    setAnalysisPendingId(signatureId);
+    setSelectedSignatureId(signatureId);
+    setAnalysis(null);
+    setAnalysisError(null);
+    try {
+      const result = await api.post<SubspaceAnalysisResult>(
+        `/spacecraft/${requestShipId}/subspace-analysis/${signatureId}`,
+        {},
+      );
+      if (currentContextIdentity.current === requestIdentity && analysisRequest.current === requestId) {
+        setAnalysis(result);
+        void onUpdate();
+      }
+    } catch (err: unknown) {
+      if (currentContextIdentity.current === requestIdentity && analysisRequest.current === requestId) {
+        setAnalysisError(err instanceof Error ? err.message : 'Subraumanalyse fehlgeschlagen');
+      }
+    } finally {
+      if (analysisRequest.current === requestId) {
+        analysisPendingRef.current = false;
+        setAnalysisPendingId(null);
+      }
+    }
+  }
+
+  function closeSectorScan() {
+    analysisRequest.current++;
+    analysisPendingRef.current = false;
+    setAnalysisPendingId(null);
+    setScan(null);
   }
   async function scanColony() {
     if (!context?.colony) return;
@@ -425,11 +521,12 @@ export function FieldContextPanel({
           <div className="space-y-2 p-2">
             <button
               type="button"
+              disabled={scanPending}
               onClick={() => void scanSector()}
-              className="inline-flex items-center gap-1 text-swu-primary hover:text-swu-accent"
+              className="inline-flex items-center gap-1 text-swu-primary hover:text-swu-accent disabled:opacity-40"
             >
               <img src="/assets/buttons/lupe1.png" alt="" className="size-5" />
-              Sektor {context.coordinates.x}|{context.coordinates.y} scannen
+              {scanPending ? 'Sektor-Scan läuft …' : `Sektor ${context.coordinates.x}|${context.coordinates.y} scannen`}
             </button>
             {context.wormholePassages?.length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
@@ -788,7 +885,18 @@ export function FieldContextPanel({
           onConfirm={() => void confirmCartographyAction()}
         />
       )}
-      {scan && <SectorScanDialog scan={scan} onClose={() => setScan(null)} />}
+      {scan?.contextIdentity === contextIdentity && (
+        <SectorScanDialog
+          scan={scan}
+          runtimeSystems={runtimeSystems}
+          analysis={analysis}
+          analysisError={analysisError}
+          analysisPendingId={analysisPendingId}
+          selectedSignatureId={selectedSignatureId}
+          onAnalyze={(signatureId) => void analyzeSubspace(signatureId)}
+          onClose={closeSectorScan}
+        />
+      )}
       {regionOpen && context.region && (
         <Dialog
           title={context.region.name}
@@ -1002,9 +1110,21 @@ function CartographyDialog({
 
 function SectorScanDialog({
   scan,
+  runtimeSystems,
+  analysis,
+  analysisError,
+  analysisPendingId,
+  selectedSignatureId,
+  onAnalyze,
   onClose,
 }: {
   scan: { result: SectorScanResult; energyCost: number };
+  runtimeSystems?: SpacecraftRuntimeSystemsDto;
+  analysis: SubspaceAnalysisResult | null;
+  analysisError: string | null;
+  analysisPendingId: number | null;
+  selectedSignatureId: number | null;
+  onAnalyze: (signatureId: number) => void;
   onClose: () => void;
 }) {
   const field = scan.result.field;
@@ -1014,6 +1134,16 @@ function SectorScanDialog({
     uncloaked: 0,
     cloaked: 0,
   };
+  const scannerState = runtimeSystems?.SUBSPACE_SCANNER;
+  const matrixState = runtimeSystems?.MATRIX_SCANNER;
+  const canAnalyze = canAnalyzeSubspace(runtimeSystems);
+  const analysisBlockedReason = !scannerState || scannerState.integrity <= 0
+    ? 'Hyperraumfeldscanner nicht verfügbar oder beschädigt'
+    : scannerState.active !== true
+      ? 'Hyperraumfeldscanner ist ausgeschaltet'
+      : !matrixState || matrixState.integrity <= 0
+        ? 'Intakte Matrixsensoren werden benötigt'
+        : null;
   return (
     <Dialog title="Sektor-Scan" label="Sektor-Scan" onClose={onClose}>
       {scan.result.discovery?.discovered && (
@@ -1076,12 +1206,13 @@ function SectorScanDialog({
               <th className="px-2 py-1">Name</th>
               <th className="px-2 py-1">Richtung</th>
               <th className="px-2 py-1">Alter</th>
+              <th className="px-2 py-1">Analyse</th>
             </tr>
           </thead>
           <tbody>
             {signatures.map((signature) => (
               <tr
-                key={signature.spacecraftId}
+                key={signature.id}
                 className="border border-swu-border"
               >
                 <td className="px-2 py-1">{signature.shipClassName ?? '?'}</td>
@@ -1092,11 +1223,47 @@ function SectorScanDialog({
                 <td className="px-2 py-1">
                   {formatSignatureAge(signature.createdAt)}
                 </td>
+                <td className="px-2 py-1">
+                  <button
+                    type="button"
+                    disabled={
+                      !canAnalyze ||
+                      analysisPendingId !== null ||
+                      analysis?.signatureId === signature.id
+                    }
+                    title={analysisBlockedReason ?? undefined}
+                    onClick={() => onAnalyze(signature.id)}
+                    className="text-swu-primary hover:text-swu-accent disabled:opacity-40"
+                  >
+                    {analysisPendingId === signature.id
+                      ? 'Analysiere …'
+                      : analysis?.signatureId === signature.id
+                        ? 'Analysiert'
+                        : 'Analysieren · 100 EPS'}
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
+      <div className="mt-3 border border-swu-border bg-black/20 p-2 text-sm" aria-live="polite">
+        <div className="font-bold text-swu-primary">Subraumanalyse</div>
+        {selectedSignatureId === null ? (
+          <p className="text-swu-muted">Keine Signatur ausgewählt.</p>
+        ) : analysisPendingId === selectedSignatureId ? (
+          <p>Signatur {selectedSignatureId} wird analysiert (100 EPS) …</p>
+        ) : analysis?.signatureId === selectedSignatureId ? (
+          <p>
+            Signatur {analysis.signatureId} analysiert: {analysis.spacecraftName ?? '?'} · {analysis.energy} EPS verbleibend.
+          </p>
+        ) : analysisError ? (
+          <p role="alert" className="text-red-300">{analysisError}</p>
+        ) : (
+          <p className="text-swu-muted">Signatur {selectedSignatureId} ausgewählt.</p>
+        )}
+        {!canAnalyze && <p className="mt-1 text-swu-muted">{analysisBlockedReason}</p>}
+      </div>
       {(fadedSignatures.uncloaked > 0 || fadedSignatures.cloaked > 0) && (
         <div className="mt-3 border border-swu-border bg-black/20 p-2 text-sm">
           <div className="font-bold text-swu-primary">
@@ -1108,6 +1275,14 @@ function SectorScanDialog({
       )}
     </Dialog>
   );
+}
+
+function canAnalyzeSubspace(
+  systems?: SpacecraftRuntimeSystemsDto,
+): boolean {
+  const scanner = systems?.SUBSPACE_SCANNER;
+  const matrix = systems?.MATRIX_SCANNER;
+  return scanner?.active === true && scanner.integrity > 0 && !!matrix && matrix.integrity > 0;
 }
 
 function formatSignatureDirection(

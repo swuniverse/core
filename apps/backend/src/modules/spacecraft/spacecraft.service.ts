@@ -1,7 +1,11 @@
 import { isRpgHidden } from './rpg-visibility';
 import { ResourceConversionService } from './resource-conversion.service';
 import { ResourceCollectionService } from './resource-collection.service';
-import { canDetectCloakedTarget, tachyonScanExpiresAt } from './spacecraft-tachyon-scan';
+import {
+  canDetectCloakedTarget,
+  tachyonScanExpiresAt,
+  TACHYON_ACTIVATION_EPS,
+} from './spacecraft-tachyon-scan';
 import { isDeepStrictEqual } from 'node:util';
 import { stationBatteryReload } from './station-battery-reload';
 import {
@@ -1243,6 +1247,11 @@ export class SpacecraftService {
     if (active && systemKey === 'SUBSPACE_SCANNER' && !system.active) {
       if (ship.energy < 30) throw new BadRequestException('Nicht genug EPS');
     }
+    if (active && systemKey === 'TACHYON_SCANNER' && !system.active) {
+      if (ship.energy < TACHYON_ACTIVATION_EPS) {
+        throw new BadRequestException('Nicht genug EPS');
+      }
+    }
     if (active && systemKey === 'MATRIX_SCANNER') {
       throw new BadRequestException('Matrixsensoren sind ein passives System');
     }
@@ -1281,6 +1290,9 @@ export class SpacecraftService {
       }
       if (systemKey === 'SUBSPACE_SCANNER' && !system.active) {
         ship.energy -= 30;
+      }
+      if (systemKey === 'TACHYON_SCANNER' && !system.active) {
+        ship.energy -= TACHYON_ACTIVATION_EPS;
       }
       if (systemKey === 'CLOAK' && !system.active) {
         ship.energy -= CLOAK_ACTIVATION_EPS;

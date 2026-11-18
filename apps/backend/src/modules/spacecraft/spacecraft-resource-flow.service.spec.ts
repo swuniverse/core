@@ -2,6 +2,26 @@ import { SpacecraftResourceFlowService } from './spacecraft-resource-flow.servic
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 
 describe('SpacecraftResourceFlowService', () => {
+  it('charges scanner EPS only after explicit activation, including the unhydrated fallback', () => {
+    const service = createService();
+    const modules = [
+      { category: 'SPECIAL', moduleType: 'Hyperraumfeldscanner', isActive: true },
+      { category: 'SPECIAL', moduleType: 'Gravitationswellenscanner', isActive: true },
+    ];
+    const ship = makeShip({ modules, runtimeSystems: {} });
+    const initial = service.calculate(ship as never);
+    expect(initial.systems.filter((state) => state.systemKey.endsWith('_SCANNER'))).toEqual([
+      { systemKey: 'SUBSPACE_SCANNER', label: 'Hyperraumfeldscanner', active: false, epsPerTick: 0 },
+      { systemKey: 'TACHYON_SCANNER', label: 'Gravitationswellenscanner', active: false, epsPerTick: 0 },
+    ]);
+    const systems = ship.runtimeSystems as any;
+    systems.SUBSPACE_SCANNER.active = true;
+    systems.TACHYON_SCANNER.active = true;
+    expect(service.calculate(ship as never).totalSystemConsumption).toBe(initial.totalSystemConsumption + 18);
+    const fallback = service.calculate(makeShip({ modules: undefined, runtimeSystems: {} }) as never);
+    expect(fallback.systems.filter((state) => ['SUBSPACE_SCANNER', 'TACHYON_SCANNER'].includes(state.systemKey)).every((state) => state.epsPerTick === 0)).toBe(true);
+    expect(fallback.totalSystemConsumption).toBe(1);
+  });
   it('pays five EPS for uplink from stored energy and keeps guests on brownout', () => {
     const ship = makeShip({ kind: 'STATION', stationRole: 'SENSOR', reactorOutput: 0, reactorFuel: 0, energy: 10, battery: 0, modules: [], runtimeSystems: { LIFE_SUPPORT: { active: false, cooldown: 0, integrity: 100 }, UPLINK: { active: true, cooldown: 0, integrity: 100, current: 2 } } });
     const service = createService();
@@ -16,7 +36,7 @@ describe('SpacecraftResourceFlowService', () => {
   it('charges no additional tick EPS for the built-in station beamblocker', () => {
     const service = createService();
     const ship = makeShip();
-    const station = makeShip({ kind: 'STATION', runtimeSystems: { BEAM_BLOCKER: { active: true, cooldown: 0, integrity: 100 } } });
+    const station = makeShip({ kind: 'STATION', runtimeSystems: { ...ship.runtimeSystems, BEAM_BLOCKER: { active: true, cooldown: 0, integrity: 100 } } });
     expect(service.getSystemCost('BEAM_BLOCKER')).toBe(0);
     expect(service.calculate(station as never).totalSystemConsumption).toBe(service.calculate(ship as never).totalSystemConsumption);
     expect(service.calculate(station as never).systems).toContainEqual({ systemKey: 'BEAM_BLOCKER', label: 'Beamblocker', active: true, epsPerTick: 0 });
@@ -60,7 +80,7 @@ describe('SpacecraftResourceFlowService', () => {
     };
   }
 
-  // initialize() creates all runtime systems active.
+  // The fixture explicitly stores running systems; reads preserve their switches.
   // Active costs: LSS + NBS + WEAPONS + TORPEDO_BANK + SPECIAL + LIFE_SUPPORT = 6.
 
   it('split=100 sends nothing to hyperdrive, all remaining to EPS', () => {
@@ -253,6 +273,10 @@ describe('SpacecraftResourceFlowService', () => {
   it('charges an active Astrometrie-Labor every main tick without charging unrelated special modules twice', () => {
     const service = createService();
     const ship = makeShip({
+      runtimeSystems: {
+        ASTROMETRY_LAB: { active: true, cooldown: 0, integrity: 100 },
+        SPECIAL: { active: true, cooldown: 0, integrity: 100 },
+      },
       modules: [
         {
           category: 'SPECIAL',
@@ -295,7 +319,7 @@ describe('SpacecraftResourceFlowService', () => {
 
     const flow = service.calculate(ship as never);
 
-    expect(flow.totalSystemConsumption).toBe(3);
+    expect(flow.totalSystemConsumption).toBe(1);
     expect(flow.systems.map((system) => system.systemKey)).toEqual(
       expect.arrayContaining([
         'LIFE_SUPPORT',

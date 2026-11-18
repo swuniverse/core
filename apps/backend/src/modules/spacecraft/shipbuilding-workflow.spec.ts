@@ -322,6 +322,8 @@ describe('source-neutral shipbuilding workflow', () => {
       level: 3,
     });
     expect(f.rows().Spacecraft[0]).toMatchObject({ crewRequired: 4, crew: 0 });
+    expect(f.rows().Spacecraft[0].runtimeSystems.WEAPONS).toMatchObject({ active: false, integrity: 100 });
+    expect(f.rows().Spacecraft[0].runtimeSystems.LIFE_SUPPORT.active).toBe(true);
   });
 
   it('creates a real reusable blueprint and exactly one source reference with the paid job', async () => {

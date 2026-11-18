@@ -16,7 +16,10 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { SpacecraftStatsService } from '../spacecraft/spacecraft-stats.service';
-import { initializeSpacecraftRuntimeSystems } from '../spacecraft/spacecraft-runtime-state.service';
+import {
+  getRuntimeSystemsForModule,
+  initializeSpacecraftRuntimeSystems,
+} from '../spacecraft/spacecraft-runtime-state.service';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { SystemField } from '../starmap/entities/system-field.entity';
 import { ColonyEventService } from '../messaging/colony-event.service';
@@ -1536,6 +1539,13 @@ export class ColonyShipyardService {
     );
     ship.crewMax = Math.max(ship.crewMax, ship.crewRequired);
     ship.modules = finalModules;
+    // A replacement in the same system category must not inherit the old
+    // module's running switch, damage or cooldown. Untouched systems retain it.
+    for (const module of createdModules) {
+      for (const key of getRuntimeSystemsForModule(module)) {
+        delete ship.runtimeSystems?.[key];
+      }
+    }
     initializeSpacecraftRuntimeSystems(ship);
     await this.shipRepo.save(ship);
     job.retrofitSnapshot = {

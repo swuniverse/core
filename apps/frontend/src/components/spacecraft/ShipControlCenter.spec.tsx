@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ShipControlCenter } from './ShipControlCenter';
 import type { LocalMapResponse } from './LssMap';
 
@@ -47,6 +47,59 @@ describe('ShipControlCenter', () => {
     render(<ShipControlCenter shipId={2} onUpdate={onUpdate} systems={{ BEAM_BLOCKER: { active: true, cooldown: 0, integrity: 72 } }} />);
     expect(screen.getByText(/Beamblocker · aktiv · 72% · 0 EPS/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Beamblocker/ })).toBeNull();
+  });
+  it('toggles scanner systems, shows their activation costs and reports backend errors', async () => {
+    apiMocks.patch.mockRejectedValueOnce(new Error('Nicht genug EPS'));
+    render(
+      <ShipControlCenter
+        shipId={2}
+        onUpdate={onUpdate}
+        systems={{
+          SUBSPACE_SCANNER: { active: false, cooldown: 0, integrity: 100 },
+          TACHYON_SCANNER: { active: true, cooldown: 0, integrity: 100 },
+        }}
+      />,
+    );
+
+    expect(screen.getByText('30 EPS beim Aktivieren · 15 EPS/Tick')).toBeTruthy();
+    expect(screen.getByText('3 EPS/Tick')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Hyperraumfeldscanner aktivieren/ }));
+
+    await waitFor(() =>
+      expect(apiMocks.patch).toHaveBeenCalledWith(
+        '/spacecraft/2/systems/SUBSPACE_SCANNER',
+        { active: true },
+      ),
+    );
+    expect((await screen.findByRole('alert')).textContent).toContain('Nicht genug EPS');
+  });
+  it('ignores a pending scanner response after selecting another ship', async () => {
+    let resolveToggle: (value: unknown) => void = () => undefined;
+    apiMocks.patch.mockImplementationOnce(
+      () => new Promise((resolve) => { resolveToggle = resolve; }),
+    );
+    const update = vi.fn();
+    const { rerender } = render(
+      <ShipControlCenter
+        shipId={2}
+        onUpdate={update}
+        systems={{ TACHYON_SCANNER: { active: false, cooldown: 0, integrity: 100 } }}
+      />,
+    );
+    const activate = screen.getByRole('button', { name: /Gravitationswellenscanner aktivieren/ });
+    fireEvent.click(activate);
+    fireEvent.click(activate);
+    expect(apiMocks.patch).toHaveBeenCalledTimes(1);
+    rerender(
+      <ShipControlCenter
+        shipId={3}
+        onUpdate={update}
+        systems={{ TACHYON_SCANNER: { active: false, cooldown: 0, integrity: 100 } }}
+      />,
+    );
+    await act(async () => resolveToggle({}));
+    expect(update).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
   beforeEach(() => {
     apiMocks.patch.mockReset();
