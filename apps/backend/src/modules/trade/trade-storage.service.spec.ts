@@ -46,7 +46,7 @@ describe('TradeStorageService', () => {
     service = new TradeStorageService(dataSource);
   });
 
-  it('reports account stock, reserved offers, occupancy, and free space', async () => {
+  it('reports stock as occupancy; offer reserves take no space', async () => {
     posts.findOneBy.mockResolvedValue({ id: 4, storageLimit: 100 } as TradePost);
     accounts.createQueryBuilder.mockReturnValue(sumQuery(35));
     offers.createQueryBuilder.mockReturnValue(sumQuery(15));
@@ -54,17 +54,29 @@ describe('TradeStorageService', () => {
     await expect(service.getCapacity(4, 9)).resolves.toEqual({
       stock: 35,
       reserved: 15,
-      occupied: 50,
-      free: 50,
+      occupied: 35,
+      free: 65,
       capacity: 100,
+      isOverStorage: false,
+    });
+  });
+
+  it('flags an account above its limit', async () => {
+    posts.findOneBy.mockResolvedValue({ id: 4, storageLimit: 30 } as TradePost);
+    accounts.createQueryBuilder.mockReturnValue(sumQuery(35));
+    offers.createQueryBuilder.mockReturnValue(sumQuery(0));
+
+    await expect(service.getCapacity(4, 9)).resolves.toMatchObject({
+      free: 0,
+      isOverStorage: true,
     });
   });
 
   it('rejects additions that exceed free space', async () => {
     posts.findOne.mockResolvedValue({ id: 4, storageLimit: 10 } as TradePost);
-    accounts.findOne.mockResolvedValue({ amount: 7 } as TradeAccountStorage);
-    accounts.createQueryBuilder.mockReturnValue(sumQuery(7));
-    offers.createQueryBuilder.mockReturnValue(sumQuery(2));
+    accounts.findOne.mockResolvedValue({ amount: 9 } as TradeAccountStorage);
+    accounts.createQueryBuilder.mockReturnValue(sumQuery(9));
+    offers.createQueryBuilder.mockReturnValue(sumQuery(5));
 
     await expect(service.add(4, 9, 1, 2)).rejects.toThrow(BadRequestException);
     expect(accounts.save).not.toHaveBeenCalled();

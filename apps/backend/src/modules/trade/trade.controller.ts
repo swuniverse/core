@@ -26,6 +26,7 @@ import { TradeLicenseMenuService } from './trade-license-menu.service';
 import { TradeOfferService } from './trade-offer.service';
 import { BasicTradeService } from './basic-trade.service';
 import { TradeOfferMarketService } from './trade-offer-market.service';
+import { TradeAccountBoxService } from './trade-account-box.service';
 import { TradeQueryService } from './trade-query.service';
 import type {
   BasicTradeRequestDto,
@@ -54,6 +55,7 @@ export class TradeController {
     private readonly transfers: TradeNetworkTransferService,
     private readonly shoutboxes: TradeShoutboxService,
     private readonly management: TradePostManagementService,
+    private readonly accountBoxes: TradeAccountBoxService,
   ) {}
 
   @Get('posts')
@@ -65,7 +67,11 @@ export class TradeController {
   async getOverview(@Request() req: { user: { sub: number } }): Promise<TradeOverviewDto> {
     const overview = await this.query.getOverview(req.user.sub);
     const postIds = [...new Set(overview.accounts.map((account) => account.tradePostId))];
-    return { ...overview, transferCapacities: await this.transfers.capacities(postIds, req.user.sub) };
+    const [transferCapacities, accountBoxes] = await Promise.all([
+      this.transfers.capacities(postIds, req.user.sub),
+      this.accountBoxes.list(req.user.sub),
+    ]);
+    return { ...overview, transferCapacities, accountBoxes };
   }
 
   @Patch('posts/:id')

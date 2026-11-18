@@ -74,7 +74,7 @@ describe('trade offers (PostgreSQL)', () => {
       reservedAmount: 30,
     });
     expect(await stockOf(AURODIUM)).toBe(20);
-    expect(await storage.getCapacity(postId, userId)).toMatchObject({ stock: 20, reserved: 30, occupied: 50, free: 50 });
+    expect(await storage.getCapacity(postId, userId)).toMatchObject({ stock: 20, reserved: 30, occupied: 20, free: 80, isOverStorage: false });
   });
 
   it('truncates the number of offers to the stock like STU', async () => {
@@ -171,7 +171,7 @@ describe('trade offers (PostgreSQL)', () => {
       tradePostId: postId,
       tradePostName: 'Mos Eisley',
       hasLicense: true,
-      accountFree: 46,
+      accountFree: 76, // only stock counts; the 30 reserved take no space (STU)
       accountGoods: [{ commodityId: AURODIUM, commodityName: 'Aurodium', amount: 20 }],
       tradeableCommodities: [{ id: AURODIUM, name: 'Aurodium' }, { id: DURASTAHL, name: 'Durastahl' }],
     });

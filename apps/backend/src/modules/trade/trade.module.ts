@@ -50,6 +50,7 @@ import { TradeOfferMaintenanceService } from './trade-offer-maintenance.service'
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import { TradePostPresencePolicy } from './trade-post-presence.policy';
 import { TradeAgreementPolicy } from './trade-agreement.policy';
+import { TradeAccountBoxService } from './trade-account-box.service';
 import { TradeQueryService } from './trade-query.service';
 
 @Module({
@@ -93,6 +94,7 @@ import { TradeQueryService } from './trade-query.service';
     TradeStorageService,
     TradePostSeedService,
     TradeQueryService,
+    TradeAccountBoxService,
     TradeLicenseService,
     TradeLicensePurchaseService,
     TradeLicenseMaintenanceService,

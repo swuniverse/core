@@ -11,6 +11,7 @@ export interface TradeStorageCapacity {
   occupied: number;
   free: number;
   capacity: number;
+  isOverStorage: boolean;
 }
 
 @Injectable()
@@ -83,7 +84,7 @@ export class TradeStorageService {
     });
   }
 
-  /** Account capacity inside the caller's transaction; offers count as reserved. */
+  /** Account capacity inside the caller's transaction; offer reserves take no space (STU). */
   capacityIn(
     manager: EntityManager,
     tradePostId: number,
@@ -106,13 +107,15 @@ export class TradeStorageService {
       this.sum(accounts, 'account', 'account.amount', tradePostId, userId),
       this.sum(offers, 'offer', 'offer.reservedAmount', tradePostId, userId),
     ]);
-    const occupied = stock + reserved;
+    // STU `TradeAccountWrapper`: only stock counts against the limit (PO 2026-11-17).
+    const occupied = stock;
     return {
       stock,
       reserved,
       occupied,
       free: Math.max(0, post.storageLimit - occupied),
       capacity: post.storageLimit,
+      isOverStorage: occupied > post.storageLimit,
     };
   }
 

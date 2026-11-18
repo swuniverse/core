@@ -1,6 +1,6 @@
 # Warenkonto-Vertrag für die STU-Kontobox erweitern
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -35,13 +35,13 @@ Die STU-Warenkontobox (`tradeAccounts.twig`) braucht je Konto Daten, die `GET tr
 
 ## Akzeptanzkriterien
 
-- [ ] `TradeOverviewDto` liefert je eigenem Konto einen Eintrag `accountBoxes[]` (oder gleichwertig benannt) mit: `tradePostId`, Name, `isNpcPost`, Standort, `networkId`/`networkName`, `stock[]` (Ware, Menge), `offerStock[]` (Ware, Summe `reservedAmount`), `storage { stock, limit, isOverStorage }` (Reserve nur als `offerStock[]` angezeigt), `issuedLicenseCount`, `licenseCondition` (Ware, Menge, Tage oder `null`), `isOwner`, Transferkapazität (frei/gesamt) nur für NPC-Posten.
-- [ ] `storage.occupied` und `isOverStorage` kommen aus derselben Berechnung wie die Platzprüfung bei Transfer, Kontoeinbuchung und Angebot (`TradeStorageService`); es gibt keine zweite Summenlogik.
-- [ ] `issuedLicenseCount` zählt nur nicht abgelaufene Lizenzen (inkl. Eigentümerlizenz), wie STU.
-- [ ] Standort respektiert die bestehende Ortsdarstellung von `listPosts` (keine neuen Informationslecks gegenüber `TradePostListItemDto.location`).
-- [ ] Bestehende Felder bleiben kompatibel, bis tmw-AUD-01b die alte `AccountsTab`-Nutzung ersetzt; nicht mehr genutzte Felder werden dort entfernt.
-- [ ] Platzprüfung und Anzeige zählen nur den Bestand; Angebotsreserve belegt keinen Kontoplatz.
-- [ ] Backend-Tests: Reserve zählt nicht gegen den Platz; überfülltes Konto liefert `isOverStorage = true`; Lizenzanzahl ignoriert abgelaufene Lizenzen; Transferkapazität fehlt an Spielerposten; Bedingung `null` ohne Lizenzinfo.
+- [x] `TradeOverviewDto` liefert je eigenem Konto einen Eintrag `accountBoxes[]` (oder gleichwertig benannt) mit: `tradePostId`, Name, `isNpcPost`, Standort, `networkId`/`networkName`, `stock[]` (Ware, Menge), `offerStock[]` (Ware, Summe `reservedAmount`), `storage { stock, limit, isOverStorage }` (Reserve nur als `offerStock[]` angezeigt), `issuedLicenseCount`, `licenseCondition` (Ware, Menge, Tage oder `null`), `isOwner`, Transferkapazität (frei/gesamt) nur für NPC-Posten.
+- [x] `storage.occupied` und `isOverStorage` kommen aus derselben Berechnung wie die Platzprüfung bei Transfer, Kontoeinbuchung und Angebot (`TradeStorageService`); es gibt keine zweite Summenlogik.
+- [x] `issuedLicenseCount` zählt nur nicht abgelaufene Lizenzen (inkl. Eigentümerlizenz), wie STU.
+- [x] Standort respektiert die bestehende Ortsdarstellung von `listPosts` (keine neuen Informationslecks gegenüber `TradePostListItemDto.location`).
+- [x] Bestehende Felder bleiben kompatibel, bis tmw-AUD-01b die alte `AccountsTab`-Nutzung ersetzt; nicht mehr genutzte Felder werden dort entfernt.
+- [x] Platzprüfung und Anzeige zählen nur den Bestand; Angebotsreserve belegt keinen Kontoplatz.
+- [x] Backend-Tests: Reserve zählt nicht gegen den Platz; überfülltes Konto liefert `isOverStorage = true`; Lizenzanzahl ignoriert abgelaufene Lizenzen; Transferkapazität fehlt an Spielerposten; Bedingung `null` ohne Lizenzinfo.
 
 ## Herkunft
 
@@ -52,3 +52,9 @@ Die STU-Warenkontobox (`tradeAccounts.twig`) braucht je Konto Daten, die `GET tr
 ## Comments
 
 - 2026-11-17 Product Owner: Nur Bestand zählt (wie STU), auch in der Platzprüfung.
+- 2026-11-18 – umgesetzt, Prüfung ausstehend (Opus 5.5 direkt). Commit „feat(trade): account box contract and stock-only account space (tmw-AUD-01a)“.
+  - `TradeStorageService.capacity`: `occupied` = Bestand, neu `isOverStorage`; gilt damit für Transfer, Einbuchung, Angebot, Basishandel, Deals und Annahme (alle nutzen `capacityIn`). Auch `StationTradePostDto.storage.used` und `accountUsed` im Handelsmenü zählen nur noch den Bestand.
+  - Neu `TradeOverviewDto.accountBoxes[]` über `TradeAccountBoxService`: ein Eintrag je Posten mit eigenem Bestand oder Angebotsreserve. Name, Netz, Besitzer und Standort kommen aus `TradeQueryService.listPosts` (gleiche Sichtbarkeitsregel, kein neues Leck), Platz aus `TradeStorageService.getCapacity`, Transferkapazität nur bei NPC-Besitzer, Lizenzanzahl nur `expiresAt > now`. Name im Vertrag: `storage { occupied, limit, isOverStorage }` (occupied = Bestand). Alte Felder `accounts`/`transferCapacities` bleiben bis tmw-AUD-01b.
+  - Tests: Unit `trade-storage.service.spec.ts` (Reserve belegt keinen Platz, Überfüllung), neu `trade-account-box.service.spec.ts` (Box, Überfüllung, nur gültige Lizenzen, Spielerposten ohne Transferkapazität mit Bedingung/Eigentümer, leer), Controller-Spec. `jest src/modules/trade` 50/50, PostgreSQL `test-integration trade` 135/135 (zwei Erwartungen in `trade-offer.int-spec.ts` auf die neue Regel umgestellt). ESLint 0 Fehler, `tsc` Backend und Frontend (app + spec) sauber.
+  - Offen für den Prüfpass: Abschlussreview; die Lizenz-Ablauffilterung der Box ist nur per Mock geprüft (keine PostgreSQL-Spec für `TradeAccountBoxService`); gemeinsamer Build.
+

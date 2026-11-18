@@ -33,8 +33,31 @@ export interface TradePostSpacecraftDto {
   kind: 'SHIP' | 'STATION';
 }
 
+/** One own trade account as STU's account box (`tradeAccounts.twig`). */
+export interface TradeAccountBoxDto {
+  tradePostId: number;
+  name: string;
+  isNpcPost: boolean;
+  /** Same visibility rule as `TradePostListItemDto.location`. */
+  location: SpaceLocationDto | null;
+  networkId: number;
+  networkName: string;
+  stock: Array<{ commodityId: number; amount: number }>;
+  /** Goods reserved by own offers; they take no account space (STU). */
+  offerStock: Array<{ commodityId: number; amount: number }>;
+  /** Only stock counts against the limit, as in every space check. */
+  storage: { occupied: number; limit: number; isOverStorage: boolean };
+  /** Valid licenses issued at the post, the owner's included (STU `getLicenseCount`). */
+  issuedLicenseCount: number;
+  licenseCondition: { commodityId: number; amount: number; durationDays: number } | null;
+  isOwner: boolean;
+  /** Free and total transfer capacity over 24 hours; NPC posts only (STU). */
+  transferCapacity: { free: number; capacity: number } | null;
+}
+
 export interface TradeOverviewDto {
   accounts: TradeAccountStorageDto[];
+  accountBoxes: TradeAccountBoxDto[];
   spacecraft: TradePostSpacecraftDto[];
   /** Free and total transfer capacity per own account post, over the last 24 hours. */
   transferCapacities: Array<{ tradePostId: number; free: number; capacity: number }>;
@@ -121,7 +144,7 @@ export interface StationTradePostDto {
   description: string;
   networkId: number;
   networkName: string;
-  /** The owner's own account at the post; offers count as used. */
+  /** The owner's own account at the post; only stock counts as used. */
   storage: { used: number; capacity: number };
   condition: {
     commodityId: number;
