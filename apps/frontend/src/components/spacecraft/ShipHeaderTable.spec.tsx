@@ -27,6 +27,7 @@ const ship = {
   hullMax: 100,
   shields: 40,
   shieldsMax: 50,
+  shieldRegeneration: 4,
   energy: 70,
   energyMax: 100,
   reactorOutput: 12,
@@ -78,7 +79,7 @@ describe('ShipHeaderTable', () => {
     expect(screen.getAllByText('90/100').length).toBeGreaterThan(0);
     expect(screen.getAllByText('8/20').length).toBeGreaterThan(0);
     expect(screen.getAllByText('4 (2/8)').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('40/50 +5')[0].className).toContain(
+    expect(screen.getAllByText('40/50 +4')[0].className).toContain(
       'text-cyan-400',
     );
     expect(screen.queryByText('Warp')).toBeNull();
@@ -161,7 +162,7 @@ describe('ShipHeaderTable', () => {
     );
 
     expect(await screen.findAllByText('70/100 +9 (3/12)')).toHaveLength(2);
-    expect(screen.getAllByText('40/50 +5')).toHaveLength(2);
+    expect(screen.getAllByText('40/50 +4')).toHaveLength(2);
     expect(screen.getAllByText('4 (2/8)')).toHaveLength(2);
     expect(screen.getAllByText('4 (2/8)')[0].className).toContain(
       'text-green-400',
@@ -169,7 +170,7 @@ describe('ShipHeaderTable', () => {
     fireEvent.mouseEnter(screen.getAllByText('Schilde')[0]);
     expect(
       await screen.findByText(
-        'Regeneration: 10 % der maximalen Schilde je Haupttick',
+        'Kostenlose Schildregeneration alle 15 Minuten, wenn alle Voraussetzungen erfüllt sind: aufgerundet 10 % der maximalen Schilde, begrenzt auf die fehlenden Schilde.',
       ),
     ).toBeTruthy();
     fireEvent.mouseEnter(screen.getAllByRole('button', { name: 'Energie' })[0]);
@@ -181,6 +182,25 @@ describe('ShipHeaderTable', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Energie' })[0]);
     expect(onEnergy).toHaveBeenCalledOnce();
+  });
+
+  it('uses the server rate and hides regeneration when the provided rate is zero', () => {
+    apiMocks.get.mockImplementation(() => new Promise(() => undefined));
+    render(
+      <ShipHeaderTable
+        ship={{ ...ship, shieldRegeneration: 0 }}
+        onSelfDestruct={vi.fn()}
+        onInfo={vi.fn()}
+        onEnergy={vi.fn()}
+        standby={false}
+        alertState="GREEN"
+        onNavigation={vi.fn()}
+        onSensors={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText('40/50')).toHaveLength(2);
+    expect(screen.queryByText('40/50 +5')).toBeNull();
   });
 
   it('marks an understaffed crew in red', async () => {

@@ -132,6 +132,7 @@ import {
 } from './nearby-interaction';
 import { HyperdriveDisruptionService } from './hyperdrive-disruption.service';
 import { SpacecraftAlertService } from './spacecraft-alert.service';
+import { spacecraftShieldRegenerationRate } from './spacecraft-shield-regeneration';
 import {
   CartographyPlanService,
   regionTarget,
@@ -433,9 +434,11 @@ export class SpacecraftService {
         'fleet.members',
         'location',
         'location.galaxyField',
+        'location.galaxyField.fieldType',
         'location.galaxyField.layer',
         'location.galaxyField.starSystem',
         'location.systemField',
+        'location.systemField.fieldType',
         'location.systemField.celestialObject',
         'location.systemField.starSystem',
       ],
@@ -453,9 +456,11 @@ export class SpacecraftService {
         'fleet.members',
         'location',
         'location.galaxyField',
+        'location.galaxyField.fieldType',
         'location.galaxyField.layer',
         'location.galaxyField.starSystem',
         'location.systemField',
+        'location.systemField.fieldType',
         'location.systemField.celestialObject',
         'location.systemField.starSystem',
       ],
@@ -525,6 +530,7 @@ export class SpacecraftService {
       dockedAtId: ship.dockedAtId ?? null,
       dockedAtName: dockedAt?.name ?? null,
       crew: crewRoster.length,
+      shieldRegeneration: await this.shieldRegenerationFor(ship, crewRoster.length, crewRequired),
       crewMax: effective?.crewMax ?? ship.crewMax,
       operatingMode: ship.operatingMode ?? SpacecraftOperatingMode.NORMAL,
       alertState: ship.alertState,
@@ -1651,6 +1657,14 @@ export class SpacecraftService {
     };
   }
 
+  private async shieldRegenerationFor(ship: Spacecraft, crew: number, crewRequired: number): Promise<number> {
+    this.spacecraftRuntimeStateService.initialize(ship);
+    const now = Date.now();
+    if (spacecraftShieldRegenerationRate(ship, crew, crewRequired, [], now) === 0) return 0;
+    const anomalies = (await this.anomalyQuery?.findAtLocation(ship.locationId)) ?? [];
+    return spacecraftShieldRegenerationRate(ship, crew, crewRequired, anomalies.map((entry) => entry.type), now);
+  }
+
   private async toShipListDto(ship: Spacecraft) {
     const [summary, crew, crewRequired, finalization, shipClass] =
       await Promise.all([
@@ -1710,10 +1724,7 @@ export class SpacecraftService {
       crewRequired,
       crewMax: ship.crewMax,
       shieldActive,
-      shieldRegeneration:
-        !shieldActive && ship.shields < ship.shieldsMax
-          ? Math.max(1, Math.floor(ship.shieldsMax * 0.05))
-          : 0,
+      shieldRegeneration: await this.shieldRegenerationFor(ship, crew, crewRequired),
       energyMax: flow.energy.max,
       energyGain: flow.effectiveEpsProduction,
       energyConsumption: flow.totalSystemConsumption,
@@ -5012,14 +5023,6 @@ export class SpacecraftService {
         shipId: ship.id,
         detail,
       });
-    }
-
-    if (ship.shields < ship.shieldsMax && ship.energy > 10) {
-      const formulas = this.gameData.getCombatFormulas();
-      const rechargeRate = formulas?.shields?.recharge_rate || 0.1;
-      const regen = Math.max(1, Math.round(ship.shieldsMax * rechargeRate));
-      ship.shields = Math.min(ship.shields + regen, ship.shieldsMax);
-      ship.energy -= 2;
     }
 
     for (const mod of modules) {

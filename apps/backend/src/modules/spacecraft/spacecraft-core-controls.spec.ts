@@ -209,6 +209,34 @@ function createService() {
 }
 
 describe('spacecraft core detail controls', () => {
+  it('serves the same capped, rounded-up regeneration rate in list and detail and suppresses blockers', async () => {
+    const { service, ship, resourceFlow } = createService();
+    Object.assign(ship, { shields: 90, shieldsMax: 101, status: 'IDLE', locationId: 1,
+      location: { kind: 'GALAXY_FIELD', galaxyField: { layerId: 1, cx: 1, cy: 1, fieldType: { effects: [] } } },
+      runtimeSystems: { SHIELDS: { active: false, integrity: 100, cooldown: 0 } },
+    });
+    (service as any).moduleRepo.count = jest.fn(async () => 0);
+    (service as any).galaxyFieldRepo.findOne = jest.fn(async () => null);
+    (service as any).spacecraftCrewService.getAssignedCrew.mockResolvedValue([{}, {}, {}]);
+    (service as any).spacecraftCrewService.getAssignedCrewCount.mockResolvedValue(3);
+    (service as any).anomalyQuery = { findAtLocation: jest.fn(async () => []) };
+    resourceFlow.calculate.mockReturnValue({ energy: { max: 50 }, warpdrive: {}, reactorFuel: {}, battery: {} } as any);
+    const rates = async () => [
+      (await service.getDetails(2, 1)).shieldRegeneration,
+      (await (service as any).toShipListDto(ship)).shieldRegeneration,
+    ];
+    expect(await rates()).toEqual([11, 11]);
+    ship.shields = 100;
+    expect(await rates()).toEqual([1, 1]);
+    (service as any).anomalyQuery.findAtLocation.mockResolvedValue([{ type: 'ION_STORM' }]);
+    expect(await rates()).toEqual([0, 0]);
+    (service as any).anomalyQuery.findAtLocation.mockResolvedValue([]);
+    (ship.runtimeSystems as any).SHIELDS.active = true;
+    expect(await rates()).toEqual([0, 0]);
+    (ship.runtimeSystems as any).SHIELDS.active = false;
+    (ship.runtimeSystems as any).SHIELDS.regenerationStartedAt = Date.now();
+    expect(await rates()).toEqual([0, 0]);
+  });
   it('enters standby with only life support active', async () => {
     const { service, ship } = createService();
     const result = await service.setOperatingMode(

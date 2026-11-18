@@ -8,6 +8,7 @@ import { Anomaly } from './entities/anomaly.entity';
 import { AnomalyType } from './entities/anomaly-type.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { FieldEffect } from '@swuniverse/shared';
+import { recordSpacecraftShieldHit } from '../spacecraft/spacecraft-damage';
 
 export interface EllipseRandom {
   integer(min: number, max: number): number;
@@ -86,6 +87,7 @@ export class SubspaceEllipseHandler implements AnomalyHandler {
       const integrity = shields.integrity ?? 100;
       if (ship.shields === 0 && integrity <= 0) continue;
       const lines: string[] = [];
+      recordSpacecraftShieldHit(ship);
       shields.active = false;
       if (ship.shields > 0) {
         ship.shields = 0;

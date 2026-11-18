@@ -30,6 +30,8 @@ const STATUS = {
 
 const cell = 'border border-swu-border px-1.5 py-1';
 const numberCell = `${cell} text-right font-mono whitespace-nowrap`;
+const SHIELD_REGENERATION_DESCRIPTION =
+  'Kostenlose Schildregeneration alle 15 Minuten, wenn alle Voraussetzungen erfüllt sind: aufgerundet 10 % der maximalen Schilde, begrenzt auf die fehlenden Schilde.';
 
 export function SpacecraftPage() {
   const navigate = useNavigate();
@@ -57,6 +59,12 @@ export function SpacecraftPage() {
   useSocket(WsEventType.SPACECRAFT_VISIBILITY_CHANGED, payload => {
     const event = payload as SpacecraftVisibilityPayload;
     if (event.type === 'REMOVED') setShips(current => current.filter(ship => ship.id !== event.shipId));
+    void loadShips();
+  });
+
+  useSocket(WsEventType.SPACECRAFT_EVENT, (payload) => {
+    const event = payload as { type?: string; shipId?: number };
+    if (event.type !== 'SHIELDS_REGENERATED') return;
     void loadShips();
   });
 
@@ -352,7 +360,7 @@ function ShipRow({ ship, leader = false, onOpen }: { ship: SpacecraftListDto; le
       <td className={`${cell} text-center`}><span title={ship.layer.name} aria-label={`Ebene ${ship.layer.name}`} className="font-mono text-swu-primary">L{ship.layer.id}</span></td>
       <td className={numberCell}>{location}</td>
       <td className={numberCell}><Hull current={ship.hull} max={ship.hullMax} /></td>
-      <td className={numberCell}><span className={ship.shieldActive ? 'text-swu-primary font-bold' : ''}>{ship.shields}/{ship.shieldsMax}</span>{ship.shieldRegeneration > 0 && <span className="text-green-500"> +{ship.shieldRegeneration}</span>}</td>
+      <td className={numberCell} title={SHIELD_REGENERATION_DESCRIPTION}><span className={ship.shieldActive ? 'text-swu-primary font-bold' : ''}>{ship.shields}/{ship.shieldsMax}</span>{ship.shieldRegeneration > 0 && <span className="text-green-500"> +{ship.shieldRegeneration}</span>}</td>
       <td className={numberCell}>{ship.energy}/{ship.energyMax} <span className="text-green-500">+{ship.energyGain}</span> <span className="text-swu-muted">({ship.energyConsumption}/{ship.reactorUsage})</span></td>
       <td className={numberCell}>{ship.warpdrive}/{ship.warpdriveMax} <span className="text-green-500">+{ship.warpdriveGain}</span></td>
       <td className={numberCell}>{ship.reactorFuel}/{ship.reactorFuelMax}</td>

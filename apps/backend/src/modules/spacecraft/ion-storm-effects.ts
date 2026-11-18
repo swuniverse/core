@@ -12,7 +12,7 @@ import { Spacecraft, SpacecraftKind, SpacecraftStatus } from './entities/spacecr
 import { isSpacecraftDestroyed } from './spacecraft-status.util';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import type { SpacecraftDestructionService } from './spacecraft-destruction.service';
-import { SpacecraftDamage } from './spacecraft-damage';
+import { recordSpacecraftShieldHit, SpacecraftDamage } from './spacecraft-damage';
 
 /** STU `IonStormHandler`: systems an ion storm hit may damage. */
 export const ION_STORM_TARGET_SYSTEMS = ['DEFLECTOR', 'LONG_RANGE_SENSORS', 'SHORT_RANGE_SENSORS', 'SUBLIGHT_DRIVE', 'WARPDRIVE'] as const;
@@ -38,8 +38,8 @@ export class SpacecraftIonStormEffects implements IonStormEffects {
   private readonly now: () => number;
 
   constructor(private readonly deps: IonStormEffectsDependencies) {
-    this.damage = new SpacecraftDamage(deps.random);
     this.now = deps.now ?? Date.now;
+    this.damage = new SpacecraftDamage(deps.random, this.now);
   }
 
   async affectStormFields(
@@ -115,6 +115,7 @@ export class SpacecraftIonStormEffects implements IonStormEffects {
   private deactivateShields(ship: Spacecraft, info: string[]): void {
     const shields = this.systems(ship).SHIELDS;
     if (shields?.active) {
+      recordSpacecraftShieldHit(ship, this.now());
       shields.active = false;
       info.push('Die Schilde sind ausgefallen');
     }

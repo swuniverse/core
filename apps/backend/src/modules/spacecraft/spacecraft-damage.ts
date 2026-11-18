@@ -67,7 +67,7 @@ const SYSTEM_NAMES: Record<string, string> = {
  * persisting and destruction stay with the caller.
  */
 export class SpacecraftDamage {
-  constructor(private readonly random: DamageRandom) {}
+  constructor(private readonly random: DamageRandom, private readonly clock: () => number = Date.now) {}
 
   apply(ship: Spacecraft, request: DamageRequest, info: string[]): { destroyed: boolean } {
     const damage = { ...request };
@@ -90,7 +90,7 @@ export class SpacecraftDamage {
 
   private damageShields(ship: Spacecraft, systems: Record<string, SystemState>, damage: DamageRequest, info: string[]): void {
     const split = splitSpacecraftDamage(ship, damage);
-    recordSpacecraftShieldHit(ship);
+    recordSpacecraftShieldHit(ship, this.clock());
     const absorbed = split.shieldDamage;
     damage.netDamage = split.remainingNetDamage;
     if (absorbed >= ship.shields) {

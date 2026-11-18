@@ -504,6 +504,8 @@ export interface StationExpansionOptionDto {
 }
 
 export interface SpacecraftDetailDto {
+  /** Current free shield gain when regeneration is eligible and due. */
+  shieldRegeneration?: number;
   hasLastCombatReport?: boolean;
   id: number;
   name: string;
@@ -1280,3 +1282,5 @@ export interface RpgScenePlotDto { id: number; title: string; }
 export type SpacecraftVisibilityPayload =
   | { type: 'REMOVED'; shipId: number }
   | { type: 'STATE'; shipId: number; state: SharedLivePositionDto };
+
+export { getShieldRegenerationRate, SHIELD_REGENERATION_INTERVAL_MS, type ShieldRegenerationInput } from './shield-regeneration.js';

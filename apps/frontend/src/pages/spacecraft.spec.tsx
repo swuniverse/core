@@ -32,7 +32,7 @@ const ship = {
   shields: 40,
   shieldsMax: 50,
   shieldActive: true,
-  shieldRegeneration: 5,
+  shieldRegeneration: 4,
   energy: 70,
   energyMax: 100,
   energyGain: 8,
@@ -67,6 +67,32 @@ describe('SpacecraftPage', () => {
     await act(async () => { handlers.get(WsEventType.SPACECRAFT_VISIBILITY_CHANGED)?.({ type: 'REMOVED', shipId: ship.id }); });
     await act(async () => { finish([ship]); });
     expect(screen.queryAllByText('Falke')).toHaveLength(0);
+  });
+  it('reloads the ship list only for shield-regeneration events', async () => {
+    apiMocks.get.mockReset();
+    apiMocks.get.mockResolvedValue([ship]);
+    render(<MemoryRouter><SpacecraftPage /></MemoryRouter>);
+    await screen.findAllByText('Falke');
+    apiMocks.get.mockClear();
+
+    await act(async () => {
+      handlers.get(WsEventType.SPACECRAFT_EVENT)?.({
+        type: 'SYSTEM_TOGGLED',
+        shipId: ship.id,
+      });
+    });
+    expect(apiMocks.get).not.toHaveBeenCalled();
+
+    await act(async () => {
+      handlers.get(WsEventType.SPACECRAFT_EVENT)?.({
+        type: 'SHIELDS_REGENERATED',
+        shipId: ship.id,
+      });
+    });
+    await waitFor(() =>
+      expect(apiMocks.get).toHaveBeenCalledWith('/spacecraft'),
+    );
+    expect(apiMocks.get.mock.calls.filter(([path]) => path === '/spacecraft')).toHaveLength(1);
   });
   it('removes a hidden scene from an already open player list and reloads after revelation', async () => {
     apiMocks.get.mockReset(); apiMocks.get.mockResolvedValue([ship]);
@@ -434,6 +460,31 @@ describe('SpacecraftPage', () => {
       screen.getByLabelText('Torpedos nicht vorhanden').className,
     ).toContain('opacity-20');
     expect(screen.getByLabelText('Bereitschaft')).toBeTruthy();
+  });
+
+  it('uses the list regeneration rate from the server and omits a zero rate', async () => {
+    apiMocks.get.mockResolvedValue([
+      ship,
+      { ...ship, id: 3, name: 'Adler', shieldRegeneration: 0 },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <SpacecraftPage />
+      </MemoryRouter>,
+    );
+
+    await screen.findAllByText('Falke');
+    const rows = screen.getAllByRole('row');
+    const falke = rows.find((row) => row.textContent?.includes('Falke'));
+    const adler = rows.find((row) => row.textContent?.includes('Adler'));
+    expect(falke?.textContent).toContain('40/50 +4');
+    expect(falke?.textContent).not.toContain('40/50 +5');
+    expect(falke?.querySelectorAll('td')[6]?.getAttribute('title')).toContain(
+      'Kostenlose Schildregeneration alle 15 Minuten',
+    );
+    expect(adler?.textContent).toContain('40/50');
+    expect(adler?.textContent).not.toContain('40/50 +');
   });
 });
 

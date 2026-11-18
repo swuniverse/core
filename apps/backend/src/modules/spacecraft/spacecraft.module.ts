@@ -62,6 +62,7 @@ import { SpacecraftCrewService } from './spacecraft-crew.service';
 import { SpacecraftTorpedoService } from './spacecraft-torpedo.service';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 import { SpacecraftResourceFlowService } from './spacecraft-resource-flow.service';
+import { SpacecraftShieldRegenerationService } from './spacecraft-shield-regeneration.service';
 import { ColonyStorageService } from '../colony/colony-storage.service';
 import { StarmapModule } from '../starmap/starmap.module';
 import { ResearchRewardShipService } from './research-reward-ship.service';
@@ -226,6 +227,7 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     StationClassDiscoveryService,
     HyperdriveDisruptionService,
     SpacecraftAlertService,
+    SpacecraftShieldRegenerationService,
     CartographyPlanService,
     TransferService,
     EpsTransferService,

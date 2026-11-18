@@ -272,6 +272,7 @@ function withDefaults(
   values: Pick<SpacecraftRuntimeSystemState, 'current' | 'max'>,
 ): SpacecraftRuntimeSystemState {
   return {
+    ...state,
     active: state?.active ?? true,
     cooldown: state?.cooldown ?? 0,
     integrity: state?.integrity ?? 100,

@@ -24,6 +24,7 @@ interface ShipHeaderTableProps {
     hullMax: number;
     shields: number;
     shieldsMax: number;
+    shieldRegeneration?: number;
     energy: number;
     energyMax: number;
     reactorOutput: number;
@@ -123,10 +124,7 @@ export function ShipHeaderTable({
   };
 
   const classLabel = ship.shipClassName ?? `Klasse ${ship.shipClassId}`;
-  const shieldRegeneration =
-    ship.shields < ship.shieldsMax
-      ? Math.max(1, Math.round(ship.shieldsMax * 0.1))
-      : 0;
+  const shieldRegeneration = ship.shieldRegeneration ?? 0;
   const crewClassName =
     ship.crew < (ship.crewRequired ?? 0)
       ? 'text-red-400'
@@ -149,7 +147,8 @@ export function ShipHeaderTable({
       label: 'Schilde',
       value: `${ship.shields}/${ship.shieldsMax}${shieldRegeneration > 0 ? ` +${shieldRegeneration}` : ''}`,
       icon: 'sb_schilde_1.png',
-      tooltip: 'Regeneration: 10 % der maximalen Schilde je Haupttick',
+      tooltip:
+        'Kostenlose Schildregeneration alle 15 Minuten, wenn alle Voraussetzungen erfüllt sind: aufgerundet 10 % der maximalen Schilde, begrenzt auf die fehlenden Schilde.',
       valueClassName: systems?.SHIELDS?.active
         ? 'text-cyan-400'
         : 'text-swu-muted',

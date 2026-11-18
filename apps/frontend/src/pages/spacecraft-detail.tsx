@@ -134,6 +134,16 @@ export function SpacecraftDetailPage() {
     setShipRefreshVersion((version) => version + 1);
   });
 
+  useSocket(WsEventType.SPACECRAFT_EVENT, (payload) => {
+    const event = payload as { type?: string; shipId?: number };
+    if (
+      event.type !== 'SHIELDS_REGENERATED' ||
+      event.shipId !== Number(id)
+    )
+      return;
+    void refreshShipAndStorage();
+  });
+
   if (loading)
     return (
       <div className="p-3 text-swu-muted md:p-6">Schiff wird geladen...</div>

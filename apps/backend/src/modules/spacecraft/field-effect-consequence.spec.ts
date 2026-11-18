@@ -100,8 +100,10 @@ describe('FieldEffectConsequence', () => {
     await consequence.onEnterField(target, field(FieldEffect.SHIELD_MALFUNCTION), []);
     expect(target.shields).toBe(35);
     expect((target.runtimeSystems.SHIELDS as { active: boolean }).active).toBe(false);
+    expect(target.runtimeSystems.SHIELDS).toMatchObject({ regenerationStartedAt: now.getTime() });
     await consequence.onTick(target, field(FieldEffect.SHIELD_MALFUNCTION));
     expect(target.shields).toBe(30);
+    expect(target.runtimeSystems.SHIELDS).toMatchObject({ regenerationStartedAt: now.getTime() });
   });
 
   it('regenerates a healthy present system on entry and tick with deterministic random', async () => {

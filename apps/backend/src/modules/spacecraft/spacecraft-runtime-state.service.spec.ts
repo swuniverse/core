@@ -8,6 +8,11 @@ import {
 } from './spacecraft-runtime-state.service';
 
 describe('SpacecraftRuntimeStateService', () => {
+  it('preserves the persistent shield regeneration timer when refreshing current/max values', () => {
+    const ship = { shields: 20, shieldsMax: 100, modules: [{ category: 'SHIELDS', moduleType: 'Schilde', isActive: true }],
+      runtimeSystems: { SHIELDS: { active: false, integrity: 90, cooldown: 0, regenerationStartedAt: 1800000000000 } } } as never;
+    expect(new SpacecraftRuntimeStateService().initialize(ship).SHIELDS).toMatchObject({ active: false, current: 20, max: 100, regenerationStartedAt: 1800000000000 });
+  });
   it('uses explicit STU startup modes while leaving installation health intact', () => {
     const modules = [
       ['COMPUTER', 'Computer'], ['SPECIAL', 'Hypermaterie-Reaktor'],

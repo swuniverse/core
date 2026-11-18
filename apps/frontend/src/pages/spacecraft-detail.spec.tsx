@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { WsEventType } from '@swuniverse/shared';
 import { SpacecraftDetailPage } from './spacecraft-detail';
 
 const apiMocks = vi.hoisted(() => ({
@@ -8,11 +9,18 @@ const apiMocks = vi.hoisted(() => ({
   put: vi.fn(),
   patch: vi.fn(),
 }));
+const socketHandlers = vi.hoisted(
+  () => new Map<string, (payload: unknown) => void>(),
+);
 vi.mock('../services/api', () => ({
   api: apiMocks,
   ApiError: class ApiError extends Error {},
 }));
-vi.mock('../hooks/use-socket', () => ({ useSocket: vi.fn() }));
+vi.mock('../hooks/use-socket', () => ({
+  useSocket: (event: string, handler: (payload: unknown) => void) => {
+    if (!socketHandlers.has(event)) socketHandlers.set(event, handler);
+  },
+}));
 vi.mock('../components/Toast', () => ({ useToast: () => ({ info: vi.fn() }) }));
 vi.mock('../lib/assets', () => ({
   shipImage: () => '/ship.png',
@@ -94,6 +102,59 @@ function CurrentLocation() {
 }
 
 describe('SpacecraftDetailPage', () => {
+  it('refreshes shield regeneration only for the selected ship', async () => {
+    socketHandlers.delete(WsEventType.SPACECRAFT_EVENT);
+    apiMocks.get.mockImplementation((path: string) => {
+      if (path === '/spacecraft/2') return Promise.resolve(ship);
+      if (path === '/spacecraft/2/local-map') return Promise.resolve(map);
+      if (path === '/spacecraft/2/field-context')
+        return Promise.resolve({
+          coordinates: { x: 5, y: 5 },
+          wormholePassages: [],
+          starSystem: null,
+          region: null,
+          colony: null,
+          information: { canSectorScan: false, cartographyKnown: true },
+        });
+      if (path === '/spacecraft/2/modules' || path === '/spacecraft/2/cargo')
+        return Promise.resolve([]);
+      if (path === '/spacecraft/2/torpedoes') return Promise.resolve(null);
+      if (path === '/spacecraft/2/cartography') return Promise.resolve(null);
+      if (path === '/colonies') return Promise.resolve([]);
+      return Promise.resolve([]);
+    });
+    render(
+      <MemoryRouter initialEntries={['/spacecraft/2']}>
+        <Routes>
+          <Route path="/spacecraft/:id" element={<SpacecraftDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText('Korvette')).toBeTruthy();
+    await waitFor(() =>
+      expect(apiMocks.get).toHaveBeenCalledWith('/spacecraft/2/field-context'),
+    );
+    await act(async () => Promise.resolve());
+    apiMocks.get.mockClear();
+
+    const eventHandler = socketHandlers.get(WsEventType.SPACECRAFT_EVENT);
+    expect(eventHandler).toBeTypeOf('function');
+    await act(async () => {
+      eventHandler?.({ type: 'SYSTEM_TOGGLED', shipId: 2 });
+      eventHandler?.({ type: 'SHIELDS_REGENERATED', shipId: 99 });
+    });
+    expect(apiMocks.get).not.toHaveBeenCalled();
+
+    await act(async () => {
+      eventHandler?.({ type: 'SHIELDS_REGENERATED', shipId: 2 });
+    });
+    await waitFor(() =>
+      expect(
+        apiMocks.get.mock.calls.filter(([path]) => path === '/spacecraft/2'),
+      ).toHaveLength(1),
+    );
+  });
+
   it('lets a tractored ship attempt to escape', async () => {
     apiMocks.get.mockImplementation((path: string) => {
       if (path === '/spacecraft/2') return Promise.resolve(ship);

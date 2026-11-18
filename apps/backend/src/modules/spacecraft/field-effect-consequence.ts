@@ -5,6 +5,7 @@ import { MessagingService, type TransactionalNotifications } from '../messaging/
 import { GameGateway } from '../websocket/game.gateway';
 import type { Spacecraft } from './entities/spacecraft.entity';
 import type { FlightConsequence, FlightConsequenceField } from './flight-consequence-pipeline';
+import { recordSpacecraftShieldHit } from './spacecraft-damage';
 
 export const STU_RANDOM_TOKEN = 'STU_RANDOM';
 export const STU_CLOCK_TOKEN = 'STU_CLOCK';
@@ -67,6 +68,7 @@ export class FieldEffectConsequence implements FlightConsequence {
       const systems = ship.runtimeSystems as Record<string, SystemState>;
       if (systems.SHIELDS) systems.SHIELDS.active = false;
       const loss = this.leak(ship.shields, ship.shieldsMax);
+      if (loss > 0) recordSpacecraftShieldHit(ship, this.clock().getTime());
       ship.shields -= loss;
       if (loss || systems.SHIELDS) messages.push(`Schildstörung: ${loss} Schildladung verloren.`);
     }
