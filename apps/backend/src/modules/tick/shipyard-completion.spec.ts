@@ -304,4 +304,22 @@ describe('ShipyardCompletionService', () => {
     ).rejects.toBe(notificationError);
     expect(notificationFixture.gateway.emitToUser).not.toHaveBeenCalled();
   });
+  it('completes later jobs when an earlier job fails and still reports every failure', async () => {
+    const f = fixture();
+    const broken = job(6, ShipBuildSource.COLONY, ColonyShipBuildQueueMode.BUILD);
+    const alsoBroken = job(7, ShipBuildSource.COLONY, ColonyShipBuildQueueMode.BUILD);
+    const healthy = job(8, ShipBuildSource.STATION, ColonyShipBuildQueueMode.BUILD);
+    f.colonyShipyard.completeJob.mockRejectedValue(new Error('broken row'));
+    f.stationShipyard.completeJob.mockResolvedValue({ id: 508, name: 'Spätes Schiff' });
+
+    await expect(f.service.completeJobs([broken, alsoBroken, healthy])).rejects.toThrow(
+      'Shipyard jobs failed: 6, 7',
+    );
+    expect(f.stationShipyard.completeJob).toHaveBeenCalledTimes(1);
+    expect(f.gateway.emitToUser).toHaveBeenCalledWith(
+      healthy.userId,
+      'SPACECRAFT_EVENT',
+      expect.objectContaining({ shipId: 508 }),
+    );
+  });
 });

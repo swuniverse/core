@@ -10,6 +10,7 @@ jest.mock('../anomaly/entities/anomaly.entity', () => ({
 jest.mock('../websocket/game.gateway', () => ({
   GameGateway: class GameGateway {},
 }));
+import { Logger } from '@nestjs/common';
 import {
   getShieldRegenerationRate,
   SHIELD_REGENERATION_INTERVAL_MS,
@@ -253,7 +254,18 @@ describe('SpacecraftShieldRegenerationService independent run', () => {
   it('does not emit success if persistence fails', async () => {
     const f = fixture();
     f.manager.update.mockRejectedValue(new Error('save failed'));
-    await expect(f.service.regenerate(NOW)).rejects.toThrow('save failed');
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    await expect(f.service.regenerate(NOW)).resolves.toBe(0);
     expect(f.gateway.emitToUser).not.toHaveBeenCalled();
+  });
+
+  it('keeps regenerating later ships when one ship fails', async () => {
+    const f = fixture();
+    f.candidates.getRawMany.mockResolvedValue([{ id: 1 }, { id: 2 }]);
+    f.manager.update.mockRejectedValueOnce(new Error('broken row'));
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+    await expect(f.service.regenerate(NOW)).resolves.toBe(1);
+    expect(f.gateway.emitToUser).toHaveBeenCalledTimes(1);
   });
 });

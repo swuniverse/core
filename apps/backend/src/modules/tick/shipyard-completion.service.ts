@@ -42,45 +42,60 @@ export class ShipyardCompletionService {
   }
 
   async completeJobs(jobs: ColonyShipBuildQueue[]): Promise<void> {
+    // A failing job must not block every later job each minute; the tick still fails.
+    const failures: Array<{ jobId: number; error: unknown }> = [];
     for (const job of jobs) {
-      const afterCommit: Array<() => void> = [];
-      const retrofit = job.mode === ColonyShipBuildQueueMode.RETROFIT;
-      const type = retrofit
-        ? 'SHIP_RETROFIT_COMPLETED'
-        : 'SHIP_BUILD_COMPLETED';
-      const onCompleted = async (manager: EntityManager, ship: Spacecraft) => {
-        await this.messaging.sendSystem(
-          job.userId,
-          retrofit ? 'Schiffsumrüstung abgeschlossen' : 'Schiff fertiggestellt',
-          retrofit
-            ? `Die Umrüstung von ${ship.name} wurde abgeschlossen.`
-            : `${ship.name} wurde fertiggestellt.`,
-          `shipyard-completed:${job.id}`,
-          MessageFolder.SHIP,
-          undefined,
-          false,
-          { manager, afterCommit },
-        );
-      };
-      const ship =
-        job.source === ShipBuildSource.STATION
-          ? await this.stationShipyard.completeJob(job, onCompleted)
-          : await this.colonyShipyard.completeJob(job, onCompleted);
-      if (!ship) continue;
-      for (const notify of afterCommit) notify();
-      const detail = retrofit
-        ? `Die Umrüstung von ${ship.name} wurde abgeschlossen.`
-        : `${ship.name} wurde fertiggestellt.`;
-      this.gateway.emitToUser(job.userId, WsEventType.SPACECRAFT_EVENT, {
-        shipId: ship.id,
-        type,
-        detail,
-      });
-      if (job.colonyId != null) {
-        this.gateway.emitToUser(job.userId, WsEventType.COLONY_UPDATED, {
-          colonyId: job.colonyId,
-        });
+      try {
+        await this.completeJob(job);
+      } catch (error) {
+        failures.push({ jobId: job.id, error });
       }
+    }
+    if (failures.length === 1) throw failures[0].error;
+    if (failures.length) {
+      throw new AggregateError(
+        failures.map((failure) => failure.error),
+        `Shipyard jobs failed: ${failures.map((failure) => failure.jobId).join(', ')}`,
+      );
+    }
+  }
+
+  private async completeJob(job: ColonyShipBuildQueue): Promise<void> {
+    const afterCommit: Array<() => void> = [];
+    const retrofit = job.mode === ColonyShipBuildQueueMode.RETROFIT;
+    const type = retrofit ? 'SHIP_RETROFIT_COMPLETED' : 'SHIP_BUILD_COMPLETED';
+    const onCompleted = async (manager: EntityManager, ship: Spacecraft) => {
+      await this.messaging.sendSystem(
+        job.userId,
+        retrofit ? 'Schiffsumrüstung abgeschlossen' : 'Schiff fertiggestellt',
+        retrofit
+          ? `Die Umrüstung von ${ship.name} wurde abgeschlossen.`
+          : `${ship.name} wurde fertiggestellt.`,
+        `shipyard-completed:${job.id}`,
+        MessageFolder.SHIP,
+        undefined,
+        false,
+        { manager, afterCommit },
+      );
+    };
+    const ship =
+      job.source === ShipBuildSource.STATION
+        ? await this.stationShipyard.completeJob(job, onCompleted)
+        : await this.colonyShipyard.completeJob(job, onCompleted);
+    if (!ship) return;
+    for (const notify of afterCommit) notify();
+    const detail = retrofit
+      ? `Die Umrüstung von ${ship.name} wurde abgeschlossen.`
+      : `${ship.name} wurde fertiggestellt.`;
+    this.gateway.emitToUser(job.userId, WsEventType.SPACECRAFT_EVENT, {
+      shipId: ship.id,
+      type,
+      detail,
+    });
+    if (job.colonyId != null) {
+      this.gateway.emitToUser(job.userId, WsEventType.COLONY_UPDATED, {
+        colonyId: job.colonyId,
+      });
     }
   }
 }

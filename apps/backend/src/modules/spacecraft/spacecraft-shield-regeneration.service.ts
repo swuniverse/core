@@ -51,61 +51,16 @@ export class SpacecraftShieldRegenerationService {
       .getRawMany<{ id: number }>();
     let changed = 0;
     for (const { id } of ids) {
-      const result = await this.db.transaction(async (manager) => {
-        // Re-read eligibility under the row lock: repeated/multi-process runs
-        // cannot credit the same period twice, and contested ships are skipped.
-        const ship = await manager.findOne(Spacecraft, {
-          where: { id },
-          relations: [
-            'modules',
-            'location',
-            'location.galaxyField',
-            'location.galaxyField.fieldType',
-            'location.systemField',
-            'location.systemField.fieldType',
-          ],
-          lock: {
-            mode: 'pessimistic_write',
-            tables: ['spacecraft'],
-            onLocked: 'skip_locked',
-          },
-        });
-        if (!ship) return null;
-        initializeSpacecraftRuntimeSystems(ship);
-        const crew = await manager.count(CrewAssignment, {
-          where: { spacecraftId: ship.id },
-        });
-        const anomalies =
-          ship.locationId == null
-            ? []
-            : await manager.find(Anomaly, {
-                where: {
-                  locationId: ship.locationId,
-                  remainingTicks: MoreThan(0),
-                },
-                relations: ['type'],
-              });
-        const gain = spacecraftShieldRegenerationRate(
-          ship,
-          crew,
-          Math.max(0, ship.crewRequired ?? 0),
-          anomalies.map((entry) => entry.type.key),
-          now,
-        );
-        if (gain === 0) return null;
-        ship.shields += gain;
-        const system = ship.runtimeSystems!.SHIELDS as {
-          regenerationStartedAt: number;
-          current: number;
-        };
-        system.regenerationStartedAt = now;
-        system.current = ship.shields;
-        await manager.update(Spacecraft, ship.id, {
-          shields: ship.shields,
-          runtimeSystems: ship.runtimeSystems,
-        });
-        return { userId: ship.userId, shipId: ship.id, gain };
-      });
+      // One broken ship must not stop regeneration for every later ship each minute.
+      const result = await this.regenerateOne(id, now).catch(
+        (error: unknown) => {
+          this.logger.error(
+            `Shield regeneration failed for spacecraft ${id}`,
+            error,
+          );
+          return null;
+        },
+      );
       if (!result) continue;
       changed++;
       this.gateway.emitToUser(result.userId, WsEventType.SPACECRAFT_EVENT, {
@@ -117,5 +72,63 @@ export class SpacecraftShieldRegenerationService {
     if (changed)
       this.logger.debug(`Shields regenerated for ${changed} spacecraft`);
     return changed;
+  }
+
+  private regenerateOne(id: number, now: number) {
+    return this.db.transaction(async (manager) => {
+      // Re-read eligibility under the row lock: repeated/multi-process runs
+      // cannot credit the same period twice, and contested ships are skipped.
+      const ship = await manager.findOne(Spacecraft, {
+        where: { id },
+        relations: [
+          'modules',
+          'location',
+          'location.galaxyField',
+          'location.galaxyField.fieldType',
+          'location.systemField',
+          'location.systemField.fieldType',
+        ],
+        lock: {
+          mode: 'pessimistic_write',
+          tables: ['spacecraft'],
+          onLocked: 'skip_locked',
+        },
+      });
+      if (!ship) return null;
+      initializeSpacecraftRuntimeSystems(ship);
+      const crew = await manager.count(CrewAssignment, {
+        where: { spacecraftId: ship.id },
+      });
+      const anomalies =
+        ship.locationId == null
+          ? []
+          : await manager.find(Anomaly, {
+              where: {
+                locationId: ship.locationId,
+                remainingTicks: MoreThan(0),
+              },
+              relations: ['type'],
+            });
+      const gain = spacecraftShieldRegenerationRate(
+        ship,
+        crew,
+        Math.max(0, ship.crewRequired ?? 0),
+        anomalies.map((entry) => entry.type.key),
+        now,
+      );
+      if (gain === 0) return null;
+      ship.shields += gain;
+      const system = ship.runtimeSystems!.SHIELDS as {
+        regenerationStartedAt: number;
+        current: number;
+      };
+      system.regenerationStartedAt = now;
+      system.current = ship.shields;
+      await manager.update(Spacecraft, ship.id, {
+        shields: ship.shields,
+        runtimeSystems: ship.runtimeSystems,
+      });
+      return { userId: ship.userId, shipId: ship.id, gain };
+    });
   }
 }
