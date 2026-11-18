@@ -1,6 +1,6 @@
 # Warenkonto-Vertrag für die STU-Kontobox erweitern
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -57,4 +57,4 @@ Die STU-Warenkontobox (`tradeAccounts.twig`) braucht je Konto Daten, die `GET tr
   - Neu `TradeOverviewDto.accountBoxes[]` über `TradeAccountBoxService`: ein Eintrag je Posten mit eigenem Bestand oder Angebotsreserve. Name, Netz, Besitzer und Standort kommen aus `TradeQueryService.listPosts` (gleiche Sichtbarkeitsregel, kein neues Leck), Platz aus `TradeStorageService.getCapacity`, Transferkapazität nur bei NPC-Besitzer, Lizenzanzahl nur `expiresAt > now`. Name im Vertrag: `storage { occupied, limit, isOverStorage }` (occupied = Bestand). Alte Felder `accounts`/`transferCapacities` bleiben bis tmw-AUD-01b.
   - Tests: Unit `trade-storage.service.spec.ts` (Reserve belegt keinen Platz, Überfüllung), neu `trade-account-box.service.spec.ts` (Box, Überfüllung, nur gültige Lizenzen, Spielerposten ohne Transferkapazität mit Bedingung/Eigentümer, leer), Controller-Spec. `jest src/modules/trade` 50/50, PostgreSQL `test-integration trade` 135/135 (zwei Erwartungen in `trade-offer.int-spec.ts` auf die neue Regel umgestellt). ESLint 0 Fehler, `tsc` Backend und Frontend (app + spec) sauber.
   - Offen für den Prüfpass: Abschlussreview; die Lizenz-Ablauffilterung der Box ist nur per Mock geprüft (keine PostgreSQL-Spec für `TradeAccountBoxService`); gemeinsamer Build.
-
+- 2026-11-18 – Prüfpass bestanden, resolved (Opus 5.5). Diff-Review ohne Befund; alle Platzprüfungen laufen über `TradeStorageService.capacityIn`, keine zweite Summenlogik. PostgreSQL `trade` 135/135 bereits im Umsetzungslauf. Gemeinsamer Build `nx run-many -t build -p backend frontend shared` erfolgreich; `nx lint backend frontend` 0 Fehler (124 vorbestehende Warnungen). tmw-AUD-01b ist damit unblockiert.

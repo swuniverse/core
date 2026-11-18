@@ -2,6 +2,7 @@ import { isRpgHidden } from './rpg-visibility';
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -219,7 +220,10 @@ export class SpacecraftCommunicationService {
         body: `[DIRECT:${target.id}] ${text}`,
       }),
     );
-    await this.awardForeignContactExperience(source, target.userId);
+    // The PM is already delivered; an XP failure must not invite a resend.
+    await this.awardForeignContactExperience(source, target.userId).catch((error: unknown) =>
+      new Logger(SpacecraftCommunicationService.name).error('Crew experience for nearby message failed', error),
+    );
     return { delivered: true };
   }
 

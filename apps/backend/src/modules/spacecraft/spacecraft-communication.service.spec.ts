@@ -7,7 +7,7 @@ jest.mock('./entities/spacecraft.entity', () => ({
   SpacecraftStatus: { DESTROYED: 'DESTROYED' },
 }));
 
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import { SpacecraftCommunicationService } from './spacecraft-communication.service';
 
 function serviceFixture() {
@@ -133,6 +133,14 @@ describe('SpacecraftCommunicationService', () => {
 
       expect(relationships.resolve).toHaveBeenCalledWith(1, 2);
       expect(crewEnhancement.enhanceSpacecraft).toHaveBeenCalledWith(7, 'FOREIGN_CONTACT_MESSAGE');
+    });
+
+    it('still reports delivery when awarding experience fails', async () => {
+      const { service, crewEnhancement } = nearby();
+      crewEnhancement.enhanceSpacecraft.mockRejectedValue(new Error('db down'));
+      jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+      await expect(service.sendNearbyMessage(7, 1, 8, 'Hallo')).resolves.toEqual({ delivered: true });
     });
 
     it('gives no experience to a friend', async () => {

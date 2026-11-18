@@ -100,7 +100,7 @@ export function QuickPmDialog({
             id="quick-pm-body"
             value={body}
             onChange={(event) => setBody(event.target.value)}
-            maxLength={1000}
+            maxLength={nearby ? 1000 : 10_000}
             rows={8}
             autoFocus
             className="mt-1 w-full border border-swu-border bg-black/30 p-2 text-swu-text"

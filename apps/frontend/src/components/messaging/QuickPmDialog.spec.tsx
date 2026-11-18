@@ -1,12 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
-const api = vi.hoisted(() => ({ post: vi.fn() }));
-vi.mock('../../services/api', () => ({ api }));
-
 import { useAuthStore } from '../../stores/auth.store';
 import { PmLink } from '../PmLink';
 import { QuickPmDialog } from './QuickPmDialog';
+
+const api = vi.hoisted(() => ({ post: vi.fn() }));
+vi.mock('../../services/api', () => ({ api }));
 
 describe('QuickPmDialog', () => {
   beforeEach(() => {

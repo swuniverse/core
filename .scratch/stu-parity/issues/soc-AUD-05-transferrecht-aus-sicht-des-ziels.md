@@ -1,6 +1,6 @@
 # Transferberechtigung aus Sicht des Zielbesitzers wie STU
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** S
 **Blocked by:** —
@@ -49,4 +49,4 @@ Beim Transfer an fremde Schiffe fragt SWU die Beziehung aus Sicht des **Absender
   - Tests mit echtem `RelationshipResolverService` + `InMemoryAllianceStore` und gerichtetem Kontaktport: einseitig Absender (abgelehnt), einseitig Ziel, beidseitig, gleiche Allianz, Abkommen mit Freund-Recht (erlaubt) – Waren an ungeschütztes Ziel sowie Waren/Crew/Torpedo an geschütztes Ziel (Quote + Crew-Aktion). EPS: dieselbe Fünfermatrix über `InteractionContextService.load(…, ['stanceAllowed'])`. Gegenprobe: alter Stand → 10 neue Tests rot.
   - Gelaufen: `jest src/modules/spacecraft src/modules/alliance/relationship-resolver src/modules/alert-reaction src/modules/trade` → 864/867 grün; die 3 Fehlschläge (`spacecraft-tachyon-scan.spec.ts`, `navicomputer-jump.spec.ts`) treten identisch auf unverändertem HEAD 5555d6a9 auf. ESLint ohne Fehler (3 vorbestehende `any`-Warnungen), Backend-`tsc --noEmit` sauber.
   - Offen für den Prüfpass: Abschlussreview des Diffs, PostgreSQL-/API-Regression der Transferpfade, gemeinsamer Build.
-
+- 2026-11-18 – Prüfpass bestanden, resolved (Opus 5.5). Diff-Review ohne Befund: nur die zwei Argumentvertauschungen; NBS-Aktionsbuttons fragen weiterhin keine Beziehung ab (vorbestehend, Server lehnt beim Transfer ab). PostgreSQL: `settler-relationship-effects`, `cargo-dispose`, `foreign-crew`, `starmap-contacts-requests` grün; `rpg-transponder` 1 Fehler (`nearby/:id/scan` 403 statt 404) identisch auf 5555d6a9, also unabhängig. Gemeinsamer Build `nx run-many -t build -p backend frontend shared` erfolgreich; `nx lint backend frontend` 0 Fehler (124 vorbestehende Warnungen).
