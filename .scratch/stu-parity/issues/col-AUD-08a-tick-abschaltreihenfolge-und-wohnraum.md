@@ -1,6 +1,6 @@
 # Kolonie-Tick: Abschaltreihenfolge Waren → Wohnraum → Energie wie STU
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -57,3 +57,4 @@ SWU prüft in anderer Reihenfolge: zuerst Energie, dann Arbeiter gegen die aktue
 - [ ] Gemeinsamer Workspace-Build: `npx nx run-many --targets=build`.
 
 Bis dieser Prüfpass erfolgreich abgeschlossen ist, bleibt das Ticket `claimed`; col-AUD-08b bleibt davon blockiert. Die erfolgreichen Tick-Tests müssen ohne zwischenzeitliche relevante Änderungen nicht erneut ausgeführt werden.
+- 2026-11-18 – Prüfpass (Opus 5.5): Diff-Review ohne Befund: Schleife endet, weil jede Abschaltung ein Feld dauerhaft aus der Auswahl nimmt; Feldindex-Reihenfolge deterministisch. Gesamtlauf auf `bd2ea161`: Backend-Unit 2599/2599, Frontend 917/917, PostgreSQL 902/1041 – die 139 Fehlschläge sind identisch mit dem Stand vor allen acht Prüfpass-Tickets (`26ff9e76~1`; überwiegend globale HTTP-403 und `lastReports`-Konstruktorverschiebung aus sc-WP-UI-4), also keine Regression. Build `backend frontend shared` und Lint 0 Fehler. resolved; col-AUD-08b unblockiert.

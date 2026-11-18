@@ -61,3 +61,4 @@ STU zählt alle Spacecraft am Feld einschließlich Stationen, in jedem Zustand, 
 - [ ] Gemeinsamer Workspace-Build: `npx nx run-many --targets=build`.
 
 Das Ticket bleibt bis zum erfolgreich abgeschlossenen Prüfpass `claimed`. Erfolgreiche gezielte Tests ohne zwischenzeitliche relevante Änderungen nicht wiederholen.
+- 2026-11-18 – Prüfpass (Opus 5.5): Diff-Review ohne Befund (Tarnung, RPG-Sichtbarkeit, Status ≠ DESTROYED). Gesamtlauf auf `bd2ea161`: Backend-Unit 2599/2599, Frontend 917/917, PostgreSQL 902/1041 – die 139 Fehlschläge sind identisch mit dem Stand vor allen acht Prüfpass-Tickets (`26ff9e76~1`; überwiegend globale HTTP-403 und `lastReports`-Konstruktorverschiebung aus sc-WP-UI-4), also keine Regression. Build `backend frontend shared` und Lint 0 Fehler. Offen: Browserprüfung – Teleskop-Panel: Stationskategorie und Energiemeldung. Status bleibt `claimed`.
