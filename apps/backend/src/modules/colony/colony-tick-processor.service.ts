@@ -387,100 +387,99 @@ export class ColonyTickProcessorService {
   ): Promise<void> {
     const deactivatedFieldIds = new Set<number>();
 
-    balancing: for (let round = 0; round < 100; round++) {
-      const summary = this.colonyStatsService.calculateSummary(
+    while (true) {
+      let deactivated = false;
+      let currentSummary = this.colonyStatsService.calculateSummary(
         colony,
         deactivatedFieldIds,
       );
-      const activeFields = summary.activeFields;
+      const commodityIds = [
+        ...new Set([
+          ...currentSummary.productionDelta.keys(),
+          ...currentSummary.depositConsumption.keys(),
+        ]),
+      ].sort((a, b) => a - b);
 
-      if (
-        summary.energyDelta < 0 &&
-        getColonyChangeable(colony).energy + summary.energyDelta < 0
-      ) {
-        if (
-          await this.deactivateFirstMatchingField(
-            colony,
-            activeFields,
-            deactivatedFieldIds,
-            events,
-            'Energie',
-            (definition) => (definition.epsProc || 0) < 0,
-          )
-        ) {
-          continue balancing;
-        }
-      }
-
-      if (summary.workersUsed > getEffectiveCurrentPopulation(colony)) {
-        if (
-          await this.deactivateFirstMatchingField(
-            colony,
-            activeFields,
-            deactivatedFieldIds,
-            events,
-            'Arbeiter',
-            (definition) => (definition.bevUse || 0) > 0,
-          )
-        ) {
-          continue balancing;
-        }
-      }
-
-      for (const [commodityId] of summary.depositConsumption) {
-        const netDelta = summary.depositDelta.get(commodityId) ?? 0;
-        if (netDelta >= 0) continue;
-        const shortfall = Math.abs(netDelta);
-        const mining = await this.ensureDepositMining(colony, commodityId);
-        if (!mining || mining.amountLeft < shortfall) {
-          if (
-            await this.deactivateFirstMatchingField(
-              colony,
-              activeFields,
-              deactivatedFieldIds,
-              events,
-              `kein ${this.gameData.getCommodity(commodityId)?.name ?? 'Rohstoff'}`,
-              (definition) =>
-                definition.production.some(
-                  (p) => p.commodityId === commodityId && p.amount < 0,
-                ),
-              { commodityId },
-            )
-          ) {
-            continue balancing;
-          }
-        }
-      }
-
-      for (const [commodityId, amount] of summary.productionDelta) {
-        if (amount >= 0) continue;
+      // STU checks every commodity before housing and energy, removing at most
+      // one consumer per commodity in each round. Recalculate after each removal
+      // because a building can consume or produce several different commodities.
+      for (const commodityId of commodityIds) {
+        const current = currentSummary;
         const commodity = this.gameData.getCommodity(commodityId);
-        if (commodity?.isTradeOnly && !commodity.isEffect) continue;
-        const storage = await this.storageRepo.findOne({
-          where: { colonyId: colony.id, commodityId },
-        });
-        const available = storage?.amount || 0;
-        if (available + amount < 0) {
-          if (
-            await this.deactivateFirstMatchingField(
-              colony,
-              activeFields,
-              deactivatedFieldIds,
-              events,
-              `kein ${this.gameData.getCommodity(commodityId)?.name ?? 'Rohstoff'}`,
-              (definition) =>
-                definition.production.some(
-                  (p) => p.commodityId === commodityId && p.amount < 0,
-                ),
-              { commodityId },
-            )
-          ) {
-            continue balancing;
-          }
+        const depositDelta = current.depositDelta.get(commodityId) ?? 0;
+        let shortage = false;
+        if (current.depositConsumption.has(commodityId) && depositDelta < 0) {
+          const mining = await this.ensureDepositMining(colony, commodityId);
+          shortage = !mining || mining.amountLeft < Math.abs(depositDelta);
+        }
+        const amount = current.productionDelta.get(commodityId) ?? 0;
+        if (amount < 0 && !(commodity?.isTradeOnly && !commodity.isEffect)) {
+          const storage = await this.storageRepo.findOne({
+            where: { colonyId: colony.id, commodityId },
+          });
+          shortage ||= (storage?.amount ?? 0) + amount < 0;
+        }
+        if (!shortage) continue;
+        const changed = await this.deactivateFirstMatchingField(
+          colony,
+          current.activeFields,
+          deactivatedFieldIds,
+          events,
+          `kein ${commodity?.name ?? 'Rohstoff'}`,
+          (definition) =>
+            definition.production.some(
+              (entry) => entry.commodityId === commodityId && entry.amount < 0,
+            ),
+          { commodityId },
+        );
+        if (changed) {
+          deactivated = true;
+          currentSummary = this.colonyStatsService.calculateSummary(
+            colony,
+            deactivatedFieldIds,
+          );
         }
       }
 
-      break;
+      const housingSummary = currentSummary;
+      // The changeable capacity is maintained by building activation/deactivation.
+      // summary.maxHousing also includes current population and masks lost housing.
+      if (housingSummary.workersUsed > getColonyChangeable(colony).maxPopulation) {
+        const changed = await this.deactivateFirstMatchingField(
+          colony,
+          housingSummary.activeFields,
+          deactivatedFieldIds,
+          events,
+          'Wohnraum',
+          (definition) => (definition.bevUse || 0) > 0,
+        );
+        if (changed) {
+          deactivated = true;
+          currentSummary = this.colonyStatsService.calculateSummary(
+            colony,
+            deactivatedFieldIds,
+          );
+        }
+      }
+
+      const energySummary = currentSummary;
+      if (
+        energySummary.energyDelta < 0 &&
+        getColonyChangeable(colony).energy + energySummary.energyDelta < 0
+      ) {
+        const changed = await this.deactivateFirstMatchingField(
+          colony,
+          energySummary.activeFields,
+          deactivatedFieldIds,
+          events,
+          'Energie',
+          (definition) => (definition.epsProc || 0) < 0,
+        );
+        deactivated ||= changed;
+      }
+      // Each successful pass removes an active building, so this terminates
+      // without leaving an unresolved shortage after an arbitrary round limit.
+      if (!deactivated) break;
     }
 
     const summary = this.colonyStatsService.calculateSummary(
@@ -575,8 +574,13 @@ export class ColonyTickProcessorService {
     matches: (definition: BuildingDef) => boolean,
     eventExtra: Partial<ColonyTickEvent> = {},
   ): Promise<boolean> {
-    for (const field of activeFields) {
-      if (this.isHeadquartersField(field)) continue;
+    // STU's selection query has no ordering; field index keeps SWU deterministic.
+    for (const field of [...activeFields].sort(
+      (a, b) => a.fieldIndex - b.fieldIndex || a.id - b.id,
+    )) {
+      if (
+        !field.isActive || field.isBuilding || deactivatedFieldIds.has(field.id)
+      ) continue;
       const definition = this.gameData.getBuilding(field.buildingId!);
       if (!definition || !matches(definition)) continue;
 

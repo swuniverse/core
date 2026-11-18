@@ -51,6 +51,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Entscheidungen
 
+- 2026-11-18 – **col-AUD-08a umgesetzt, Prüfung ausstehend**: Waren/Vorkommen → Wohnraum → Energie, deterministische Auswahl ohne Zentralen-Ausnahme und ohne pauschale 100-Runden-Grenze. 232 gezielte Tick-Tests und ein Snapshot erfolgreich; Abschlussreview, Lint, Typecheck, weitere Kolonie-Regressionen und gemeinsamer Build bleiben für den getrennten Prüfpass offen. Status `claimed`, col-AUD-08b weiter blockiert. Prüfablauf auf Nutzerwunsch in [Workflow](../../docs/agents/ticket-workflow.md) festgehalten – siehe [Ticket](issues/col-AUD-08a-tick-abschaltreihenfolge-und-wohnraum.md).
+
 - 2026-11-18 – **col-AUD-07 resolved**: Upgrades aktiver Orbitalwartungsquellen deaktivieren und markieren ihre Verbraucher. Gemeinsamer Haupt-/Minutentick-Abschluss reaktiviert zulässige Verbraucher, meldet die Anzahl und bereinigt Markierungen auch bei fehlender Aktivierung, Ersatz oder Abriss. 253 Backend- und 4 Frontend-Tests sowie Typechecks, Lint ohne Fehler und Builds erfolgreich – siehe [Ticket](issues/col-AUD-07-reaktivierung-nach-upgrade.md).
 
 - 2026-11-18 – **col-AUD-01 resolved**: Einzel- und Sammelreparatur im UI mit Backend-Kostenvorschau, Mangel-/Schadenshinweisen und Aktualisierung bei offenem Felddialog; laufende Reparaturen respektieren Koloniewechsel. Backend-Verhalten unverändert, Besitzer-/Kosten-/Baustellenfälle zusätzlich geprüft. 94 Frontend- und 21 relevante Backend-Tests, Typechecks, Lint ohne Fehler und Builds erfolgreich; visuelle Komponentenprüfung mit lokalen Fixtures über nativen Chrome-Zugriff nachgeholt – siehe [Ticket](issues/col-AUD-01-gebaeudereparatur-im-ui.md).

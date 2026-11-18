@@ -1679,6 +1679,117 @@ describe('colony give up', () => {
   });
 });
 
+describe('colony tick shortage priority', () => {
+  const field = (id: number, fieldIndex: number, buildingId = id) => ({
+    id, fieldIndex, buildingId, isActive: true, isBuilding: false,
+  });
+  function setup(
+    definitions: Record<number, Record<string, unknown>>,
+    fields: ReturnType<typeof field>[],
+    housing = 20,
+  ) {
+    const fixture = createColonyService();
+    const originalBuilding = fixture.gameData.getBuilding.getMockImplementation();
+    const base = fixture.gameData.getBuilding(401);
+    fixture.gameData.getBuilding.mockImplementation((id: number) =>
+      definitions[id]
+        ? { ...base, bevUse: 0, bevPro: 0, production: [], ...definitions[id] }
+        : originalBuilding(id),
+    );
+    fixture.gameData.getColonyClass.mockReturnValue({ baseProduction: [] });
+    const workers = fields.reduce((sum, entry) =>
+      sum + (fixture.gameData.getBuilding(entry.buildingId).bevUse || 0), 0);
+    const colony = {
+      id: 1, userId: 1, colonyClassId: 999,
+      energy: 0, energyMax: 100, population: 20, populationMax: housing,
+      storageMax: 100, storageUsed: 0, fields,
+      stats: { workers, workless: 20 - workers, maxPopulation: housing },
+    };
+    const events: ColonyTickEvent[] = [];
+    return { ...fixture, colony, events,
+      run: () => fixture.tickProcessorService.balanceAndProduce(colony as never, events) };
+  }
+
+  it('handles a commodity shortage before simultaneous energy shortage', async () => {
+    const { run, events } = setup({
+      1: { name: 'Energieverbraucher', epsProc: -1 },
+      2: { name: 'Warenverbraucher', epsProc: -1, production: [{ commodityId: 2, amount: -1 }] },
+    }, [field(1, 0), field(2, 10)]);
+    await run();
+    expect(events.map((event) => event.fieldIndex)).toEqual([10, 0]);
+    expect(events[0]).toMatchObject({ buildingName: 'Warenverbraucher', commodityId: 2 });
+    expect(events[1]).toMatchObject({ buildingName: 'Energieverbraucher', reason: 'Energie' });
+  });
+
+  it('deactivates employers after housing is lost, before checking energy', async () => {
+    const { run, colony, events } = setup({
+      1: { name: 'Energieverbraucher', epsProc: -1 },
+      2: { name: 'Arbeitgeber', bevUse: 6 },
+      3: { name: 'Wohngebäude', bevPro: 10, production: [{ commodityId: 2, amount: -1 }] },
+    }, [field(1, 0), field(2, 10), field(3, 20)], 10);
+    await run();
+    expect(events.map((event) => event.fieldIndex)).toEqual([20, 10, 0]);
+    expect(events[1]).toMatchObject({ buildingName: 'Arbeitgeber', reason: 'Wohnraum' });
+    expect(colony.stats).toMatchObject({ workers: 0, workless: 20, maxPopulation: 0 });
+  });
+
+  it('checks every commodity once per round before energy and then repeats', async () => {
+    const { run, events } = setup({
+      1: { name: 'Verbraucher A1', production: [{ commodityId: 2, amount: -1 }] },
+      2: { name: 'Verbraucher A2', production: [{ commodityId: 2, amount: -1 }] },
+      3: { name: 'Verbraucher B', production: [{ commodityId: 3, amount: -1 }] },
+      4: { name: 'Energieverbraucher', epsProc: -1 },
+    }, [field(4, 4), field(3, 3), field(2, 2), field(1, 1)]);
+    await run();
+    expect(events.map((event) => event.fieldIndex)).toEqual([1, 3, 4, 2]);
+  });
+
+  it('recalculates later commodity balances after a multi-commodity consumer is removed', async () => {
+    const { run, colony, events } = setup({
+      1: { name: 'Mehrfachverbraucher', production: [{ commodityId: 2, amount: -1 }, { commodityId: 3, amount: -1 }] },
+      2: { name: 'Verbraucher B', production: [{ commodityId: 3, amount: -1 }] },
+      3: { name: 'Erzeuger B', production: [{ commodityId: 3, amount: 1 }] },
+    }, [field(1, 1), field(2, 2), field(3, 3)]);
+    await run();
+    expect(events.map((event) => event.fieldIndex)).toEqual([1]);
+    expect(colony.fields[1].isActive).toBe(true);
+  });
+
+  it.each(['commodity', 'housing', 'energy'] as const)(
+    'allows the colony central to deactivate for %s shortage', async (shortage) => {
+      const { run, colony, events } = setup({
+        82010100: { name: 'Koloniezentrale',
+          ...(shortage === 'commodity' ? { production: [{ commodityId: 2, amount: -1 }] } : {}),
+          ...(shortage === 'housing' ? { bevUse: 1 } : {}),
+          ...(shortage === 'energy' ? { epsProc: -1 } : {}),
+        },
+      }, [field(1, 1, 82010100)], shortage === 'housing' ? 0 : 20);
+      await run();
+      expect(colony.fields[0].isActive).toBe(false);
+      expect(events).toEqual([expect.objectContaining({ buildingName: 'Koloniezentrale' })]);
+    },
+  );
+
+  it('treats an exhausted deposit as a commodity shortage before energy', async () => {
+    const { run, depositMiningRepo, events } = setup({
+      1: { name: 'Energieverbraucher', epsProc: -1 },
+      2: { name: 'Förderanlage', production: [{ commodityId: 1505, amount: -3 }] },
+    }, [field(1, 1), field(2, 2)]);
+    depositMiningRepo.findOne.mockResolvedValue({ amountLeft: 0 });
+    await run();
+    expect(events.map((event) => event.fieldIndex)).toEqual([2, 1]);
+    expect(events[0]).toMatchObject({ buildingName: 'Förderanlage', commodityId: 1505 });
+  });
+
+  it('continues until energy is balanced even when more than 100 removals are needed', async () => {
+    const fields = Array.from({ length: 105 }, (_, index) => field(index + 1, index, 1));
+    const { run, events } = setup({ 1: { name: 'Energieverbraucher', epsProc: -1 } }, fields);
+    await run();
+    expect(fields.every((entry) => !entry.isActive)).toBe(true);
+    expect(events).toHaveLength(105);
+  });
+});
+
 describe('colony tick calculations', () => {
   it('uses one summary for active building and colony-class production', () => {
     const { statsService } = createColonyService();
@@ -4265,7 +4376,7 @@ describe('colony tick calculations', () => {
     expect(fieldRepo.save).not.toHaveBeenCalledWith(consumer);
   });
 
-  it('uses effective population stats for tick worker deactivation', async () => {
+  it('keeps employers active when housing is sufficient despite low current population', async () => {
     const { service, fieldRepo } = createColonyService();
     const workerField = {
       id: 2,
@@ -4292,9 +4403,10 @@ describe('colony tick calculations', () => {
 
     await (service as any).balanceAndProduce(colony);
 
-    expect(workerField.isActive).toBe(false);
-    expect(fieldRepo.save).toHaveBeenCalledWith(workerField);
-    expect(colony.stats).toMatchObject({ workers: 0, workless: 5 });
+    // STU compares employment to housing capacity, rather than current population.
+    expect(workerField.isActive).toBe(true);
+    expect(fieldRepo.save).not.toHaveBeenCalledWith(workerField);
+    expect(colony.stats).toMatchObject({ workers: 3, workless: 2 });
   });
 
   it('deactivates a non-HQ building when EPS would go below zero', async () => {
