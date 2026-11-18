@@ -29,6 +29,9 @@ import {
 } from './spacecraft-field';
 import { isCloaked } from './spacecraft-cloak';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
+import { RelationshipResolverService } from '../alliance/relationship-resolver.service';
+import { CrewEnhancementService } from './crew-enhancement.service';
+import { CrewEnhancementEvent } from './crew-expertise';
 
 const BROADCAST_COOLDOWN_MS = 30_000;
 
@@ -48,6 +51,8 @@ export class SpacecraftCommunicationService {
     private readonly messaging: MessagingService,
     private readonly gateway: GameGateway,
     private readonly runtimeState: SpacecraftRuntimeStateService,
+    private readonly relationships: RelationshipResolverService,
+    private readonly crewEnhancement: CrewEnhancementService,
   ) {}
 
   private async requireShip(
@@ -214,7 +219,24 @@ export class SpacecraftCommunicationService {
         body: `[DIRECT:${target.id}] ${text}`,
       }),
     );
+    await this.awardForeignContactExperience(source, target.userId);
     return { delivered: true };
+  }
+
+  /**
+   * STU `QuickPmCrewExperience`: own ship/station to a non-NPC, non-friend
+   * owner on the same field (checked above). Friend from the sender's view.
+   */
+  private async awardForeignContactExperience(source: Spacecraft, recipientId: number) {
+    const [recipient, stance] = await Promise.all([
+      this.userRepo.findOneBy({ id: recipientId }),
+      this.relationships.resolve(source.userId, recipientId),
+    ]);
+    if (!recipient || recipient.isNpc || stance.isFriend) return;
+    await this.crewEnhancement.enhanceSpacecraft(
+      source.id,
+      CrewEnhancementEvent.FOREIGN_CONTACT_MESSAGE,
+    );
   }
 
   async broadcast(shipId: number, userId: number, body: string) {

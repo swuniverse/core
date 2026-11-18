@@ -102,10 +102,8 @@ describe('PlayerProfilePage', () => {
     expect(container.textContent).not.toContain('[quote]');
     expect(screen.queryByText('Allianz')).toBeNull();
     expect(
-      screen.getByRole('link', { name: 'Nachricht an Vader schreiben' }).getAttribute(
-        'href',
-      ),
-    ).toBe('/messages?tab=compose&to=1&name=Vader');
+      screen.getByRole('button', { name: 'Nachricht an Vader schreiben' }),
+    ).toBeTruthy();
   });
 
   it('adds another player to contacts from their profile', async () => {

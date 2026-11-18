@@ -1,6 +1,6 @@
 # Schnell-PM als Popup mit Quell-/Zielkontext und Crew-XP
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -35,14 +35,14 @@ Dieser Teil baut das Popup, den Kontext-Endpunkt und die Crew-XP und stellt die 
 
 ## Akzeptanzkriterien
 
-- [ ] Wiederverwendbares Popup/Overlay „Schnell-PM“: zeigt den Empfänger (Name, ID) nur an, ein Textfeld, Absenden ohne Seitenwechsel, Erfolgs- bzw. Fehlermeldung im Popup; Escape/Schließen ohne Datenverlust-Warnung nur bei leerem Text. Barrierefrei (`role="dialog"`, Fokusfalle).
-- [ ] `PmLink` öffnet dieses Popup statt auf `/messages` zu navigieren; alle bestehenden Einstiege (Profil, HoloNet, Forum, Datenbank-NPC-/Admin-Liste, Systemansicht, Mitgliederübersicht, Kontaktliste) nutzen es.
+- [x] Wiederverwendbares Popup/Overlay „Schnell-PM“: zeigt den Empfänger (Name, ID) nur an, ein Textfeld, Absenden ohne Seitenwechsel, Erfolgs- bzw. Fehlermeldung im Popup; Escape/Schließen ohne Datenverlust-Warnung nur bei leerem Text. Barrierefrei (`role="dialog"`, Fokusfalle).
+- [x] `PmLink` öffnet dieses Popup statt auf `/messages` zu navigieren; alle bestehenden Einstiege (Profil, HoloNet, Forum, Datenbank-NPC-/Admin-Liste, Systemansicht, Mitgliederübersicht, Kontaktliste) nutzen es.
 - [ ] Optionaler Kontext `source {type: SHIP|STATION|COLONY|USER, id}` und `target {type, id}`; der NBS-Dialog (Schiff/Station → Schiff/Station) läuft über dasselbe Popup mit Vorlagetext „<Schiff> sendet an <Ziel> in Sektor x|y“ wie heute.
 - [ ] Serverseitig: Ein Endpunkt (bestehender PM-Versand erweitert oder neuer Quick-PM-Endpunkt) prüft den Kontext: Quelle gehört dem Absender, Zielbesitzer = Empfänger. Ungültiger Kontext → PM wird trotzdem verschickt, aber ohne XP (wie STU).
 - [ ] Crew-XP `FOREIGN_CONTACT_MESSAGE` wie STU: Quelle ist eigenes Schiff oder eigene Station; Ziel ist Schiff/Station/Kolonie des Empfängers; Empfänger kein NPC; gleiches Feld; Empfänger ist aus Sicht des Absenders kein Freund. Sonst keine XP.
-- [ ] Ignorierliste, Leerer-Text-Prüfung und Längengrenzen gelten wie beim normalen Versand.
-- [ ] Backend-Tests: XP bei fremdem neutralem Ziel auf demselben Feld; keine XP bei Freund, NPC, anderem Feld, fremder Quelle, Kontext USER.
-- [ ] Frontend-Tests: `PmLink` öffnet Popup statt Navigation; Versand ruft API und zeigt Erfolg; Fehler bleibt im Popup; NBS-Dialog übergibt Kontext.
+- [x] Ignorierliste, Leerer-Text-Prüfung und Längengrenzen gelten wie beim normalen Versand.
+- [x] Backend-Tests: XP bei fremdem neutralem Ziel auf demselben Feld; keine XP bei Freund, NPC, anderem Feld, fremder Quelle, Kontext USER.
+- [x] Frontend-Tests: `PmLink` öffnet Popup statt Navigation; Versand ruft API und zeigt Erfolg; Fehler bleibt im Popup; NBS-Dialog übergibt Kontext.
 
 ## Herkunft
 
@@ -51,3 +51,11 @@ Dieser Teil baut das Popup, den Kontext-Endpunkt und die Crew-XP und stellt die 
 - `soc-A2-schnell-pm-ueberall.md` (resolved) hat den Seitenwechsel-Link gebaut; dessen Form wird ersetzt.
 
 ## Comments
+
+- 2026-11-18 – umgesetzt, Prüfung ausstehend (Opus 5.5 direkt). Commit „feat(messages): quick PM popup with nearby crew experience (soc-AUD-07a)“.
+  - Neues `QuickPmDialog` (natives `<dialog>` mit `showModal`: Fokusfalle, Escape → bei Text Rückfrage „Text verwerfen?“). Empfänger fest (Name, ID falls bekannt), kein Betreff, Erfolg/Fehler im Popup. `PmLink` öffnet es; zusätzlich umgestellt: Mitgliederübersicht, Systemansicht in der Datenbank, Kontaktliste. `NearbyMessageDialog` entfernt, NBS nutzt das Popup mit `nearby`-Kontext (Vorlagetext unverändert serverseitig).
+  - Backend: `sendNearbyMessage` vergibt `FOREIGN_CONTACT_MESSAGE` nach dem Versand, wenn Empfänger kein NPC und aus Sicht des Absenders kein Freund ist (STU `QuickPmCrewExperience`). Eigene Quelle, Zielbesitzer = Empfänger und gleiches Feld prüfte der Endpunkt schon. Stationen sind `Spacecraft` und damit abgedeckt.
+  - Tests: Backend 5 neue Fälle (XP neutral; keine XP bei Freund, NPC, anderem Feld, fremder Quelle). Frontend `QuickPmDialog.spec.tsx` (Popup statt Navigation, Versand ohne Betreff, Fehler bleibt mit Text, NBS-Kontext, Verwerfen-Schutz); 5 Seiten-Specs von Link-URL auf Popup-Button umgestellt. `vitest src/pages src/components` 847/847, Backend-Spec 9/9, ESLint 0 Fehler, `tsc` Frontend (app + spec) und Backend sauber.
+  - Offen, Entscheidung PO: (1) Ungültiger NBS-Kontext (anderes Feld, Hyperraum) lehnt der Endpunkt weiter ab, statt die PM ohne XP zu senden – der NBS-Dialog bietet nur gültige Ziele an, ein Fallback ohne Schiffskontext wäre neuer Code ohne Einstieg. (2) Kolonie als XP-Ziel: kein Einstieg mit Schiffsquelle in 07a; folgt mit soc-AUD-07c. (3) Allgemeiner typisierter Kontext `source/target {type, id}` ist nicht gebaut; heute gibt es nur USER (ohne XP) und den NBS-Fall Schiff/Station → Schiff/Station. Sinnvoll zusammen mit soc-AUD-07c, sobald Einstiege mit Kolonie- oder Stationskontext existieren. Kriterien 3, 4 und 5 deshalb nicht abgehakt.
+  - Offen für den Prüfpass: Abschlussreview, Browserprüfung des Dialogs (Fokus, Escape, Backdrop), gemeinsamer Build.
+

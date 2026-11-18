@@ -17,7 +17,7 @@ import { WsEventType } from '@swuniverse/shared';
 import { TransferDialog } from './TransferDialog';
 import { EpsTransferDialog } from './EpsTransferDialog';
 import { TargetScanDialog } from './TargetScanDialog';
-import { NearbyMessageDialog } from './NearbyMessageDialog';
+import { QuickPmDialog } from '../messaging/QuickPmDialog';
 import { CombatReportDialog } from './CombatReportDialog';
 
 export function NearbySensorPanel({
@@ -632,9 +632,9 @@ export function NearbySensorPanel({
         />
       )}
       {messageTarget && (
-        <NearbyMessageDialog
-          shipId={shipId}
-          target={messageTarget}
+        <QuickPmDialog
+          recipient={{ name: messageTarget.username ?? messageTarget.name }}
+          nearby={{ shipId, targetId: messageTarget.id, targetName: messageTarget.name }}
           onClose={() => setMessageTarget(null)}
         />
       )}

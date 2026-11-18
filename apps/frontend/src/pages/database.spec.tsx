@@ -599,8 +599,8 @@ describe('DatabasePage', () => {
       screen.getByRole('link', { name: 'Sternenkarte öffnen' }).getAttribute('href'),
     ).toBe('/starmap?layer=7&x=1&y=3');
     expect(
-      screen.getByRole('link', { name: 'Nachricht an lando' }).getAttribute('href'),
-    ).toBe('/messages?tab=compose&to=77&name=lando');
+      screen.getByRole('button', { name: 'Nachricht an lando schreiben' }),
+    ).toBeTruthy();
     expect(screen.getByText('Besitzerwechsel seit dem Scan')).toBeTruthy();
     expect(screen.getByText(/eigener Scan/)).toBeTruthy();
     expect(screen.getByText(/Scanner: han/)).toBeTruthy();

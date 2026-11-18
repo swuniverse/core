@@ -2,6 +2,7 @@ import { PlayerName } from '../components/PlayerName';
 import { UserMessageFolders, type UserMessageFolder } from '../components/messaging/UserMessageFolders';
 import { useEffect, useState, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { PmLink } from '../components/PmLink';
 import { BbCodeText } from '../components/BbCodeText';
 import { useToast } from '../components/Toast';
 import { formatDateTime, formatGameDate, formatGameDateTime } from '../lib/format';
@@ -937,7 +938,7 @@ export function MessagesPage() {
                       <td className="px-2 py-1 text-center"><input type="checkbox" aria-label={`Live-Position teilen mit ${contact.contactUsername}`} title="Du teilst Deine eigenen Schiffspositionen mit diesem Kontakt, nicht umgekehrt." checked={contact.shareLivePositions ?? false} disabled={pendingContactPermissions.has(contact.id)} onChange={(event) => void updateContactPermissions(contact, { shareLivePositions: event.target.checked })} /></td>
                       <td className="px-2 py-1"><input defaultValue={contact.comment} aria-label={`Kommentar für ${contact.contactUsername}`} onBlur={(event) => void updateContactComment(contact, event.target.value)} className="bg-swu-bg border border-swu-border px-1 py-0.5" /></td>
                       <td className="px-2 py-1">{formatDateTime(contact.createdAt)}</td>
-                      <td className="px-2 py-1"><Link to={`/messages?tab=compose&to=${contact.contactUserId}&name=${encodeURIComponent(contact.contactUsername)}`} className="text-swu-primary">PM</Link></td>
+                      <td className="px-2 py-1"><PmLink playerId={contact.contactUserId} playerName={contact.contactUsername} className="text-swu-primary">PM</PmLink></td>
                     </tr>
                   ))}
                 </tbody>

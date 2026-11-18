@@ -295,10 +295,8 @@ describe('AllianceForumTopicPage', () => {
     expect(container.querySelector('img[src="x"]')).toBeNull();
     expect(screen.getByText(/Rebellenallianz, Großadmiral/)).toBeTruthy();
     expect(
-      screen.getByRole('link', { name: 'Nachricht an Leia schreiben' }).getAttribute(
-        'href',
-      ),
-    ).toBe('/messages?tab=compose&to=1&name=Leia');
+      screen.getByRole('button', { name: 'Nachricht an Leia schreiben' }),
+    ).toBeTruthy();
   });
 
   it('does not offer a quick message for an own forum post', async () => {

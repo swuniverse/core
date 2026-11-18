@@ -484,12 +484,13 @@ export function DatabaseSystemDetailPage() {
                 {colony.isOwn && <span className="text-xs text-swu-primary">eigene Kolonie</span>}
                 {colony.isAbandoned && <span className="text-xs text-swu-muted">aufgegeben</span>}
                 {colony.canMessageOwner && colony.owner && (
-                  <Link
+                  <PmLink
                     className="ml-auto text-xs text-swu-accent hover:underline"
-                    to={`/messages?tab=compose&to=${colony.owner.id}&name=${encodeURIComponent(colony.owner.username)}`}
+                    playerId={colony.owner.id}
+                    playerName={colony.owner.username}
                   >
                     Nachricht an <PlayerName name={colony.owner.username} />
-                  </Link>
+                  </PmLink>
                 )}
               </li>
             ))}

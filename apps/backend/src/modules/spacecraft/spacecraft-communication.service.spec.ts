@@ -16,7 +16,10 @@ function serviceFixture() {
     find: jest.fn<Promise<any[]>, any[]>(async () => []),
     findOne: jest.fn(),
   };
-  const userRepo = { findBy: jest.fn<Promise<any[]>, any[]>(async () => []) };
+  const userRepo = {
+    findBy: jest.fn<Promise<any[]>, any[]>(async () => []),
+    findOneBy: jest.fn(async () => ({ id: 2, isNpc: false })),
+  };
   const logRepo = {
     findOne: jest.fn(),
     findAndCount: jest.fn(),
@@ -37,6 +40,8 @@ function serviceFixture() {
   const messaging = { send: jest.fn() };
   const gateway = { emitToAll: jest.fn() };
   const runtimeState = { initialize: jest.fn(() => ({})) };
+  const relationships = { resolve: jest.fn(async () => ({ isFriend: false })) };
+  const crewEnhancement = { enhanceSpacecraft: jest.fn() };
   const service = new SpacecraftCommunicationService(
     shipRepo as never,
     colonyRepo as never,
@@ -46,9 +51,13 @@ function serviceFixture() {
     messaging as never,
     gateway as never,
     runtimeState as never,
+    relationships as never,
+    crewEnhancement as never,
   );
   return {
     service,
+    relationships,
+    crewEnhancement,
     shipRepo,
     colonyRepo,
     userRepo,
@@ -100,6 +109,69 @@ describe('SpacecraftCommunicationService', () => {
       delivered: true,
     });
     expect(messaging.send).toHaveBeenCalled();
+  });
+
+  describe('FOREIGN_CONTACT_MESSAGE crew experience', () => {
+    function nearby(targetLocationId = 42) {
+      const fixture = serviceFixture();
+      fixture.shipRepo.findOne
+        .mockResolvedValueOnce({
+          id: 7, userId: 1, name: 'Source', status: 'IDLE',
+          locationId: 42, location: { id: 42, kind: 'GALAXY_FIELD' },
+        })
+        .mockResolvedValueOnce({
+          id: 8, userId: 2, name: 'Target', status: 'IDLE',
+          locationId: targetLocationId, location: { id: targetLocationId, kind: 'GALAXY_FIELD' },
+        });
+      return fixture;
+    }
+
+    it('rewards the source crew for a neutral foreign recipient on the same field', async () => {
+      const { service, crewEnhancement, relationships } = nearby();
+
+      await service.sendNearbyMessage(7, 1, 8, 'Hallo');
+
+      expect(relationships.resolve).toHaveBeenCalledWith(1, 2);
+      expect(crewEnhancement.enhanceSpacecraft).toHaveBeenCalledWith(7, 'FOREIGN_CONTACT_MESSAGE');
+    });
+
+    it('gives no experience to a friend', async () => {
+      const { service, crewEnhancement, relationships, messaging } = nearby();
+      relationships.resolve.mockResolvedValue({ isFriend: true });
+
+      await service.sendNearbyMessage(7, 1, 8, 'Hallo');
+
+      expect(messaging.send).toHaveBeenCalled();
+      expect(crewEnhancement.enhanceSpacecraft).not.toHaveBeenCalled();
+    });
+
+    it('gives no experience to an NPC', async () => {
+      const { service, crewEnhancement, userRepo, messaging } = nearby();
+      userRepo.findOneBy.mockResolvedValue({ id: 2, isNpc: true });
+
+      await service.sendNearbyMessage(7, 1, 8, 'Hallo');
+
+      expect(messaging.send).toHaveBeenCalled();
+      expect(crewEnhancement.enhanceSpacecraft).not.toHaveBeenCalled();
+    });
+
+    it('sends nothing and gives no experience on another field', async () => {
+      const { service, crewEnhancement, messaging } = nearby(43);
+
+      await expect(service.sendNearbyMessage(7, 1, 8, 'Hallo')).rejects.toThrow(
+        'Empfänger befindet sich nicht auf diesem Feld',
+      );
+      expect(messaging.send).not.toHaveBeenCalled();
+      expect(crewEnhancement.enhanceSpacecraft).not.toHaveBeenCalled();
+    });
+
+    it('gives no experience from a foreign source ship', async () => {
+      const { service, shipRepo, crewEnhancement } = serviceFixture();
+      shipRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.sendNearbyMessage(7, 1, 8, 'Hallo')).rejects.toThrow();
+      expect(crewEnhancement.enhanceSpacecraft).not.toHaveBeenCalled();
+    });
   });
 
   it('uses canonical colony locations for communication recipients', async () => {

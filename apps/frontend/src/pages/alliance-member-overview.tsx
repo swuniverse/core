@@ -1,6 +1,7 @@
 import { PlayerName } from '../components/PlayerName';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { PmLink } from '../components/PmLink';
 import {
   type AllianceColonyStockDto,
   type AllianceMemberColonyDto,
@@ -209,12 +210,13 @@ function MemberRow({
             >
               Profil
             </Link>
-            <Link
-              to={`/messages?tab=compose&to=${member.userId}&name=${encodeURIComponent(member.name)}`}
+            <PmLink
+              playerId={member.userId}
+              playerName={member.name}
               className="text-swu-accent hover:underline"
             >
               Nachricht
-            </Link>
+            </PmLink>
           </div>
         </div>
       )}

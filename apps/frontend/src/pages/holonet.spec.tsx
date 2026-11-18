@@ -137,10 +137,8 @@ describe('HolonetPage routing', () => {
     expect(screen.getAllByText('Widget Report')).toHaveLength(2);
     expect(screen.queryByText('NEU')).toBeNull();
     expect(
-      screen.getByRole('link', { name: 'Nachricht an rebel schreiben' }).getAttribute(
-        'href',
-      ),
-    ).toBe('/messages?tab=compose&to=8&name=rebel');
+      screen.getByRole('button', { name: 'Nachricht an rebel schreiben' }),
+    ).toBeTruthy();
     expect(
       screen.getByRole('link', { name: 'Profil von rebel öffnen' }).getAttribute(
         'href',

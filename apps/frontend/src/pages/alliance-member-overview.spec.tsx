@@ -110,10 +110,10 @@ describe('AllianceMemberOverviewPage', () => {
       screen.getByRole('link', { name: 'Profil' }).getAttribute('href'),
     ).toBe('/players/1');
     expect(
-      screen.getByRole('link', { name: 'Nachricht' }).getAttribute('href'),
-    ).toBe('/messages?tab=compose&to=1&name=Leia');
+      screen.getByRole('button', { name: 'Nachricht an Leia schreiben' }),
+    ).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: /Leia/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Leia/ }));
     expect(screen.queryByText('Hoth Base')).toBeNull();
   });
 
