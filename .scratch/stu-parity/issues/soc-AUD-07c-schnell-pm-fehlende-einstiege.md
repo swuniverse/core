@@ -34,6 +34,8 @@ STU bietet die Schnell-PM an deutlich mehr Stellen an als SWU. Es fehlen Siedler
 - [ ] Schiff → Kolonie: In der Schiffsansicht gibt es für fremde Kolonien auf demselben Feld bzw. im Orbit eine Nachrichtenaktion mit Kontext Quelle SHIP/STATION, Ziel COLONY; der Server akzeptiert Kolonieziele (Besitzer = Empfänger, gleiches Feld) und vergibt Crew-XP nach den Regeln aus soc-AUD-07a.
 - [ ] NPC-Empfänger sind erreichbar wie in STU (keine XP).
 - [ ] Frontend-Tests je Einstieg (Link vorhanden mit korrekter Empfänger-ID, fehlt beim eigenen Account); Backend-Test für Kolonieziel inkl. Feldprüfung.
+- [ ] (aus soc-AUD-07a, PO 2026-11-18) Allgemeiner Quick-PM-Kontext `source {type: SHIP|STATION|COLONY|USER, id}` / `target {type, id}`; der Server prüft Quelle = Absender und Zielbesitzer = Empfänger.
+- [ ] (aus soc-AUD-07a, PO 2026-11-18) Crew-XP `FOREIGN_CONTACT_MESSAGE` auch für Kolonie des Empfängers als Ziel (Schiff/Station → Kolonie im Orbit), mit Tests.
 
 ## Herkunft
 
