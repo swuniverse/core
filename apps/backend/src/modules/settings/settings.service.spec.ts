@@ -274,6 +274,26 @@ describe('SettingsService account deletion', () => {
 });
 
 describe('SettingsService vacation cooldown', () => {
+  it.each([
+    ['6 days 23 hours', (6 * 24 + 23) * 60 * 60 * 1000, false],
+    ['exactly seven days', 7 * 24 * 60 * 60 * 1000, false],
+    ['seven days plus one second', 7 * 24 * 60 * 60 * 1000 + 1000, true],
+  ])('enforces the strict last-activation boundary at %s', async (_label, elapsed, allowed) => {
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(1800000000000);
+    try {
+      const user = { vacationMode: false, vacationRequestedAt: new Date(Date.now() - Number(elapsed)),
+        vacationStartedAt: null, vacationEndedAt: new Date(), refreshToken: 'token' };
+      const { service, userRepo } = createService(user);
+      if (allowed) {
+        await service.activateVacation(7);
+        expect(user.vacationMode).toBe(true);
+        expect(userRepo.save).toHaveBeenCalledWith(user);
+      } else {
+        await expect(service.activateVacation(7)).rejects.toThrow('Urlaubsmodus ist noch gesperrt. Letzte Aktivierung ist weniger als eine Woche her!');
+        expect(userRepo.save).not.toHaveBeenCalled();
+      }
+    } finally { clock.mockRestore(); }
+  });
   it('counts seven days from the last activation', async () => {
     const requestedAt = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);
     const user = {
@@ -286,7 +306,7 @@ describe('SettingsService vacation cooldown', () => {
     const { service, userRepo } = createService(user);
 
     await expect(service.activateVacation(7)).rejects.toThrow(
-      '1 days remaining',
+      'Urlaubsmodus ist noch gesperrt. Letzte Aktivierung ist weniger als eine Woche her!',
     );
     expect(userRepo.save).not.toHaveBeenCalled();
   });

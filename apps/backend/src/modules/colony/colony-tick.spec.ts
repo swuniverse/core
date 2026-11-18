@@ -7232,7 +7232,7 @@ describe('main tick idempotency', () => {
     const shipRepo = { find: jest.fn(async () => []) };
     const users = [
       { id: 1, vacationMode: false },
-      { id: 2, vacationMode: true },
+      { id: 2, vacationMode: true, vacationStartedAt: new Date(Date.now() - 49 * 60 * 60 * 1000) },
     ];
     const userRepo = { find: jest.fn(async () => users) };
     const tickStateRepo = {

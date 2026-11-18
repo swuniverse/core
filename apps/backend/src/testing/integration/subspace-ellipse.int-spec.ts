@@ -221,7 +221,7 @@ describe('subspace ellipse in the main tick', () => {
   it('skips vacationing owners, ships without shields and already discharged ships with destroyed emitters', async () => {
     const owner = await createUser(source);
     const resting = await createUser(source);
-    await source.getRepository('User').update(resting.id, { vacationMode: true });
+    await source.getRepository('User').update(resting.id, { vacationMode: true, vacationStartedAt: new Date(Date.now() - 49 * 60 * 60 * 1000) });
     const layer = await source.getRepository('Layer').save({ name: 'Skips', width: 1, height: 1 });
     const fieldType = await source.getRepository('GalaxyFieldType').findOneByOrFail({});
     const field = await source.getRepository('GalaxyField').save({ layerId: layer.id, cx: 1, cy: 1, fieldTypeId: fieldType.id });

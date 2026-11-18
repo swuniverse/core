@@ -1,5 +1,5 @@
 import { In, type EntityManager } from 'typeorm';
-import { MessageTargetKind } from '@swuniverse/shared';
+import { isVacationEffective, MessageTargetKind } from '@swuniverse/shared';
 import type { IonStormEffects } from '../anomaly/ion-storm.handler';
 import type { AnomalyRandom } from '../anomaly/stu-random';
 import { User } from '../auth/user.entity';
@@ -56,9 +56,9 @@ export class SpacecraftIonStormEffects implements IonStormEffects {
     if (!ships.length) return;
     const vacationing = new Set(
       (await manager.getRepository(User).find({
-        select: { id: true },
+        select: { id: true, vacationMode: true, vacationStartedAt: true },
         where: { id: In([...new Set(ships.map((ship) => ship.userId))]), vacationMode: true },
-      })).map((user) => user.id),
+      })).filter((user) => isVacationEffective(user, new Date(this.now()))).map((user) => user.id),
     );
     const sectors = await this.sectors(manager, ships.map((ship) => ship.locationId));
     const modules = await this.modulesByShip(manager, ships.map((ship) => ship.id));

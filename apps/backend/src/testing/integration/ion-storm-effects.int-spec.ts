@@ -99,7 +99,7 @@ describe('ion storm effects on spacecraft (PostgreSQL)', () => {
     const ship = await spacecraft({ name: 'Falke', locationId: map.at(3, 2), runtimeSystems: { WARPDRIVE: { active: true, integrity: 100 } } });
     const station = await spacecraft({ name: 'Basis', kind: 'STATION', locationId: map.at(3, 2), shields: 40, runtimeSystems: { SHIELDS: { active: true, integrity: 100 } } });
     const resting = await createUser(source);
-    await source.getRepository('User').update(resting.id, { vacationMode: true });
+    await source.getRepository('User').update(resting.id, { vacationMode: true, vacationStartedAt: new Date(NOW - 49 * 60 * 60 * 1000) });
     const vacation = await spacecraft({ name: 'Urlaub', userId: resting.id, locationId: map.at(3, 2), runtimeSystems: { WARPDRIVE: { active: true, integrity: 100 } } });
     const behind = await spacecraft({ name: 'Zurück', locationId: map.at(2, 2), runtimeSystems: {} });
     // root share 1 %; ship: damage roll 10 of 1–10, no crit, system share ×1, hyperdrive

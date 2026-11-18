@@ -51,6 +51,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Entscheidungen
 
+- 2026-11-18 – **sh-AUD-05 umgesetzt, Prüfung ausstehend**: Urlaub schützt Wirtschaft/Crewlimit und Anomaliefälle erst nach mehr als 48 Stunden. Werftaufträge, Eigen-/Stationsreparaturen laufen weiter; Sieben-Tage-Sperre ab letzter Aktivierung und UI-Hinweise korrigiert. Leser-Audit und Ersatz von sh-AP-04c vermerkt. 44 Backend- und 1 Frontend-Test erfolgreich; PostgreSQL-/API-/Urlaubsregressionen, Abschlussreview, Browser, Lint/Typechecks und Build ausstehend. Status `claimed` – siehe [Ticket](issues/sh-AUD-05-urlaub-exakt-wie-stu.md).
+
 - 2026-11-18 – **sc-AUD-10 umgesetzt, Prüfung ausstehend**: Eigenständige kostenlose Schildregeneration nach persistentem 15-Minuten-Timer, mit Crew-/System-/Feld-/Anomaliebedingungen, gemeinsamem gedeckeltem `ceil(10 %)`-Wert für Liste/Kopf und Live-Aktualisierung. Haupttick-Gutschrift entfernt, Timer-Resets und Metadatenerhaltung ergänzt. 102 Backend- und 36 Frontend-Tests erfolgreich; PostgreSQL-/Anomalie-/Kampfregressionen, Abschlussreview, Browser, Lint/Typechecks und Build ausstehend. Status `claimed` – siehe [Ticket](issues/sc-AUD-10-schildregeneration-wie-stu.md).
 
 - 2026-11-18 – **sc-AUD-08 umgesetzt, Prüfung ausstehend**: Gemeinsame transaktionale Kampfvorbereitung mit Abdocken, Reparatur-/Retrofit-Abbruch, Warp/Tarnung aus und Alarmreaktion; manuelles Gelb schaltet Schilde/NBS/Strahlenwaffen mit EPS-Kosten. Rot bleibt nach dem Kampf erhalten; Schildtreffer setzen den persistenten Timer für sc-AUD-10. 164 gezielte Backend-Tests erfolgreich; Abschlussreview, PostgreSQL-/API-/Bewegungsregressionen, Browser, Lint/Typechecks und gemeinsamer Build ausstehend. Status `claimed` – siehe [Ticket](issues/sc-AUD-08-kampfvorbereitung-und-nachbereitung.md).
@@ -128,7 +130,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-21 – sc-WP-TRACT-1b – Option a: Traktor auf jedes fremde ungeschildete Schiff unabhängig von der Haltung (außer Urlauber/NPC)
 - 2026-10-21 – sc-WP-UI-3b – Option a: Kolonieangriff gezielt auf Gebäude/Feld wie STU AttackBuilding
 - 2026-10-21 – sh-AP-02 – Option a: System-News als eigene Entität `news`, nur Admins, unabhängig vom HoloNet
-- 2026-10-21 – sh-AP-04c – Option 1a, 2a: Urlaub pausiert Kolonie-Tick (Schiffe ohne Crewlimit-Folgen/passive Reparatur); 7-Tage-Sperre ab letzter Aktivierung
+- 2026-11-18 – sh-AP-04c ersetzt: Urlaub exakt wie STU, wirksam erst nach mehr als 48 Stunden; nur Koloniewirtschaft/Crewlimit pausieren, Werftaufträge und Reparaturen laufen weiter. Sperre bis mehr als sieben Tage nach Aktivierung. Umsetzung/Prüfstatus siehe [sh-AUD-05](issues/sh-AUD-05-urlaub-exakt-wie-stu.md).
 - 2026-10-21 – sh-AP-05d – Option a: Kolonien gelöschter Konten werden Ruinen (Pfad giveUpColony)
 - 2026-10-21 – sh-AP-07c – Option a: Tick-Zeitzone Default Europe/Berlin
 - 2026-10-21 – sh-AP-20 – Option a: Spielstatus TICK sperrt schreibende Spieleraktionen (503) während des Hauptticks
@@ -385,7 +387,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - tmw-D0a – Geschützten Systemdetailvertrag mit Kolonien, Scans, Kartenlink und nicht-taktischer Darstellung wiederhergestellt – siehe Feature-Commit
 - tmw-D0b – Systemdetailvertrag, Raster, Scanwissen, Schnellnachrichten und Kartographiefortsetzung verhaltensorientiert abgesichert – siehe Feature-Commit
 - sh-AP-04a – Urlaubsmodus mit 48-h-Vorlauf, Sitzungsende, Login-Beendigung und öffentlicher Kennzeichnung umgesetzt – siehe Feature-Commit
-- sh-AP-04c – Urlaub pausiert Kolonieticks, Crewlimit-Folgen und Schiffsreparaturen; Sperrfrist zählt ab Aktivierung – siehe Feature-Commit
+- sh-AP-04c – Frühere Urlaubssemantik durch „Urlaub exakt wie STU“ ersetzt; Schiffsreparaturen und Werftaufträge laufen weiter, Wirtschaft/Crewlimit pausieren erst nach dem Vorlauf – siehe [sh-AUD-05](issues/sh-AUD-05-urlaub-exakt-wie-stu.md) (umgesetzt, Prüfung ausstehend).
 - tmw-T1a – Handelsmodell mit Posten, Konten, Angebotsreserven, Transfers, Transaktionen und transaktionssicherem Speicher umgesetzt – siehe Feature-Commit
 - tmw-T1b – Fünf NPC-Handelsposten werden idempotent an deterministischen kanonischen Standorten gesät – siehe Feature-Commit
 - sc-WP-FLEET-2b – Flotten-Alarmstufe mit partiellen Ergebnissen und STU-Icons umgesetzt – siehe Feature-Commit

@@ -257,9 +257,16 @@ describe('StationRepairService passive self-repair', () => {
     expect(ctx.cargo[10001].amount).toBe(5);
   });
 
-  it('skips vacationing owners', async () => {
+  it('honors an explicit repair skip option independently of vacation', async () => {
     const ctx = setup({ station: { passiveRepair: true, hull: 900 }, workbees: 5 });
     await ctx.service.processTick(100, { skipRepair: true });
     expect(ctx.manager.findOne).not.toHaveBeenCalled();
+  });
+  it.each([47, 49])('continues passive station repair during a vacation request aged %i hours', async (hours) => {
+    const ctx = setup({ station: { passiveRepair: true, hull: 900,
+      user: { vacationMode: true, vacationStartedAt: new Date(Date.now() - hours * 60 * 60 * 1000) } }, workbees: 5 });
+    await ctx.service.processTick(100);
+    expect(ctx.station.hull).toBe(1000);
+    expect(ctx.cargo[10001].amount).toBe(4);
   });
 });

@@ -20,7 +20,7 @@ import { ColonyField } from '../colony/entities/colony-field.entity';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { User } from '../auth/user.entity';
 import { UserLockService } from '../auth/user-lock.service';
-import { WsEventType } from '@swuniverse/shared';
+import { isVacationEffective, WsEventType } from '@swuniverse/shared';
 import { resolveSpaceLocation } from '../spacecraft/spacecraft-field';
 import {
   GameTickState,
@@ -152,10 +152,12 @@ export class TickService {
       const researchByUser = new Map<number, number>();
       const commodityProductionByUser = new Map<number, Map<number, number>>();
       const users = await this.userRepo.find({
-        select: ['id', 'vacationMode', 'faction'],
+        select: ['id', 'vacationMode', 'vacationStartedAt', 'faction'],
       });
+      const vacationNow = new Date();
       const vacationUsers = new Set(
-        users.filter((user) => user.vacationMode).map((user) => user.id),
+        users.filter((user) => isVacationEffective(user, vacationNow))
+          .map((user) => user.id),
       );
       const colonyIds = await this.loadIds(this.colonyRepo);
       processedColonyCount = colonyIds.length;
@@ -168,10 +170,18 @@ export class TickService {
         for (const colony of colonies) {
           if (
             colony.userId == null ||
-            colony.isAbandoned ||
-            vacationUsers.has(colony.userId)
+            colony.isAbandoned
           )
             continue;
+          if (vacationUsers.has(colony.userId)) {
+            // Until the dedicated process cron owns these jobs, only the
+            // economy is frozen: paid construction/retrofit/repairs still finish.
+            await this.colonyService.processShipBuildQueue(colony);
+            this.gateway.emitToUser(colony.userId, WsEventType.COLONY_UPDATED, {
+              colonyId: colony.id,
+            });
+            continue;
+          }
           const colonyUserId = colony.userId;
           const tickResult = await this.colonyService.processTick(colony);
           researchByUser.set(
@@ -236,9 +246,7 @@ export class TickService {
           ],
         });
         for (const ship of ships) {
-          await this.spacecraftService.processTick(ship, {
-            skipRepair: vacationUsers.has(ship.userId),
-          });
+          await this.spacecraftService.processTick(ship);
           this.gateway.emitToUser(ship.userId, WsEventType.SHIP_MOVED, {
             shipId: ship.id,
             locationId: ship.location?.id ?? null,
@@ -255,7 +263,7 @@ export class TickService {
           commodityProductionByUser.get(user.id) || new Map(),
           user.faction,
         );
-        if (!user.vacationMode && this.colonyCrewService) {
+        if (!vacationUsers.has(user.id) && this.colonyCrewService) {
           const removed = await this.colonyCrewService.enforceGlobalCrewLimit(
             user.id,
           );

@@ -7,7 +7,7 @@ import { User } from '../auth/user.entity';
 import { Anomaly } from './entities/anomaly.entity';
 import { AnomalyType } from './entities/anomaly-type.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
-import { FieldEffect } from '@swuniverse/shared';
+import { FieldEffect, isVacationEffective } from '@swuniverse/shared';
 import { recordSpacecraftShieldHit } from '../spacecraft/spacecraft-damage';
 
 export interface EllipseRandom {
@@ -74,9 +74,9 @@ export class SubspaceEllipseHandler implements AnomalyHandler {
     });
     if (!ships.length) return;
     const vacationing = new Set((await manager.getRepository(User).find({
-      select: { id: true },
+      select: { id: true, vacationMode: true, vacationStartedAt: true },
       where: { id: In([...new Set(ships.map((ship) => ship.userId))]), vacationMode: true },
-    })).map((user) => user.id));
+    })).filter((user) => isVacationEffective(user)).map((user) => user.id));
     // Per owner and folder, as STU distributes ship and station reports separately.
     const reports = new Map<string, { ownerId: number; folder: MessageFolder; lines: string[] }>();
     for (const ship of ships) {

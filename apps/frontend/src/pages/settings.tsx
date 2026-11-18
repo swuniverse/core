@@ -719,11 +719,25 @@ function DangerTab() {
   return (
     <div className="space-y-6 max-w-lg">
       <Section title="Kryoschlaf (Urlaubsmodus)">
-        <p className="text-xs text-swu-muted mb-2">
-          Der Urlaubsmodus wird 48 Stunden nach der Aktivierung wirksam. Ab dann
-          pausiert die Tick-Verarbeitung; ein Login beendet den Urlaub. Nach
-          Deaktivierung gilt eine 7-Tage-Abklingzeit.
-        </p>
+        <ul className="mb-2 list-disc space-y-1 pl-5 text-xs text-swu-muted">
+          <li>
+            Während wirksamen Urlaubs sind dein Konto und die Koloniewirtschaft
+            eingefroren; andere Spieler können nicht mit dir interagieren.
+          </li>
+          <li>
+            Wirksam wird der Urlaub erst nach 48 Stunden ohne Login. Jeder Login
+            beendet den Urlaub.
+          </li>
+          <li>Der Urlaubsmodus wird an deinem Spielernamen gekennzeichnet.</li>
+          <li>
+            Eine erneute Aktivierung ist erst 7 Tage nach deiner letzten
+            Aktivierung möglich.
+          </li>
+          <li>
+            Schiffsbau, Umrüstung sowie Schiffs- und Stationsreparaturen laufen
+            während des Urlaubs weiter.
+          </li>
+        </ul>
         {profile?.vacationMode && (
           <p className="text-sm text-swu-warning mb-2">
             Wirksam ab{' '}

@@ -251,12 +251,9 @@ export class SettingsService {
 
     if (user.vacationRequestedAt) {
       const elapsed = Date.now() - user.vacationRequestedAt.getTime();
-      if (elapsed < VACATION_COOLDOWN_MS) {
-        const remainingDays = Math.ceil(
-          (VACATION_COOLDOWN_MS - elapsed) / (24 * 60 * 60 * 1000),
-        );
+      if (elapsed <= VACATION_COOLDOWN_MS) {
         throw new BadRequestException(
-          `Vacation cooldown active. ${remainingDays} days remaining.`,
+          'Urlaubsmodus ist noch gesperrt. Letzte Aktivierung ist weniger als eine Woche her!',
         );
       }
     }
