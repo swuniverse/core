@@ -2881,7 +2881,7 @@ describe('colony tick calculations', () => {
     expect(field.buildingId).toBe(101);
     expect(field.isBuilding).toBe(true);
     expect(field.activateAfterBuild).toBe(true);
-    expect(field.reactivateAfterUpgrade).toBe(1);
+    expect(field.reactivateAfterUpgrade).toBeNull();
     expect(fieldRepo.save).toHaveBeenCalledWith(field);
   });
 
@@ -2942,7 +2942,7 @@ describe('colony tick calculations', () => {
     expect(field.buildingId).toBe(101);
     expect(field.isBuilding).toBe(true);
     expect(field.activateAfterBuild).toBe(true);
-    expect(field.reactivateAfterUpgrade).toBe(1);
+    expect(field.reactivateAfterUpgrade).toBeNull();
     expect(fieldRepo.save).toHaveBeenCalledWith(field);
 
     const detail = (await service.findOne(1, 1)) as {

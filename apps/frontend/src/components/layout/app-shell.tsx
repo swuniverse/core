@@ -35,8 +35,15 @@ export function tutorialViewForPath(pathname: string): TutorialView | null {
 
 function formatColonyTickReport(payload: ColonyTickReportPayload): string {
   const first = payload.events[0];
+  const reactivatedCount = payload.events.reduce(
+    (count, event) => count + (event.reactivatedCount ?? 0),
+    0,
+  );
   const suffix =
-    payload.events.length > 1 ? ` (+${payload.events.length - 1})` : '';
+    (payload.events.length > 1 ? ` (+${payload.events.length - 1})` : '') +
+    (reactivatedCount > 0
+      ? ` – Es wurden ${reactivatedCount} Orbitalgebäude reaktiviert`
+      : '');
   if (!first) return `Kolonie ${payload.colonyId}: Tickreport`;
   if (first.type === 'BUILDING_DEACTIVATED') {
     return `Kolonie ${payload.colonyId}: Gebäude auf Feld ${first.fieldIndex ?? '?'} deaktiviert (${first.reason ?? 'Mangel'})${suffix}`;

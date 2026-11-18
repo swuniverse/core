@@ -61,6 +61,7 @@ export class ColonyField {
   @Column({ default: true })
   activateAfterBuild: boolean;
 
+  /** Upgrade source field ID whose completion may reactivate this consumer. */
   @Column({ type: 'int', nullable: true })
   reactivateAfterUpgrade: number | null;
 

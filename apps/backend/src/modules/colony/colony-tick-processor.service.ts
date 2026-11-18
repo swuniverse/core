@@ -349,24 +349,23 @@ export class ColonyTickProcessorService {
       ) {
         const definition = this.gameData.getBuilding(field.buildingId!);
         if (!definition) continue;
-        await this.buildingLifecycleService.finishBuilding(
-          colony,
-          field,
-          definition,
-          field.activateAfterBuild,
-        );
-        const activationReason = field.isActive
-          ? undefined
-          : !field.activateAfterBuild
-            ? 'Automatische Aktivierung deaktiviert'
-            : 'Nicht genug freie Arbeiter';
+        const completion =
+          await this.buildingLifecycleService.finishBuildingWithReactivation(
+            colony,
+            field,
+            definition,
+            field.activateAfterBuild,
+          );
         events.push({
           type: 'BUILDING_FINISHED',
           fieldIndex: field.fieldIndex,
           buildingId: field.buildingId,
           buildingName: definition.name,
           activated: field.isActive,
-          reason: activationReason,
+          reason: completion.activationReason,
+          ...(completion.reactivatedCount > 0
+            ? { reactivatedCount: completion.reactivatedCount }
+            : {}),
         });
       }
     }

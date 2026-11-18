@@ -746,15 +746,18 @@ export class ColonyConstructionService {
     }
   }
 
-  getDependentFields(colony: Colony, definition: BuildingDef): ColonyField[] {
+  getDependentFields(
+    colony: Colony,
+    definition: BuildingDef,
+    commodityIds: ReadonlySet<number> = new Set([1801, 1802]),
+  ): ColonyField[] {
     const result: ColonyField[] = [];
     const dependentCommodityIds = new Set(
       (definition.production ?? [])
         .filter(
           (production) =>
             production.amount > 0 &&
-            (production.commodityId === 1801 ||
-              production.commodityId === 1802),
+            commodityIds.has(production.commodityId),
         )
         .map((production) => production.commodityId),
     );
@@ -789,9 +792,18 @@ export class ColonyConstructionService {
     colony: Colony,
     definition: BuildingDef,
     manager?: EntityManager,
+    upgradedFieldId?: number,
   ): Promise<ColonyField[]> {
     const deactivated: ColonyField[] = [];
-    for (const victim of this.getDependentFields(colony, definition)) {
+    for (const victim of this.getDependentFields(
+      colony,
+      definition,
+      upgradedFieldId == null ? undefined : new Set([1801]),
+    )) {
+      if (upgradedFieldId != null && victim.id === upgradedFieldId) continue;
+      if (upgradedFieldId != null) {
+        victim.reactivateAfterUpgrade = upgradedFieldId;
+      }
       const victimDefinition = this.gameData.getBuilding(victim.buildingId!)!;
       await this.buildingLifecycleService.deactivateBuilding(
         colony,
@@ -873,6 +885,11 @@ export class ColonyConstructionService {
       );
     }
 
+    await this.buildingLifecycleService.clearUpgradeReactivationMarkers(
+      colony,
+      field.id,
+      manager,
+    );
     await this.buildingLifecycleService.destructBuilding(
       colony,
       field,
@@ -1195,10 +1212,16 @@ export class ColonyConstructionService {
         field,
         currentDefinition,
       );
+      await this.deactivateDependentBuildings(
+        colony,
+        currentDefinition,
+        undefined,
+        field.id,
+      );
     }
 
     field.activateAfterBuild = wasActive;
-    field.reactivateAfterUpgrade = wasActive ? field.id : null;
+    field.reactivateAfterUpgrade = null;
     this.buildingLifecycleService.prepareBuildJob(
       field,
       upgrade.toBuildingId,

@@ -13,6 +13,13 @@ import {
   setColonyMaxPopulation,
 } from './colony-stats.service';
 import type { BuildingFunctionHooksService } from './building-function-hooks.service';
+import { ColonyBuildingEffectsService } from './colony-building-effects.service';
+
+export interface BuildingCompletionResult {
+  field: ColonyField;
+  activationReason?: string;
+  reactivatedCount: number;
+}
 
 @Injectable()
 export class BuildingLifecycleService {
@@ -24,6 +31,7 @@ export class BuildingLifecycleService {
     private readonly config: ConfigService,
     @Optional() private readonly gameData?: GameDataService,
     @Optional() private readonly functionHooks?: BuildingFunctionHooksService,
+    @Optional() private readonly buildingEffects?: ColonyBuildingEffectsService,
   ) {}
 
   async finishBuilding(
@@ -32,23 +40,93 @@ export class BuildingLifecycleService {
     definition: BuildingDef,
     activateAfterBuild = true,
   ): Promise<ColonyField> {
+    return (
+      await this.finishBuildingWithReactivation(
+        colony,
+        field,
+        definition,
+        activateAfterBuild,
+      )
+    ).field;
+  }
+
+  async finishBuildingWithReactivation(
+    colony: Colony,
+    field: ColonyField,
+    definition: BuildingDef,
+    activateAfterBuild = true,
+  ): Promise<BuildingCompletionResult> {
     field.isBuilding = false;
     field.buildProgress = 100;
     field.buildFinishesAt = null;
     field.maxIntegrity = definition.integrity || field.maxIntegrity || 0;
     field.integrity = field.maxIntegrity;
     field.isActive = false;
+    field.reactivateAfterUpgrade = null;
 
-    if (activateAfterBuild) {
-      const workerAmount = definition.bevUse || 0;
-      const hasWorkers = getColonyChangeable(colony).workless >= workerAmount;
-      if (hasWorkers) {
-        await this.activateBuildingStats(colony, definition, field);
-        field.isActive = true;
-      }
+    const activationReason = activateAfterBuild
+      ? this.getActivationBlockReason(colony, field, definition)
+      : 'Automatische Aktivierung deaktiviert';
+    if (!activationReason) {
+      await this.activateBuilding(colony, field, definition);
     }
 
-    return this.fieldRepo.save(field);
+    const saved = await this.fieldRepo.save(field);
+    let reactivatedCount = 0;
+    for (const dependent of (colony.fields ?? [])
+      .filter(
+        (candidate) =>
+          field.id != null &&
+          candidate.id !== field.id &&
+          candidate.reactivateAfterUpgrade === field.id,
+      )
+      .sort((a, b) => a.fieldIndex - b.fieldIndex)) {
+      const dependentDefinition = dependent.buildingId
+        ? this.gameData?.getBuilding(dependent.buildingId)
+        : undefined;
+      if (
+        field.isActive &&
+        !dependent.isActive &&
+        !dependent.isBuilding &&
+        dependentDefinition &&
+        !this.getActivationBlockReason(colony, dependent, dependentDefinition)
+      ) {
+        await this.activateBuilding(colony, dependent, dependentDefinition);
+        reactivatedCount += 1;
+      }
+      dependent.reactivateAfterUpgrade = null;
+      await this.fieldRepo.save(dependent);
+    }
+    return { field: saved, activationReason, reactivatedCount };
+  }
+
+  async clearUpgradeReactivationMarkers(
+    colony: Colony,
+    upgradedFieldId: number,
+    manager?: EntityManager,
+  ): Promise<void> {
+    for (const field of colony.fields ?? []) {
+      if (field.reactivateAfterUpgrade !== upgradedFieldId) continue;
+      field.reactivateAfterUpgrade = null;
+      await (manager?.getRepository(ColonyField) ?? this.fieldRepo).save(field);
+    }
+  }
+
+  private getActivationBlockReason(
+    colony: Colony,
+    field: ColonyField,
+    definition: BuildingDef,
+  ): string | undefined {
+    if (this.hasHighDamage(field)) return 'Gebäude zu beschädigt';
+    const availability = this.buildingEffects?.canActivateField(colony, field);
+    if (availability) {
+      return availability.ok
+        ? undefined
+        : availability.reason ?? 'Aktivierung nicht möglich';
+    }
+    return getColonyChangeable(colony).workless < (definition.bevUse || 0)
+      ? 'Nicht genug freie Arbeiter'
+      : undefined;
   }
 
   async activateBuilding(

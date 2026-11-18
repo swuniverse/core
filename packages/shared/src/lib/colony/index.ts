@@ -23,6 +23,7 @@ export interface ColonyTickEvent {
   commodityId?: number;
   reason?: string;
   activated?: boolean;
+  reactivatedCount?: number;
   amount?: number;
 }
 
