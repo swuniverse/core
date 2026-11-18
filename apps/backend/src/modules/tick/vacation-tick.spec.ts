@@ -9,7 +9,7 @@ function fixture(flag: boolean, age: number | null) {
   const jobs = ['BUILD', 'RETROFIT', 'REPAIR'].map((mode) => ({ mode, status: 'QUEUED' }));
   const colonyService = {
     processTick: jest.fn(async () => ({ researchPoints: 0, productionDelta: new Map(), events: [] })),
-    processShipBuildQueue: jest.fn(async () => { for (const job of jobs) job.status = 'COMPLETED'; }),
+    processShipRepairQueue: jest.fn(async () => { for (const job of jobs) if (job.mode === 'REPAIR') job.status = 'COMPLETED'; }),
   };
   const ship = { id: 20, userId: 1, kind: 'SHIP', location: null };
   const station = { id: 21, userId: 1, kind: 'STATION', location: null };
@@ -46,8 +46,8 @@ describe('vacation efficacy in the main tick', () => {
       expect(f.userRepo.find).toHaveBeenCalledWith(expect.objectContaining({ select: expect.arrayContaining(['vacationStartedAt']) }));
       expect(f.colonyService.processTick).toHaveBeenCalledTimes(effective ? 0 : 1);
       expect(f.crew.enforceGlobalCrewLimit).toHaveBeenCalledTimes(effective ? 0 : 1);
-      expect(f.colonyService.processShipBuildQueue).toHaveBeenCalledTimes(effective ? 1 : 0);
-      if (effective) expect(f.jobs.map((job) => job.status)).toEqual(['COMPLETED', 'COMPLETED', 'COMPLETED']);
+      expect(f.colonyService.processShipRepairQueue).toHaveBeenCalledTimes(effective ? 1 : 0);
+      if (effective) expect(f.jobs.map((job) => job.status)).toEqual(['QUEUED', 'QUEUED', 'COMPLETED']);
       expect(f.spacecraftService.processTick).toHaveBeenCalledWith(f.ship);
       expect(f.spacecraftService.processTick).toHaveBeenCalledWith(f.station);
       expect(f.spacecraftService.processTick.mock.calls.every((args) => args.length === 1)).toBe(true);

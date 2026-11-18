@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import {
   ShipbuildingCoreService,
   type ShipbuildingSourceAdapter,
+  type ShipbuildingCompletionHandler,
 } from '../spacecraft/shipbuilding-core.service';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
@@ -257,7 +258,21 @@ export class ColonyShipyardService {
     epsMessage: string,
     reserve: (manager: EntityManager) => Promise<T>,
   ): Promise<T> {
+    const userId = colony.userId;
+    if (userId == null) throw new NotFoundException('Colony not found');
     return this.dataSource.transaction(async (manager) => {
+      // Match completion/cancellation before acquiring the changeable row.
+      // Otherwise inserting the queue's colony FK can invert the lock order.
+      const user = await manager.findOne(User, {
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const source = await manager.findOne(Colony, {
+        where: { id: colony.id, userId: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user || !source || source.isAbandoned)
+        throw new NotFoundException('Colony not found');
       const energy = await this.reserveShipyardSlotWithManager(
         manager,
         colony,
@@ -718,41 +733,88 @@ export class ColonyShipyardService {
     queueId: number,
   ): Promise<ColonyShipBuildQueue> {
     const colony = await this.findOne(colonyId, userId);
-    const queue = await this.shipBuildQueueRepo.findOne({
-      where: { id: queueId, colonyId: colony.id, userId },
-    });
-    if (!queue) {
-      throw new NotFoundException('Ship build queue not found');
-    }
-    if (
-      ![
-        ColonyShipBuildQueueStatus.QUEUED,
-        ColonyShipBuildQueueStatus.PAUSED,
-      ].includes(queue.status)
-    ) {
-      throw new BadRequestException(
-        'Only queued shipyard jobs can be cancelled',
-      );
-    }
-
-    if (queue.mode === ColonyShipBuildQueueMode.RETROFIT) {
-      const maxStorage =
-        this.colonyStatsService.calculateSummary(colony).effectiveStorageMax;
-      await Promise.all(
-        (queue.retrofitSnapshot?.consumedModuleCommodityIds ?? []).map(
-          (commodityId) =>
-            this.colonyStorageService.upperStorage(
-              colony,
+    const cancelled = await this.withLockedShipyardJob(
+      colony,
+      queueId,
+      async (manager, source, queue) => {
+        if (
+          ![
+            ColonyShipBuildQueueStatus.QUEUED,
+            ColonyShipBuildQueueStatus.PAUSED,
+          ].includes(queue.status)
+        ) {
+          throw new BadRequestException(
+            'Only queued shipyard jobs can be cancelled',
+          );
+        }
+        if (queue.mode === ColonyShipBuildQueueMode.RETROFIT) {
+          const maxStorage =
+            this.colonyStatsService.calculateSummary(
+              source,
+            ).effectiveStorageMax;
+          for (const commodityId of queue.retrofitSnapshot
+            ?.consumedModuleCommodityIds ?? []) {
+            await this.colonyStorageService.upperStorage(
+              source,
               commodityId,
               1,
               maxStorage,
-            ),
-        ),
-      );
-    }
+              manager,
+            );
+          }
+        }
+        queue.status = ColonyShipBuildQueueStatus.CANCELLED;
+        return manager.save(ColonyShipBuildQueue, queue);
+      },
+    );
+    if (!cancelled) throw new NotFoundException('Ship build queue not found');
+    return cancelled;
+  }
 
-    queue.status = ColonyShipBuildQueueStatus.CANCELLED;
-    return this.shipBuildQueueRepo.save(queue);
+  /** Same lock order as BUILD completion; queue status and refunds share a transaction. */
+  private async withLockedShipyardJob<T>(
+    colony: Colony,
+    queueId: number,
+    work: (
+      manager: EntityManager,
+      source: Colony,
+      job: ColonyShipBuildQueue,
+    ) => Promise<T>,
+  ): Promise<T | null> {
+    const userId = colony.userId;
+    if (userId == null) return null;
+    return this.dataSource.transaction(async (manager) => {
+      const user = await manager.findOne(User, {
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user) return null;
+      const source = await manager.findOne(Colony, {
+        where: { id: colony.id, userId: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!source || source.isAbandoned) return null;
+      await manager.findOne(ColonyChangeable, {
+        where: { colonyId: source.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const job = await manager.findOne(ColonyShipBuildQueue, {
+        where: { id: queueId, colonyId: source.id, userId: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!job) return null;
+      const loaded = await manager.findOne(Colony, {
+        where: { id: source.id },
+        relations: [
+          'fields',
+          'stats',
+          'changeable',
+          'celestialObject',
+          'storage',
+        ],
+      });
+      return loaded ? work(manager, loaded, job) : null;
+    });
   }
 
   async cancelShipyardQueue(
@@ -1228,10 +1290,11 @@ export class ColonyShipyardService {
     }
   }
 
-  async processShipBuildQueue(colony: Colony): Promise<void> {
+  async processShipBuildQueue(colony: Colony, repairsOnly = false): Promise<void> {
     const queuedJobs = await this.shipBuildQueueRepo.find({
       where: {
         colonyId: colony.id,
+        ...(repairsOnly ? { mode: ColonyShipBuildQueueMode.REPAIR } : {}),
         status: ColonyShipBuildQueueStatus.QUEUED,
       },
       relations: ['shipClass', 'colony'],
@@ -1244,8 +1307,9 @@ export class ColonyShipyardService {
       !getColonyChangeable(colony).isBlockaded && activeRepairSlots > 0;
     let remainingRepairSlots = activeRepairSlots;
 
-    const queueTasks: Array<Promise<void | ColonyShipBuildQueue>> = [];
+    const queueTasks: Promise<unknown>[] = [];
     for (const job of queuedJobs) {
+      if (repairsOnly && job.mode !== ColonyShipBuildQueueMode.REPAIR) continue;
       if (job.mode === ColonyShipBuildQueueMode.REPAIR) {
         const shipClass =
           job.shipClass ??
@@ -1328,6 +1392,30 @@ export class ColonyShipyardService {
         ),
       );
     }
+  }
+
+  async completeJob(
+    job: ColonyShipBuildQueue,
+    onCompleted?: ShipbuildingCompletionHandler,
+  ): Promise<Spacecraft | null> {
+    if (job.source !== ShipBuildSource.COLONY || job.colonyId == null)
+      return null;
+    const colony = await this.colonyOwnershipService.findOwnedColony(
+      job.colonyId,
+      job.userId,
+    );
+    if (!colony || colony.isAbandoned) return null;
+    if (job.mode === ColonyShipBuildQueueMode.BUILD) {
+      return this.core.completeBuild(
+        job.id,
+        this.buildSourceAdapter(colony, job.buildingFunctionId),
+        onCompleted,
+      );
+    }
+    if (job.mode === ColonyShipBuildQueueMode.RETROFIT) {
+      return this.finishShipRetrofitQueue(colony, job, onCompleted);
+    }
+    return null;
   }
 
   private async finishShipBuildQueue(
@@ -1428,29 +1516,54 @@ export class ColonyShipyardService {
   private async finishShipRetrofitQueue(
     colony: Colony,
     job: ColonyShipBuildQueue,
-  ): Promise<void> {
+    onCompleted?: ShipbuildingCompletionHandler,
+  ): Promise<Spacecraft | null> {
+    return this.withLockedShipyardJob(
+      colony,
+      job.id,
+      async (manager, source, locked) => {
+        if (
+          locked.mode !== ColonyShipBuildQueueMode.RETROFIT ||
+          locked.status !== ColonyShipBuildQueueStatus.QUEUED ||
+          locked.finishesAt > new Date()
+        )
+          return null;
+        const ship = await this.applyShipRetrofit(manager, source, locked);
+        if (ship) await onCompleted?.(manager, ship);
+        return ship;
+      },
+    );
+  }
+
+  private async applyShipRetrofit(
+    manager: EntityManager,
+    colony: Colony,
+    job: ColonyShipBuildQueue,
+  ): Promise<Spacecraft | null> {
     if (!job.spacecraftId) {
       job.status = ColonyShipBuildQueueStatus.CANCELLED;
-      await this.shipBuildQueueRepo.save(job);
-      return;
+      await manager.save(ColonyShipBuildQueue, job);
+      return null;
     }
-    const ship = await this.shipRepo.findOne({
+    const ship = await manager.findOne(Spacecraft, {
       where: { id: job.spacecraftId, userId: job.userId },
+      lock: { mode: 'pessimistic_write' },
     });
     if (!ship) {
       job.status = ColonyShipBuildQueueStatus.CANCELLED;
-      await this.shipBuildQueueRepo.save(job);
-      return;
+      await manager.save(ColonyShipBuildQueue, job);
+      return null;
     }
 
     const [shipClass, installedModules] = await Promise.all([
-      this.shipClassRepo.findOneBy({ id: ship.shipClassId }),
-      this.spacecraftModuleRepo.find({
+      manager.findOne(ShipClassDef, { where: { id: ship.shipClassId } }),
+      manager.find(SpacecraftModule, {
         where: { spacecraftId: ship.id },
         order: { id: 'ASC' },
+        lock: { mode: 'pessimistic_write' },
       }),
     ]);
-    if (!shipClass) return;
+    if (!shipClass) return null;
 
     const desiredSelections =
       job.retrofitSnapshot?.newModuleSelections ?? job.moduleSelections ?? [];
@@ -1494,12 +1607,14 @@ export class ColonyShipyardService {
           commodityId,
           1,
           maxStorage,
+          manager,
         );
         if (stored > 0) returnedModuleCommodityIds.push(commodityId);
       }
     }
     if (modulesToRemove.length > 0) {
-      await this.spacecraftModuleRepo.remove(
+      await manager.remove(
+        SpacecraftModule,
         modulesToRemove.map(({ module }) => module),
       );
     }
@@ -1516,8 +1631,9 @@ export class ColonyShipyardService {
         selection.commodityId,
       );
       if (!item?.moduleType) continue;
-      const savedModule = await this.spacecraftModuleRepo.save(
-        this.spacecraftModuleRepo.create({
+      const savedModule = await manager.save(
+        SpacecraftModule,
+        manager.create(SpacecraftModule, {
           spacecraftId: ship.id,
           slotId: selection.slotId,
           moduleType: item.moduleType,
@@ -1547,7 +1663,7 @@ export class ColonyShipyardService {
       }
     }
     initializeSpacecraftRuntimeSystems(ship);
-    await this.shipRepo.save(ship);
+    await manager.save(Spacecraft, ship);
     job.retrofitSnapshot = {
       oldModuleSelections: job.retrofitSnapshot?.oldModuleSelections ?? [],
       newModuleSelections: desiredSelections,
@@ -1558,7 +1674,8 @@ export class ColonyShipyardService {
         job.retrofitSnapshot?.consumedModuleCommodityIds ?? [],
     };
     job.status = ColonyShipBuildQueueStatus.COMPLETED;
-    await this.shipBuildQueueRepo.save(job);
+    await manager.save(ColonyShipBuildQueue, job);
+    return ship;
   }
 
   private isShipRepairNeeded(

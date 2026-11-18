@@ -51,6 +51,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Entscheidungen
 
+- 2026-11-18 – **sh-AUD-07a umgesetzt, Prüfung ausstehend**: Minütlicher Bauabschluss erweitert um Kolonie-Bau/-Umrüstung und Stations-Bau, globale Fälligkeitsabfrage ohne Urlaubsschutz. Haupttick behält vorerst nur Reparaturen. Abschluss/Abbruch und Meldungen sind transaktional; 64 Unit- und 7 PostgreSQL-Fälle erfolgreich. Gesamt-/Sperrreview, weitere Regressionen, Typechecks/Build und Browser ausstehend; Status `claimed` – siehe [Ticket](issues/sh-AUD-07a-schiffsbau-und-umruestung-minuetlich.md).
+
 - 2026-11-18 – **sh-AUD-05 umgesetzt, Prüfung ausstehend**: Urlaub schützt Wirtschaft/Crewlimit und Anomaliefälle erst nach mehr als 48 Stunden. Werftaufträge, Eigen-/Stationsreparaturen laufen weiter; Sieben-Tage-Sperre ab letzter Aktivierung und UI-Hinweise korrigiert. Leser-Audit und Ersatz von sh-AP-04c vermerkt. 44 Backend- und 1 Frontend-Test erfolgreich; PostgreSQL-/API-/Urlaubsregressionen, Abschlussreview, Browser, Lint/Typechecks und Build ausstehend. Status `claimed` – siehe [Ticket](issues/sh-AUD-05-urlaub-exakt-wie-stu.md).
 
 - 2026-11-18 – **sc-AUD-10 umgesetzt, Prüfung ausstehend**: Eigenständige kostenlose Schildregeneration nach persistentem 15-Minuten-Timer, mit Crew-/System-/Feld-/Anomaliebedingungen, gemeinsamem gedeckeltem `ceil(10 %)`-Wert für Liste/Kopf und Live-Aktualisierung. Haupttick-Gutschrift entfernt, Timer-Resets und Metadatenerhaltung ergänzt. 102 Backend- und 36 Frontend-Tests erfolgreich; PostgreSQL-/Anomalie-/Kampfregressionen, Abschlussreview, Browser, Lint/Typechecks und Build ausstehend. Status `claimed` – siehe [Ticket](issues/sc-AUD-10-schildregeneration-wie-stu.md).

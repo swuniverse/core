@@ -45,6 +45,8 @@ import { AccountDeletionModule } from '../account-deletion/account-deletion.modu
 import { IdleUserMaintenanceService } from '../account-deletion/idle-user-maintenance.service';
 import { MailModule } from '../mail/mail.module';
 import { TickFailureMailService } from './tick-failure-mail.service';
+import { ShipyardCompletionService } from './shipyard-completion.service';
+import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue.entity';
 
 @Module({
   imports: [
@@ -56,6 +58,7 @@ import { TickFailureMailService } from './tick-failure-mail.service';
       SpacecraftWreck,
       User,
       GameTickState,
+      ColonyShipBuildQueue,
     ]),
     ColonyModule,
     SpacecraftModule,
@@ -82,6 +85,7 @@ import { TickFailureMailService } from './tick-failure-mail.service';
     { provide: 'TickService', useExisting: TickService },
     TickAdminService,
     TickFailureMailService,
+    ShipyardCompletionService,
     MaintenanceService,
     TopFlightsRewardService,
     WreckDecayService,

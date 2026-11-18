@@ -1396,6 +1396,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       (entityRepo(entity) as any).save(value),
     ),
     update: jest.fn(async () => ({ affected: 1 })),
+    remove: jest.fn(async (entity: any, value: any) => (entityRepo(entity) as any).remove(value)),
     getRepository: jest.fn(entityRepo),
   };
   const dataSource = {
@@ -5439,7 +5440,7 @@ describe('ship building compatibility', () => {
     ).rejects.toThrow('More special modules selected than the hull allows');
   });
 
-  it('finishes queued ship builds during colony tick', async () => {
+  it('finishes queued ship builds through the explicit queue processor', async () => {
     const {
       service,
       shipBuildQueueRepo,
@@ -8774,6 +8775,7 @@ describe('ship retrofit queues', () => {
     };
     shipBuildQueueRepo.find.mockReset();
     shipBuildQueueRepo.find.mockResolvedValue([retrofitJob]);
+    shipBuildQueueRepo.findOne.mockResolvedValue(retrofitJob);
     shipBuildQueueRepo.save.mockClear();
     spacecraftModuleRepo.remove.mockClear();
     spacecraftModuleRepo.save.mockClear();

@@ -18,6 +18,8 @@ import { ColonyStorageService } from '../colony/colony-storage.service';
 import { ColonyTimingService } from '../colony/colony-timing.service';
 import { ColonyChangeable } from '../colony/entities/colony-changeable.entity';
 import { ColonyField } from '../colony/entities/colony-field.entity';
+import { ColonyFabricationQueue } from '../colony/entities/colony-fabrication-queue.entity';
+import { ColonyCrewTrainingQueue } from '../colony/entities/colony-crew-training-queue.entity';
 import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyEventService } from '../messaging/colony-event.service';
@@ -48,6 +50,10 @@ import {
   StationRole,
 } from '../spacecraft/entities/spacecraft.entity';
 import { ShipbuildingCoreService } from '../spacecraft/shipbuilding-core.service';
+import { TickService } from '../tick/tick.service';
+import { ShipyardCompletionService } from '../tick/shipyard-completion.service';
+import { GameTickState, GameTickStatus, GameTickType } from '../tick/entities/game-tick-state.entity';
+import { MessagingService } from '../messaging/messaging.service';
 import { StationShipyardService } from '../spacecraft/station-shipyard.service';
 import { GalaxyFieldType } from '../starmap/entities/galaxy-field-type.entity';
 import { Layer } from '../starmap/entities/layer.entity';
@@ -165,6 +171,9 @@ function gameDataFixtures() {
     getAllFabricationItems: () => modules,
     isShipyardModuleAllowedForShipClass: () => true,
     getBuildingFunctions: (id: number) => (id === 11 ? [6] : []),
+    getBuilding: () => undefined,
+    getColonyClass: () => undefined,
+    getBuildingFunction: () => undefined,
     getCommodity: (id: number) => ({ id, name: `Commodity ${id}` }),
     getAllModules: () => [
       {
@@ -219,6 +228,8 @@ describe('shipbuilding workflow (Nest + PostgreSQL)', () => {
         ColonyShipBuildplan,
         ColonyShipBuildQueue,
         Research,
+        ColonyFabricationQueue,
+        ColonyCrewTrainingQueue,
       ],
       synchronize: true,
     }).initialize();
@@ -1237,6 +1248,169 @@ describe('shipbuilding workflow (Nest + PostgreSQL)', () => {
       throw new Error('Expected a persisted fixture/entity reference');
     return id;
   }
+
+  function minuteRunner() {
+    const gateway = { emitToUser: jest.fn() };
+    const messaging = new MessagingService(
+      database.getRepository(Message), database.getRepository(User), undefined as never,
+      gateway as never, undefined as never,
+    );
+    const shipyards = new ShipyardCompletionService(
+      database.getRepository(ColonyShipBuildQueue), colonyShipyard, stationShipyard, messaging, gateway as never,
+    );
+    const runner = Object.create(TickService.prototype) as TickService;
+    Object.assign(runner, {
+      fieldRepo: database.getRepository(ColonyField), colonyRepo: database.getRepository(Colony),
+      tickStateRepo: database.getRepository(GameTickState), shipyardCompletions: shipyards,
+      gateway,
+    });
+    return { runner, shipyards, gateway };
+  }
+
+  it('minute shipyard: finishes due colony and station builds on vacation without a main tick, only once', async () => {
+    const stationJob = await stationShipyard.build(station.id, user.id, {
+      shipClassId: hull.id, name: 'Minute station', moduleSelections: selections,
+    });
+    const colony = await createColony();
+    const colonyJob = await colonyShipyard.buildShipFromBuildplan(
+      colony.id, user.id, requiredId(stationJob.buildPlanId), 'Minute colony', 6,
+    );
+    await database.getRepository(User).update(user.id, {
+      vacationMode: true, vacationStartedAt: new Date(Date.now() - 49 * 3600000),
+    });
+    await makeDue(stationJob.id);
+    await makeDue(colonyJob.id);
+    const { runner, gateway } = minuteRunner();
+    await Promise.all([runner.checkBuildingCompletions(), runner.checkBuildingCompletions()]);
+    await runner.checkBuildingCompletions();
+    expect((await builtShips()).map(ship => ship.name).sort()).toEqual(['Minute colony', 'Minute station']);
+    expect(await database.getRepository(Message).count()).toBe(2);
+    expect(await database.getRepository(ColonyShipBuildQueue).countBy({ status: ColonyShipBuildQueueStatus.COMPLETED })).toBe(2);
+    const runs = await database.getRepository(GameTickState).find();
+    expect(runs.length).toBeGreaterThanOrEqual(1);
+    expect(runs.every(run => run.tickType === GameTickType.BUILDING_COMPLETION && run.status === GameTickStatus.COMPLETED && run.startedAt && run.completedAt)).toBe(true);
+    expect(gateway.emitToUser.mock.calls.filter(([, event]) => event === 'SPACECRAFT_EVENT')).toHaveLength(2);
+  });
+
+  it('minute shipyard: future jobs and empty runs leave queues and history unchanged', async () => {
+    const job = await stationShipyard.build(station.id, user.id, {
+      shipClassId: hull.id, name: 'Later', moduleSelections: selections,
+    });
+    await minuteRunner().runner.checkBuildingCompletions();
+    expect(await builtShips()).toHaveLength(0);
+    expect(await database.getRepository(GameTickState).count()).toBe(0);
+    expect(await database.getRepository(ColonyShipBuildQueue).findOneByOrFail({ id: job.id })).toMatchObject({ status: ColonyShipBuildQueueStatus.QUEUED });
+  });
+
+  it('minute shipyard: overlapping retrofit completions replace and return modules once', async () => {
+    const build = await stationShipyard.build(station.id, user.id, {
+      shipClassId: hull.id, name: 'Retrofit minute', moduleSelections: selections,
+    });
+    await makeDue(build.id);
+    await stationShipyard.processTick(station.id);
+    const ship = (await builtShips())[0];
+    const colony = await createColony();
+    const upgraded = { ...gameData.modules[1], outputCommodityId: 103, moduleType: 'Energieverteiler II', moduleLevel: 2 };
+    gameData.modules.push(upgraded);
+    const desired = [selections[0], { slotId: 'b', commodityId: 103 }];
+    const retrofit = await database.getRepository(ColonyShipBuildQueue).save({
+      source: ShipBuildSource.COLONY, colonyId: colony.id, userId: user.id,
+      shipClassId: hull.id, spacecraftId: ship.id, name: 'Umrüstung', mode: ColonyShipBuildQueueMode.RETROFIT,
+      moduleSelections: desired, finishesAt: new Date(Date.now() - 1000),
+      retrofitSnapshot: { oldModuleSelections: selections, newModuleSelections: desired, newModuleTypes: [upgraded.moduleType], returnedModuleCommodityIds: [], consumedModuleCommodityIds: [103] },
+    });
+    const { runner } = minuteRunner();
+    await Promise.all([runner.checkBuildingCompletions(), runner.checkBuildingCompletions()]);
+    await runner.checkBuildingCompletions();
+    expect(await database.getRepository(SpacecraftModule).find({ where: { spacecraftId: ship.id } })).toEqual(expect.arrayContaining([
+      expect.objectContaining({ slotId: 'a', moduleType: 'Durasteel hull' }),
+      expect.objectContaining({ slotId: 'b', moduleType: upgraded.moduleType, level: 2 }),
+    ]));
+    expect(await database.getRepository(SpacecraftModule).countBy({ spacecraftId: ship.id })).toBe(2);
+    expect(await database.getRepository(ColonyStorage).findOneByOrFail({ colonyId: colony.id, commodityId: 102 })).toMatchObject({ amount: 4 });
+    expect(await database.getRepository(ColonyShipBuildQueue).findOneByOrFail({ id: retrofit.id })).toMatchObject({ status: ColonyShipBuildQueueStatus.COMPLETED, retrofitSnapshot: { returnedModuleCommodityIds: [102] } });
+    expect(await database.getRepository(Message).count()).toBe(1);
+  });
+
+  it('minute shipyard: a cancellation after discovery prevents completion', async () => {
+    const stationJob = await stationShipyard.build(station.id, user.id, {
+      shipClassId: hull.id, name: 'Blueprint', moduleSelections: selections,
+    });
+    const colony = await createColony();
+    const job = await colonyShipyard.buildShipFromBuildplan(colony.id, user.id, requiredId(stationJob.buildPlanId), 'Cancelled', 6);
+    await makeDue(job.id);
+    const { shipyards, gateway } = minuteRunner();
+    const discovered = await shipyards.findDueJobs(new Date());
+    await colonyShipyard.cancelShipBuildQueue(colony.id, user.id, job.id);
+    await shipyards.completeJobs(discovered);
+    expect(await builtShips()).toHaveLength(0);
+    expect(await database.getRepository(Message).count()).toBe(0);
+    expect(gateway.emitToUser).not.toHaveBeenCalled();
+  });
+
+  it('minute shipyard: notification failure rolls back build, modules and queue together', async () => {
+    const job = await stationShipyard.build(station.id, user.id, {
+      shipClassId: hull.id, name: 'Rollback', moduleSelections: selections,
+    });
+    await makeDue(job.id);
+    const shipyards = new ShipyardCompletionService(
+      database.getRepository(ColonyShipBuildQueue), colonyShipyard, stationShipyard,
+      { sendSystem: async () => { throw new Error('message unavailable'); } } as never,
+      { emitToUser: jest.fn() } as never,
+    );
+    await expect(shipyards.completeJobs(await shipyards.findDueJobs(new Date()))).rejects.toThrow('message unavailable');
+    expect(await builtShips()).toHaveLength(0);
+    expect(await database.getRepository(SpacecraftModule).count()).toBe(0);
+    expect(await database.getRepository(ColonyShipBuildQueue).findOneByOrFail({ id: job.id })).toMatchObject({ status: ColonyShipBuildQueueStatus.QUEUED });
+    await minuteRunner().runner.checkBuildingCompletions();
+    expect(await builtShips()).toHaveLength(1);
+    expect(await database.getRepository(Message).count()).toBe(1);
+  });
+
+  it('minute shipyard: concurrent retrofit cancellations refund paid modules only once', async () => {
+    const colony = await createColony();
+    const job = await database.getRepository(ColonyShipBuildQueue).save({
+      source: ShipBuildSource.COLONY, colonyId: colony.id, userId: user.id,
+      shipClassId: hull.id, name: 'Cancel retrofit', mode: ColonyShipBuildQueueMode.RETROFIT,
+      finishesAt: new Date(), retrofitSnapshot: {
+        oldModuleSelections: [], newModuleSelections: [], newModuleTypes: [],
+        returnedModuleCommodityIds: [], consumedModuleCommodityIds: [102],
+      },
+    });
+    const before = await database.getRepository(ColonyStorage).findOneByOrFail({ colonyId: colony.id, commodityId: 102 });
+    const results = await Promise.allSettled([
+      colonyShipyard.cancelShipBuildQueue(colony.id, user.id, job.id),
+      colonyShipyard.cancelShipBuildQueue(colony.id, user.id, job.id),
+    ]);
+    expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    expect(await database.getRepository(ColonyStorage).findOneByOrFail({ colonyId: colony.id, commodityId: 102 })).toMatchObject({ amount: before.amount + 1 });
+    expect(await database.getRepository(ColonyShipBuildQueue).findOneByOrFail({ id: job.id })).toMatchObject({ status: ColonyShipBuildQueueStatus.CANCELLED });
+  });
+
+  it('minute shipyard: admin complete-all and the minute runner finish a build once', async () => {
+    await stationShipyard.build(station.id, user.id, {
+      shipClassId: hull.id, name: 'Admin completion', moduleSelections: selections,
+    });
+    const { runner } = minuteRunner();
+    // Isolate the admin completion operation from the unrelated economy tick.
+    jest.spyOn(runner, 'triggerManualTick').mockResolvedValue({ tickNumber: 1, status: 'COMPLETED' });
+    Object.assign(runner, { logger: { log: jest.fn() } });
+    // The admin's raw SQL uses the default schema in production. Point its
+    // dedicated connection at this test's private schema without a transaction.
+    const connection = database.createQueryRunner();
+    await connection.connect();
+    await connection.query(`SET search_path TO "${schema}"`);
+    const fields = database.getRepository(ColonyField);
+    Object.assign(runner, { fieldRepo: { find: fields.find.bind(fields), manager: connection.manager } });
+    try {
+      await Promise.all([runner.completeAllBuilds(), runner.checkBuildingCompletions()]);
+      await runner.checkBuildingCompletions();
+    } finally {
+      await connection.release();
+    }
+    expect(await builtShips()).toHaveLength(1);
+    expect(await database.getRepository(Message).count()).toBe(1);
+  });
 
   async function createColony() {
     const field = await database

@@ -14,6 +14,7 @@ import { ColonyCrewService } from '../colony/colony-crew.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { MessageFolder } from '../messaging/message-folder';
 import { TickFailureMailService } from './tick-failure-mail.service';
+import { ShipyardCompletionService } from './shipyard-completion.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, LessThanOrEqual, Not, Repository } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
@@ -80,6 +81,7 @@ export class TickService {
     private readonly escapePodService?: EscapePodService,
     private readonly anomalyService?: AnomalyService,
     @Optional() private readonly failureMail?: TickFailureMailService,
+    private readonly shipyardCompletions?: ShipyardCompletionService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR, {
@@ -188,9 +190,8 @@ export class TickService {
           )
             continue;
           if (vacationUsers.has(colony.userId)) {
-            // Until the dedicated process cron owns these jobs, only the
-            // economy is frozen: paid construction/retrofit/repairs still finish.
-            await this.colonyService.processShipBuildQueue(colony);
+            // Repairs remain here until sh-AUD-07b moves them to the minute runner.
+            await this.colonyService.processShipRepairQueue(colony);
             this.gateway.emitToUser(colony.userId, WsEventType.COLONY_UPDATED, {
               colonyId: colony.id,
             });
@@ -346,7 +347,10 @@ export class TickService {
     }
   }
 
-  private async runBuildingCompletions(recordEmptyRun: boolean, tickNumber: number) {
+  private async runBuildingCompletions(
+    recordEmptyRun: boolean,
+    tickNumber: number,
+  ) {
     const now = new Date();
     const activeBuilds = await this.fieldRepo.find({
       where: [
@@ -360,8 +364,15 @@ export class TickService {
       ],
       select: { id: true, colonyId: true },
     });
-    // Nichts fällig: für den Cron keinen game_tick_states-Eintrag pro Minute schreiben.
-    if (activeBuilds.length === 0 && !recordEmptyRun) return;
+    const shipyardJobs =
+      (await this.shipyardCompletions?.findDueJobs(now)) ?? [];
+    // Empty scheduled runs leave no history row, including shipyard-only work.
+    if (
+      activeBuilds.length === 0 &&
+      shipyardJobs.length === 0 &&
+      !recordEmptyRun
+    )
+      return;
 
     const { tickState, shouldRun } = await this.startTick(
       GameTickType.BUILDING_COMPLETION,
@@ -371,10 +382,13 @@ export class TickService {
 
     try {
       const colonyIds = [...new Set(activeBuilds.map((f) => f.colonyId))];
-      const colonies = await this.colonyRepo.find({
-        where: colonyIds.map((id) => ({ id })),
-        relations: ['fields', 'stats', 'changeable', 'celestialObject'],
-      });
+      const colonies =
+        colonyIds.length === 0
+          ? []
+          : await this.colonyRepo.find({
+              where: colonyIds.map((id) => ({ id })),
+              relations: ['fields', 'stats', 'changeable', 'celestialObject'],
+            });
 
       for (const colony of colonies) {
         if (colony.userId == null || colony.isAbandoned) continue;
@@ -398,6 +412,7 @@ export class TickService {
         });
       }
 
+      await this.shipyardCompletions?.completeJobs(shipyardJobs);
       await this.finishTick(tickState, GameTickStatus.COMPLETED);
     } catch (error) {
       await this.finishTick(
@@ -469,16 +484,26 @@ export class TickService {
       };
     }
 
-    const tickState = await this.tickStateRepo.save(
-      this.tickStateRepo.create({
-        tickType,
-        tickNumber,
-        scheduledFor: new Date(tickNumber),
-        startedAt: new Date(),
-        status: GameTickStatus.STARTED,
-        lockKey: `${tickType}:${tickNumber}`,
-      }),
-    );
+    let tickState: GameTickState;
+    try {
+      tickState = await this.tickStateRepo.save(
+        this.tickStateRepo.create({
+          tickType,
+          tickNumber,
+          scheduledFor: new Date(tickNumber),
+          startedAt: new Date(),
+          status: GameTickStatus.STARTED,
+          lockKey: `${tickType}:${tickNumber}`,
+        }),
+      );
+    } catch (error) {
+      if ((error as { code?: string })?.code !== '23505') throw error;
+      const competing = await this.tickStateRepo.findOne({
+        where: { tickType, tickNumber },
+      });
+      if (!competing) throw error;
+      return { tickState: competing, shouldRun: false };
+    }
     return { tickState, shouldRun: true };
   }
 

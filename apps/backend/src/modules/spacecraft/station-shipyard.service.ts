@@ -30,6 +30,7 @@ import {
 import {
   ShipbuildingSourceAdapter,
   ShipbuildingCoreService,
+  type ShipbuildingCompletionHandler,
 } from './shipbuilding-core.service';
 
 export type StationShipBuildRequest = StationShipBuildRequestDto;
@@ -162,6 +163,12 @@ export class StationShipyardService {
           this.sourceAdapter(stationId, job.userId),
         );
     }
+  }
+
+  async completeJob(job: ColonyShipBuildQueue, onCompleted?: ShipbuildingCompletionHandler): Promise<Spacecraft | null> {
+    if (job.source !== ShipBuildSource.STATION || job.stationId == null ||
+        job.mode !== ColonyShipBuildQueueMode.BUILD) return null;
+    return this.core.completeBuild(job.id, this.sourceAdapter(job.stationId, job.userId), onCompleted);
   }
 
   private sourceAdapter(

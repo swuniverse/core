@@ -4982,7 +4982,6 @@ export class SpacecraftService {
     await this.takeoverService.processTick(ship.id);
     if (ship.kind === 'STATION') {
       await this.stationRepairService.processTick(ship.id, options);
-      await this.stationShipyardService.processTick(ship.id);
     }
     const tickLocation =
       ship.location?.systemField ?? ship.location?.galaxyField;

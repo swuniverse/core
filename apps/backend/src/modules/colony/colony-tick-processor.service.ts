@@ -163,8 +163,8 @@ export class ColonyTickProcessorService {
     return this.colonyFabricationService.processFabricationQueue(colony);
   }
 
-  private async processShipBuildQueue(colony: Colony): Promise<void> {
-    return this.colonyShipyardService.processShipBuildQueue(colony);
+  private async processShipRepairQueue(colony: Colony): Promise<void> {
+    return this.colonyShipyardService.processShipBuildQueue(colony, true);
   }
 
   private getMaxShields(colony: Colony): number {
@@ -239,7 +239,7 @@ export class ColonyTickProcessorService {
     await this.processFabricationQueue(colony);
     await this.processCrewTrainingQueue(colony);
     await this.enforceLocalCrewLimit(colony, events);
-    await this.processShipBuildQueue(colony);
+    await this.processShipRepairQueue(colony);
     const summary = this.colonyStatsService.calculateSummary(colony);
     return {
       researchPoints: summary.researchPoints,

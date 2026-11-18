@@ -75,6 +75,8 @@ export interface ShipbuildingSourceAdapter {
   ): Promise<{ locationId: number; dockedAtId: number | null } | null>;
 }
 
+export type ShipbuildingCompletionHandler = (manager: EntityManager, ship: Spacecraft) => Promise<void>;
+
 @Injectable()
 export class ShipbuildingCoreService {
   constructor(
@@ -242,6 +244,7 @@ export class ShipbuildingCoreService {
   async completeBuild(
     jobId: number,
     adapter: ShipbuildingSourceAdapter,
+    onCompleted?: ShipbuildingCompletionHandler,
   ): Promise<Spacecraft | null> {
     return this.dataSource.transaction(async (manager) => {
       const candidate = await manager.findOne(ColonyShipBuildQueue, {
@@ -354,6 +357,7 @@ export class ShipbuildingCoreService {
       await manager.save(Spacecraft, ship);
       job.status = ColonyShipBuildQueueStatus.COMPLETED;
       await manager.save(ColonyShipBuildQueue, job);
+      await onCompleted?.(manager, ship);
       return ship;
     });
   }

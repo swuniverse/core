@@ -1,6 +1,6 @@
 # Schiffsbau und Umrüstung minütlich abschließen wie STU-Process-Tick
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -35,14 +35,14 @@ Dieses Ticket verlegt den **Abschluss** von Bau- und Umrüstungsaufträgen (Kolo
 
 ## Akzeptanzkriterien
 
-- [ ] Ein minütlicher Lauf (eigener `GameTickType`, z. B. `PROCESS`, oder Erweiterung von `BUILDING_COMPLETION`) schließt alle fälligen Bau- und Umrüstungsaufträge der Kolonie- und Stationswerften ab (`finishesAt <= now`, Status `QUEUED`). Ohne fällige Aufträge schreibt er keinen Laufeintrag (wie `checkBuildingCompletions`).
-- [ ] Die Abfrage fälliger Aufträge ist global (eine Query über alle Kolonien/Stationen), nicht ein Laden aller Kolonien.
-- [ ] Abschluss ist idempotent und nebenläufigkeitssicher gegenüber Haupttick, Abbruch und Admin-„Alle Bauten fertig“ (Sperre je Auftrag, kein doppeltes Schiff). Der Haupttick schließt Bau und Umrüstung nicht mehr zusätzlich ab.
-- [ ] Wie STU ohne Urlaubsprüfung: Aufträge von Spielern im Urlaub werden ebenfalls abgeschlossen (siehe sh-AUD-05).
-- [ ] Schiffsmeldung, Ereignis und WebSocket-Benachrichtigung wie bisher bei Fertigstellung.
-- [ ] Der Lauf erscheint in der Admin-Tick-Historie mit Status, Dauer und Fehler.
+- [x] Ein minütlicher Lauf (eigener `GameTickType`, z. B. `PROCESS`, oder Erweiterung von `BUILDING_COMPLETION`) schließt alle fälligen Bau- und Umrüstungsaufträge der Kolonie- und Stationswerften ab (`finishesAt <= now`, Status `QUEUED`). Ohne fällige Aufträge schreibt er keinen Laufeintrag (wie `checkBuildingCompletions`).
+- [x] Die Abfrage fälliger Aufträge ist global (eine Query über alle Kolonien/Stationen), nicht ein Laden aller Kolonien.
+- [x] Abschluss ist idempotent und nebenläufigkeitssicher gegenüber Haupttick, Abbruch und Admin-„Alle Bauten fertig“ (Sperre je Auftrag, kein doppeltes Schiff). Der Haupttick schließt Bau und Umrüstung nicht mehr zusätzlich ab.
+- [x] Wie STU ohne Urlaubsprüfung: Aufträge von Spielern im Urlaub werden ebenfalls abgeschlossen (siehe sh-AUD-05).
+- [x] Schiffsmeldung, Ereignis und WebSocket-Benachrichtigung wie bisher bei Fertigstellung.
+- [x] Der Lauf erscheint in der Admin-Tick-Historie mit Status, Dauer und Fehler.
 - [ ] Maindesk „Aktive Prozesse“ und Werftansicht zeigen weiter `finishesAt`; die angezeigte Zeit stimmt jetzt auf ≤ 1 min.
-- [ ] Backend-Tests: fälliger Kolonie-Bauauftrag und Umrüstung werden ohne Haupttick fertig; Stationswerftauftrag ebenso; nicht fälliger Auftrag bleibt; doppelter Lauf erzeugt kein zweites Schiff (PostgreSQL-Integrationstest); Urlauberauftrag wird fertig; leerer Lauf schreibt keinen Laufeintrag.
+- [x] Backend-Tests: fälliger Kolonie-Bauauftrag und Umrüstung werden ohne Haupttick fertig; Stationswerftauftrag ebenso; nicht fälliger Auftrag bleibt; doppelter Lauf erzeugt kein zweites Schiff (PostgreSQL-Integrationstest); Urlauberauftrag wird fertig; leerer Lauf schreibt keinen Laufeintrag.
 
 ## Herkunft
 
@@ -51,3 +51,30 @@ Dieses Ticket verlegt den **Abschluss** von Bau- und Umrüstungsaufträgen (Kolo
 - PO-Linie 2026-11-17 „wie STU“. Bisher kein Ticket; die resolved Tickets col-A3b, col-A5 und sc-WP-STAT-5 haben den Fertigstellungszeitpunkt nicht geprüft.
 
 ## Comments
+
+
+### 2026-11-18 – umgesetzt, Prüfung ausstehend
+
+Implementierungscommit (eindeutiger Betreff): `fix(tick): complete shipyard builds and retrofits every minute (sh-AUD-07a)`.
+Status bleibt `claimed`; sh-AUD-07b bleibt bis zur separaten Abschlussprüfung blockiert.
+
+- Der vorhandene minütliche `BUILDING_COMPLETION`-Lauf verarbeitet jetzt zusätzlich alle global fälligen `QUEUED`-Aufträge der Modi `BUILD` und `RETROFIT`, sortiert nach Ende/ID. Eine Query über die gemeinsame Queue findet die Aufträge; nur betroffene Kolonien werden für den jeweiligen Abschluss nachgeladen. Ein reiner Werftlauf lädt keine Gebäude-Kolonien. Leere geplante Läufe schreiben keinen Historieneintrag, explizite Admin-Läufe bleiben sichtbar.
+- Kolonie-Bau und -Umrüstung sowie Stations-Bau laufen über die bestehenden Quelladapter ohne Urlaubsprüfung. Der vorhandene Stationsvertrag bietet nur Bau, keine Stations-Umrüstung; dieses Ticket ergänzt keine neue Umrüstungs-API. Der Haupttick verarbeitet bei normalen und wirksamen Urlauberkolonien nur noch Werftreparaturen und ruft die Stations-Bauqueue nicht mehr auf. Die Reparaturpfade bleiben bis sh-AUD-07b erhalten.
+- BUILD verwendet weiterhin die bestehenden Sperren des gemeinsamen Kerns. RETROFIT und Abbruch sperren nun Spieler, Kolonie, veränderlichen Koloniezustand und Auftrag in fester Reihenfolge. Status, Schiffs-/Moduländerungen und Warenrückgaben werden mit demselben Transaction-Manager gespeichert. Die Umrüstungsreservierung erhält dieselbe vorgelagerte Spieler-/Koloniesperre, um beim Queue-Fremdschlüssel keine umgekehrte Sperrreihenfolge zu erzeugen. Jeder Abschluss prüft Status und Fälligkeit erneut unter Sperre; doppelte Abbrüche geben Waren nur einmal zurück.
+- Abschlussmeldungen landen mit stabiler Zustell-ID im Schiffsordner, innerhalb der Abschluss-Transaktion. Ein Nachrichtenfehler rollt Schiff, Module und Queue zurück; nach Commit folgen Nachrichtenbenachrichtigung, `SPACECRAFT_EVENT` und gegebenenfalls `COLONY_UPDATED`. Die vorhandenen Seiten abonnieren diese Ereignisse. `finishesAt`-Verträge und Zeitanzeigen bleiben erhalten.
+- Die bestehende Admin-Historie zeigt den Lauf als „Bauabschluss“ mit Beginn, Ende, daraus berechneter Dauer und Fehler. Der bestehende Fehlermailpfad bleibt aktiv. Zwei gleichzeitig eingefügte Historieneinträge mit identischer Laufnummer behandeln die Unique-Verletzung als konkurrierenden Lauf, ohne dessen Aufträge noch einmal auszuführen. Admin-„Alle Bauten fertig“ verwendet denselben Minutenabschluss nach der Zeitverschiebung.
+
+**Sofort geprüft:** kurzer tatsächlicher Diffreview, `git diff --check`, 64 Backend-Unit-Tests und 7 gezielte PostgreSQL-Fälle erfolgreich.
+
+- 37 ausgewählte Fälle aus `colony-tick.spec.ts`: Bau-/Modulabschluss, Umrüstung, Abbruch, Werftslots und Haupttick-Idempotenz.
+- `vacation-tick.spec.ts`: 7 Fälle, Urlaub friert nur die Wirtschaft ein; Reparatur bleibt im Haupttick, Bau/Umrüstung werden dort nicht mehr abgeschlossen.
+- `station-shipyard.service.spec.ts`: 5 bestehende Stationswerftfälle.
+- `minute-shipyard.spec.ts`: 6 Fälle für Werft-only/leer/Admin/Fehler, konkurrierenden Laufeintrag und Reparaturdelegation.
+- `shipyard-completion.spec.ts`: 4 Fälle für globale Abfrage, Quell-/Modusdispatch, ausschließlich erfolgreiche Transaktionsgewinner und Fehlerweitergabe.
+- `app-module-graph.spec.ts` und `tick-admin.service.spec.ts`: zusammen 5 Fälle.
+- Neue PostgreSQL-Fälle in `shipbuilding-workflow.int-spec.ts`: parallele Kolonie-/Stationsabschlüsse im Urlaub, zukünftige/leere Queue, parallele Umrüstung mit genau einmaliger Rückgabe, Abbruch nach Auftragsabfrage, Nachrichtenfehler mit vollständigem Rollback und Wiederholung, doppelte Abbrüche sowie Admin-Sofortabschluss parallel zum Minutenlauf. Testdatenquelle in eigenem Schema; fehlende Statistik-Stammdaten und Admin-Schema-/Tabellenfixtures ergänzt. Keine Betriebsdatenbank verändert.
+- ESLint für die unmittelbar geänderten Abschluss-/Sperrpfade und neuen Specs: keine Fehler; fünf bestehende Non-null-Assertion-Warnungen in Koloniewerft/Haupttick verbleiben.
+
+**Separater Prüfpass ausstehend:** vollständiger Kriterien-/Sperrreview einschließlich realem Haupttick und gleichzeitigem Abbruch/Umrüstungsstart; übrige Werft-/Reparaturregressionen und vollständiger Nest-App-Aufbau; Backend/Frontend/Shared-Lint, Typechecks und Build; Browserprüfung von Werft, Maindesk-Prozessen, Fertigstellungszeit und Admin-Historie mit echter Cron-Ausführung. Sichtbare Zeit-/Refreshkriterien bleiben bis dahin offen. Keine umfassenden Prüfungen pro Ticket wiederholt.
+
+Modellrouting: Spielregeln, Transaktionen und Kurzreview direkt im verfügbaren Sitzungsmodell (Sol-Umschaltung nicht verfügbar, dokumentierter Fallback). Ein begrenztes neues Unit-Testmodul an `ticket-coder` (GPT-6 Luna, high) delegiert und geprüft; keine parallelen Produktionsänderungen. Keine messbaren Tokenzahlen verfügbar.
