@@ -2,7 +2,6 @@ import { Injectable, Optional } from '@nestjs/common';
 import {
   Spacecraft,
   SpacecraftStatus,
-  AlertState,
 } from '../spacecraft/entities/spacecraft.entity';
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
 import {
@@ -14,7 +13,10 @@ import {
 } from '../game-data/game-data.service';
 import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
 import { FieldEffect } from '@swuniverse/shared';
-import { splitSpacecraftDamage } from '../spacecraft/spacecraft-damage';
+import {
+  recordSpacecraftShieldHit,
+  splitSpacecraftDamage,
+} from '../spacecraft/spacecraft-damage';
 import { getRuntimeSystemsForModule } from '../spacecraft/spacecraft-runtime-state.service';
 import { CombatRandom } from './combat-random';
 import { CombatCause, isOneWayCombat } from './combat-cause';
@@ -34,6 +36,7 @@ export enum CombatAction {
   ARMOR_ABSORB = 'ARMOR_ABSORB',
   WEAPON_SHIELD_MOD = 'WEAPON_SHIELD_MOD',
   FIELD_EFFECT = 'FIELD_EFFECT',
+  PREPARATION = 'PREPARATION',
 }
 
 export interface CombatLogEntry {
@@ -113,7 +116,6 @@ export class CombatEngine {
     for (const combatant of [...attackerParty, ...defenderParty]) {
       if (!this.isActive(combatant)) continue;
       combatant.ship.status = SpacecraftStatus.IN_COMBAT;
-      combatant.ship.alertState = AlertState.RED;
     }
 
     const used = new Set<number>();
@@ -158,7 +160,6 @@ export class CombatEngine {
         combatant.ship.status = SpacecraftStatus.DESTROYED;
       } else {
         combatant.ship.status = SpacecraftStatus.IDLE;
-        combatant.ship.alertState = AlertState.YELLOW;
       }
     }
     const attackerAlive = attackerParty.some((member) => this.isActive(member));
@@ -457,6 +458,7 @@ export class CombatEngine {
     });
     let hullDamage = split.hullDamage;
     if (this.systemActive(target, 'SHIELDS') && target.ship.shields > 0) {
+      recordSpacecraftShieldHit(target.ship);
       target.ship.shields -= split.shieldDamage;
       if (target.ship.shields === 0) {
         const shields = target.ship.runtimeSystems?.SHIELDS as {

@@ -1159,7 +1159,22 @@ export class SpacecraftService {
     alertState: AlertState,
   ): Promise<SpacecraftAlertMutationResultDto> {
     const ship = await this.findOne(shipId, userId);
-    const result = this.spacecraftAlertService.apply(ship, alertState);
+    const options = alertState === AlertState.GREEN
+      ? {}
+      : {
+          hasEnoughCrew: await this.spacecraftCrewService.hasEnoughCrew(ship),
+          hasColony: (await this.dataSource.getRepository(Colony).count({
+            where: { userId },
+          })) > 0,
+          shieldBlocked: (await this.shipRepo.findOneBy({ tractoredShipId: ship.id }))
+            ? 'Das Schiff wird von einem Traktorstrahl gehalten'
+            : (await this.anomalyQuery?.findAtLocation(ship.locationId))?.some(
+                (entry) => ['ION_STORM', 'SUBSPACE_ELLIPSE'].includes(entry.type),
+              )
+              ? 'Ionensturm oder Subraumellipse am Ort'
+              : undefined,
+        };
+    const result = this.spacecraftAlertService.apply(ship, alertState, options);
     await this.shipRepo.save(ship);
     this.gameGateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, {
       shipId: ship.id,

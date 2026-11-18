@@ -308,6 +308,8 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     },
   ],
   exports: [
+    SpacecraftAlertService,
+    SpacecraftRepairService,
     RpgActionLockService,
     ShuttleService,
     MOVEMENT_REACTIONS,

@@ -131,6 +131,7 @@ function createService() {
     destructionService as any,
     reportFormatter as any,
     statistics as any,
+    { prepare: jest.fn(async () => []) } as any,
   );
   const service = new CombatService(
     shipRepo as any,

@@ -18,6 +18,7 @@ import { StatisticsModule } from '../statistics/statistics.module';
 import { BattleResolverService } from './battle-resolver.service';
 import { CombatReportFormatter } from './combat-report.formatter';
 import { CombatRandom } from './combat-random';
+import { BattlePreparationService } from './battle-preparation.service';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { CombatRandom } from './combat-random';
   providers: [
     CombatService,
     BattleResolverService,
+    BattlePreparationService,
     CombatEngine,
     CombatRandom,
     ColonyStorageService,

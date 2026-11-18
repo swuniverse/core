@@ -35,6 +35,20 @@ const request = (overrides: Partial<DamageRequest> = {}): DamageRequest => ({
 });
 
 describe('SpacecraftDamage (STU ApplyDamage)', () => {
+  it('resets the persistent shield timer for partial hits and collapse, but not for OFF shields', () => {
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(1000);
+    try {
+      const target = ship({ shields: 30, runtimeSystems: { SHIELDS: { active: true } } });
+      new SpacecraftDamage(scripted([]).random).apply(target, request({ netDamage: 20 }), []);
+      expect(target.runtimeSystems!.SHIELDS).toMatchObject({ active: true, regenerationStartedAt: 1000 });
+      clock.mockReturnValue(2000);
+      new SpacecraftDamage(scripted([]).random).apply(target, request({ netDamage: 10 }), []);
+      expect(target.runtimeSystems!.SHIELDS).toMatchObject({ active: false, regenerationStartedAt: 2000 });
+      clock.mockReturnValue(3000);
+      new SpacecraftDamage(scripted([1]).random).apply(target, request(), []);
+      expect(target.runtimeSystems!.SHIELDS).toMatchObject({ regenerationStartedAt: 2000 });
+    } finally { clock.mockRestore(); }
+  });
   it('shares factor-based net damage splitting with combat, without fixed leakage', () => {
     const target = ship({ shields: 10, runtimeSystems: { SHIELDS: { active: true } } });
     expect(splitSpacecraftDamage(target, request({ netDamage: 40, shieldDamageFactor: 50, hullDamageFactor: 200 }))).toEqual({ shieldDamage: 10, remainingNetDamage: 20, hullDamage: 40 });

@@ -8,6 +8,7 @@ import {
   type ResolvedStance,
 } from '../alliance/relationship-resolver.service';
 import { BattleResolverService } from '../combat/battle-resolver.service';
+import { CombatCause } from '../combat/combat-cause';
 import { MessageFolder } from '../messaging/message-folder';
 import { MessagingService } from '../messaging/messaging.service';
 import {
@@ -155,6 +156,7 @@ export class AlertReactionService implements MovementReaction, OnModuleInit {
         targetShipId: defenders.find((ship) => ship.id === leader.id)?.id ?? defenders[0].id,
         attackerUserId: candidate.userId,
         defenderUserId: incomingUserId,
+        cause: candidate.alertState === AlertState.RED ? CombatCause.ALERT_RED : CombatCause.ALERT_YELLOW,
       });
       reports.push(report);
       const destroyed = new Set(report.outcome.destroyedShipIds);

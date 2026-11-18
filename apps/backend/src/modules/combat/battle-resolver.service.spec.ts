@@ -56,6 +56,7 @@ function createResolver(destroyedShipIds: number[]) {
   };
   const reportFormatter = { formatBattle: jest.fn(() => ({ report: true })) };
   const statistics = { countEvent: jest.fn(async () => undefined) };
+  const preparation = { prepare: jest.fn(async () => [] as any[]) };
   const resolver = new BattleResolverService(
     moduleRepo as any,
     engine as any,
@@ -63,9 +64,11 @@ function createResolver(destroyedShipIds: number[]) {
     destructionService as any,
     reportFormatter as any,
     statistics as any,
+    preparation as any,
   );
   return {
     resolver,
+    preparation,
     moduleRepo,
     engine,
     gateway,
@@ -77,6 +80,32 @@ function createResolver(destroyedShipIds: number[]) {
 }
 
 describe('BattleResolverService', () => {
+  it('finishes preparation before the engine and prepends readiness failures to the report', async () => {
+    const t = createResolver([]);
+    const log = {
+      action: 'PREPARATION',
+      source: 'defender',
+      sourceId: 2,
+      detail: 'Schilde konnten nicht aktiviert werden: Nicht genügend EPS',
+    };
+    t.preparation.prepare.mockResolvedValue([log]);
+    await t.resolver.resolve({
+      attackers: [ship(1, 10)],
+      defenders: [ship(2, 20)],
+      initiatorShipId: 1,
+      targetShipId: 2,
+      attackerUserId: 10,
+      defenderUserId: 20,
+    });
+    expect(t.preparation.prepare.mock.invocationCallOrder[0]).toBeLessThan(
+      t.engine.resolveBattle.mock.invocationCallOrder[0],
+    );
+    expect(t.reportFormatter.formatBattle).toHaveBeenCalledWith(
+      expect.objectContaining({ rounds: [{ round: 1, log: [log] }] }),
+      expect.anything(),
+      expect.anything(),
+    );
+  });
   it('passes one-way causes and per-ship energy targeting modes through to the engine', async () => {
     const t = createResolver([]);
     await t.resolver.resolve({

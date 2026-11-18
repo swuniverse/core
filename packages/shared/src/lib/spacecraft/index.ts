@@ -159,6 +159,8 @@ export interface SpacecraftRuntimeSystemStateDto {
   resourceLocationId?: number;
   lastScanAt?: number;
   lastScanLocationId?: number;
+  /** SHIELDS: epoch-ms timer for regeneration, reset on every shield hit. */
+  regenerationStartedAt?: number;
 }
 
 export interface SpacecraftTrackerDto {

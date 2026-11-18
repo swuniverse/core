@@ -119,6 +119,8 @@ export class CombatReportFormatter {
     const source = names[entry.source];
     const target = entry.target ? names[entry.target] : names[entry.source];
     switch (entry.action) {
+      case CombatAction.PREPARATION:
+        return `${source}: ${entry.detail ?? 'Kampfvorbereitung'}`;
       case CombatAction.ENERGY_HIT:
         return `${source} feuert mit ${entry.weapon} auf ${target}.`;
       case CombatAction.PROJECTILE_HIT:

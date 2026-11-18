@@ -18,6 +18,12 @@ export interface DamageRandom {
 
 type SystemState = { active?: boolean; integrity?: number };
 
+/** Persistent JSONB timer shared by combat and field/anomaly damage. */
+export function recordSpacecraftShieldHit(ship: Pick<Spacecraft, 'runtimeSystems'>, now = Date.now()): void {
+  const shields = ship.runtimeSystems?.SHIELDS as { regenerationStartedAt?: number } | undefined;
+  if (shields) shields.regenerationStartedAt = now;
+}
+
 /** STU DamageWrapper: consume net damage against active shields first, then
  * apply the hull factor only to the remainder. No fixed leakage/efficiency.
  * Pure calculation shared by combat and field/anomaly damage.
@@ -84,6 +90,7 @@ export class SpacecraftDamage {
 
   private damageShields(ship: Spacecraft, systems: Record<string, SystemState>, damage: DamageRequest, info: string[]): void {
     const split = splitSpacecraftDamage(ship, damage);
+    recordSpacecraftShieldHit(ship);
     const absorbed = split.shieldDamage;
     damage.netDamage = split.remainingNetDamage;
     if (absorbed >= ship.shields) {

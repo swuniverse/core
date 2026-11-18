@@ -74,6 +74,24 @@ function combatFormulas(): CombatFormulas {
 }
 
 describe('CombatEngine STU matchups', () => {
+  it('records shield-hit and collapse times while preserving the previous alert level', async () => {
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(1000);
+    try {
+      const { engine } = fixture();
+      const attacker = member(1, ['WEAPONS']);
+      const target = member(2, []);
+      attacker.ship.alertState = 'RED';
+      target.ship.alertState = 'YELLOW';
+      target.ship.shields = 20;
+      await engine.resolveBattle([attacker], [target]);
+      expect(target.ship.runtimeSystems.SHIELDS).toMatchObject({ active: true, regenerationStartedAt: 1000 });
+      expect(attacker.ship.alertState).toBe('RED');
+      expect(target.ship.alertState).toBe('YELLOW');
+      clock.mockReturnValue(2000);
+      await engine.resolveBattle([attacker], [target]);
+      expect(target.ship.runtimeSystems.SHIELDS).toMatchObject({ active: false, regenerationStartedAt: 2000 });
+    } finally { clock.mockRestore(); }
+  });
   const shots = (result: Awaited<ReturnType<CombatEngine['resolveBattle']>>) =>
     result.rounds[0].log.filter((entry) =>
       [

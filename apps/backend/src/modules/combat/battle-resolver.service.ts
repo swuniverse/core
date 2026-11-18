@@ -20,6 +20,7 @@ import { StatisticsService } from '../statistics/statistics.service';
 import { CombatEngine, type EnergyFiringMode } from './combat.engine';
 import { CombatCause } from './combat-cause';
 import { CombatReportFormatter } from './combat-report.formatter';
+import { BattlePreparationService } from './battle-preparation.service';
 
 /**
  * Already authoritatively determined parties of a battle. The resolver never
@@ -54,6 +55,7 @@ export class BattleResolverService {
     private readonly destructionService: SpacecraftDestructionService,
     private readonly reportFormatter: CombatReportFormatter,
     private readonly statisticsService: StatisticsService,
+    private readonly preparation: BattlePreparationService,
     @Optional() private readonly actions?: RpgActionLockService,
   ) {}
 
@@ -89,6 +91,14 @@ export class BattleResolverService {
         ...this.fieldEffectContext(ship),
       }));
 
+    const attackerParty = party(attackers);
+    const defenderParty = party(defenders);
+    const cause = input.cause ?? CombatCause.SHIP_FIGHT;
+    const preparationLog = await this.preparation.prepare(
+      attackerParty,
+      defenderParty,
+      cause,
+    );
     for (const ownerId of new Set(participants.map((ship) => ship.userId))) {
       this.gateway.emitToUser(ownerId, WsEventType.COMBAT_STARTED, {
         attackerId: input.initiatorShipId,
@@ -97,10 +107,14 @@ export class BattleResolverService {
     }
 
     const result = await this.engine.resolveBattle(
-      party(attackers),
-      party(defenders),
-      input.cause ?? CombatCause.SHIP_FIGHT,
+      attackerParty,
+      defenderParty,
+      cause,
     );
+    if (preparationLog.length) {
+      if (!result.rounds.length) result.rounds.push({ round: 1, log: [] });
+      result.rounds[0].log.unshift(...preparationLog);
+    }
     const destroyedIds = new Set(result.destroyedShipIds);
     const report = this.reportFormatter.formatBattle(
       result,

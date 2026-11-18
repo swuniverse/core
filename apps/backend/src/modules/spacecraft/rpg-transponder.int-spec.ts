@@ -523,6 +523,7 @@ describe('RPG transponder (production HTTP/PostgreSQL)', () => {
       {} as any,
       {} as any,
       {} as any,
+      { prepare: jest.fn(async () => []) } as any,
       app.get(RpgActionLockService),
     );
     await expect(
