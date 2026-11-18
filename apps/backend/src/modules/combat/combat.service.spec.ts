@@ -696,6 +696,7 @@ describe('CombatService attack', () => {
         expect.objectContaining({ ship: expect.objectContaining({ id: 4 }) }),
         expect.objectContaining({ ship: expect.objectContaining({ id: 5 }) }),
       ]),
+      'SHIP_FIGHT',
     );
     expect(
       engine.resolveBattle.mock.calls[0][1].some(

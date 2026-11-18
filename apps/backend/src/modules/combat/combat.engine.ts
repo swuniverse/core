@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import {
   Spacecraft,
   SpacecraftStatus,
@@ -14,6 +14,10 @@ import {
 } from '../game-data/game-data.service';
 import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
 import { FieldEffect } from '@swuniverse/shared';
+import { splitSpacecraftDamage } from '../spacecraft/spacecraft-damage';
+import { getRuntimeSystemsForModule } from '../spacecraft/spacecraft-runtime-state.service';
+import { CombatRandom } from './combat-random';
+import { CombatCause, isOneWayCombat } from './combat-cause';
 
 export enum CombatAction {
   ENERGY_HIT = 'ENERGY_HIT',
@@ -60,11 +64,14 @@ export interface CombatResult {
   defenderDestroyed: boolean;
 }
 
+export type EnergyFiringMode = 'FOCUS' | 'RANDOM';
+
 export interface BattleParticipant {
   ship: Spacecraft;
   modules: SpacecraftModule[];
   fieldEffects?: FieldEffect[];
   fieldTypeName?: string;
+  energyFiringMode?: EnergyFiringMode;
 }
 
 interface Combatant extends BattleParticipant {
@@ -85,11 +92,13 @@ export class CombatEngine {
   constructor(
     private readonly gameData: GameDataService,
     private readonly torpedoService: SpacecraftTorpedoService,
+    @Optional() private readonly random: CombatRandom = new CombatRandom(),
   ) {}
 
   async resolveBattle(
     attackers: BattleParticipant[],
     defenders: BattleParticipant[],
+    cause: CombatCause = CombatCause.SHIP_FIGHT,
   ): Promise<BattleResult> {
     const formulas = this.gameData.getCombatFormulas();
     const attackerParty = attackers.map((participant) =>
@@ -102,37 +111,58 @@ export class CombatEngine {
     this.logFieldEffects([...attackerParty, ...defenderParty], log);
 
     for (const combatant of [...attackerParty, ...defenderParty]) {
+      if (!this.isActive(combatant)) continue;
       combatant.ship.status = SpacecraftStatus.IN_COMBAT;
       combatant.ship.alertState = AlertState.RED;
     }
 
-    for (const category of ['WEAPONS', 'PROJECTILE']) {
-      for (const shooter of attackerParty) {
-        const target = defenderParty.find(({ ship }) => ship.hull > 0);
-        if (shooter.ship.hull > 0 && target) {
-          await this.fireWeaponsPhase(shooter, target, formulas, category, log);
-        }
-      }
-      for (const shooter of defenderParty) {
-        const target = attackerParty.find(({ ship }) => ship.hull > 0);
-        if (shooter.ship.hull > 0 && target) {
-          await this.fireWeaponsPhase(shooter, target, formulas, category, log);
-        }
-      }
+    const used = new Set<number>();
+    const oneWay = isOneWayCombat(cause);
+    let firstStrike = true;
+    while (true) {
+      const unused = (party: Combatant[]) =>
+        party.filter(
+          (member) => !used.has(member.ship.id) && this.canFire(member),
+        );
+      const availableAttackers = unused(attackerParty);
+      const availableDefenders = oneWay ? [] : unused(defenderParty);
+      // STU has no defender-only opening when the attacking party cannot fire.
+      if (firstStrike && availableAttackers.length === 0) break;
+      if (availableAttackers.length === 0 && availableDefenders.length === 0)
+        break;
+      const attackersFire =
+        firstStrike ||
+        availableDefenders.length === 0 ||
+        (availableAttackers.length > 0 && this.random.next() < 0.5);
+      const targets = attackersFire ? defenderParty : attackerParty;
+      if (!targets.some((member) => this.isActive(member))) break;
+      const shooter = this.pick(
+        attackersFire ? availableAttackers : availableDefenders,
+      );
+      used.add(shooter.ship.id);
+      firstStrike = false;
+      await this.fireWeaponsPhase(shooter, targets, formulas, 'WEAPONS', log);
+      await this.fireWeaponsPhase(
+        shooter,
+        targets,
+        formulas,
+        'PROJECTILE',
+        log,
+      );
     }
 
     const all = [...attackerParty, ...defenderParty];
     for (const combatant of all) {
       this.tickModuleCooldowns(combatant);
-      if (combatant.ship.hull <= 0) {
+      if (!this.isActive(combatant)) {
         combatant.ship.status = SpacecraftStatus.DESTROYED;
       } else {
         combatant.ship.status = SpacecraftStatus.IDLE;
         combatant.ship.alertState = AlertState.YELLOW;
       }
     }
-    const attackerAlive = attackerParty.some(({ ship }) => ship.hull > 0);
-    const defenderAlive = defenderParty.some(({ ship }) => ship.hull > 0);
+    const attackerAlive = attackerParty.some((member) => this.isActive(member));
+    const defenderAlive = defenderParty.some((member) => this.isActive(member));
     const winner =
       attackerAlive && !defenderAlive
         ? 'attacker'
@@ -144,7 +174,7 @@ export class CombatEngine {
       rounds: [{ round: 1, log }],
       winner,
       destroyedShipIds: all
-        .filter(({ ship }) => ship.hull <= 0)
+        .filter((member) => !this.isActive(member))
         .map(({ ship }) => ship.id),
       attackerShipIds: attackerParty.map(({ ship }) => ship.id),
       defenderShipIds: defenderParty.map(({ ship }) => ship.id),
@@ -157,96 +187,18 @@ export class CombatEngine {
     attackerModules: SpacecraftModule[],
     defenderModules: SpacecraftModule[],
   ): Promise<CombatResult> {
-    const formulas = this.gameData.getCombatFormulas();
-    const aCombatant: Combatant = {
-      ship: attacker,
-      modules: attackerModules,
-      role: 'attacker',
-      shipClass: this.getShipClass(attacker.shipClassId),
-    };
-    const dCombatant: Combatant = {
-      ship: defender,
-      modules: defenderModules,
-      role: 'defender',
-      shipClass: this.getShipClass(defender.shipClassId),
-    };
-
-    attacker.status = SpacecraftStatus.IN_COMBAT;
-    attacker.alertState = AlertState.RED;
-    defender.status = SpacecraftStatus.IN_COMBAT;
-    defender.alertState = AlertState.RED;
-
-    const rounds: CombatRoundResult[] = [];
-    const log: CombatLogEntry[] = [];
-
-    // STU resolves one finite attack cycle: each side fires its available
-    // systems once; escape is an explicit hyperdrive action, never a dice roll.
-
-    await this.fireWeaponsPhase(
-      aCombatant,
-      dCombatant,
-      formulas,
-      'WEAPONS',
-      log,
+    const result = await this.resolveBattle(
+      [{ ship: attacker, modules: attackerModules }],
+      [{ ship: defender, modules: defenderModules }],
     );
-    if (defender.hull > 0)
-      await this.fireWeaponsPhase(
-        dCombatant,
-        aCombatant,
-        formulas,
-        'WEAPONS',
-        log,
-      );
-    if (attacker.hull > 0 && defender.hull > 0) {
-      await this.fireWeaponsPhase(
-        aCombatant,
-        dCombatant,
-        formulas,
-        'PROJECTILE',
-        log,
-      );
-      if (defender.hull > 0)
-        await this.fireWeaponsPhase(
-          dCombatant,
-          aCombatant,
-          formulas,
-          'PROJECTILE',
-          log,
-        );
-    }
-    this.tickModuleCooldowns(aCombatant);
-    this.tickModuleCooldowns(dCombatant);
-    rounds.push(this.buildRoundResult(1, attacker, defender, log));
-
-    const attackerDestroyed = attacker.hull <= 0;
-    const defenderDestroyed = defender.hull <= 0;
-
-    let winner: 'attacker' | 'defender' | 'draw';
-    if (attackerDestroyed && defenderDestroyed) {
-      winner = 'draw';
-    } else if (defenderDestroyed) {
-      winner = 'attacker';
-    } else if (attackerDestroyed) {
-      winner = 'defender';
-    } else {
-      winner = attacker.hull > defender.hull ? 'attacker' : 'defender';
-    }
-
-    if (attackerDestroyed) {
-      attacker.status = SpacecraftStatus.DESTROYED;
-    } else {
-      attacker.status = SpacecraftStatus.IDLE;
-      attacker.alertState = AlertState.YELLOW;
-    }
-
-    if (defenderDestroyed) {
-      defender.status = SpacecraftStatus.DESTROYED;
-    } else {
-      defender.status = SpacecraftStatus.IDLE;
-      defender.alertState = AlertState.YELLOW;
-    }
-
-    return { rounds, winner, attackerDestroyed, defenderDestroyed };
+    return {
+      rounds: result.rounds.map((round) =>
+        this.buildRoundResult(round.round, attacker, defender, round.log),
+      ),
+      winner: result.winner,
+      attackerDestroyed: attacker.hull <= 0,
+      defenderDestroyed: defender.hull <= 0,
+    };
   }
 
   private combatant(
@@ -260,37 +212,82 @@ export class CombatEngine {
     };
   }
 
+  private isActive(combatant: Combatant): boolean {
+    return (
+      combatant.ship.hull > 0 &&
+      combatant.ship.status !== SpacecraftStatus.DESTROYED
+    );
+  }
+
+  private systemActive(combatant: Combatant, key: string): boolean {
+    const system = (
+      combatant.ship.runtimeSystems as Record<
+        string,
+        { active?: boolean; integrity?: number }
+      > | null
+    )?.[key];
+    return system?.active === true && (system.integrity ?? 100) > 0;
+  }
+
+  private weapons(
+    combatant: Combatant,
+    category: 'WEAPONS' | 'PROJECTILE',
+  ): SpacecraftModule[] {
+    const categories =
+      category === 'WEAPONS'
+        ? ['WEAPONS', 'ENERGY_WEAPON']
+        : ['PROJECTILE', 'TORPEDO_BANK'];
+    return combatant.modules.filter(
+      (module) =>
+        categories.includes(module.category) &&
+        module.isActive &&
+        module.cooldown === 0 &&
+        module.integrity > 0,
+    );
+  }
+
+  private canFire(combatant: Combatant): boolean {
+    return (
+      this.isActive(combatant) &&
+      this.systemActive(combatant, 'SHORT_RANGE_SENSORS') &&
+      combatant.ship.energy > 0 &&
+      ((this.systemActive(combatant, 'WEAPONS') &&
+        this.weapons(combatant, 'WEAPONS').length > 0) ||
+        (this.systemActive(combatant, 'TORPEDO_BANK') &&
+          this.weapons(combatant, 'PROJECTILE').length > 0))
+    );
+  }
+
+  private pick<T>(members: T[]): T {
+    return members.length === 1
+      ? members[0]
+      : members[Math.floor(this.random.next() * members.length)];
+  }
+
   private async fireWeaponsPhase(
     shooter: Combatant,
-    target: Combatant,
+    targets: Combatant[],
     formulas: CombatFormulas,
-    weaponCategory: string,
+    weaponCategory: 'WEAPONS' | 'PROJECTILE',
     log: CombatLogEntry[],
   ): Promise<void> {
-    const runtimeSystems = shooter.ship.runtimeSystems as Record<
-      string,
-      { active: boolean }
-    > | null;
-    if (
-      weaponCategory === 'WEAPONS' &&
-      runtimeSystems?.WEAPONS?.active === false
-    )
-      return;
-    if (
-      weaponCategory === 'PROJECTILE' &&
-      runtimeSystems?.TORPEDO_BANK?.active === false
-    )
-      return;
-
-    const weapons = shooter.modules.filter(
-      (m) =>
-        m.category === weaponCategory &&
-        m.isActive &&
-        m.cooldown === 0 &&
-        m.integrity > 0,
-    );
+    const systemKey = weaponCategory === 'WEAPONS' ? 'WEAPONS' : 'TORPEDO_BANK';
+    const weapons = this.weapons(shooter, weaponCategory);
+    let target: Combatant | undefined;
 
     for (const weapon of weapons) {
+      if (!this.canFire(shooter) || !this.systemActive(shooter, systemKey))
+        break;
+      const activeTargets = targets.filter((member) => this.isActive(member));
+      if (activeTargets.length === 0) break;
+      if (
+        !target ||
+        !this.isActive(target) ||
+        weaponCategory === 'PROJECTILE' ||
+        shooter.energyFiringMode === 'RANDOM'
+      ) {
+        target = this.pick(activeTargets);
+      }
       const weaponDef = this.gameData
         .getAllModules()
         .find((m) => m.name === weapon.moduleType);
@@ -306,10 +303,12 @@ export class CombatEngine {
 
       if (weaponCategory === 'WEAPONS') {
         const epsCost =
-          (weaponDef.secret as Record<string, number>).epsCost ?? 5;
+          (weaponDef.secret as Record<string, number>).epsCost ?? 1;
         if (shooter.ship.energy < epsCost) continue;
         shooter.ship.energy -= epsCost;
       }
+
+      if (torpedo) shooter.ship.energy--; // STU projectile volley costs one EPS.
 
       const baseDamage =
         torpedo?.baseDamage ??
@@ -322,7 +321,7 @@ export class CombatEngine {
         torpedo,
       );
 
-      if (Math.random() > hitChance) {
+      if (this.random.next() > hitChance) {
         const action =
           weaponCategory === 'WEAPONS'
             ? CombatAction.ENERGY_MISS
@@ -343,9 +342,9 @@ export class CombatEngine {
       const variance = torpedo
         ? 1 -
           Math.max(0, torpedo.variance) / 100 +
-          Math.random() * (Math.max(0, torpedo.variance) / 100) * 2
+          this.random.next() * (Math.max(0, torpedo.variance) / 100) * 2
         : formulas.damage.variance_min +
-          Math.random() *
+          this.random.next() *
             (formulas.damage.variance_max - formulas.damage.variance_min);
       const projectileDamageMultiplier =
         torpedo &&
@@ -368,7 +367,7 @@ export class CombatEngine {
       const critChance = torpedo
         ? Math.max(0, torpedo.criticalChance) / 100
         : formulas.damage.crit_chance;
-      const isCrit = Math.random() < critChance;
+      const isCrit = this.random.next() < critChance;
       if (isCrit) {
         damage = Math.round(damage * formulas.damage.crit_multiplier);
         log.push({
@@ -378,12 +377,16 @@ export class CombatEngine {
         });
       }
 
-      // weapon-vs-shield modifier (only while target has shields)
-      if (target.ship.shields > 0) {
-        const weaponFamily =
-          weaponCategory === 'PROJECTILE'
-            ? 'TORPEDO'
-            : (weaponDef.secret.weaponFamily as string | undefined);
+      // Energy weapon modifiers affect shields only, not hull overflow.
+      let shieldModifier = 100;
+      if (
+        this.systemActive(target, 'SHIELDS') &&
+        target.ship.shields > 0 &&
+        !torpedo
+      ) {
+        const weaponFamily = weaponDef.secret.weaponFamily as
+          | string
+          | undefined;
         const shieldFamily = this.getActiveShieldFamily(target);
         if (weaponFamily && shieldFamily) {
           const modifier = this.gameData.getWeaponShieldModifier(
@@ -391,7 +394,7 @@ export class CombatEngine {
             shieldFamily,
           );
           if (modifier !== 100) {
-            damage = Math.round(damage * (modifier / 100));
+            shieldModifier = modifier;
             log.push({
               action: CombatAction.WEAPON_SHIELD_MOD,
               source: shooter.role,
@@ -416,11 +419,11 @@ export class CombatEngine {
         value: damage,
       });
 
-      this.applyDamage(target, damage, formulas, log, isCrit, torpedo);
+      this.applyDamage(target, damage, log, isCrit, torpedo, shieldModifier);
 
       // Ion weapon system disable
       const isIon = weapon.moduleType.toLowerCase().includes('ion');
-      if (isIon && Math.random() < formulas.ion_effects.disable_chance) {
+      if (isIon && this.random.next() < formulas.ion_effects.disable_chance) {
         this.disableRandomSystem(target, formulas, log);
       }
     }
@@ -429,10 +432,10 @@ export class CombatEngine {
   private applyDamage(
     target: Combatant,
     damage: number,
-    formulas: CombatFormulas,
     log: CombatLogEntry[],
     isCrit: boolean,
     torpedo?: TorpedoTypeDef | null,
+    shieldModifier = 100,
   ): void {
     const isProjectile = !!torpedo;
     const shieldFactor =
@@ -447,28 +450,27 @@ export class CombatEngine {
       Number.isFinite(torpedo.hullDamageFactor)
         ? torpedo.hullDamageFactor / 100
         : 1;
-    const bleedthrough = Math.round(damage * formulas.shields.bleedthrough);
-    const shieldDamage = Math.round((damage - bleedthrough) * shieldFactor);
-    let hullDamage = Math.round(bleedthrough * hullFactor);
-
-    if (target.ship.shields > 0) {
-      const absorbed = Math.round(
-        Math.min(target.ship.shields, shieldDamage) *
-          formulas.shields.efficiency,
-      );
-      target.ship.shields = Math.max(0, target.ship.shields - shieldDamage);
+    const split = splitSpacecraftDamage(target.ship, {
+      netDamage: damage,
+      shieldDamageFactor: shieldFactor * shieldModifier,
+      hullDamageFactor: hullFactor * 100,
+    });
+    let hullDamage = split.hullDamage;
+    if (this.systemActive(target, 'SHIELDS') && target.ship.shields > 0) {
+      target.ship.shields -= split.shieldDamage;
+      if (target.ship.shields === 0) {
+        const shields = target.ship.runtimeSystems?.SHIELDS as {
+          active: boolean;
+        };
+        shields.active = false;
+      }
       log.push({
         action: CombatAction.SHIELD_ABSORB,
         source: target.role,
-        value: absorbed,
+        sourceId: target.ship.id,
+        value: split.shieldDamage,
         remaining: target.ship.shields,
       });
-
-      if (target.ship.shields <= 0) {
-        hullDamage += Math.round((shieldDamage - absorbed) * hullFactor);
-      }
-    } else {
-      hullDamage = Math.round(damage * hullFactor);
     }
 
     const resistance = isProjectile
@@ -484,6 +486,7 @@ export class CombatEngine {
         log.push({
           action: CombatAction.ARMOR_ABSORB,
           source: target.role,
+          sourceId: target.ship.id,
           value: absorbed,
           detail: `${resistance.damageType} by ${resistance.moduleType}`,
         });
@@ -494,6 +497,7 @@ export class CombatEngine {
       log.push({
         action: CombatAction.HULL_DAMAGE,
         source: target.role,
+        sourceId: target.ship.id,
         value: hullDamage,
         remaining: target.ship.hull,
       });
@@ -501,23 +505,43 @@ export class CombatEngine {
       // Critical hits can damage modules
       if (isCrit && target.modules.length > 0) {
         const randomMod =
-          target.modules[Math.floor(Math.random() * target.modules.length)];
-        const integrityLoss = 10 + Math.floor(Math.random() * 20);
+          target.modules[
+            Math.floor(this.random.next() * target.modules.length)
+          ];
+        const integrityLoss = 10 + Math.floor(this.random.next() * 20);
         randomMod.integrity = Math.max(0, randomMod.integrity - integrityLoss);
         log.push({
           action: CombatAction.SYSTEM_DAMAGED,
           source: target.role,
+          sourceId: target.ship.id,
           value: integrityLoss,
           detail: randomMod.moduleType,
         });
 
-        if (randomMod.integrity === 0) {
-          randomMod.isActive = false;
+        if (randomMod.integrity === 0) randomMod.isActive = false;
+        for (const key of getRuntimeSystemsForModule(randomMod)) {
+          const state = target.ship.runtimeSystems?.[key] as
+            | { active: boolean; integrity: number }
+            | undefined;
+          if (state) {
+            state.integrity = Math.max(
+              ...target.modules
+                .filter((module) =>
+                  getRuntimeSystemsForModule(module).includes(key),
+                )
+                .map((module) => module.integrity),
+            );
+            if (state.integrity === 0) state.active = false;
+          }
         }
       }
 
       if (target.ship.hull <= 0) {
-        log.push({ action: CombatAction.DESTROYED, source: target.role });
+        log.push({
+          action: CombatAction.DESTROYED,
+          source: target.role,
+          sourceId: target.ship.id,
+        });
       }
     }
   }
@@ -619,7 +643,7 @@ export class CombatEngine {
   }
 
   private randomPercent(min: number, max: number): number {
-    return (min + Math.random() * (max - min)) / 100;
+    return (min + this.random.next() * (max - min)) / 100;
   }
 
   private logFieldEffects(
@@ -682,9 +706,26 @@ export class CombatEngine {
       if (mod) {
         mod.isActive = false;
         mod.cooldown = formulas.ion_effects.disable_duration;
+        for (const key of getRuntimeSystemsForModule(mod)) {
+          const state = target.ship.runtimeSystems?.[key] as
+            | { active: boolean }
+            | undefined;
+          if (
+            state &&
+            !target.modules.some(
+              (module) =>
+                getRuntimeSystemsForModule(module).includes(key) &&
+                module.isActive &&
+                module.integrity > 0,
+            )
+          ) {
+            state.active = false;
+          }
+        }
         log.push({
           action: CombatAction.SYSTEM_DISABLED,
           source: target.role,
+          sourceId: target.ship.id,
           detail: mod.moduleType,
         });
         return;

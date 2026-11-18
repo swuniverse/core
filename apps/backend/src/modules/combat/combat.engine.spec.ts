@@ -31,6 +31,8 @@ jest.mock('../spacecraft/entities/ship-class-def.entity', () => ({
 }));
 
 import { CombatAction, CombatEngine } from './combat.engine';
+import { CombatCause } from './combat-cause';
+import { CombatReportFormatter } from './combat-report.formatter';
 import type {
   CombatFormulas,
   TorpedoTypeDef,
@@ -71,6 +73,254 @@ function combatFormulas(): CombatFormulas {
   };
 }
 
+describe('CombatEngine STU matchups', () => {
+  const shots = (result: Awaited<ReturnType<CombatEngine['resolveBattle']>>) =>
+    result.rounds[0].log.filter((entry) =>
+      [
+        CombatAction.ENERGY_HIT,
+        CombatAction.PROJECTILE_HIT,
+        CombatAction.ENERGY_MISS,
+        CombatAction.PROJECTILE_MISS,
+      ].includes(entry.action),
+    );
+  const module = (category: string) => ({
+    moduleType:
+      category === 'WEAPONS' || category === 'ENERGY_WEAPON'
+        ? 'Laser'
+        : 'Torpedorampe',
+    category,
+    integrity: 100,
+    level: 1,
+    cooldown: 0,
+    isActive: true,
+  });
+  const member = (id: number, categories = ['WEAPONS', 'PROJECTILE']): any => ({
+    ship: {
+      id,
+      name: `Schiff ${id}`,
+      userId: id,
+      shipClassId: 3,
+      hull: 5000,
+      hullMax: 5000,
+      shields: 0,
+      energy: 100,
+      status: 'IDLE',
+      runtimeSystems: {
+        SHORT_RANGE_SENSORS: { active: true, integrity: 100 },
+        WEAPONS: { active: true, integrity: 100 },
+        TORPEDO_BANK: { active: true, integrity: 100 },
+        SHIELDS: { active: true, integrity: 100 },
+      },
+    },
+    modules: categories.map(module),
+  });
+  function fixture(next: () => number = () => 0.9) {
+    const formulas = combatFormulas();
+    formulas.hit_chance = { base: 1, min: 0, max: 1, speed_modifier: 0 };
+    const torpedo = {
+      baseDamage: 10,
+      hitFactor: 100,
+      criticalChance: 0,
+      variance: 0,
+      hullDamageFactor: 100,
+      shieldDamageFactor: 100,
+      name: 'Protonentorpedo',
+    };
+    const torpedoes = { consumeForAttack: jest.fn(async () => torpedo) };
+    const gameData = {
+      getCombatFormulas: () => formulas,
+      getAllModules: () => [
+        { name: 'Laser', secret: { baseDamage: 10 }, public: {} },
+        { name: 'Torpedorampe', secret: {}, public: {} },
+      ],
+      getWeaponShieldModifier: () => 100,
+    };
+    return {
+      engine: new CombatEngine(gameData as any, torpedoes as any, { next }),
+      torpedoes,
+      formulas,
+    };
+  }
+  function scripted(values: number[]) {
+    return () => values.shift() ?? 0.5;
+  }
+
+  it('opens with a random attacker, then tosses a coin and gives each ship one energy/projectile turn', async () => {
+    const { engine, torpedoes } = fixture();
+    const attackers = [member(1), member(2)];
+    const defenders = [member(3), member(4)];
+    const result = await engine.resolveBattle(attackers, defenders);
+    expect(shots(result).map((shot) => shot.sourceId)).toEqual([
+      2, 2, 4, 4, 3, 3, 1, 1,
+    ]);
+    for (let index = 0; index < shots(result).length; index += 2) {
+      expect(
+        shots(result)
+          .slice(index, index + 2)
+          .map((shot) => shot.action),
+      ).toEqual([CombatAction.ENERGY_HIT, CombatAction.PROJECTILE_HIT]);
+    }
+    expect(torpedoes.consumeForAttack).toHaveBeenCalledTimes(4);
+    expect(
+      [...attackers, ...defenders].map(
+        (participant) => participant.ship.energy,
+      ),
+    ).toEqual([98, 98, 98, 98]);
+    expect(shots(result)[0].targetId).toBe(4); // not always the first defender
+  });
+
+  it('can choose the attacker again on the next coin toss', async () => {
+    const { engine } = fixture(() => 0.1);
+    const result = await engine.resolveBattle(
+      [member(1, ['WEAPONS']), member(2, ['WEAPONS'])],
+      [member(3, ['WEAPONS'])],
+    );
+    expect(shots(result).map((shot) => shot.sourceId)).toEqual([1, 2, 3]);
+  });
+
+  it.each([CombatCause.ACTIVATE_TRACTOR, CombatCause.BOARD_SHIP])(
+    'allows only attackers to fire for %s',
+    async (cause) => {
+      const { engine } = fixture();
+      const defender = member(3);
+      const result = await engine.resolveBattle(
+        [member(1), member(2)],
+        [defender],
+        cause,
+      );
+      expect(shots(result)).toHaveLength(4);
+      expect(shots(result).every((shot) => shot.source === 'attacker')).toBe(
+        true,
+      );
+      expect(defender.ship.energy).toBe(100);
+    },
+  );
+
+  it.each([
+    'off-nbs',
+    'missing-nbs',
+    'destroyed-nbs',
+    'off-weapons',
+    'missing-weapons',
+    'no-eps',
+    'broken-module',
+    'cooldown',
+  ])('does not fire with %s', async (reason) => {
+    const { engine, torpedoes } = fixture();
+    const attacker = member(1, ['WEAPONS']);
+    const systems = attacker.ship.runtimeSystems;
+    if (reason === 'off-nbs') systems.SHORT_RANGE_SENSORS.active = false;
+    if (reason === 'missing-nbs') delete systems.SHORT_RANGE_SENSORS;
+    if (reason === 'destroyed-nbs') systems.SHORT_RANGE_SENSORS.integrity = 0;
+    if (reason === 'off-weapons') systems.WEAPONS.active = false;
+    if (reason === 'missing-weapons') delete systems.WEAPONS;
+    if (reason === 'no-eps') attacker.ship.energy = 0;
+    if (reason === 'broken-module') attacker.modules[0].integrity = 0;
+    if (reason === 'cooldown') attacker.modules[0].cooldown = 2;
+    const energy = attacker.ship.energy;
+    expect(shots(await engine.resolveBattle([attacker], [member(2)]))).toEqual(
+      [],
+    );
+    expect(attacker.ship.energy).toBe(energy);
+    expect(torpedoes.consumeForAttack).not.toHaveBeenCalled();
+  });
+
+  it('stops after the last EPS is spent before consuming a torpedo', async () => {
+    const { engine, torpedoes } = fixture();
+    const attacker = member(1);
+    attacker.ship.energy = 1;
+    const result = await engine.resolveBattle([attacker], [member(2, [])]);
+    expect(shots(result).map((shot) => shot.action)).toEqual([
+      CombatAction.ENERGY_HIT,
+    ]);
+    expect(torpedoes.consumeForAttack).not.toHaveBeenCalled();
+    expect(attacker.ship.energy).toBe(0);
+  });
+
+  it.each(['FOCUS', 'RANDOM', 'PROJECTILE'])(
+    'keeps energy focus or reselects each %s volley as required',
+    async (mode) => {
+      const { engine } = fixture(
+        scripted([0, 0.5, 0.5, 0.5, 0.99, 0.5, 0.5, 0.5]),
+      );
+      const category = mode === 'PROJECTILE' ? 'PROJECTILE' : 'WEAPONS';
+      const attacker = member(1, [category, category]);
+      attacker.energyFiringMode = mode === 'RANDOM' ? 'RANDOM' : 'FOCUS';
+      const result = await engine.resolveBattle(
+        [attacker],
+        [member(2, []), member(3, [])],
+      );
+      expect(shots(result).map((shot) => shot.targetId)).toEqual(
+        mode === 'FOCUS' ? [2, 2] : [2, 3],
+      );
+    },
+  );
+
+  it('reselects a live target after destruction and reports the actual ship name', async () => {
+    const { engine } = fixture(() => 0.1);
+    const defenders = [member(2, []), member(3, [])];
+    defenders[0].ship.hull = 5;
+    const attacker = member(1, ['WEAPONS', 'WEAPONS']);
+    const result = await engine.resolveBattle([attacker], defenders);
+    expect(shots(result).map((shot) => shot.targetId)).toEqual([2, 3]);
+    expect(result.destroyedShipIds).toEqual([2]);
+    const report = new CombatReportFormatter().formatBattle(
+      result,
+      [attacker.ship],
+      defenders.map((entry) => entry.ship),
+    );
+    expect(report.rounds[0].lines).toContainEqual(
+      expect.objectContaining({
+        kind: CombatAction.DESTROYED,
+        text: 'Schiff 2 wurde zerstört.',
+        sourceId: 2,
+      }),
+    );
+  });
+
+  it('directs damage to the hull when shields are OFF and shares shield overflow factors', async () => {
+    for (const active of [false, true]) {
+      const { engine } = fixture();
+      const target = member(2, []);
+      target.ship.shields = 6;
+      target.ship.runtimeSystems.SHIELDS.active = active;
+      await engine.resolveBattle([member(1, ['WEAPONS'])], [target]);
+      expect(target.ship.shields).toBe(active ? 0 : 6);
+      expect(target.ship.hull).toBe(active ? 4996 : 4990);
+      expect(target.ship.runtimeSystems.SHIELDS.active).toBe(false);
+    }
+  });
+
+  it('supports canonical shipyard weapon categories and never reuses a destroyed shooter', async () => {
+    const { engine } = fixture(() => 0.1);
+    const defender = member(2, ['ENERGY_WEAPON', 'TORPEDO_BANK']);
+    defender.ship.hull = 5;
+    const result = await engine.resolveBattle(
+      [member(1, ['ENERGY_WEAPON'])],
+      [defender],
+    );
+    expect(shots(result).map((shot) => shot.sourceId)).toEqual([1]);
+    expect(result.winner).toBe('attacker');
+  });
+
+  it('rechecks firing eligibility after critical damage destroys the target NBS', async () => {
+    const { engine, formulas } = fixture(() => 0.1);
+    formulas.damage.crit_chance = 1;
+    const defender = member(2, ['WEAPONS']);
+    defender.modules.unshift({ ...module('SENSORS'), integrity: 5 });
+    const result = await engine.resolveBattle(
+      [member(1, ['WEAPONS'])],
+      [defender],
+    );
+    expect(shots(result).map((shot) => shot.sourceId)).toEqual([1]);
+    expect(defender.ship.runtimeSystems.SHORT_RANGE_SENSORS).toMatchObject({
+      active: false,
+      integrity: 0,
+    });
+    expect(defender.modules[0].isActive).toBe(false);
+  });
+});
+
 describe('CombatEngine battle parties', () => {
   it('lets every surviving ship fire and removes destroyed targets', async () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.1);
@@ -103,6 +353,12 @@ describe('CombatEngine battle parties', () => {
         shields: 0,
         shieldsMax: 0,
         energy: 100,
+        runtimeSystems: {
+          SHORT_RANGE_SENSORS: { active: true },
+          WEAPONS: { active: true },
+          TORPEDO_BANK: { active: true },
+          SHIELDS: { active: true },
+        },
         status: 'IDLE',
         alertState: 'GREEN',
       }) as any;
@@ -135,9 +391,18 @@ describe('CombatEngine battle parties', () => {
       ]),
     );
     expect(result.destroyedShipIds).toContain(3);
-    expect(result.rounds[0].log.some((entry) => entry.sourceId === 3)).toBe(
-      false,
-    );
+    expect(
+      result.rounds[0].log.some(
+        (entry) =>
+          entry.sourceId === 3 &&
+          [
+            CombatAction.ENERGY_HIT,
+            CombatAction.ENERGY_MISS,
+            CombatAction.PROJECTILE_HIT,
+            CombatAction.PROJECTILE_MISS,
+          ].includes(entry.action),
+      ),
+    ).toBe(false);
   });
 });
 
@@ -203,6 +468,12 @@ describe('CombatEngine projectile specialization', () => {
       shields: 0,
       shieldsMax: 0,
       energy: 100,
+      runtimeSystems: {
+        SHORT_RANGE_SENSORS: { active: true },
+        WEAPONS: { active: true },
+        TORPEDO_BANK: { active: true },
+        SHIELDS: { active: true },
+      },
       status: 'IDLE',
       alertState: 'GREEN',
     };
@@ -214,6 +485,12 @@ describe('CombatEngine projectile specialization', () => {
       shields: 0,
       shieldsMax: 0,
       energy: 100,
+      runtimeSystems: {
+        SHORT_RANGE_SENSORS: { active: true },
+        WEAPONS: { active: true },
+        TORPEDO_BANK: { active: true },
+        SHIELDS: { active: true },
+      },
       status: 'IDLE',
       alertState: 'GREEN',
     };
@@ -309,6 +586,12 @@ describe('CombatEngine projectile specialization', () => {
       shields: 0,
       shieldsMax: 0,
       energy: 100,
+      runtimeSystems: {
+        SHORT_RANGE_SENSORS: { active: true },
+        WEAPONS: { active: true },
+        TORPEDO_BANK: { active: true },
+        SHIELDS: { active: true },
+      },
       status: 'IDLE',
       alertState: 'GREEN',
     };
@@ -320,6 +603,12 @@ describe('CombatEngine projectile specialization', () => {
       shields: 0,
       shieldsMax: 0,
       energy: 100,
+      runtimeSystems: {
+        SHORT_RANGE_SENSORS: { active: true },
+        WEAPONS: { active: true },
+        TORPEDO_BANK: { active: true },
+        SHIELDS: { active: true },
+      },
       status: 'IDLE',
       alertState: 'GREEN',
     };
@@ -411,6 +700,12 @@ describe('CombatEngine weapon-vs-shield modifier', () => {
       shields: 0,
       shieldsMax: 0,
       energy: 100,
+      runtimeSystems: {
+        SHORT_RANGE_SENSORS: { active: true },
+        WEAPONS: { active: true },
+        TORPEDO_BANK: { active: true },
+        SHIELDS: { active: true },
+      },
       status: 'IDLE',
       alertState: 'GREEN',
     };
@@ -423,6 +718,12 @@ describe('CombatEngine weapon-vs-shield modifier', () => {
       shields: 500,
       shieldsMax: 500,
       energy: 100,
+      runtimeSystems: {
+        SHORT_RANGE_SENSORS: { active: true },
+        WEAPONS: { active: true },
+        TORPEDO_BANK: { active: true },
+        SHIELDS: { active: true },
+      },
       status: 'IDLE',
       alertState: 'GREEN',
     };
@@ -456,12 +757,9 @@ describe('CombatEngine weapon-vs-shield modifier', () => {
 
     // baseDamage=15, level=1 → levelScale=1, classModifier=1, variance=1, base_multiplier=1 → damage=15
     // modifier=120 → damage = round(15 * 1.2) = 18
-    // bleedthrough = round(18 * 0.1) = 2 → hullDamage starts at 2
-    // shieldDamage = round((18-2) * 1) = 16
-    // shields absorbed: min(500,16)=16, shields become 484
-    // hull receives bleedthrough=2
-    expect(defender.shields).toBe(484);
-    expect(defender.hull).toBe(998);
+    // Active shields take all 18 damage; no fixed hull leakage.
+    expect(defender.shields).toBe(482);
+    expect(defender.hull).toBe(1000);
 
     expect(result.rounds[0].log).toContainEqual(
       expect.objectContaining({
@@ -515,7 +813,12 @@ describe('CombatEngine runtimeSystems integration', () => {
       shieldsMax: 500,
       energy: 100,
       evadeChance: 0,
-      runtimeSystems: null,
+      runtimeSystems: {
+        SHORT_RANGE_SENSORS: { active: true },
+        WEAPONS: { active: true },
+        TORPEDO_BANK: { active: true },
+        SHIELDS: { active: true },
+      },
       status: 'IDLE',
       alertState: 'GREEN',
       ...overrides,

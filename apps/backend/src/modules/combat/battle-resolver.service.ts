@@ -17,7 +17,8 @@ import {
   DESTROYED_SHIPS_EVENT,
 } from '../statistics/statistic-events';
 import { StatisticsService } from '../statistics/statistics.service';
-import { CombatEngine } from './combat.engine';
+import { CombatEngine, type EnergyFiringMode } from './combat.engine';
+import { CombatCause } from './combat-cause';
 import { CombatReportFormatter } from './combat-report.formatter';
 
 /**
@@ -36,6 +37,10 @@ export interface BattleResolutionInput {
   attackerUserId: number;
   /** User credited with kills of attacking ships. */
   defenderUserId: number;
+  /** Defaults to an ordinary two-way ship fight. */
+  cause?: CombatCause;
+  /** Caller-supplied energy targeting modes; ordinary battles default to focus. */
+  energyFiringModes?: Readonly<Record<number, EnergyFiringMode>>;
 }
 
 /** Context-free battle execution: engine, destruction, statistics, report. */
@@ -58,7 +63,9 @@ export class BattleResolverService {
     if (!this.actions) return this.resolveVisible(input);
     const ids = [...input.attackers, ...input.defenders].map((ship) => ship.id);
     return this.actions.runPlayer(ids, async (manager) => {
-      const current = await manager.find(Spacecraft, { where: { id: In(ids) } });
+      const current = await manager.find(Spacecraft, {
+        where: { id: In(ids) },
+      });
       for (const id of ids)
         requirePlayerSpacecraft(current.find((ship) => ship.id === id));
       return this.resolveVisible(input);
@@ -78,6 +85,7 @@ export class BattleResolverService {
       ships.map((ship) => ({
         ship,
         modules: modules.filter((module) => module.spacecraftId === ship.id),
+        energyFiringMode: input.energyFiringModes?.[ship.id],
         ...this.fieldEffectContext(ship),
       }));
 
@@ -91,9 +99,14 @@ export class BattleResolverService {
     const result = await this.engine.resolveBattle(
       party(attackers),
       party(defenders),
+      input.cause ?? CombatCause.SHIP_FIGHT,
     );
     const destroyedIds = new Set(result.destroyedShipIds);
-    const report = this.reportFormatter.formatBattle(result, attackers, defenders);
+    const report = this.reportFormatter.formatBattle(
+      result,
+      attackers,
+      defenders,
+    );
     for (const ship of participants) {
       if (destroyedIds.has(ship.id)) {
         const destroyerUserId = attackers.some(

@@ -21,6 +21,7 @@ jest.mock('../spacecraft/spacecraft-destruction.service', () => ({
   SpacecraftDestructionService: class SpacecraftDestructionService {},
 }));
 import { WsEventType } from '@swuniverse/shared';
+import { CombatCause } from './combat-cause';
 import { BattleResolverService } from './battle-resolver.service';
 import {
   COMBATS_EVENT,
@@ -76,6 +77,24 @@ function createResolver(destroyedShipIds: number[]) {
 }
 
 describe('BattleResolverService', () => {
+  it('passes one-way causes and per-ship energy targeting modes through to the engine', async () => {
+    const t = createResolver([]);
+    await t.resolver.resolve({
+      attackers: [ship(1, 10)],
+      defenders: [ship(2, 20)],
+      initiatorShipId: 1,
+      targetShipId: 2,
+      attackerUserId: 10,
+      defenderUserId: 20,
+      cause: CombatCause.ACTIVATE_TRACTOR,
+      energyFiringModes: { 1: 'RANDOM' },
+    });
+    expect(t.engine.resolveBattle).toHaveBeenCalledWith(
+      [expect.objectContaining({ energyFiringMode: 'RANDOM' })],
+      [expect.objectContaining({ ship: expect.objectContaining({ id: 2 }) })],
+      CombatCause.ACTIVATE_TRACTOR,
+    );
+  });
   it('resolves preassembled parties without any actor or ownership check', async () => {
     const t = createResolver([1, 3]);
     const attackers = [ship(1, 10)];
@@ -97,6 +116,7 @@ describe('BattleResolverService', () => {
         expect.objectContaining({ ship: defenders[0] }),
         expect.objectContaining({ ship: defenders[1] }),
       ],
+      CombatCause.SHIP_FIGHT,
     );
     for (const owner of [10, 20, 30]) {
       expect(t.gateway.emitToUser).toHaveBeenCalledWith(

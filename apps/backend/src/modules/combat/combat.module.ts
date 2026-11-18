@@ -17,6 +17,7 @@ import { ColonyDamageService } from '../colony/colony-damage.service';
 import { StatisticsModule } from '../statistics/statistics.module';
 import { BattleResolverService } from './battle-resolver.service';
 import { CombatReportFormatter } from './combat-report.formatter';
+import { CombatRandom } from './combat-random';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { CombatReportFormatter } from './combat-report.formatter';
     CombatService,
     BattleResolverService,
     CombatEngine,
+    CombatRandom,
     ColonyStorageService,
     ColonyDefenseService,
     ColonyDamageService,

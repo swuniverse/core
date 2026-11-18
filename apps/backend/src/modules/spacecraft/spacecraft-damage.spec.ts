@@ -1,5 +1,5 @@
 import type { Spacecraft } from './entities/spacecraft.entity';
-import { SpacecraftDamage, type DamageRequest } from './spacecraft-damage';
+import { SpacecraftDamage, splitSpacecraftDamage, type DamageRequest } from './spacecraft-damage';
 
 function scripted(values: number[]) {
   const draws: string[] = [];
@@ -35,6 +35,15 @@ const request = (overrides: Partial<DamageRequest> = {}): DamageRequest => ({
 });
 
 describe('SpacecraftDamage (STU ApplyDamage)', () => {
+  it('shares factor-based net damage splitting with combat, without fixed leakage', () => {
+    const target = ship({ shields: 10, runtimeSystems: { SHIELDS: { active: true } } });
+    expect(splitSpacecraftDamage(target, request({ netDamage: 40, shieldDamageFactor: 50, hullDamageFactor: 200 }))).toEqual({ shieldDamage: 10, remainingNetDamage: 20, hullDamage: 40 });
+    expect(target.shields).toBe(10); // calculation is pure
+    expect(splitSpacecraftDamage(target, request({ netDamage: 5 }))).toEqual({ shieldDamage: 5, remainingNetDamage: 0, hullDamage: 0 });
+    expect(splitSpacecraftDamage(target, request({ shieldDamageFactor: 0 }))).toEqual({ shieldDamage: 0, remainingNetDamage: 0, hullDamage: 0 });
+    (target.runtimeSystems!.SHIELDS as { active: boolean }).active = false;
+    expect(splitSpacecraftDamage(target, request())).toEqual({ shieldDamage: 0, remainingNetDamage: 10, hullDamage: 10 });
+  });
   it('lets active shields absorb the damage completely', () => {
     const target = ship({ shields: 30, runtimeSystems: { SHIELDS: { active: true } } });
     const info: string[] = [];

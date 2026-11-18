@@ -18,6 +18,32 @@ export interface DamageRandom {
 
 type SystemState = { active?: boolean; integrity?: number };
 
+/** STU DamageWrapper: consume net damage against active shields first, then
+ * apply the hull factor only to the remainder. No fixed leakage/efficiency.
+ * Pure calculation shared by combat and field/anomaly damage.
+ */
+export function splitSpacecraftDamage(
+  ship: Pick<Spacecraft, 'shields' | 'runtimeSystems'>,
+  damage: Pick<DamageRequest, 'netDamage' | 'shieldDamageFactor' | 'hullDamageFactor'>,
+): { shieldDamage: number; remainingNetDamage: number; hullDamage: number } {
+  const systems = ship.runtimeSystems as Record<string, SystemState> | null;
+  let remainingNetDamage = Math.max(0, damage.netDamage);
+  let shieldDamage = 0;
+  if (systems?.SHIELDS?.active && (systems.SHIELDS.integrity ?? 100) > 0 && ship.shields > 0) {
+    const factor = Math.max(0, damage.shieldDamageFactor) / 100;
+    const needed = factor > 0
+      ? Math.min(remainingNetDamage, Math.ceil(ship.shields / factor))
+      : remainingNetDamage;
+    shieldDamage = Math.trunc(Math.min(ship.shields, needed * factor));
+    remainingNetDamage -= needed;
+  }
+  return {
+    shieldDamage,
+    remainingNetDamage,
+    hullDamage: Math.round(remainingNetDamage * damage.hullDamageFactor / 100),
+  };
+}
+
 const SYSTEM_NAMES: Record<string, string> = {
   BEAM_BLOCKER: 'Beamblocker',
   UPLINK: 'Kooperationsuplink',
@@ -57,10 +83,9 @@ export class SpacecraftDamage {
   }
 
   private damageShields(ship: Spacecraft, systems: Record<string, SystemState>, damage: DamageRequest, info: string[]): void {
-    const factor = damage.shieldDamageFactor / 100;
-    const needed = Math.min(damage.netDamage, Math.ceil(ship.shields / factor));
-    const absorbed = Math.trunc(Math.min(ship.shields, needed * factor));
-    damage.netDamage = needed >= damage.netDamage ? 0 : damage.netDamage - needed;
+    const split = splitSpacecraftDamage(ship, damage);
+    const absorbed = split.shieldDamage;
+    damage.netDamage = split.remainingNetDamage;
     if (absorbed >= ship.shields) {
       info.push(`- Schildschaden: ${ship.shields}`);
       info.push('-- Schilde brechen zusammen!');

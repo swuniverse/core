@@ -51,6 +51,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Entscheidungen
 
+- 2026-11-18 – **sc-AUD-07a umgesetzt, Prüfung ausstehend**: Gemeinsamer STU-Matchup-Ablauf mit Erstschlag, Münzwurf, einmaligem Schiffzug, zufälligen Zielen und Einweg-Ursachen. Strikte NBS-/Waffen-/EPS-Feuerbedingungen, geteilte aktive-Schild-/Nettoschadensberechnung und lesbare Schiffszuordnung im Bericht. 76 gezielte Backend-Tests erfolgreich; Abschlussreview, PostgreSQL-/API-/Alarmregressionen, Browser, Lint/Typechecks und gemeinsamer Build ausstehend. Status `claimed`, sc-AUD-07b/sc-AUD-09 weiter blockiert – siehe [Ticket](issues/sc-AUD-07a-kampf-matchup-und-zielwahl.md).
+
 - 2026-11-18 – **sc-AUD-02 umgesetzt, Prüfung ausstehend**: Zentrale STU-Startmodi, Scanner initial aus, Retrofit-Zustände ersetzt, einmalige Scanner-OFF-Migration vorbereitet. Scanner-Schalter (Subraum 30 EPS, Tachyon 1 EPS) und Signaturanalyse für 100 EPS mit ID-Auswahl und Anfragenschutz. 86 Backend- und 56 Frontend-Tests erfolgreich; PostgreSQL-Migration, Stations-/Sensorregressionen, Abschlussreview, Browser, Typechecks/Lint und gemeinsamer Build ausstehend. Status `claimed` – siehe [Ticket](issues/sc-AUD-02-systeme-aus-beim-bau-und-scanner-ui.md).
 
 - 2026-11-18 – **col-AUD-15 umgesetzt, Prüfung ausstehend**: Teleskop zählt ungetarnte Schiffe und Stationen aller Zustände außer DESTROYED; eigene Tarnung und administrative RPG-Sichtbarkeit bleiben geschützt. Deutsche Energiefehler und Kategorienamen, ADR-/col-G1b-Abgleich. 16 Backend- und 5 Frontend-Tests erfolgreich; Abschlussreview, Lint, Typechecks, Tarnungsregression, visuelle Prüfung und gemeinsamer Build ausstehend. Status `claimed` – siehe [Ticket](issues/col-AUD-15-teleskop-scan-wie-stu.md).

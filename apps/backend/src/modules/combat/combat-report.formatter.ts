@@ -101,10 +101,15 @@ export class CombatReportFormatter {
     ) {
       return `${source ?? 'Schiff'} feuert mit ${entry.weapon ?? 'Waffe'} auf ${target ?? 'Ziel'} (${entry.value ?? 0} Schaden).`;
     }
-    return this.line(entry, {
-      attacker: source ?? 'Angreifer',
-      defender: target ?? 'Verteidiger',
-    });
+    return this.line(
+      entry,
+      entry.source === 'attacker'
+        ? { attacker: source ?? 'Angreifer', defender: target ?? 'Verteidiger' }
+        : {
+            defender: source ?? 'Verteidiger',
+            attacker: target ?? 'Angreifer',
+          },
+    );
   }
 
   private line(
