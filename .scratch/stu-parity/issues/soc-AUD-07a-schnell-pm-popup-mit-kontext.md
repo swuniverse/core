@@ -1,6 +1,6 @@
 # Schnell-PM als Popup mit Quell-/Zielkontext und Crew-XP
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -61,3 +61,4 @@ Dieser Teil baut das Popup, den Kontext-Endpunkt und die Crew-XP und stellt die 
 - 2026-11-18 Product Owner: Empfehlung übernommen – (1) Ablehnung bei ungültigem NBS-Kontext bleibt, (2) Kolonie als XP-Ziel und (3) allgemeiner Kontext `source/target {type, id}` gehen nach soc-AUD-07c. Kriterien 3–5 damit für 07a erfüllt bzw. abgegrenzt; offen bleibt nur der Prüfpass.
 - 2026-11-18 – Prüfpass (Opus 5.5), zwei Befunde behoben: (1) Popup begrenzte normale PMs auf 1000 Zeichen, Server erlaubt 10.000 → 1000 nur noch im NBS-Fall; (2) XP-Fehler nach Versand ließ den Endpunkt scheitern (Gefahr doppelter PM bei erneutem Senden) → wird geloggt, Antwort bleibt `delivered: true`, mit Test. Lint-Fehler `import/first` in `QuickPmDialog.spec.tsx` behoben. PostgreSQL `rpg-transponder`/`messaging` ohne neue Fehler (1 vorbestehender, s. soc-AUD-05). Gemeinsamer Build `nx run-many -t build -p backend frontend shared` erfolgreich; `nx lint backend frontend` 0 Fehler (124 vorbestehende Warnungen).
   - Offen: Browserprüfung des Dialogs (Fokusfalle, Escape mit/ohne Text, Hintergrund inert) – Status bleibt `claimed`.
+- 2026-11-18 – Browserprüfung durch den Nutzer bestanden (Popup modal, Fokus bleibt im Dialog, Escape mit Text fragt nach, ohne Text schließt sofort). resolved. soc-AUD-07b, soc-AUD-07c und tmw-AUD-05 sind damit unblockiert.
