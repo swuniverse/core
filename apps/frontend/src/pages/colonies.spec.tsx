@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { ColoniesPage } from './colonies/ColoniesPage';
@@ -23,6 +23,9 @@ const colonyApiMocks = vi.hoisted(() => ({
   fetchColonies: vi.fn(),
   fetchColonyDetail: vi.fn(),
   fetchEnvironmentScan: vi.fn(),
+  fetchBuildingRepairPreview: vi.fn(),
+  repairBuilding: vi.fn(),
+  repairDamagedBuildings: vi.fn(),
 }));
 
 const socketHandlers = vi.hoisted(
@@ -249,6 +252,20 @@ function createAirfieldColony(active: boolean): Colony {
   return colony;
 }
 
+function createDamagedAirfieldColony(integrity: number, energy: number, stock: number): Colony {
+  const colony = createAirfieldColony(false);
+  const field = colony.fields![0];
+  field.fieldIndex = 9;
+  field.id = 9;
+  field.integrity = integrity;
+  field.maxIntegrity = 100;
+  colony.fields = [field];
+  colony.energy = energy;
+  colony.detailV2!.energy.current = energy;
+  colony.storage = [{ id: 1, commodityId: 1, amount: stock }];
+  return colony;
+}
+
 describe('ColoniesPage socket refresh', () => {
   beforeEach(() => {
     socketHandlers.clear();
@@ -268,6 +285,20 @@ describe('ColoniesPage socket refresh', () => {
     });
     colonyApiMocks.fetchShipClasses.mockResolvedValue(shipClasses);
     colonyApiMocks.fetchEnvironmentScan.mockResolvedValue(null);
+    colonyApiMocks.fetchBuildingRepairPreview.mockResolvedValue({
+      fields: [],
+      totalEnergyCost: 0,
+      totalCosts: [],
+    });
+    colonyApiMocks.repairBuilding.mockResolvedValue({});
+    colonyApiMocks.repairDamagedBuildings.mockResolvedValue({
+      action: 'REPAIR',
+      repaired: [],
+      skipped: [],
+      totalEnergyCost: 0,
+      totalCosts: [],
+      previewAfter: { fields: [], totalEnergyCost: 0, totalCosts: [] },
+    });
   });
 
   it('switches from the live colony to the sandbox and back', async () => {
@@ -307,6 +338,134 @@ describe('ColoniesPage socket refresh', () => {
       expect(colonyApiMocks.fetchColonies).toHaveBeenCalledTimes(2);
       expect(colonyApiMocks.fetchColonyDetail).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it('repairs a selected field and refreshes the list and dialog details in place', async () => {
+    const before = createDamagedAirfieldColony(70, 5, 5);
+    const after = createDamagedAirfieldColony(100, 3, 3);
+    const preview = {
+      fields: [
+        {
+          fieldIndex: 9,
+          buildingId: airfieldBuilding.id,
+          buildingName: airfieldBuilding.name,
+          integrity: 70,
+          maxIntegrity: 100,
+          damageRatio: 0.3,
+          energyCost: 2,
+          costs: [{ commodityId: 1, amount: 2 }],
+          repairable: true,
+        },
+      ],
+      totalEnergyCost: 2,
+      totalCosts: [{ commodityId: 1, amount: 2 }],
+    };
+    colonyApiMocks.fetchColonies
+      .mockResolvedValueOnce([before])
+      .mockResolvedValueOnce([after]);
+    colonyApiMocks.fetchColonyDetail
+      .mockResolvedValueOnce(before)
+      .mockResolvedValueOnce(after);
+    colonyApiMocks.fetchBuildingRepairPreview.mockResolvedValue(preview);
+    colonyApiMocks.repairBuilding.mockResolvedValue(after.fields![0]);
+
+    render(
+      <MemoryRouter initialEntries={['/colonies?selected=1']}>
+        <Routes>
+          <Route path="/colonies" element={<ColoniesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Feld 9: Raumhafen (deaktiviert) (beschädigt)',
+      }),
+    );
+    expect(await screen.findByRole('button', { name: 'Reparieren' })).toBeTruthy();
+    expect(screen.getByText('5/20')).toBeTruthy();
+    expect(
+      screen.getByRole('listitem', { name: 'Erz Lagerbestand' }).textContent,
+    ).toContain('5');
+    expect(colonyApiMocks.fetchBuildingRepairPreview).toHaveBeenCalledWith(
+      1,
+      [9],
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reparieren' }));
+
+    await waitFor(() => {
+      expect(colonyApiMocks.repairBuilding).toHaveBeenCalledWith(1, 9);
+      expect(colonyApiMocks.fetchColonyDetail).toHaveBeenCalledTimes(2);
+      expect(colonyApiMocks.fetchColonies).toHaveBeenCalledTimes(2);
+    });
+    expect(
+      screen.getByRole('dialog', { name: 'Feld 9 - Informationen' }),
+    ).toBeTruthy();
+    expect(await screen.findByText('Integrität: 100/100')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Reparieren' })).toBeNull();
+    expect(await screen.findByText('3/20')).toBeTruthy();
+    await waitFor(() => {
+      expect(
+        screen.getByRole('listitem', { name: 'Erz Lagerbestand' }).textContent,
+      ).toContain('3');
+    });
+  });
+
+  it('does not navigate back to a colony when repair finishes after leaving it', async () => {
+    const colony = createDamagedAirfieldColony(70, 5, 5);
+    let resolveRepair!: (value: unknown) => void;
+    const pendingRepair = new Promise<unknown>((resolve) => {
+      resolveRepair = resolve;
+    });
+    colonyApiMocks.fetchColonies.mockResolvedValue([colony]);
+    colonyApiMocks.fetchColonyDetail.mockResolvedValue(colony);
+    colonyApiMocks.fetchBuildingRepairPreview.mockResolvedValue({
+      fields: [
+        {
+          fieldIndex: 9,
+          buildingId: airfieldBuilding.id,
+          buildingName: airfieldBuilding.name,
+          integrity: 70,
+          maxIntegrity: 100,
+          damageRatio: 0.3,
+          energyCost: 2,
+          costs: [{ commodityId: 1, amount: 2 }],
+          repairable: true,
+        },
+      ],
+      totalEnergyCost: 2,
+      totalCosts: [{ commodityId: 1, amount: 2 }],
+    });
+    colonyApiMocks.repairBuilding.mockReturnValueOnce(pendingRepair);
+
+    render(
+      <MemoryRouter initialEntries={['/colonies?selected=1']}>
+        <Routes>
+          <Route path="/colonies" element={<ColoniesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Feld 9: Raumhafen (deaktiviert) (beschädigt)',
+      }),
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Reparieren' }));
+    expect(colonyApiMocks.repairBuilding).toHaveBeenCalledWith(1, 9);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dialog schließen' }));
+    fireEvent.click(screen.getByRole('button', { name: '← Kolonien' }));
+    expect(await screen.findByText('Kolonien')).toBeTruthy();
+
+    await act(async () => resolveRepair(colony.fields![0]));
+    await waitFor(() => {
+      expect(colonyApiMocks.fetchColonies).toHaveBeenCalledTimes(2);
+    });
+    expect(colonyApiMocks.fetchColonyDetail).toHaveBeenCalledTimes(1);
+    expect(screen.queryByLabelText('Koloniefelder')).toBeNull();
+    expect(screen.getByText('Kolonien')).toBeTruthy();
   });
 
   it('refreshes only overview for foreign COLONY_UPDATED ids', async () => {

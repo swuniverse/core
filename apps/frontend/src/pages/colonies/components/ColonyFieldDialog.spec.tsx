@@ -1,13 +1,20 @@
 import { useState } from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+} from '@testing-library/react';
 
 import type {
   BuildingDef,
+  BuildingRepairPreview,
   ColonyField,
   CommodityDef,
   TerraformingDef,
 } from '../types';
 import { ColonyFieldDialog } from './ColonyFieldDialog';
+import { repairErrorMessage } from './RepairCostList';
 
 const airfield: BuildingDef = {
   id: 81010100,
@@ -123,17 +130,301 @@ const defaultProps = {
   onUpgrade: vi.fn(),
   onDemolish: vi.fn(),
   onToggle: vi.fn(),
+  colonyId: 42,
+  energyAvailable: 10,
+  storageAmounts: { [commodity.id]: 20 },
+  onFetchRepairPreview: vi.fn().mockResolvedValue({
+    fields: [],
+    totalEnergyCost: 0,
+    totalCosts: [],
+  } satisfies BuildingRepairPreview),
+  onRepairBuilding: vi.fn(),
 };
 
-function deferred() {
-  let resolve!: () => void;
-  const promise = new Promise<void>((next) => {
+function previewFor(
+  fieldIndex: number,
+  values: Partial<BuildingRepairPreview['fields'][number]> = {},
+): BuildingRepairPreview {
+  return {
+    fields: [
+      {
+        fieldIndex,
+        buildingId: airfield.id,
+        buildingName: airfield.name,
+        integrity: 70,
+        maxIntegrity: 100,
+        damageRatio: 0.3,
+        energyCost: 4,
+        costs: [{ commodityId: commodity.id, amount: 3 }],
+        repairable: true,
+        ...values,
+      },
+    ],
+    totalEnergyCost: 4,
+    totalCosts: [{ commodityId: commodity.id, amount: 3 }],
+  };
+}
+
+function deferred<T = void>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((next) => {
     resolve = next;
   });
   return { promise, resolve };
 }
 
 describe('ColonyFieldDialog', () => {
+  it.each([
+    ['Colony not found', 'Kolonie nicht gefunden'],
+    [
+      'Cannot repair orbital buildings while colony is blockaded',
+      'Orbitalgebäude können während einer Blockade nicht repariert werden',
+    ],
+    [
+      'Not enough resource #12: need 3, have 1',
+      'Nicht genug Ware #12: benötigt 3, vorhanden 1',
+    ],
+  ])('translates repair endpoint error "%s"', (english, german) => {
+    expect(repairErrorMessage(new Error(english))).toBe(german);
+  });
+
+  it('shows repair costs and disables repair when current storage is short', async () => {
+    const onFetchRepairPreview = vi
+      .fn()
+      .mockResolvedValue(previewFor(79));
+    const onRepairBuilding = vi.fn();
+
+    render(
+      <ColonyFieldDialog
+        {...defaultProps}
+        field={{ ...builtField, integrity: 70, maxIntegrity: 100 }}
+        energyAvailable={2}
+        storageAmounts={{ [commodity.id]: 1 }}
+        onFetchRepairPreview={onFetchRepairPreview}
+        onRepairBuilding={onRepairBuilding}
+      />,
+    );
+
+    const repairButton = await screen.findByRole('button', {
+      name: 'Reparieren',
+    });
+    expect(onFetchRepairPreview).toHaveBeenCalledWith(79);
+    expect(screen.getByText('2 / 4')).toBeTruthy();
+    expect(screen.getByText('1 / 3')).toBeTruthy();
+    expect(screen.getByAltText('Durastahl').getAttribute('src')).toBe(
+      '/assets/commodities/1.png',
+    );
+    expect((repairButton as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      screen.getByText(
+        'Waren- oder Energievorrat reicht für diese Reparatur nicht aus.',
+      ),
+    ).toBeTruthy();
+    fireEvent.click(repairButton);
+    expect(onRepairBuilding).not.toHaveBeenCalled();
+  });
+
+  it('hides repair for healthy buildings, construction sites, and sandbox previews', () => {
+    const onFetchRepairPreview = vi
+      .fn()
+      .mockResolvedValue(previewFor(79));
+    const { rerender } = render(
+      <ColonyFieldDialog
+        {...defaultProps}
+        onFetchRepairPreview={onFetchRepairPreview}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Reparieren' })).toBeNull();
+    expect(onFetchRepairPreview).not.toHaveBeenCalled();
+
+    rerender(
+      <ColonyFieldDialog
+        {...defaultProps}
+        field={{
+          ...builtField,
+          integrity: 10,
+          maxIntegrity: 100,
+          isBuilding: true,
+        }}
+        onFetchRepairPreview={onFetchRepairPreview}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Reparieren' })).toBeNull();
+    expect(onFetchRepairPreview).not.toHaveBeenCalled();
+
+    rerender(
+      <ColonyFieldDialog
+        {...defaultProps}
+        field={{ ...builtField, integrity: 70, maxIntegrity: 100 }}
+        sandboxMode
+        onFetchRepairPreview={onFetchRepairPreview}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Reparieren' })).toBeNull();
+    expect(onFetchRepairPreview).not.toHaveBeenCalled();
+  });
+
+  it('submits the selected field index once and translates repair errors', async () => {
+    const pending = deferred();
+    const onRepairBuilding = vi.fn(() => pending.promise);
+    const firstMount = render(
+      <ColonyFieldDialog
+        {...defaultProps}
+        field={{ ...builtField, integrity: 70, maxIntegrity: 100 }}
+        onFetchRepairPreview={vi.fn().mockResolvedValue(previewFor(79))}
+        onRepairBuilding={onRepairBuilding}
+      />,
+    );
+
+    const button = await screen.findByRole('button', { name: 'Reparieren' });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(onRepairBuilding).toHaveBeenCalledOnce();
+    expect(onRepairBuilding).toHaveBeenCalledWith(79);
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+
+    await act(async () => pending.resolve());
+    expect((button as HTMLButtonElement).disabled).toBe(false);
+    firstMount.unmount();
+
+    const failingRepair = vi
+      .fn()
+      .mockRejectedValue(new Error('Building is not damaged'));
+    const { unmount } = render(
+      <ColonyFieldDialog
+        {...defaultProps}
+        field={{ ...builtField, integrity: 70, maxIntegrity: 100 }}
+        onFetchRepairPreview={vi.fn().mockResolvedValue(previewFor(79))}
+        onRepairBuilding={failingRepair}
+      />,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Reparieren' }));
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'Gebäude ist nicht beschädigt',
+    );
+    unmount();
+  });
+
+  it('fails closed while preview is loading or failed, and allows retry', async () => {
+    const first = deferred<BuildingRepairPreview>();
+    const onFetchRepairPreview = vi
+      .fn()
+      .mockReturnValueOnce(first.promise)
+      .mockRejectedValueOnce(new Error('preview offline'))
+      .mockResolvedValueOnce(previewFor(79));
+    const firstRender = render(
+      <ColonyFieldDialog
+        {...defaultProps}
+        field={{ ...builtField, integrity: 70, maxIntegrity: 100 }}
+        onFetchRepairPreview={onFetchRepairPreview}
+      />,
+    );
+
+    expect(screen.getByRole('status').textContent).toContain(
+      'Reparaturvorschau wird geladen',
+    );
+    expect(screen.queryByRole('button', { name: 'Reparieren' })).toBeNull();
+    await act(async () => first.resolve(previewFor(79)));
+    expect(await screen.findByRole('button', { name: 'Reparieren' })).toBeTruthy();
+    firstRender.unmount();
+
+    render(
+      <ColonyFieldDialog
+        {...defaultProps}
+        field={{ ...builtField, integrity: 70, maxIntegrity: 100 }}
+        colonyId={43}
+        onFetchRepairPreview={onFetchRepairPreview}
+      />,
+    );
+    expect(
+      await screen.findByText('Reparaturvorschau fehlgeschlagen: preview offline'),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Reparieren' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
+    expect(await screen.findByRole('button', { name: 'Reparieren' })).toBeTruthy();
+  });
+
+  it('ignores an older preview after the selected field changes', async () => {
+    const first = deferred<BuildingRepairPreview>();
+    const onFetchRepairPreview = vi
+      .fn()
+      .mockReturnValueOnce(first.promise)
+      .mockResolvedValueOnce(previewFor(80));
+    const onRepairBuilding = vi.fn();
+    const { rerender } = render(
+      <ColonyFieldDialog
+        {...defaultProps}
+        field={{ ...builtField, integrity: 70, maxIntegrity: 100 }}
+        onFetchRepairPreview={onFetchRepairPreview}
+        onRepairBuilding={onRepairBuilding}
+      />,
+    );
+
+    rerender(
+      <ColonyFieldDialog
+        {...defaultProps}
+        field={{ ...builtField, fieldIndex: 80, integrity: 70, maxIntegrity: 100 }}
+        onFetchRepairPreview={onFetchRepairPreview}
+        onRepairBuilding={onRepairBuilding}
+      />,
+    );
+    const repairButton = await screen.findByRole('button', { name: 'Reparieren' });
+    await act(async () => first.resolve(previewFor(79)));
+    expect(screen.getByRole('button', { name: 'Reparieren' })).toBe(repairButton);
+    await act(async () => {
+      fireEvent.click(repairButton);
+    });
+    expect(onRepairBuilding).toHaveBeenCalledWith(80);
+  });
+
+  it('uses the rounded high-damage threshold and keeps deactivate available', () => {
+    const onFetchRepairPreview = vi.fn(
+      () => new Promise<BuildingRepairPreview>(() => undefined),
+    );
+    const { rerender } = render(
+      <ColonyFieldDialog
+        {...defaultProps}
+        onFetchRepairPreview={onFetchRepairPreview}
+        field={{
+          ...builtField,
+          isActive: false,
+          integrity: 99,
+          maxIntegrity: 200,
+        }}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Aktivieren' })).toBeTruthy();
+    expect(
+      screen.queryByText('Stark beschädigt – kann nicht aktiviert werden'),
+    ).toBeNull();
+
+    rerender(
+      <ColonyFieldDialog
+        {...defaultProps}
+        onFetchRepairPreview={onFetchRepairPreview}
+        field={{
+          ...builtField,
+          isActive: false,
+          integrity: 98,
+          maxIntegrity: 200,
+        }}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Aktivieren' })).toBeNull();
+    expect(
+      screen.getByText('Stark beschädigt – kann nicht aktiviert werden'),
+    ).toBeTruthy();
+
+    rerender(
+      <ColonyFieldDialog
+        {...defaultProps}
+        onFetchRepairPreview={onFetchRepairPreview}
+        field={{ ...builtField, isActive: true, integrity: 98, maxIntegrity: 200 }}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Deaktivieren' })).toBeTruthy();
+  });
+
   it('shows building details, upgrades, production, and enabled context actions', () => {
     const onOpenContext = vi.fn();
 

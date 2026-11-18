@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   DOME_BUILD_SECONDS,
   DOME_COSTS,
@@ -12,6 +18,7 @@ import {
 } from '../../../lib/assets';
 import type {
   BuildingDef,
+  BuildingRepairPreview,
   ColonyField,
   ColonyFieldUpgrade,
   CommodityDef,
@@ -28,6 +35,11 @@ import {
   getBuildingContextActions,
   type ColonyContextView,
 } from '../colony-navigation';
+import {
+  hasRepairCostShortage,
+  repairErrorMessage,
+  RepairCostList,
+} from './RepairCostList';
 
 function formatDuration(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -72,6 +84,11 @@ export function ColonyFieldDialog({
   onUpgrade,
   onDemolish,
   onToggle,
+  colonyId = 0,
+  energyAvailable = 0,
+  storageAmounts = {},
+  onFetchRepairPreview,
+  onRepairBuilding,
   wasteAvailability,
 }: {
   field: ColonyField;
@@ -95,6 +112,13 @@ export function ColonyFieldDialog({
   onUpgrade: (fieldIndex: number, upgradeId: number) => Promise<void> | void;
   onDemolish: (fieldIndex: number) => Promise<void> | void;
   onToggle: (fieldIndex: number) => Promise<void> | void;
+  colonyId?: number;
+  energyAvailable?: number;
+  storageAmounts?: Record<number, number>;
+  onFetchRepairPreview?: (
+    fieldIndex: number,
+  ) => Promise<BuildingRepairPreview>;
+  onRepairBuilding?: (fieldIndex: number) => Promise<void> | void;
   wasteAvailability?: { enabled: boolean; reason?: string };
 }) {
   const dialogRef = useRef<HTMLElement>(null);
@@ -104,6 +128,18 @@ export function ColonyFieldDialog({
   const [pendingActions, setPendingActions] = useState<Set<string>>(
     () => new Set(),
   );
+  const [repairPreview, setRepairPreview] = useState<
+    | { key: string; status: 'loading' }
+    | { key: string; status: 'loaded'; preview: BuildingRepairPreview }
+    | { key: string; status: 'failed'; message: string }
+    | null
+  >(null);
+  const [repairPending, setRepairPending] = useState(false);
+  const [repairError, setRepairError] = useState<string | null>(null);
+  const repairPreviewSequenceRef = useRef(0);
+  const repairPendingRef = useRef(false);
+  const onFetchRepairPreviewRef = useRef(onFetchRepairPreview);
+  onFetchRepairPreviewRef.current = onFetchRepairPreview;
   onCloseRef.current = onClose;
 
   const runAction = (key: string, action: () => Promise<void> | void) => {
@@ -178,6 +214,86 @@ export function ColonyFieldDialog({
     integrityMax > 0
       ? Math.round((integrityCurrent / integrityMax) * 100)
       : 100;
+  const isHighDamage =
+    integrityMax > 0 &&
+    Math.round((100 / integrityMax) * integrityCurrent) < 50;
+  const isRepairCandidate =
+    field.buildingId != null &&
+    !field.isBuilding &&
+    integrityMax > 0 &&
+    integrityCurrent < integrityMax;
+  const repairPreviewKey = [
+    colonyId,
+    field.fieldIndex,
+    field.buildingId,
+    field.isBuilding,
+    integrityCurrent,
+    integrityMax,
+    energyAvailable,
+    ...Object.entries(storageAmounts)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .flat(),
+  ].join(':');
+  const runRepairPreview = useCallback(() => {
+    const sequence = ++repairPreviewSequenceRef.current;
+    setRepairError(null);
+    setRepairPreview({ key: repairPreviewKey, status: 'loading' });
+    const fetchPreview = onFetchRepairPreviewRef.current;
+    if (!fetchPreview) {
+      setRepairPreview({
+        key: repairPreviewKey,
+        status: 'failed',
+        message: 'Reparaturvorschau nicht verfügbar',
+      });
+      return;
+    }
+    void Promise.resolve()
+      .then(() => fetchPreview(field.fieldIndex))
+      .then((preview) => {
+        if (sequence === repairPreviewSequenceRef.current) {
+          setRepairPreview({ key: repairPreviewKey, status: 'loaded', preview });
+        }
+      })
+      .catch((error: unknown) => {
+        if (sequence === repairPreviewSequenceRef.current) {
+          setRepairPreview({
+            key: repairPreviewKey,
+            status: 'failed',
+            message: repairErrorMessage(error),
+          });
+        }
+      });
+  }, [field.fieldIndex, repairPreviewKey]);
+
+  useEffect(() => {
+    if (!isRepairCandidate || sandboxMode) {
+      setRepairPreview(null);
+      setRepairError(null);
+      return;
+    }
+    runRepairPreview();
+    return () => {
+      repairPreviewSequenceRef.current += 1;
+    };
+  }, [isRepairCandidate, repairPreviewKey, runRepairPreview, sandboxMode]);
+
+  const submitRepair = async () => {
+    if (repairPendingRef.current) return;
+    repairPendingRef.current = true;
+    setRepairPending(true);
+    setRepairError(null);
+    try {
+      if (!onRepairBuilding) {
+        throw new Error('Reparatur nicht verfügbar');
+      }
+      await onRepairBuilding(field.fieldIndex);
+    } catch (error: unknown) {
+      setRepairError(repairErrorMessage(error));
+    } finally {
+      repairPendingRef.current = false;
+      setRepairPending(false);
+    }
+  };
   const availableUpgrades = field.availableUpgrades ?? [];
   const terraformOptions = getTerraformingOptionsForField(
     field,
@@ -239,6 +355,22 @@ export function ColonyFieldDialog({
   const activeTerraforming = field.terraformingId
     ? terraformingDefs.find((option) => option.id === field.terraformingId)
     : undefined;
+  const currentRepairPreview =
+    repairPreview?.key === repairPreviewKey ? repairPreview : null;
+  const repairPlan =
+    currentRepairPreview?.status === 'loaded'
+      ? currentRepairPreview.preview.fields.find(
+          (plan) => plan.fieldIndex === field.fieldIndex,
+        )
+      : undefined;
+  const hasLocalRepairShortage = repairPlan
+    ? hasRepairCostShortage({
+        energyCost: repairPlan.energyCost,
+        costs: repairPlan.costs,
+        energyAvailable,
+        storageAmounts,
+      })
+    : true;
   const activeTerraformingProgress = activeTerraforming?.duration
     ? Math.max(
         0,
@@ -528,19 +660,93 @@ export function ColonyFieldDialog({
                 </Section>
               )}
 
+              {isRepairCandidate && !sandboxMode && (
+                <Section title="Reparatur">
+                  <div className="space-y-2">
+                    {!currentRepairPreview ||
+                    currentRepairPreview.status === 'loading' ? (
+                      <div role="status" className="text-xs text-swu-muted">
+                        Reparaturvorschau wird geladen …
+                      </div>
+                    ) : currentRepairPreview.status === 'failed' ? (
+                      <div className="space-y-2">
+                        <p role="alert" className="text-xs text-red-400">
+                          Reparaturvorschau fehlgeschlagen: {currentRepairPreview.message}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={runRepairPreview}
+                          className="rounded border border-swu-border px-2 py-1 text-xs text-swu-primary"
+                        >
+                          Erneut versuchen
+                        </button>
+                      </div>
+                    ) : !repairPlan ? (
+                      <p role="alert" className="text-xs text-red-400">
+                        Für dieses Feld liegt keine Reparaturvorschau vor.
+                      </p>
+                    ) : (
+                      <>
+                        <RepairCostList
+                          energyCost={repairPlan.energyCost}
+                          costs={repairPlan.costs}
+                          energyAvailable={energyAvailable}
+                          storageAmounts={storageAmounts}
+                          commodityMap={commodityMap}
+                        />
+                        {!repairPlan.repairable && repairPlan.reason && (
+                          <p className="text-xs text-red-400">
+                            {repairPlan.reason}
+                          </p>
+                        )}
+                        {hasLocalRepairShortage && repairPlan.repairable && (
+                          <p className="text-xs text-red-400">
+                            Waren- oder Energievorrat reicht für diese Reparatur nicht aus.
+                          </p>
+                        )}
+                        {repairError && (
+                          <p role="alert" className="text-xs text-red-400">
+                            {repairError}
+                          </p>
+                        )}
+                        <button
+                          type="button"
+                          disabled={
+                            repairPending ||
+                            !repairPlan.repairable ||
+                            hasLocalRepairShortage
+                          }
+                          onClick={() => void submitRepair()}
+                          className="rounded border border-green-500/50 bg-green-900/20 px-3 py-1.5 text-xs font-bold text-green-300 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {repairPending ? 'Wird repariert …' : 'Reparieren'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </Section>
+              )}
+
               {!isHQ && !field.isBuilding && (
                 <Section title="Aktionen">
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      disabled={pendingActions.has('toggle')}
-                      onClick={() =>
-                        runAction('toggle', () => onToggle(field.fieldIndex))
-                      }
-                      className={`rounded border px-3 py-1.5 text-xs font-bold ${field.isActive ? 'border-yellow-500/50 bg-yellow-900/20 text-yellow-400' : 'border-green-500/50 bg-green-900/20 text-green-400'}`}
-                    >
-                      {field.isActive ? 'Deaktivieren' : 'Aktivieren'}
-                    </button>
+                    {(!isHighDamage || field.isActive) && (
+                      <button
+                        type="button"
+                        disabled={pendingActions.has('toggle')}
+                        onClick={() =>
+                          runAction('toggle', () => onToggle(field.fieldIndex))
+                        }
+                        className={`rounded border px-3 py-1.5 text-xs font-bold ${field.isActive ? 'border-yellow-500/50 bg-yellow-900/20 text-yellow-400' : 'border-green-500/50 bg-green-900/20 text-green-400'}`}
+                      >
+                        {field.isActive ? 'Deaktivieren' : 'Aktivieren'}
+                      </button>
+                    )}
+                    {isHighDamage && !field.isActive && (
+                      <span role="status" className="self-center text-xs text-amber-300">
+                        Stark beschädigt – kann nicht aktiviert werden
+                      </span>
+                    )}
                     <button
                       type="button"
                       onClick={() => {

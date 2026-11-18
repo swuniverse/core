@@ -9,6 +9,8 @@ import { api } from '../../services/api';
 import type {
   BuildingDef,
   BuildingMassActionResult,
+  BuildingRepairPreview,
+  BuildingRepairResult,
   Colony,
   ColonyField,
   ColonyFieldUpgrade,
@@ -699,6 +701,26 @@ export function ColoniesPage() {
           throw error;
         }
       }}
+      onFetchRepairPreview={(fieldIndexes) =>
+        colonyApi.fetchBuildingRepairPreview(selected.id, fieldIndexes)
+      }
+      onRepairBuilding={async (fieldIndex) => {
+        const colonyId = selected.id;
+        await colonyApi.repairBuilding(colonyId, fieldIndex);
+        await loadColonyOverview();
+        if (targetColonyIdRef.current === colonyId) {
+          await loadColonyDetail(colonyId);
+        }
+      }}
+      onRepairDamagedBuildings={async () => {
+        const colonyId = selected.id;
+        const result = await colonyApi.repairDamagedBuildings(colonyId);
+        await loadColonyOverview();
+        if (targetColonyIdRef.current === colonyId) {
+          await loadColonyDetail(colonyId);
+        }
+        return result;
+      }}
     />
   );
 }
@@ -755,6 +777,9 @@ export function ColonyDetail({
   onDiscardStorage,
   onActivateBuildings,
   onDeactivateBuildings,
+  onFetchRepairPreview,
+  onRepairBuilding,
+  onRepairDamagedBuildings,
 }: {
   colony: Colony;
   commodities: CommodityDef[];
@@ -852,6 +877,11 @@ export function ColonyDetail({
     mode: number,
     options: { fieldIndexes?: number[]; commodityId?: number },
   ) => Promise<BuildingMassActionResult>;
+  onFetchRepairPreview?: (
+    fieldIndexes?: number[],
+  ) => Promise<BuildingRepairPreview>;
+  onRepairBuilding?: (fieldIndex: number) => Promise<void> | void;
+  onRepairDamagedBuildings?: () => Promise<BuildingRepairResult>;
 }) {
   const ecosystem = useSwuColonyEcosystem(colony.id);
   // Solar-Gebaeude zeigen den echten Ertrag dieser Kolonie statt der Katalog-Pauschale.
@@ -954,6 +984,20 @@ export function ColonyDetail({
   const storage = useMemo(
     () => buildStorageRows(colony, commodityMap),
     [colony, commodityMap],
+  );
+  const storageAmounts = useMemo(
+    () =>
+      Object.fromEntries([
+        ...(detail?.inventory ?? []).map((item) => [
+          item.commodityId,
+          item.amount,
+        ] as const),
+        ...(colony.storage ?? []).map((item) => [
+          item.commodityId,
+          item.amount,
+        ] as const),
+      ]),
+    [colony.storage, detail?.inventory],
   );
 
   const clearWorkspaceSelection = () => {
@@ -1421,8 +1465,18 @@ export function ColonyDetail({
             detail?.buildingManagement && (
               <PanelBuildingManagement
                 management={detail.buildingManagement}
+                colonyId={colony.id}
+                commodityMap={commodityMap}
+                energyAvailable={currentEnergy}
+                storageAmounts={storageAmounts}
                 onActivate={onActivateBuildings}
                 onDeactivate={onDeactivateBuildings}
+                onFetchRepairPreview={
+                  onFetchRepairPreview
+                    ? () => onFetchRepairPreview()
+                    : undefined
+                }
+                onRepairDamaged={onRepairDamagedBuildings}
               />
             )}
           {!contextView && mainView === 'settings' && detail && (
@@ -1459,6 +1513,15 @@ export function ColonyDetail({
       {selectedField && !selectedBuilding && !contextView && (
         <ColonyFieldDialog
           field={selectedField}
+          colonyId={colony.id}
+          energyAvailable={currentEnergy}
+          storageAmounts={storageAmounts}
+          onFetchRepairPreview={
+            onFetchRepairPreview
+              ? (fieldIndex) => onFetchRepairPreview([fieldIndex])
+              : undefined
+          }
+          onRepairBuilding={onRepairBuilding}
           building={
             selectedField.buildingId
               ? buildingMap[selectedField.buildingId]

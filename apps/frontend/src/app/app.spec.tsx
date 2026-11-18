@@ -997,6 +997,12 @@ describe('ColonyDetail', () => {
 
     expect(screen.getByText('Integrität: 40/100')).toBeTruthy();
     expect(screen.getByText('DEAKTIVIERT')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Reparaturvorschau fehlgeschlagen: Reparaturvorschau nicht verfügbar',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Reparieren' })).toBeNull();
   });
 
   it('keeps the dialog selected and shows a free field after demolition reload', () => {

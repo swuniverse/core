@@ -12,6 +12,7 @@ import type {
   BuildingRepairPreview,
   BuildingRepairResult,
   Colony,
+  ColonyField,
   CommodityDef,
   FieldCategoriesSummary,
   ShipClassDef,
@@ -107,6 +108,11 @@ export const colonyApi = {
     api.post<BuildingRepairResult, unknown>(
       `/colonies/${colonyId}/buildings/repair-damaged`,
       { fieldIndexes },
+    ),
+  repairBuilding: (colonyId: number, fieldIndex: number) =>
+    api.post<ColonyField, Record<string, never>>(
+      `/colonies/${colonyId}/fields/${fieldIndex}/repair`,
+      {},
     ),
   buildBuilding: (
     colonyId: number,

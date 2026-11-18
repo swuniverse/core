@@ -1,17 +1,35 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Tooltip } from '../../../components/Tooltip';
 import {
   BuildingMassActionMode,
   type BuildingMassActionResult,
+  type BuildingRepairPreview,
+  type BuildingRepairResult,
   type ColonyDetailV2,
+  type CommodityDef,
 } from '../types';
+import {
+  hasRepairCostShortage,
+  repairErrorMessage,
+  RepairCostList,
+} from './RepairCostList';
 
 export function PanelBuildingManagement({
   management,
+  colonyId,
+  commodityMap,
+  energyAvailable,
+  storageAmounts,
   onActivate,
   onDeactivate,
+  onFetchRepairPreview,
+  onRepairDamaged,
 }: {
   management: NonNullable<ColonyDetailV2['buildingManagement']>;
+  colonyId: number;
+  commodityMap: Record<number, CommodityDef>;
+  energyAvailable: number;
+  storageAmounts: Record<number, number>;
   onActivate: (
     mode: BuildingMassActionMode,
     options: { fieldIndexes?: number[]; commodityId?: number },
@@ -20,6 +38,8 @@ export function PanelBuildingManagement({
     mode: BuildingMassActionMode,
     options: { fieldIndexes?: number[]; commodityId?: number },
   ) => Promise<BuildingMassActionResult>;
+  onFetchRepairPreview?: () => Promise<BuildingRepairPreview>;
+  onRepairDamaged?: () => Promise<BuildingRepairResult>;
 }) {
   const [selection, setSelection] = useState<number[]>([]);
   const [busy, setBusy] = useState<'activate' | 'deactivate' | null>(null);
@@ -28,7 +48,106 @@ export function PanelBuildingManagement({
   const [commodityId, setCommodityId] = useState(
     management.usableCommodities[0]?.id ?? 0,
   );
+  const [repairPreview, setRepairPreview] = useState<{
+    colonyId: number;
+    snapshotKey: string;
+    preview: BuildingRepairPreview;
+  } | null>(null);
+  const [repairPreviewBusy, setRepairPreviewBusy] = useState(false);
+  const [repairPreviewError, setRepairPreviewError] = useState<string | null>(
+    null,
+  );
+  const [repairBusy, setRepairBusy] = useState(false);
+  const [repairError, setRepairError] = useState<string | null>(null);
+  const [repairResult, setRepairResult] = useState<{
+    colonyId: number;
+    result: BuildingRepairResult;
+  } | null>(null);
+  const repairPreviewSequenceRef = useRef(0);
+  const repairPendingRef = useRef(false);
+  const colonyIdRef = useRef(colonyId);
+  colonyIdRef.current = colonyId;
   const selectedSet = new Set(selection);
+  const repairSnapshotKey = JSON.stringify([
+    colonyId,
+    energyAvailable,
+    Object.entries(storageAmounts).sort(
+      ([a], [b]) => Number(a) - Number(b),
+    ),
+    management.fields.map((field) => [
+      field.fieldIndex,
+      field.buildingId,
+      field.isBuilding,
+      field.integrity,
+      field.maxIntegrity,
+    ]),
+  ]);
+
+  useEffect(() => {
+    repairPreviewSequenceRef.current += 1;
+    setRepairPreview(null);
+    setRepairPreviewBusy(false);
+    setRepairPreviewError(null);
+    return () => {
+      repairPreviewSequenceRef.current += 1;
+    };
+  }, [repairSnapshotKey]);
+
+  useEffect(() => {
+    setRepairResult(null);
+    setRepairError(null);
+  }, [colonyId]);
+
+  const loadRepairPreview = async () => {
+    const sequence = ++repairPreviewSequenceRef.current;
+    const snapshotKey = repairSnapshotKey;
+    setRepairPreview(null);
+    setRepairPreviewError(null);
+    setRepairResult(null);
+    setRepairPreviewBusy(true);
+    try {
+      if (!onFetchRepairPreview) {
+        throw new Error('Reparaturvorschau nicht verfügbar');
+      }
+      const preview = await onFetchRepairPreview();
+      if (sequence === repairPreviewSequenceRef.current) {
+        setRepairPreview({ colonyId, snapshotKey, preview });
+      }
+    } catch (e: unknown) {
+      if (sequence === repairPreviewSequenceRef.current) {
+        setRepairPreviewError(repairErrorMessage(e));
+      }
+    } finally {
+      if (sequence === repairPreviewSequenceRef.current) {
+        setRepairPreviewBusy(false);
+      }
+    }
+  };
+
+  const confirmRepairDamaged = async () => {
+    if (repairPendingRef.current) return;
+    const targetColonyId = colonyId;
+    repairPendingRef.current = true;
+    setRepairBusy(true);
+    setRepairError(null);
+    setRepairResult(null);
+    try {
+      if (!onRepairDamaged) {
+        throw new Error('Reparatur nicht verfügbar');
+      }
+      const result = await onRepairDamaged();
+      if (colonyIdRef.current === targetColonyId) {
+        setRepairResult({ colonyId: targetColonyId, result });
+      }
+    } catch (e: unknown) {
+      if (colonyIdRef.current === targetColonyId) {
+        setRepairError(repairErrorMessage(e));
+      }
+    } finally {
+      repairPendingRef.current = false;
+      setRepairBusy(false);
+    }
+  };
 
   const run = async (
     action: 'activate' | 'deactivate',
@@ -82,11 +201,21 @@ export function PanelBuildingManagement({
             {management.counts.inactive}
           </span>
         </div>
-        <div className="border border-swu-border bg-swu-surface px-2 py-1.5">
-          Beschädigt:{' '}
-          <span className="font-mono text-red-400">
-            {management.counts.damaged}
+        <div className="flex items-center justify-between gap-1 border border-swu-border bg-swu-surface px-2 py-1.5">
+          <span>
+            Beschädigt:{' '}
+            <span className="font-mono text-red-400">
+              {management.counts.damaged}
+            </span>
           </span>
+          <button
+            type="button"
+            disabled={management.counts.damaged === 0 || busy !== null || repairPreviewBusy || repairBusy}
+            onClick={() => void loadRepairPreview()}
+            className="border border-red-500/50 bg-red-900/20 px-1.5 py-1 text-[10px] font-bold text-red-300 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {repairPreviewBusy ? 'Vorschau …' : 'Alle reparieren'}
+          </button>
         </div>
         <div className="border border-swu-border bg-swu-surface px-2 py-1.5">
           Im Bau:{' '}
@@ -95,6 +224,114 @@ export function PanelBuildingManagement({
           </span>
         </div>
       </div>
+
+      {repairPreviewError && (
+        <div role="alert" className="border border-red-500/40 bg-red-950/20 p-2 text-xs text-red-300">
+          Reparaturvorschau fehlgeschlagen: {repairPreviewError}
+          <button
+            type="button"
+            onClick={() => void loadRepairPreview()}
+            disabled={repairPreviewBusy || repairBusy}
+            className="ml-2 underline disabled:opacity-40"
+          >
+            Erneut versuchen
+          </button>
+        </div>
+      )}
+
+      {repairPreview?.colonyId === colonyId &&
+        repairPreview.snapshotKey === repairSnapshotKey && (() => {
+        const damagedPlans = repairPreview.preview.fields.filter(
+          (plan) =>
+            plan.buildingId != null &&
+            plan.reason !== 'Gebäude im Bau' &&
+            plan.maxIntegrity > 0 &&
+            plan.integrity < plan.maxIntegrity,
+        );
+        const repairableCount = damagedPlans.filter(
+          (plan) => plan.repairable,
+        ).length;
+        const skippedPlans = [
+          ...damagedPlans.filter((plan) => !plan.repairable),
+          ...repairPreview.preview.fields.filter(
+            (plan) => plan.reason === 'Gebäude im Bau',
+          ),
+        ];
+        const aggregateShortage = hasRepairCostShortage({
+          energyCost: repairPreview.preview.totalEnergyCost,
+          costs: repairPreview.preview.totalCosts,
+          energyAvailable,
+          storageAmounts,
+        });
+        return (
+          <div className="space-y-2 border border-swu-accent/40 bg-swu-surface p-2 text-xs">
+            <div className="font-bold text-swu-primary">Reparaturvorschau</div>
+            <p className="text-swu-muted">
+              {damagedPlans.length} beschädigte Gebäude gefunden, davon {repairableCount} einzeln reparierbar.
+            </p>
+            <RepairCostList
+              energyCost={repairPreview.preview.totalEnergyCost}
+              costs={repairPreview.preview.totalCosts}
+              energyAvailable={energyAvailable}
+              storageAmounts={storageAmounts}
+              commodityMap={commodityMap}
+            />
+            <p className="text-swu-muted">
+              Die Vorschau summiert einzeln reparierbare Gebäude. Reparaturen laufen nacheinander; spätere Gebäude können übersprungen werden.
+            </p>
+            {aggregateShortage && (
+              <p className="text-red-300">
+                Die Gesamtkosten übersteigen den aktuellen Vorrat. Verfügbar und benötigt stehen oben.
+              </p>
+            )}
+            {skippedPlans.length > 0 && (
+              <div>
+                <div className="mb-1 font-bold text-red-300">
+                  Nicht reparierbar
+                </div>
+                <ul className="space-y-0.5 text-red-300">
+                  {skippedPlans.map((plan) => (
+                    <li key={plan.fieldIndex}>
+                      Feld {plan.fieldIndex} · {plan.buildingName}: {plan.reason ?? 'Nicht reparierbar'}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {repairError && (
+              <p role="alert" className="text-red-400">
+                {repairError}
+              </p>
+            )}
+            <button
+              type="button"
+              disabled={repairableCount === 0 || repairBusy || repairPreviewBusy || busy !== null}
+              onClick={() => void confirmRepairDamaged()}
+              className="border border-green-500/50 bg-green-900/20 px-2 py-1.5 font-bold text-green-300 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {repairBusy ? 'Reparaturen laufen …' : 'Reparaturen jetzt durchführen'}
+            </button>
+          </div>
+        );
+      })()}
+
+      {repairResult?.colonyId === colonyId && (
+        <div role="status" className="space-y-1 border border-swu-border bg-swu-surface p-2 text-xs">
+          <div className="font-bold text-green-300">
+            {repairResult.result.repaired.length} Gebäude repariert
+          </div>
+          {repairResult.result.repaired.map((item) => (
+            <div key={item.fieldIndex} className="text-green-300">
+              Feld {item.fieldIndex} · {item.buildingName}
+            </div>
+          ))}
+          {repairResult.result.skipped.map((item) => (
+            <div key={item.fieldIndex} className="text-red-300">
+              Feld {item.fieldIndex}: {repairErrorMessage(new Error(item.reason))}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="border border-swu-border bg-swu-surface p-2 text-xs">
         <div className="mb-1 text-swu-muted">Gebäudegruppen</div>
