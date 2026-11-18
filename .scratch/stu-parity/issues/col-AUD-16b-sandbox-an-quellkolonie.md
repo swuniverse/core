@@ -1,0 +1,44 @@
+# Kolonie-Sandbox an Quellkolonie gebunden und mit ihr gelöscht
+
+**Status:** ready-for-agent
+**Priority:** P2
+**Size:** S
+**Blocked by:** col-AUD-16a
+
+## Ziel
+
+In STU hängt eine Sandbox fest an ihrer Quellkolonie (`colony_id NOT NULL`). Wird die Kolonie zurückgesetzt, löscht `ColonyResetter` ihre Sandboxen. In SWU überlebt die Sandbox als Snapshot die Quellkolonie (`sourceColonyId` nullable, `onDelete: SET NULL`). Nach PO-Entscheidung vom 2026-11-17 wird das an STU angeglichen.
+
+## STU-Quellen
+
+- `src/Orm/Entity/ColonySandbox.php` (`colony_id` NOT NULL, Z. 34/62)
+- `src/Module/Colony/Lib/ColonyResetter.php` (Z. 76, `truncateByColony`)
+- `src/Orm/Repository/ColonySandboxRepository.php`
+
+## SWU-Pfade
+
+- `apps/backend/src/modules/colony/entities/colony-sandbox.entity.ts` (`sourceColonyId` nullable, `onDelete: 'SET NULL'` Z. 28–32)
+- `apps/backend/src/modules/colony/colony-sandbox.service.ts`, `colony-sandbox-preview.service.ts` (Sonderfall „ohne Quellkolonie“)
+- `apps/backend/src/modules/colony/colony-abandonment.service.ts` (Kolonieaufgabe/Ruine, ADR-0007)
+- Besitzerwechsel der Kolonie (Übernahme, Kolonieabgabe)
+- `packages/shared/src/lib/colony/sandbox.ts` (`sourceColonyId: number | null`)
+- `apps/backend/src/database/migrations` (neue Migration)
+
+## Akzeptanzkriterien
+
+- [ ] `sourceColonyId` ist Pflicht. Die Fremdschlüsselregel ist `ON DELETE CASCADE`.
+- [ ] Wird eine Kolonie aufgegeben (Ruine), verliert sie ihren Besitzer oder wird sie gelöscht, werden alle Sandboxen dieser Kolonie gelöscht, wie STU `ColonyResetter`.
+- [ ] Die Migration löscht bestehende Sandboxen ohne Quellkolonie oder mit Quellkolonie eines anderen Besitzers. Die Anzahl wird im Migrationslog ausgegeben.
+- [ ] Sonderfälle „Sandbox ohne Quellkolonie“ in Service, Vorschau, DTO und UI werden entfernt (`sourceColonyId: number`).
+- [ ] Backend-Tests: Aufgabe der Kolonie löscht Sandboxen, Besitzerwechsel löscht Sandboxen, Migration (Integrationstest, falls Migrationstests vorhanden).
+- [ ] Frontend-Tests angepasst (`ColonySandboxPanel.spec.tsx`, `ColonySandboxPreview.spec.tsx`) ohne den Fall „Quelle entfernt“.
+
+## Herkunft
+
+- [`../audit-2026-11-17/README.md`](../audit-2026-11-17/README.md), Abschnitt J3 (Kolonie-Sandbox, Ticketpunkt „hängt an der Quellkolonie wie STU und wird mit ihr gelöscht“) und Abschnitt N2.
+- PO-Entscheidung 2026-11-17: nur per Freigabe, wie STU.
+- Ersetzt die `map.md`-Ergebnisnotiz zu col-G3a („Kopien … überleben die Quellkolonie“) und den Teil von col-G3c („Besitzerwechsel/Aufgabe/Löschung entfernen den Live-Vergleich“).
+
+## Comments
+
+- 2026-11-17: Aus dem Audit angelegt.

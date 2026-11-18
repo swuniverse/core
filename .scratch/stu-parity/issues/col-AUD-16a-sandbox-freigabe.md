@@ -1,0 +1,52 @@
+# Kolonie-Sandbox nur per Freigabe wie STU (Feature-Freigabe `COLONY_SANDBOX`)
+
+**Status:** ready-for-agent
+**Priority:** P2
+**Size:** M
+**Blocked by:** —
+
+## Ziel
+
+In SWU kann jeder Spieler bis zu 3 Sandboxen anlegen (col-G3a). In STU ist die Sandbox kein allgemeines Spielerfeature. Alle Sandbox-Aktionen und -Views prüfen `AccessGrantedFeatureEnum::COLONY_SANDBOX`. Freigeschaltet sind nur Admins und Spieler-IDs aus der Spielkonfiguration (`game.grantedFeatures`). Ein Mengenlimit gibt es nicht.
+
+Der PO hat am 2026-11-17 entschieden: Freigabe wie STU, aber im Admin pflegbar statt per Config-Datei. Dieses Ticket baut die Feature-Freigabe je Spieler, prüft sie an allen Sandbox-Endpunkten, blendet die UI ohne Freigabe aus und entfernt das Limit. Die Bindung an die Quellkolonie folgt in col-AUD-16b.
+
+## STU-Quellen
+
+- `src/Module/Control/AccessCheck.php` (`isFeatureGranted` Z. 80–98: Admin oder Eintrag in `grantedFeatures`)
+- `src/Module/Control/AccessGrantedFeatureEnum.php`, `AccessCheckControllerInterface.php`
+- `src/Module/Config/Model/GameSettings.php` (`getGrantedFeatures`)
+- `src/Module/Colony/Action/Sandbox/CreateSandbox.php`, `src/Module/Colony/View/Sandbox/ShowNewSandbox.php`, `ShowColonySandbox.php` (`getFeatureIdentifier`)
+- `src/html/view/colonylist.twig` (Sandbox-Knopf nur mit Freigabe)
+
+## SWU-Pfade
+
+- `apps/backend/src/modules/colony/colony-sandbox.controller.ts`, `colony-sandbox.service.ts` (`limit()` Z. 34–39, Prüfung Z. 142–149), `colony-sandbox-planning.service.ts`, `colony-sandbox-preview.service.ts`
+- `apps/backend/src/modules/auth/user.entity.ts` (`isAdmin` Z. 51), `apps/backend/src/modules/auth/auth.controller.ts` (`admin/users` Z. 133–167)
+- `packages/shared/src/lib/colony/sandbox.ts` (`ColonySandboxListDto.limit`)
+- `apps/frontend/src/pages/colonies/ColoniesPage.tsx` (Umschalter `sandboxMode` Z. 869–873), `components/ColonySandboxPanel.tsx`
+- `apps/frontend/src/pages/admin-users.tsx` (Freigabe pflegen)
+- Konfiguration `COLONY_SANDBOX_LIMIT` (entfällt)
+
+## Akzeptanzkriterien
+
+- [ ] Es gibt eine allgemeine Feature-Freigabe je Spieler (z. B. Tabelle `user_feature_grant` mit `userId`, `feature`, `grantedAt`, `grantedBy`, Enum mit erstem Wert `COLONY_SANDBOX`). Admins haben jede Freigabe implizit (wie STU).
+- [ ] Admins können die Freigabe in der Admin-Spielerverwaltung je Spieler setzen und entziehen. Die Endpunkte verlangen Adminrechte.
+- [ ] Ein wiederverwendbarer Guard bzw. Decorator (z. B. `@RequiresFeature('COLONY_SANDBOX')`) schützt alle Sandbox-Endpunkte (Liste, Anlegen, Lesen, Umbenennen, Löschen, Planen, Vorschau). Ohne Freigabe antwortet er mit 403 und der deutschen Meldung „Aktion nicht möglich, Spieler ist nicht berechtigt“.
+- [ ] Das Limit `COLONY_SANDBOX_LIMIT` entfällt samt Prüfung, Konfiguration und `limit` im DTO.
+- [ ] Das Frontend erfährt die Freigaben des Spielers (z. B. über das Profil-/Me-DTO). Ohne Freigabe sind der Umschalter „Kolonie/Sandbox“ und alle Sandbox-Einstiege ausgeblendet.
+- [ ] Kein Bestandsschutz nötig: Es gibt noch keine produktiven Sandboxen. Vorhandene Entwicklungs-/Testdaten dürfen verworfen werden; keine Migrations- oder Sichtbarkeitslogik für Altbestand.
+- [ ] Backend-Tests: ohne Freigabe 403 an jedem Sandbox-Endpunkt, mit Freigabe ok, Admin ohne Eintrag ok, kein Limit mehr (mehr als 3 Sandboxen möglich), Admin-Endpunkt Freigabe setzen/entziehen.
+- [ ] Frontend-Tests: Umschalter nur mit Freigabe (`ColonySandboxPanel.spec.tsx` bzw. `colonies.spec.tsx`), Admin-Seite setzt Freigabe (`admin-users.spec.tsx`).
+
+## Herkunft
+
+- [`../audit-2026-11-17/README.md`](../audit-2026-11-17/README.md), Abschnitt J3 (Kolonie-Sandbox) mit „Entscheidung PO (2026-11-17): nur per Freigabe, wie STU“ und Abschnitt N2 (Zeile „Sandbox für alle, Limit 3“).
+- [`../audit-2026-11-17/colony.md`](../audit-2026-11-17/colony.md), Seitenabgleich „Sandbox“, Abschnitt „Bewusste/entschiedene Abweichungen“ (Limit 3).
+- Ersetzt die `map.md`-Entscheidungen „2026-10-21 – col-G3a – Option a“ (Höchstzahl 3 je Spieler) sowie col-G3b/col-G3c, soweit sie Zugang für alle voraussetzen. Bau, Schaltung und Vorschau aus col-G3b/c bleiben fachlich gültig.
+
+## Comments
+
+- 2026-11-17: Aus dem Audit angelegt. Bindung an die Quellkolonie in col-AUD-16b.
+
+- 2026-11-17 Product Owner: Es gibt noch keine Sandboxen im Betrieb; Altbestand kann verworfen werden.
