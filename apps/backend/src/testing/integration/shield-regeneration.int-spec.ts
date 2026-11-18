@@ -26,9 +26,11 @@ describe('persistent independent shield regeneration (PostgreSQL)', () => {
     const layer = await source
       .getRepository('Layer')
       .save({ name: 'Shield test', width: 1, height: 1 });
-    const type = await source
-      .getRepository('GalaxyFieldType')
-      .save({ key: 'SHIELD_TEST', name: 'Shield test', effects: [] });
+    // resetDatabase keeps field types, so reuse the row from an earlier test.
+    const types = source.getRepository('GalaxyFieldType');
+    const type =
+      (await types.findOneBy({ key: 'SHIELD_TEST' })) ??
+      (await types.save({ key: 'SHIELD_TEST', name: 'Shield test', effects: [] }));
     const field = await source
       .getRepository('GalaxyField')
       .save({ layerId: layer.id, cx: 1, cy: 1, fieldTypeId: type.id });

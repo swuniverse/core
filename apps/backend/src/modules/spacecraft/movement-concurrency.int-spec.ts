@@ -15,7 +15,10 @@ import { SpacecraftRepairService } from './spacecraft-repair.service';
 import { CartographyPlanService } from './cartography-plan.service';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 import { FieldTransitionExecutor } from './field-transition-executor';
-import { MOVEMENT_REACTIONS, type MovementReaction } from './movement-reaction.port';
+import {
+  MOVEMENT_REACTIONS,
+  type MovementReaction,
+} from './movement-reaction.port';
 import {
   FlightConsequencePipeline,
   FLIGHT_CONSEQUENCES,
@@ -25,7 +28,10 @@ import { FieldEffectConsequence } from './field-effect-consequence';
 import { DeflectorConsequence } from './deflector-consequence';
 import { MapRegion } from '../starmap/entities/map-region.entity';
 import { FieldEffectQuery } from '../starmap/field-effect-query';
-import { CartographyPlan, CartographyPlanStatus } from './entities/cartography-plan.entity';
+import {
+  CartographyPlan,
+  CartographyPlanStatus,
+} from './entities/cartography-plan.entity';
 import { regionTarget } from './cartography-plan.service';
 import { GalaxyFieldType } from '../starmap/entities/galaxy-field-type.entity';
 import type { CrewEnhancementService } from './crew-enhancement.service';
@@ -72,6 +78,12 @@ import { Spacecraft } from './entities/spacecraft.entity';
 import { SpacecraftDestructionService } from './spacecraft-destruction.service';
 import { captureMovementState } from './movement-state';
 
+// Sensors start OFF like STU (sc-AUD-02); flights beyond one field need long-range sensors.
+const SENSORS_ON = {
+  LONG_RANGE_SENSORS: { active: true, integrity: 100, cooldown: 0 },
+  SHORT_RANGE_SENSORS: { active: true, integrity: 100, cooldown: 0 },
+};
+
 function barrier() {
   let release!: () => void;
   const promise = new Promise<void>((resolve) => {
@@ -88,7 +100,8 @@ async function waitForControlledLoad(
   await Promise.race([
     acquired,
     pending.then((result) => {
-      if (result && typeof result === 'object' && 'error' in result) throw result.error;
+      if (result && typeof result === 'object' && 'error' in result)
+        throw result.error;
       throw new Error('Movement completed before the controlled load');
     }),
   ]);
@@ -263,40 +276,35 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       locationId: locations[0].id,
       energy: 71,
       runtimeSystems: {
+        ...SENSORS_ON,
         SUBLIGHT_DRIVE: { active: false, integrity: 100, cooldown: 0 },
       },
     });
   });
 
   it('does not detach an incapable member when the leader resources became stale before fleet preparation', async () => {
-    await dataSource
-      .getRepository(SpacecraftModule)
-      .save({
-        spacecraftId: ship.id,
-        category: 'HYPERDRIVE',
-        moduleType: 'Hyperdrive',
-        isActive: true,
-      });
-    const fleet = await dataSource
-      .getRepository(Fleet)
-      .save({
-        name: 'Stale preparation',
-        userId: ship.userId,
-        leaderId: ship.id,
-      });
+    await dataSource.getRepository(SpacecraftModule).save({
+      spacecraftId: ship.id,
+      category: 'HYPERDRIVE',
+      moduleType: 'Hyperdrive',
+      isActive: true,
+    });
+    const fleet = await dataSource.getRepository(Fleet).save({
+      name: 'Stale preparation',
+      userId: ship.userId,
+      leaderId: ship.id,
+    });
     await dataSource
       .getRepository(Spacecraft)
       .update(ship.id, { fleetId: fleet.id });
-    const member = await dataSource
-      .getRepository(Spacecraft)
-      .save({
-        name: 'Blocked member',
-        userId: ship.userId,
-        shipClassId: ship.shipClassId,
-        fleetId: fleet.id,
-        locationId: locations[0].id,
-        status: SpacecraftStatus.DESTROYED,
-      });
+    const member = await dataSource.getRepository(Spacecraft).save({
+      name: 'Blocked member',
+      userId: ship.userId,
+      shipClassId: ship.shipClassId,
+      fleetId: fleet.id,
+      locationId: locations[0].id,
+      status: SpacecraftStatus.DESTROYED,
+    });
     const acquired = barrier();
     const release = barrier();
     const subscriber: EntitySubscriberInterface<Spacecraft> = {
@@ -339,14 +347,12 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
   });
 
   it('rejects galaxy flight when its originally installed drive was removed before the step', async () => {
-    const drive = await dataSource
-      .getRepository(SpacecraftModule)
-      .save({
-        spacecraftId: ship.id,
-        category: 'HYPERDRIVE',
-        moduleType: 'Hyperdrive',
-        isActive: true,
-      });
+    const drive = await dataSource.getRepository(SpacecraftModule).save({
+      spacecraftId: ship.id,
+      category: 'HYPERDRIVE',
+      moduleType: 'Hyperdrive',
+      isActive: true,
+    });
     const acquired = barrier();
     const release = barrier();
     const subscriber: EntitySubscriberInterface<SpaceLocation> = {
@@ -387,33 +393,27 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
   });
 
   it('rejects a step when a previously remote attached member arrives at the selected origin', async () => {
-    await dataSource
-      .getRepository(SpacecraftModule)
-      .save({
-        spacecraftId: ship.id,
-        category: 'HYPERDRIVE',
-        moduleType: 'Hyperdrive',
-        isActive: true,
-      });
-    const fleet = await dataSource
-      .getRepository(Fleet)
-      .save({
-        name: 'Remote selection',
-        userId: ship.userId,
-        leaderId: ship.id,
-      });
+    await dataSource.getRepository(SpacecraftModule).save({
+      spacecraftId: ship.id,
+      category: 'HYPERDRIVE',
+      moduleType: 'Hyperdrive',
+      isActive: true,
+    });
+    const fleet = await dataSource.getRepository(Fleet).save({
+      name: 'Remote selection',
+      userId: ship.userId,
+      leaderId: ship.id,
+    });
     await dataSource
       .getRepository(Spacecraft)
       .update(ship.id, { fleetId: fleet.id });
-    const remote = await dataSource
-      .getRepository(Spacecraft)
-      .save({
-        name: 'Remote member',
-        userId: ship.userId,
-        shipClassId: ship.shipClassId,
-        fleetId: fleet.id,
-        locationId: locations[2].id,
-      });
+    const remote = await dataSource.getRepository(Spacecraft).save({
+      name: 'Remote member',
+      userId: ship.userId,
+      shipClassId: ship.shipClassId,
+      fleetId: fleet.id,
+      locationId: locations[2].id,
+    });
     const acquired = barrier();
     const release = barrier();
     const subscriber: EntitySubscriberInterface<SpaceLocation> = {
@@ -460,14 +460,12 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
   });
 
   it('does not overwrite unrelated battery or name changes during a valid movement step', async () => {
-    await dataSource
-      .getRepository(SpacecraftModule)
-      .save({
-        spacecraftId: ship.id,
-        category: 'HYPERDRIVE',
-        moduleType: 'Hyperdrive',
-        isActive: true,
-      });
+    await dataSource.getRepository(SpacecraftModule).save({
+      spacecraftId: ship.id,
+      category: 'HYPERDRIVE',
+      moduleType: 'Hyperdrive',
+      isActive: true,
+    });
     const acquired = barrier();
     const release = barrier();
     const subscriber: EntitySubscriberInterface<SpaceLocation> = {
@@ -506,22 +504,18 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
   });
 
   it('rejects a leader captured by a tractor after the original eligibility check', async () => {
-    await dataSource
-      .getRepository(SpacecraftModule)
-      .save({
-        spacecraftId: ship.id,
-        category: 'HYPERDRIVE',
-        moduleType: 'Hyperdrive',
-        isActive: true,
-      });
-    const tractor = await dataSource
-      .getRepository(Spacecraft)
-      .save({
-        name: 'New tractor',
-        userId: ship.userId,
-        shipClassId: ship.shipClassId,
-        locationId: locations[0].id,
-      });
+    await dataSource.getRepository(SpacecraftModule).save({
+      spacecraftId: ship.id,
+      category: 'HYPERDRIVE',
+      moduleType: 'Hyperdrive',
+      isActive: true,
+    });
+    const tractor = await dataSource.getRepository(Spacecraft).save({
+      name: 'New tractor',
+      userId: ship.userId,
+      shipClassId: ship.shipClassId,
+      locationId: locations[0].id,
+    });
     const acquired = barrier();
     const release = barrier();
     const subscriber: EntitySubscriberInterface<SpaceLocation> = {
@@ -570,14 +564,12 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
   });
 
   it('rejects a runtime-only drive cooldown change through galaxy flight without step effects', async () => {
-    await dataSource
-      .getRepository(SpacecraftModule)
-      .save({
-        spacecraftId: ship.id,
-        category: 'HYPERDRIVE',
-        moduleType: 'Hyperdrive',
-        isActive: true,
-      });
+    await dataSource.getRepository(SpacecraftModule).save({
+      spacecraftId: ship.id,
+      category: 'HYPERDRIVE',
+      moduleType: 'Hyperdrive',
+      isActive: true,
+    });
     const acquired = barrier();
     const release = barrier();
     const subscriber: EntitySubscriberInterface<SpaceLocation> = {
@@ -594,6 +586,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       (error: unknown) => ({ error }),
     );
     const runtimeSystems = {
+      ...SENSORS_ON,
       WARPDRIVE: { active: false, integrity: 100, cooldown: 3 },
     };
     try {
@@ -629,14 +622,12 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
   });
 
   it('rejects lost crew eligibility without overwriting a completed crew transfer', async () => {
-    await dataSource
-      .getRepository(SpacecraftModule)
-      .save({
-        spacecraftId: ship.id,
-        category: 'HYPERDRIVE',
-        moduleType: 'Hyperdrive',
-        isActive: true,
-      });
+    await dataSource.getRepository(SpacecraftModule).save({
+      spacecraftId: ship.id,
+      category: 'HYPERDRIVE',
+      moduleType: 'Hyperdrive',
+      isActive: true,
+    });
     const crew = await dataSource
       .getRepository(Crew)
       .save({ userId: ship.userId, name: 'Flight crew' });
@@ -646,14 +637,12 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
     await dataSource
       .getRepository(Spacecraft)
       .update(ship.id, { crewRequired: 1 });
-    const receiver = await dataSource
-      .getRepository(Spacecraft)
-      .save({
-        name: 'Crew receiver',
-        userId: ship.userId,
-        shipClassId: ship.shipClassId,
-        locationId: locations[0].id,
-      });
+    const receiver = await dataSource.getRepository(Spacecraft).save({
+      name: 'Crew receiver',
+      userId: ship.userId,
+      shipClassId: ship.shipClassId,
+      locationId: locations[0].id,
+    });
     const acquired = barrier();
     const release = barrier();
     const subscriber: EntitySubscriberInterface<SpaceLocation> = {
@@ -707,28 +696,24 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
   });
 
   it('rejects a fleet step when a new member joins after the original participant selection', async () => {
-    await dataSource
-      .getRepository(SpacecraftModule)
-      .save({
-        spacecraftId: ship.id,
-        category: 'HYPERDRIVE',
-        moduleType: 'Hyperdrive',
-        isActive: true,
-      });
+    await dataSource.getRepository(SpacecraftModule).save({
+      spacecraftId: ship.id,
+      category: 'HYPERDRIVE',
+      moduleType: 'Hyperdrive',
+      isActive: true,
+    });
     const fleet = await dataSource
       .getRepository(Fleet)
       .save({ name: 'Joining fleet', userId: ship.userId, leaderId: ship.id });
     await dataSource
       .getRepository(Spacecraft)
       .update(ship.id, { fleetId: fleet.id });
-    const joiner = await dataSource
-      .getRepository(Spacecraft)
-      .save({
-        name: 'Joiner',
-        userId: ship.userId,
-        shipClassId: ship.shipClassId,
-        locationId: locations[0].id,
-      });
+    const joiner = await dataSource.getRepository(Spacecraft).save({
+      name: 'Joiner',
+      userId: ship.userId,
+      shipClassId: ship.shipClassId,
+      locationId: locations[0].id,
+    });
     const acquired = barrier();
     const release = barrier();
     const subscriber: EntitySubscriberInterface<SpaceLocation> = {
@@ -842,14 +827,12 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
   });
 
   it('refuses a terminally destroyed leader without stale rejection or step effects', async () => {
-    await dataSource
-      .getRepository(SpacecraftModule)
-      .save({
-        spacecraftId: ship.id,
-        category: 'HYPERDRIVE',
-        moduleType: 'Hyperdrive',
-        isActive: true,
-      });
+    await dataSource.getRepository(SpacecraftModule).save({
+      spacecraftId: ship.id,
+      category: 'HYPERDRIVE',
+      moduleType: 'Hyperdrive',
+      isActive: true,
+    });
     const acquired = barrier();
     const release = barrier();
     const subscriber: EntitySubscriberInterface<SpaceLocation> = {
@@ -896,34 +879,28 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
   });
 
   it('keeps terminal destruction distinct during fleet preparation and does not detach a member', async () => {
-    await dataSource
-      .getRepository(SpacecraftModule)
-      .save({
-        spacecraftId: ship.id,
-        category: 'HYPERDRIVE',
-        moduleType: 'Hyperdrive',
-        isActive: true,
-      });
-    const fleet = await dataSource
-      .getRepository(Fleet)
-      .save({
-        name: 'Destroyed leader',
-        userId: ship.userId,
-        leaderId: ship.id,
-      });
+    await dataSource.getRepository(SpacecraftModule).save({
+      spacecraftId: ship.id,
+      category: 'HYPERDRIVE',
+      moduleType: 'Hyperdrive',
+      isActive: true,
+    });
+    const fleet = await dataSource.getRepository(Fleet).save({
+      name: 'Destroyed leader',
+      userId: ship.userId,
+      leaderId: ship.id,
+    });
     await dataSource
       .getRepository(Spacecraft)
       .update(ship.id, { fleetId: fleet.id });
-    const member = await dataSource
-      .getRepository(Spacecraft)
-      .save({
-        name: 'Blocked member',
-        userId: ship.userId,
-        shipClassId: ship.shipClassId,
-        fleetId: fleet.id,
-        locationId: locations[0].id,
-        status: SpacecraftStatus.DESTROYED,
-      });
+    const member = await dataSource.getRepository(Spacecraft).save({
+      name: 'Blocked member',
+      userId: ship.userId,
+      shipClassId: ship.shipClassId,
+      fleetId: fleet.id,
+      locationId: locations[0].id,
+      status: SpacecraftStatus.DESTROYED,
+    });
     const acquired = barrier();
     const release = barrier();
     const subscriber: EntitySubscriberInterface<Spacecraft> = {
@@ -1002,6 +979,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       energy: 70,
     });
     const runtimeSystems = {
+      ...SENSORS_ON,
       SUBLIGHT_DRIVE: { active: false, integrity: 100, cooldown: 3 },
     };
     await repo.update(ship.id, { runtimeSystems });
@@ -1097,7 +1075,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       locationId: systemLocations[0].id,
       energy: 53,
       status: SpacecraftStatus.IDLE,
-      runtimeSystems: {},
+      runtimeSystems: { ...SENSORS_ON },
     });
     await dataSource.getRepository(SpacecraftModule).save([
       {
@@ -1131,6 +1109,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       locationId: systemLocations[0].id,
       tractoredShipId: member.id,
       runtimeSystems: {
+        ...SENSORS_ON,
         TRACTOR_BEAM: { active: true, integrity: 100, cooldown: 0 },
       },
     });
@@ -1157,6 +1136,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       status: SpacecraftStatus.IDLE,
       fleetId: fleet.id,
       runtimeSystems: {
+        ...SENSORS_ON,
         SUBLIGHT_DRIVE: { active: true, integrity: 100, cooldown: 0 },
       },
     });
@@ -1169,6 +1149,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       energy: 67,
       tractoredShipId: member.id,
       runtimeSystems: {
+        ...SENSORS_ON,
         TRACTOR_BEAM: { active: true },
         SUBLIGHT_DRIVE: { active: true },
       },
@@ -1243,52 +1224,44 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
     const layer = await dataSource
       .getRepository(Layer)
       .findOneByOrFail({ name: 'Movement test layer' });
-    const system = await dataSource
-      .getRepository(StarSystem)
-      .save({
-        name: 'Tractor system',
-        layerId: layer.id,
-        cx: 1,
-        cy: 1,
-        maxX: 2,
-        maxY: 1,
-        systemTypeId: 1,
-      });
+    const system = await dataSource.getRepository(StarSystem).save({
+      name: 'Tractor system',
+      layerId: layer.id,
+      cx: 1,
+      cy: 1,
+      maxX: 2,
+      maxY: 1,
+      systemTypeId: 1,
+    });
     const field = await dataSource
       .getRepository(SystemField)
       .save({ starSystemId: system.id, sx: 1, sy: 1, fieldTypeId: 1 });
-    await dataSource
-      .getRepository(SystemField)
-      .save({
-        starSystemId: system.id,
-        sx: 2,
-        sy: 1,
-        fieldTypeId: 1,
-        effects: [FieldEffect.EPS_LEAK],
-      });
+    await dataSource.getRepository(SystemField).save({
+      starSystemId: system.id,
+      sx: 2,
+      sy: 1,
+      fieldTypeId: 1,
+      effects: [FieldEffect.EPS_LEAK],
+    });
     const location = await dataSource
       .getRepository(SpaceLocation)
       .findOneByOrFail({ systemFieldId: field.id });
-    const target = await dataSource
-      .getRepository(Spacecraft)
-      .save({
-        name: 'Tractor target',
-        userId: ship.userId,
-        shipClassId: ship.shipClassId,
-        locationId: location.id,
-        energy: 53,
-      });
+    const target = await dataSource.getRepository(Spacecraft).save({
+      name: 'Tractor target',
+      userId: ship.userId,
+      shipClassId: ship.shipClassId,
+      locationId: location.id,
+      energy: 53,
+    });
     await dataSource
       .getRepository(Spacecraft)
       .update(ship.id, { locationId: location.id, tractoredShipId: target.id });
-    await dataSource
-      .getRepository(SpacecraftModule)
-      .save({
-        spacecraftId: ship.id,
-        category: 'SUBLIGHT_DRIVE',
-        moduleType: 'Sublight',
-        isActive: true,
-      });
+    await dataSource.getRepository(SpacecraftModule).save({
+      spacecraftId: ship.id,
+      category: 'SUBLIGHT_DRIVE',
+      moduleType: 'Sublight',
+      isActive: true,
+    });
     const acquired = barrier();
     const release = barrier();
     const subscriber: EntitySubscriberInterface<Spacecraft> = {
@@ -1349,7 +1322,12 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       moduleType: 'Sensors',
       isActive: true,
     });
-    const { ship: moved, movement } = await fixture.service.flyGalaxy(ship.id, ship.userId, 3, 1);
+    const { ship: moved, movement } = await fixture.service.flyGalaxy(
+      ship.id,
+      ship.userId,
+      3,
+      1,
+    );
     expect(movement).toEqual({
       plannedSteps: 2,
       completedSteps: 2,
@@ -1405,14 +1383,12 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
     await dataSource
       .getRepository(Spacecraft)
       .update([ship.id, member.id], { fleetId: fleet.id });
-    await dataSource
-      .getRepository(SpacecraftModule)
-      .save({
-        spacecraftId: ship.id,
-        category: 'HYPERDRIVE',
-        moduleType: 'Hyperdrive',
-        isActive: true,
-      });
+    await dataSource.getRepository(SpacecraftModule).save({
+      spacecraftId: ship.id,
+      category: 'HYPERDRIVE',
+      moduleType: 'Hyperdrive',
+      isActive: true,
+    });
     const acquired = barrier();
     const release = barrier();
     const subscriber: EntitySubscriberInterface<SpaceLocation> = {
@@ -1494,14 +1470,12 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
     await dataSource
       .getRepository(Spacecraft)
       .update([ship.id, member.id], { fleetId: fleet.id });
-    await dataSource
-      .getRepository(SpacecraftModule)
-      .save({
-        spacecraftId: ship.id,
-        category: 'SUBLIGHT_DRIVE',
-        moduleType: 'Sublight',
-        isActive: true,
-      });
+    await dataSource.getRepository(SpacecraftModule).save({
+      spacecraftId: ship.id,
+      category: 'SUBLIGHT_DRIVE',
+      moduleType: 'Sublight',
+      isActive: true,
+    });
     const acquired = barrier();
     const release = barrier();
     const subscriber: EntitySubscriberInterface<SpaceLocation> = {
@@ -1707,6 +1681,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       await manager.update(Spacecraft, ship.id, {
         locationId: locations[1].id,
         runtimeSystems: {
+          ...SENSORS_ON,
           SUBLIGHT_DRIVE: { active: true, integrity: 100, cooldown: 0 },
         },
       });
@@ -1731,6 +1706,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       locationId: locations[1].id,
       energy: 71,
       runtimeSystems: {
+        ...SENSORS_ON,
         SUBLIGHT_DRIVE: { active: true, integrity: 100, cooldown: 0 },
       },
     });
@@ -1743,27 +1719,54 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
 
   describe('movement result and reaction port', () => {
     const warpModules = (spacecraftId: number) => [
-      { spacecraftId, category: 'HYPERDRIVE', moduleType: 'Hyperdrive', isActive: true },
-      { spacecraftId, category: 'SENSORS', moduleType: 'Sensors', isActive: true },
+      {
+        spacecraftId,
+        category: 'HYPERDRIVE',
+        moduleType: 'Hyperdrive',
+        isActive: true,
+      },
+      {
+        spacecraftId,
+        category: 'SENSORS',
+        moduleType: 'Sensors',
+        isActive: true,
+      },
     ];
     const stopAt = (x: number, text = 'Alarm Rot'): MovementReaction => ({
       afterTransition: ({ coordinate }) =>
-        coordinate.x === x ? { stop: true, reports: [battleReport(text)] } : undefined,
+        coordinate.x === x
+          ? { stop: true, reports: [battleReport(text)] }
+          : undefined,
     });
 
     it('stops a galaxy flight on the intermediate field and keeps its cost, signature and exploration', async () => {
-      await dataSource.getRepository(SpacecraftModule).save(warpModules(ship.id));
-      const reached: Array<{ scope: string; x: number; participants: number[] }> = [];
+      await dataSource
+        .getRepository(SpacecraftModule)
+        .save(warpModules(ship.id));
+      const reached: Array<{
+        scope: string;
+        x: number;
+        participants: number[];
+      }> = [];
       fixture.reactions.push(
         {
           afterTransition: ({ scope, coordinate, participants }) => {
-            reached.push({ scope, x: coordinate.x, participants: participants.map((member) => member.id) });
+            reached.push({
+              scope,
+              x: coordinate.x,
+              participants: participants.map((member) => member.id),
+            });
           },
         },
         stopAt(2),
       );
 
-      const { ship: stopped, movement } = await fixture.service.flyGalaxy(ship.id, ship.userId, 3, 1);
+      const { ship: stopped, movement } = await fixture.service.flyGalaxy(
+        ship.id,
+        ship.userId,
+        3,
+        1,
+      );
 
       expect(movement).toEqual({
         plannedSteps: 2,
@@ -1773,21 +1776,40 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
         destroyedShipIds: [],
         combatReports: [battleReport('Alarm Rot')],
       });
-      expect(reached).toEqual([{ scope: 'GALAXY', x: 2, participants: [ship.id] }]);
-      expect(stopped).toMatchObject({ locationId: locations[1].id, energy: 70 });
+      expect(reached).toEqual([
+        { scope: 'GALAXY', x: 2, participants: [ship.id] },
+      ]);
+      expect(stopped).toMatchObject({
+        locationId: locations[1].id,
+        energy: 70,
+      });
       expect(
-        await dataSource.getRepository(Spacecraft).findOneByOrFail({ id: ship.id }),
-      ).toMatchObject({ locationId: locations[1].id, energy: 70, status: SpacecraftStatus.IDLE });
+        await dataSource
+          .getRepository(Spacecraft)
+          .findOneByOrFail({ id: ship.id }),
+      ).toMatchObject({
+        locationId: locations[1].id,
+        energy: 70,
+        status: SpacecraftStatus.IDLE,
+      });
       expect(await dataSource.getRepository(FlightSignature).count()).toBe(2);
       expect(await dataSource.getRepository(LayerKnowledge).count()).toBe(1);
-      expect(await dataSource.getRepository(ExplorationState).count()).toBeGreaterThan(0);
+      expect(
+        await dataSource.getRepository(ExplorationState).count(),
+      ).toBeGreaterThan(0);
     });
 
     it('leaves destroyed fleet members behind while the survivors fly on (STU)', async () => {
       const fleet = await dataSource
         .getRepository(Fleet)
-        .save({ name: 'Ambushed fleet', userId: ship.userId, leaderId: ship.id });
-      await dataSource.getRepository(Spacecraft).update(ship.id, { fleetId: fleet.id });
+        .save({
+          name: 'Ambushed fleet',
+          userId: ship.userId,
+          leaderId: ship.id,
+        });
+      await dataSource
+        .getRepository(Spacecraft)
+        .update(ship.id, { fleetId: fleet.id });
       const lost = await dataSource.getRepository(Spacecraft).save({
         name: 'Lost member',
         userId: ship.userId,
@@ -1796,7 +1818,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
         locationId: locations[0].id,
         energy: 50,
         status: SpacecraftStatus.IDLE,
-        runtimeSystems: {},
+        runtimeSystems: { ...SENSORS_ON },
       });
       const survivor = await dataSource.getRepository(Spacecraft).save({
         name: 'Surviving member',
@@ -1806,11 +1828,15 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
         locationId: locations[0].id,
         energy: 50,
         status: SpacecraftStatus.IDLE,
-        runtimeSystems: {},
+        runtimeSystems: { ...SENSORS_ON },
       });
       await dataSource
         .getRepository(SpacecraftModule)
-        .save([...warpModules(ship.id), ...warpModules(lost.id), ...warpModules(survivor.id)]);
+        .save([
+          ...warpModules(ship.id),
+          ...warpModules(lost.id),
+          ...warpModules(survivor.id),
+        ]);
       fixture.reactions.push({
         afterTransition: async ({ participants }) => {
           const target = participants.find((member) => member.id === lost.id);
@@ -1818,13 +1844,26 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
           // Like combat destruction: the ship leaves its fleet and is gone.
           await dataSource
             .getRepository(Spacecraft)
-            .update(lost.id, { status: SpacecraftStatus.DESTROYED, fleetId: null });
-          await dataSource.getRepository(Spacecraft).update(survivor.id, { hull: 3 });
-          return { reports: [battleReport('Lost member zerstört')], changedParticipants: true };
+            .update(lost.id, {
+              status: SpacecraftStatus.DESTROYED,
+              fleetId: null,
+            });
+          await dataSource
+            .getRepository(Spacecraft)
+            .update(survivor.id, { hull: 3 });
+          return {
+            reports: [battleReport('Lost member zerstört')],
+            changedParticipants: true,
+          };
         },
       });
 
-      const { movement } = await fixture.service.flyGalaxy(ship.id, ship.userId, 3, 1);
+      const { movement } = await fixture.service.flyGalaxy(
+        ship.id,
+        ship.userId,
+        3,
+        1,
+      );
 
       expect(movement).toMatchObject({
         completedSteps: 2,
@@ -1833,7 +1872,9 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
         destroyedShipIds: [lost.id],
         combatReports: [battleReport('Lost member zerstört')],
       });
-      const rows = await dataSource.getRepository(Spacecraft).find({ order: { id: 'ASC' } });
+      const rows = await dataSource
+        .getRepository(Spacecraft)
+        .find({ order: { id: 'ASC' } });
       expect(rows.map((row) => [row.id, row.locationId, row.status])).toEqual([
         [ship.id, locations[2].id, SpacecraftStatus.IDLE],
         [lost.id, locations[1].id, SpacecraftStatus.DESTROYED],
@@ -1844,7 +1885,9 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
     });
 
     it('stops a system flight on the intermediate field with the same result contract', async () => {
-      const layer = await dataSource.getRepository(Layer).findOneByOrFail({ name: 'Movement test layer' });
+      const layer = await dataSource
+        .getRepository(Layer)
+        .findOneByOrFail({ name: 'Movement test layer' });
       const system = await dataSource.getRepository(StarSystem).save({
         name: 'Ambush system',
         layerId: layer.id,
@@ -1856,24 +1899,54 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       });
       const fields = await dataSource
         .getRepository(SystemField)
-        .save([1, 2, 3].map((sx) => ({ starSystemId: system.id, sx, sy: 1, fieldTypeId: 1 })));
+        .save(
+          [1, 2, 3].map((sx) => ({
+            starSystemId: system.id,
+            sx,
+            sy: 1,
+            fieldTypeId: 1,
+          })),
+        );
       const systemLocations = await Promise.all(
         fields.map((field) =>
-          dataSource.getRepository(SpaceLocation).findOneByOrFail({ systemFieldId: field.id }),
+          dataSource
+            .getRepository(SpaceLocation)
+            .findOneByOrFail({ systemFieldId: field.id }),
         ),
       );
-      await dataSource.getRepository(Spacecraft).update(ship.id, { locationId: systemLocations[0].id });
+      await dataSource
+        .getRepository(Spacecraft)
+        .update(ship.id, { locationId: systemLocations[0].id });
       await dataSource.getRepository(SpacecraftModule).save([
-        { spacecraftId: ship.id, category: 'SUBLIGHT_DRIVE', moduleType: 'Sublight', isActive: true },
-        { spacecraftId: ship.id, category: 'SENSORS', moduleType: 'Sensors', isActive: true },
+        {
+          spacecraftId: ship.id,
+          category: 'SUBLIGHT_DRIVE',
+          moduleType: 'Sublight',
+          isActive: true,
+        },
+        {
+          spacecraftId: ship.id,
+          category: 'SENSORS',
+          moduleType: 'Sensors',
+          isActive: true,
+        },
       ]);
       const scopes: string[] = [];
       fixture.reactions.push(
-        { afterTransition: ({ scope, fieldId }) => { scopes.push(`${scope}:${fieldId}`); } },
+        {
+          afterTransition: ({ scope, fieldId }) => {
+            scopes.push(`${scope}:${fieldId}`);
+          },
+        },
         stopAt(2, 'Abgefangen'),
       );
 
-      const { movement } = await fixture.service.navigate(ship.id, ship.userId, 3, 1);
+      const { movement } = await fixture.service.navigate(
+        ship.id,
+        ship.userId,
+        3,
+        1,
+      );
 
       expect(movement).toEqual({
         plannedSteps: 2,
@@ -1885,13 +1958,18 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       });
       expect(scopes).toEqual([`SYSTEM:${fields[1].id}`]);
       expect(
-        await dataSource.getRepository(Spacecraft).findOneByOrFail({ id: ship.id }),
+        await dataSource
+          .getRepository(Spacecraft)
+          .findOneByOrFail({ id: ship.id }),
       ).toMatchObject({ locationId: systemLocations[1].id, energy: 70 });
       expect(await dataSource.getRepository(FlightSignature).count()).toBe(2);
     });
 
     describe('deflector and field damage (tmw-K1b2)', () => {
-      const useNebula = async (fieldIds: number[], type: Partial<GalaxyFieldType> = {}) => {
+      const useNebula = async (
+        fieldIds: number[],
+        type: Partial<GalaxyFieldType> = {},
+      ) => {
         // Field types survive the reset; each test gets its own row.
         const nebula = await dataSource.getRepository(GalaxyFieldType).save({
           key: `deflector_test_nebula_${Date.now()}_${Math.random()}`,
@@ -1901,25 +1979,38 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
           specialDamage: 0,
           ...type,
         });
-        await dataSource.getRepository(GalaxyField).update(fieldIds, { fieldTypeId: nebula.id });
+        await dataSource
+          .getRepository(GalaxyField)
+          .update(fieldIds, { fieldTypeId: nebula.id });
         fixture.consequences.unshift(
           new DeflectorConsequence(
             dataSource,
             fixture.messaging as unknown as MessagingService,
             fixture.gateway as unknown as GameGateway,
-            { destroyInManager: jest.fn() } as unknown as SpacecraftDestructionService,
-            { enhanceSpacecraft: jest.fn() } as unknown as CrewEnhancementService,
+            {
+              destroyInManager: jest.fn(),
+            } as unknown as SpacecraftDestructionService,
+            {
+              enhanceSpacecraft: jest.fn(),
+            } as unknown as CrewEnhancementService,
             () => 0,
           ),
         );
       };
-      const fieldIds = () => locations.slice(1).map((location) => location.galaxyFieldId as number);
+      const fieldIds = () =>
+        locations.slice(1).map((location) => location.galaxyFieldId as number);
 
       it('charges the deflector exactly once per field for every fleet ship and keeps the last field', async () => {
         const fleet = await dataSource
           .getRepository(Fleet)
-          .save({ name: 'Nebula fleet', userId: ship.userId, leaderId: ship.id });
-        await dataSource.getRepository(Spacecraft).update(ship.id, { fleetId: fleet.id });
+          .save({
+            name: 'Nebula fleet',
+            userId: ship.userId,
+            leaderId: ship.id,
+          });
+        await dataSource
+          .getRepository(Spacecraft)
+          .update(ship.id, { fleetId: fleet.id });
         const member = await dataSource.getRepository(Spacecraft).save({
           name: 'Nebula member',
           userId: ship.userId,
@@ -1928,34 +2019,64 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
           locationId: locations[0].id,
           energy: 50,
           status: SpacecraftStatus.IDLE,
-          runtimeSystems: {},
+          runtimeSystems: { ...SENSORS_ON },
         });
-        await dataSource.getRepository(SpacecraftModule).save([...warpModules(ship.id), ...warpModules(member.id)]);
+        await dataSource
+          .getRepository(SpacecraftModule)
+          .save([...warpModules(ship.id), ...warpModules(member.id)]);
         await useNebula(fieldIds());
 
-        const { movement } = await fixture.service.flyGalaxy(ship.id, ship.userId, 3, 1);
+        const { movement } = await fixture.service.flyGalaxy(
+          ship.id,
+          ship.userId,
+          3,
+          1,
+        );
 
-        expect(movement).toMatchObject({ completedSteps: 2, stopReason: 'ARRIVED' });
-        const rows = await dataSource.getRepository(Spacecraft).find({ order: { id: 'ASC' } });
+        expect(movement).toMatchObject({
+          completedSteps: 2,
+          stopReason: 'ARRIVED',
+        });
+        const rows = await dataSource
+          .getRepository(Spacecraft)
+          .find({ order: { id: 'ASC' } });
         // Two fields: 1 flight EPS plus 3 deflector EPS each.
-        expect(rows.map((row) => [row.id, row.locationId, row.energy])).toEqual([
-          [ship.id, locations[2].id, 63],
-          [member.id, locations[2].id, 42],
-        ]);
+        expect(rows.map((row) => [row.id, row.locationId, row.energy])).toEqual(
+          [
+            [ship.id, locations[2].id, 63],
+            [member.id, locations[2].id, 42],
+          ],
+        );
         expect(rows[0].runtimeSystems).toHaveProperty('DEFLECTOR');
       });
 
       it('persists field damage of a ship without deflector energy', async () => {
-        await dataSource.getRepository(Spacecraft).update(ship.id, { energy: 5, hull: 200, hullMax: 200 });
-        await dataSource.getRepository(SpacecraftModule).save(warpModules(ship.id));
+        await dataSource
+          .getRepository(Spacecraft)
+          .update(ship.id, { energy: 5, hull: 200, hullMax: 200 });
+        await dataSource
+          .getRepository(SpacecraftModule)
+          .save(warpModules(ship.id));
         await useNebula(fieldIds());
 
-        const { movement } = await fixture.service.flyGalaxy(ship.id, ship.userId, 3, 1);
+        const { movement } = await fixture.service.flyGalaxy(
+          ship.id,
+          ship.userId,
+          3,
+          1,
+        );
 
-        expect(movement).toMatchObject({ completedSteps: 2, stopReason: 'ARRIVED' });
+        expect(movement).toMatchObject({
+          completedSteps: 2,
+          stopReason: 'ARRIVED',
+        });
         // Field 1: 1 flight EPS, 3 deflector EPS (1 left). Field 2: flight EPS
         // empties the store, the deflector fails: 10 % of 200 hull.
-        expect(await dataSource.getRepository(Spacecraft).findOneByOrFail({ id: ship.id })).toMatchObject({
+        expect(
+          await dataSource
+            .getRepository(Spacecraft)
+            .findOneByOrFail({ id: ship.id }),
+        ).toMatchObject({
           locationId: locations[2].id,
           energy: 0,
           hull: 180,
@@ -1979,48 +2100,95 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
         prestigeService: { change: jest.Mock };
         crewEnhancementService: { enhanceSpacecraft: jest.Mock };
         fieldEffectQuery: FieldEffectQuery;
-        selectRegionCartographyFields(regionId: number, currentFieldId: number | null): Promise<number[]>;
+        selectRegionCartographyFields(
+          regionId: number,
+          currentFieldId: number | null,
+        ): Promise<number[]>;
         bookRegionCartography(
           manager: unknown,
           afterCommit: Array<() => void>,
           charted: { userId: number; mapRegionId: number },
         ): Promise<void>;
       };
-    const plans = () => new CartographyPlanService(dataSource.getRepository(CartographyPlan));
+    const plans = () =>
+      new CartographyPlanService(dataSource.getRepository(CartographyPlan));
     const cartographer = async () => {
       await dataSource.getRepository(SpacecraftModule).save([
-        { spacecraftId: ship.id, category: 'HYPERDRIVE', moduleType: 'Hyperdrive', isActive: true },
-        { spacecraftId: ship.id, category: 'SENSORS', moduleType: 'Sensors', isActive: true },
-        { spacecraftId: ship.id, category: 'SPECIAL', moduleType: 'Astrometrie-Labor', isActive: true },
+        {
+          spacecraftId: ship.id,
+          category: 'HYPERDRIVE',
+          moduleType: 'Hyperdrive',
+          isActive: true,
+        },
+        {
+          spacecraftId: ship.id,
+          category: 'SENSORS',
+          moduleType: 'Sensors',
+          isActive: true,
+        },
+        {
+          spacecraftId: ship.id,
+          category: 'SPECIAL',
+          moduleType: 'Astrometrie-Labor',
+          isActive: true,
+        },
       ]);
       await dataSource.getRepository(Spacecraft).update(ship.id, {
-        runtimeSystems: { ASTROMETRY_LAB: { active: true, cooldown: 0, integrity: 100 } },
+        runtimeSystems: {
+          ...SENSORS_ON,
+          ASTROMETRY_LAB: { active: true, cooldown: 0, integrity: 100 },
+        },
       });
     };
 
     beforeEach(async () => {
-      const layerId = (await dataSource.getRepository(GalaxyField).findOneByOrFail({ id: locations[0].galaxyFieldId as number })).layerId;
-      regionId = (await dataSource.getRepository(MapRegion).save({ layerId, name: 'Corellia-Sektor' })).id;
-      await dataSource
-        .getRepository(GalaxyField)
-        .update(locations.map((location) => location.galaxyFieldId as number), { regionId });
+      const layerId = (
+        await dataSource
+          .getRepository(GalaxyField)
+          .findOneByOrFail({ id: locations[0].galaxyFieldId as number })
+      ).layerId;
+      regionId = (
+        await dataSource
+          .getRepository(MapRegion)
+          .save({ layerId, name: 'Corellia-Sektor' })
+      ).id;
+      await dataSource.getRepository(GalaxyField).update(
+        locations.map((location) => location.galaxyFieldId as number),
+        { regionId },
+      );
       prestige = { change: jest.fn(async () => undefined) };
       internals().prestigeService = prestige;
-      internals().crewEnhancementService = { enhanceSpacecraft: jest.fn(async () => undefined) };
+      internals().crewEnhancementService = {
+        enhanceSpacecraft: jest.fn(async () => undefined),
+      };
       internals().fieldEffectQuery = new FieldEffectQuery();
     });
 
     it('picks a random 25 % of passable region fields without NO_MEASUREPOINT, excluding the current field (STU)', async () => {
-      const layerId = (await dataSource.getRepository(GalaxyField).findOneByOrFail({ id: locations[0].galaxyFieldId as number })).layerId;
+      const layerId = (
+        await dataSource
+          .getRepository(GalaxyField)
+          .findOneByOrFail({ id: locations[0].galaxyFieldId as number })
+      ).layerId;
       const extra = async (cx: number, values: Partial<GalaxyField> = {}) =>
-        (await dataSource.getRepository(GalaxyField).save({ layerId, cx, cy: 3, fieldTypeId: 1, regionId, ...values })).id;
-      const eligible = [locations[1].galaxyFieldId as number, locations[2].galaxyFieldId as number];
+        (
+          await dataSource
+            .getRepository(GalaxyField)
+            .save({ layerId, cx, cy: 3, fieldTypeId: 1, regionId, ...values })
+        ).id;
+      const eligible = [
+        locations[1].galaxyFieldId as number,
+        locations[2].galaxyFieldId as number,
+      ];
       for (const cx of [1, 2, 3, 4, 5, 6]) eligible.push(await extra(cx));
       await extra(7, { isPassable: false });
       await extra(8, { effects: [FieldEffect.NO_MEASUREPOINT] });
       await extra(9, { regionId: null });
 
-      const selected = await internals().selectRegionCartographyFields(regionId, locations[0].galaxyFieldId);
+      const selected = await internals().selectRegionCartographyFields(
+        regionId,
+        locations[0].galaxyFieldId,
+      );
 
       // 8 eligible fields → ceil(25 %) = 2.
       expect(selected).toHaveLength(2);
@@ -2030,15 +2198,23 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
 
     it('claims region measure points on arrival and ends a region finalization on movement', async () => {
       await cartographer();
-      await plans().createPlan(ship.userId, regionTarget(regionId), [locations[2].galaxyFieldId as number]);
+      await plans().createPlan(ship.userId, regionTarget(regionId), [
+        locations[2].galaxyFieldId as number,
+      ]);
 
       await fixture.service.flyGalaxy(ship.id, ship.userId, 3, 1);
 
-      await expect(plans().getPlan(ship.userId, regionTarget(regionId))).resolves.toMatchObject({
+      await expect(
+        plans().getPlan(ship.userId, regionTarget(regionId)),
+      ).resolves.toMatchObject({
         status: CartographyPlanStatus.MEASURED,
         remainingFieldIds: [],
       });
-      expect(prestige.change).toHaveBeenCalledWith(ship.userId, 1, 'Kartographie-Messpunkt erreicht');
+      expect(prestige.change).toHaveBeenCalledWith(
+        ship.userId,
+        1,
+        'Kartographie-Messpunkt erreicht',
+      );
       expect(fixture.messaging.sendSystem).toHaveBeenCalledWith(
         ship.userId,
         'Kartographie',
@@ -2046,19 +2222,29 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
         expect.stringContaining('cartography-region-measurement'),
       );
 
-      await plans().startFinalization(ship.userId, regionTarget(regionId), ship.id);
+      await plans().startFinalization(
+        ship.userId,
+        regionTarget(regionId),
+        ship.id,
+      );
       await fixture.service.flyGalaxy(ship.id, ship.userId, 2, 1);
 
-      await expect(plans().getPlan(ship.userId, regionTarget(regionId))).resolves.toMatchObject({
+      await expect(
+        plans().getPlan(ship.userId, regionTarget(regionId)),
+      ).resolves.toMatchObject({
         status: CartographyPlanStatus.MEASURED,
         finalizingSpacecraftId: null,
       });
     });
 
     it('rejects planning on a galaxy field without region', async () => {
-      await dataSource.getRepository(GalaxyField).update(locations[0].galaxyFieldId as number, { regionId: null });
+      await dataSource
+        .getRepository(GalaxyField)
+        .update(locations[0].galaxyFieldId as number, { regionId: null });
 
-      await expect(fixture.service.createCartographyPlan(ship.id, ship.userId)).rejects.toThrow(
+      await expect(
+        fixture.service.createCartographyPlan(ship.id, ship.userId),
+      ).rejects.toThrow(
         'Kartographieplanung erfordert ein Sternensystem oder eine Region',
       );
     });
@@ -2067,7 +2253,10 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       const afterCommit: Array<() => void> = [];
 
       await dataSource.transaction((manager) =>
-        internals().bookRegionCartography(manager, afterCommit, { userId: ship.userId, mapRegionId: regionId }),
+        internals().bookRegionCartography(manager, afterCommit, {
+          userId: ship.userId,
+          mapRegionId: regionId,
+        }),
       );
 
       expect(prestige.change).toHaveBeenCalledWith(
@@ -2110,16 +2299,14 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
           maxY: 1,
           systemTypeId: 1,
         });
-        const fields = await dataSource
-          .getRepository(SystemField)
-          .save(
-            [1, 2, 3].map((sx) => ({
-              starSystemId: system.id,
-              sx,
-              sy: 1,
-              fieldTypeId: 1,
-            })),
-          );
+        const fields = await dataSource.getRepository(SystemField).save(
+          [1, 2, 3].map((sx) => ({
+            starSystemId: system.id,
+            sx,
+            sy: 1,
+            fieldTypeId: 1,
+          })),
+        );
         systemLocations = await Promise.all(
           fields.map((field) =>
             dataSource
@@ -2132,7 +2319,9 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
           .update(locations[0].galaxyFieldId!, { starSystemId: system.id });
       }
       const origin =
-        mode === 'SYSTEM' || mode === 'LEAVE' ? systemLocations[0] : locations[0];
+        mode === 'SYSTEM' || mode === 'LEAVE'
+          ? systemLocations[0]
+          : locations[0];
       const destinations =
         mode === 'GALAXY'
           ? locations.slice(1)
@@ -2168,7 +2357,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
           shields: 0,
           reactorFuel: 40,
           reactorFuelMax: 100,
-          runtimeSystems: {},
+          runtimeSystems: { ...SENSORS_ON },
         },
       );
       await dataSource.getRepository(SpacecraftModule).save(
@@ -2314,6 +2503,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
             hull: 100 - 20 * destinations.length,
             reactorFuel: 40 - 5 * destinations.length,
             runtimeSystems: {
+              ...SENSORS_ON,
               WARPDRIVE: { active: false, cooldown: now + 600_000 },
             },
           });
@@ -2324,7 +2514,8 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
         expect(entries).toEqual(expected);
         // Calls keep live ship references: use the actual field argument for field order.
         const fieldIds = destinations.map(
-          (destination) => destination.galaxyFieldId ?? destination.systemFieldId,
+          (destination) =>
+            destination.galaxyFieldId ?? destination.systemFieldId,
         );
         expect(
           fieldCalls.mock.calls.map(([member, field]) => [member.id, field.id]),
@@ -2348,7 +2539,10 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
           await flight('GALAXY');
         const lost = members[leaderLost ? 0 : 1];
         await dataSource.getRepository(Spacecraft).update(lost.id, { hull: 5 });
-        const { incoming, destruction } = await addStorms(layer.id, destinations);
+        const { incoming, destruction } = await addStorms(
+          layer.id,
+          destinations,
+        );
         const result = await run();
         const survivors = members.filter((member) => member.id !== lost.id);
         expect(result).toMatchObject({
@@ -2366,7 +2560,10 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
         expect(
           await dataSource.getRepository(SpacecraftWreck).find(),
         ).toMatchObject([
-          { locationId: destinations[0].id, formerShipClassId: ship.shipClassId },
+          {
+            locationId: destinations[0].id,
+            formerShipClassId: ship.shipClassId,
+          },
         ]);
         expect(
           (
@@ -2403,7 +2600,8 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
     );
 
     it('stops on the first field when the ion storm destroys the complete fleet', async () => {
-      const { members, destinations, fleet, layer, run } = await flight('GALAXY');
+      const { members, destinations, fleet, layer, run } =
+        await flight('GALAXY');
       await dataSource.getRepository(Spacecraft).update(
         members.map((member) => member.id),
         { hull: 5 },
@@ -2429,5 +2627,4 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       expect(await dataSource.getRepository(FlightSignature).count()).toBe(6);
     });
   });
-
 });

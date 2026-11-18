@@ -34,7 +34,8 @@ function participant(id = 1): Spacecraft {
         isActive: true,
       },
     ],
-    runtimeSystems: {},
+    // The hyperdrive starts OFF like STU (sc-AUD-02); jumps need it running.
+    runtimeSystems: { WARPDRIVE: { active: true, integrity: 100, cooldown: 0 } },
   } as Spacecraft;
 }
 

@@ -12,7 +12,8 @@ describe('Gravitationswellenscanner runtime', () => {
       modules: [{ category: 'SPECIAL', moduleType: 'Gravitationswellenscanner', isActive: true }],
     };
     const scanner = runtime.initialize(ship as never).TACHYON_SCANNER!;
-    Object.assign(scanner, { lastScanAt: 1000, lastScanLocationId: 42 });
+    expect(scanner.active).toBe(false); // scanners start OFF like STU (sc-AUD-02)
+    Object.assign(scanner, { active: true, lastScanAt: 1000, lastScanLocationId: 42 });
     expect(runtime.initialize(ship as never).TACHYON_SCANNER).toBe(scanner);
     expect(tachyonScanExpiresAt(ship as never, 1000)).toBe(301000);
     scanner.active = false;

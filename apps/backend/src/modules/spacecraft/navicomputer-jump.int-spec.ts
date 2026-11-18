@@ -36,6 +36,9 @@ import {
   SpacecraftStatus,
 } from './entities/spacecraft.entity';
 
+// The hyperdrive starts OFF like STU (sc-AUD-02); jumps need it running.
+const DRIVE_ON = { WARPDRIVE: { active: true, integrity: 100, cooldown: 0 } };
+
 // Uses real migrations, row locks, position/module persistence, discovery and signature snapshots.
 describe('Atomic Navicomputer jump (PostgreSQL)', () => {
   let db: DataSource;
@@ -132,6 +135,7 @@ describe('Atomic Navicomputer jump (PostgreSQL)', () => {
       locationId: origin.id,
       energy: 55,
       warpdrive: 23,
+      runtimeSystems: DRIVE_ON,
     });
     fleet = await db
       .getRepository(Fleet)
@@ -145,6 +149,7 @@ describe('Atomic Navicomputer jump (PostgreSQL)', () => {
       energy: 71,
       warpdrive: 17,
       fleetId: fleet.id,
+      runtimeSystems: DRIVE_ON,
     });
     for (const ship of [leader, member])
       await db.getRepository(SpacecraftModule).save([
@@ -370,13 +375,18 @@ describe('Atomic Navicomputer jump (PostgreSQL)', () => {
           { spacecraftId: member.id, moduleType: 'Hyperraum-Spule' },
           { integrity: 0 },
         );
-    if (reason === 'inactive drive')
+    if (reason === 'inactive drive') {
       await db
         .getRepository(SpacecraftModule)
         .update(
           { spacecraftId: member.id, category: 'HYPERDRIVE' },
           { isActive: false },
         );
+      // A stored running state outlives the module flag; switch the drive off as well.
+      await db.getRepository(Spacecraft).update(member.id, {
+        runtimeSystems: { WARPDRIVE: { active: false, integrity: 100, cooldown: 0 } },
+      });
+    }
     if (reason === 'destroyed drive')
       await db
         .getRepository(SpacecraftModule)

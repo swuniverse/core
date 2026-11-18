@@ -17,7 +17,7 @@ describe('Gravitationswellenscanner (PostgreSQL)', () => {
     const field = await source.getRepository('GalaxyField').save({ layerId: layer.id, cx: 1, cy: 1, fieldTypeId: fieldType.id });
     const location = await source.getRepository('SpaceLocation').findOneByOrFail({ galaxyFieldId: field.id });
     const shipClass = await source.getRepository('ShipClassDef').save({ key: 'SCAN_TEST', name: 'Scan test', category: 'SHIP', role: 'SHIP' });
-    const ship = await source.getRepository('Spacecraft').save({ name: 'Scanner', userId: owner.id, shipClassId: shipClass.id, locationId: location.id, energy: 10, runtimeSystems: {} });
+    const ship = await source.getRepository('Spacecraft').save({ name: 'Scanner', userId: owner.id, shipClassId: shipClass.id, locationId: location.id, energy: 10, runtimeSystems: { TACHYON_SCANNER: { active: true, integrity: 100, cooldown: 0 } } }); // scanners start OFF (sc-AUD-02)
     await source.getRepository('SpacecraftModule').save({ spacecraftId: ship.id, moduleType: 'Gravitationswellenscanner', category: 'SPECIAL' });
     const service = new SpacecraftScanService(
       source.getRepository('Spacecraft') as never,

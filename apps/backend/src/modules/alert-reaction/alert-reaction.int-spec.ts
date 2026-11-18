@@ -211,7 +211,11 @@ describe('alert reactions during flight (PostgreSQL)', () => {
       locationId,
       energy: 50,
       fleetId: fleetId ?? null,
-      runtimeSystems: {},
+      // Sensors start OFF like STU (sc-AUD-02); a pilot switches them on before flying.
+      runtimeSystems: {
+        LONG_RANGE_SENSORS: { active: true, integrity: 100, cooldown: 0 },
+        SHORT_RANGE_SENSORS: { active: true, integrity: 100, cooldown: 0 },
+      },
     });
     await dataSource.getRepository(SpacecraftModule).save([
       { spacecraftId: ship.id, category: drive, moduleType: drive, isActive: true },

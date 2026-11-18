@@ -12,13 +12,15 @@ describe('colony retrofit system startup', () => {
     const job = { id: 20, spacecraftId: 10, userId: 1, status: 'QUEUED', moduleSelections: [
       { slotId: 'scanner', commodityId: 3 }, { slotId: 'shields', commodityId: 2 },
     ] };
+    // Retrofit completion runs inside the locked shipyard transaction (sh-AUD-07a).
+    const manager = {
+      findOne: jest.fn(async (entity: { name?: string }) => (entity?.name === 'ShipClassDef' ? { id: 4 } : ship)),
+      find: jest.fn(async () => [scanner, shields]),
+      remove: jest.fn(),
+      create: (_entity: unknown, value: unknown) => value,
+      save: jest.fn(async (_entity: unknown, value: unknown) => value),
+    };
     const service = Object.assign(Object.create(ColonyShipyardService.prototype), {
-      shipRepo: { findOne: jest.fn(async () => ship), save: jest.fn(async (value) => value) },
-      shipClassRepo: { findOneBy: jest.fn(async () => ({ id: 4 })) },
-      spacecraftModuleRepo: {
-        find: jest.fn(async () => [scanner, shields]), remove: jest.fn(),
-        create: (value: unknown) => value, save: jest.fn(async (value) => value),
-      },
       normalizeInstalledModuleSelections: () => [{ slotId: 'scanner', commodityId: 1 }, { slotId: 'shields', commodityId: 2 }],
       resolveModuleCommodityId: (module: typeof scanner) => module.id,
       colonyStatsService: { calculateSummary: () => ({ effectiveStorageMax: 100 }) },
@@ -26,13 +28,12 @@ describe('colony retrofit system startup', () => {
       spacecraftStatsService: { applyStats: jest.fn() },
       calculateCrewRequired: () => 1,
       gameData: { getFabricationItemByOutputCommodity: () => ({ moduleType: 'Hyperraumfeldscanner', shipyardType: 'SPECIAL', moduleLevel: 2 }) },
-      shipBuildQueueRepo: { save: jest.fn() },
     });
-    await service.finishShipRetrofitQueue({}, job);
+    await service.applyShipRetrofit(manager, {}, job);
     expect(ship.runtimeSystems.SUBSPACE_SCANNER).toEqual({ active: false, integrity: 100, cooldown: 0 });
     expect(ship.runtimeSystems.SHIELDS).toMatchObject({ active: true, integrity: 90 });
-    expect(service.spacecraftModuleRepo.save).toHaveBeenCalledWith(expect.objectContaining({ isActive: true, integrity: 100, level: 2 }));
+    expect(manager.save).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ isActive: true, integrity: 100, level: 2 }));
     expect(job.status).toBe('COMPLETED');
-    expect(service.shipRepo.save).toHaveBeenCalledWith(ship);
+    expect(manager.save).toHaveBeenCalledWith(expect.anything(), ship);
   });
 });

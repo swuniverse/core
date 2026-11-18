@@ -111,6 +111,8 @@ describe('Resource collection (PostgreSQL)', () => {
       energyMax: 100,
       epsMax: 100,
       cargoMax: 150,
+      // Short-range sensors start OFF like STU (sc-AUD-02); collecting needs them.
+      runtimeSystems: { SHORT_RANGE_SENSORS: { active: true, integrity: 100, cooldown: 0 } },
     });
     await db.getRepository(SpacecraftModule).save([
       {
