@@ -43,6 +43,8 @@ import {
   RelationshipResolverService,
 } from '../alliance/relationship-resolver.service';
 import { InMemoryAllianceStore } from '../alliance/testing/in-memory-alliance.store';
+import { playerParty } from '../alliance/diplomacy-party';
+import { AllianceRelationshipType, AllianceRole } from '@swuniverse/shared';
 
 const relationship = (status: 'FRIEND' | 'ENEMY' | 'NEUTRAL') => ({
   status,
@@ -554,70 +556,72 @@ describe('TransferService ship transfers', () => {
   });
 });
 
-describe('TransferService ship transfer quote matches the transfer action', () => {
-  function shieldedTarget(
-    status: 'FRIEND' | 'NEUTRAL',
-    targetUserId: number,
-    direction?: 'TO_TARGET' | 'FROM_TARGET',
-  ) {
-    const ship = (id: number, userId: number, shields: boolean) => ({
-      id,
-      userId,
-      status: 'IDLE',
-      runtimeSystems: shields ? { SHIELDS: { active: true } } : {},
-      cargoMax: 10,
-      crewMax: 10,
-      locationId: 20,
-      location: { id: 20, kind: 'GALAXY_FIELD' },
-    });
-    const sourceShip = ship(1, 10, false);
-    const targetShip = ship(2, targetUserId, true);
-    const spacecraftRepo = {
-      findOne: jest
-        .fn()
-        .mockResolvedValueOnce(sourceShip)
-        .mockResolvedValueOnce(targetShip),
-      find: jest.fn().mockResolvedValue([sourceShip, targetShip]),
-    };
-    const dataSource = {
-      getRepository: jest.fn((entity) =>
-        entity === Spacecraft
-          ? spacecraftRepo
-          : {
-              count: jest.fn().mockResolvedValue(0),
-              findOneBy: jest.fn().mockResolvedValue(null),
-            },
-      ),
-      transaction: jest.fn(async (work) =>
-        work({ getRepository: () => spacecraftRepo }),
-      ),
-    };
-    const cargoRepo = {
-      find: jest.fn().mockResolvedValue([]),
-      createQueryBuilder: jest.fn(() => ({
-        select: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        getRawOne: jest.fn().mockResolvedValue({ total: '0' }),
-      })),
-    };
-    const service = new TransferService(
-      cargoRepo as never,
-      {} as never,
-      dataSource as never,
-      {} as never,
-      {} as never,
-      { getCommodity: jest.fn() } as never,
-      { resolve: jest.fn().mockResolvedValue(relationship(status)) } as never,
-      {
-        load: jest.fn().mockResolvedValue({ targetOnVacation: false }),
-      } as never,
-    );
-    return {
-      quote: () => service.getShipTransferQuote(1, 10, 2, direction),
-      service,
-    };
-  }
+function shieldedTarget(
+  status: 'FRIEND' | 'NEUTRAL' | RelationshipResolverService,
+  targetUserId: number,
+  direction?: 'TO_TARGET' | 'FROM_TARGET',
+) {
+  const ship = (id: number, userId: number, shields: boolean) => ({
+    id,
+    userId,
+    status: 'IDLE',
+    runtimeSystems: shields ? { SHIELDS: { active: true } } : {},
+    cargoMax: 10,
+    crewMax: 10,
+    locationId: 20,
+    location: { id: 20, kind: 'GALAXY_FIELD' },
+  });
+  const sourceShip = ship(1, 10, false);
+  const targetShip = ship(2, targetUserId, true);
+  const spacecraftRepo = {
+    findOne: jest
+      .fn()
+      .mockResolvedValueOnce(sourceShip)
+      .mockResolvedValueOnce(targetShip),
+    find: jest.fn().mockResolvedValue([sourceShip, targetShip]),
+  };
+  const dataSource = {
+    getRepository: jest.fn((entity) =>
+      entity === Spacecraft
+        ? spacecraftRepo
+        : {
+            count: jest.fn().mockResolvedValue(0),
+            findOneBy: jest.fn().mockResolvedValue(null),
+          },
+    ),
+    transaction: jest.fn(async (work) =>
+      work({ getRepository: () => spacecraftRepo }),
+    ),
+  };
+  const cargoRepo = {
+    find: jest.fn().mockResolvedValue([]),
+    createQueryBuilder: jest.fn(() => ({
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({ total: '0' }),
+    })),
+  };
+  const service = new TransferService(
+    cargoRepo as never,
+    {} as never,
+    dataSource as never,
+    {} as never,
+    {} as never,
+    { getCommodity: jest.fn() } as never,
+    (typeof status === 'string'
+      ? { resolve: jest.fn().mockResolvedValue(relationship(status)) }
+      : status) as never,
+    {
+      load: jest.fn().mockResolvedValue({ targetOnVacation: false }),
+    } as never,
+  );
+  return {
+    quote: () => service.getShipTransferQuote(1, 10, 2, direction),
+    service,
+  };
+}
 
+describe('TransferService ship transfer quote matches the transfer action', () => {
   it('reports shields as blocking a transfer to an own shielded ship', async () => {
     const { quote } = shieldedTarget('FRIEND', 10, 'TO_TARGET');
 
@@ -660,6 +664,96 @@ describe('TransferService ship transfer quote matches the transfer action', () =
       reason: 'Transfer nur zwischen Freunden erlaubt',
     });
   });
+});
+
+describe('TransferService friendship is decided by the target owner (STU)', () => {
+  // Sender 10 owns ship 1, receiver 11 owns ship 2; contacts are directed.
+  function resolverWith(
+    contacts: Array<[owner: number, contact: number]> = [],
+    seed?: (store: InMemoryAllianceStore) => void,
+  ) {
+    const store = new InMemoryAllianceStore();
+    store.addPlayer(10, 'Sender');
+    store.addPlayer(11, 'Receiver');
+    seed?.(store);
+    const resolver = new RelationshipResolverService(store, {
+      statuses: async (ownerId, otherIds) =>
+        new Map(
+          contacts
+            .filter(([owner, contact]) => owner === ownerId && otherIds.includes(contact))
+            .map(([, contact]) => [contact, 'FRIEND' as const]),
+        ),
+    });
+    jest.spyOn(resolver, 'resolve');
+    return resolver;
+  }
+
+  const cases: Array<[string, () => RelationshipResolverService, boolean]> = [
+    ['only the sender lists the receiver as friend', () => resolverWith([[10, 11]]), false],
+    ['only the receiver lists the sender as friend', () => resolverWith([[11, 10]]), true],
+    ['both list each other as friend', () => resolverWith([[10, 11], [11, 10]]), true],
+    [
+      'both are in the same alliance',
+      () =>
+        resolverWith([], (store) =>
+          store.seedAlliance({ name: 'Shared' }, [
+            [10, AllianceRole.PRESIDENT],
+            [11, AllianceRole.NONE],
+          ]),
+        ),
+      true,
+    ],
+    [
+      'an agreement treats them as friends',
+      () =>
+        resolverWith([], (store) =>
+          store.seedActiveAllianceRelationship({
+            firstParty: playerParty(10),
+            secondParty: playerParty(11),
+            type: AllianceRelationshipType.TRADE_AGREEMENT,
+            treatAsFriend: true,
+          }),
+        ),
+      true,
+    ],
+  ];
+
+  it.each(cases)('cargo to an unprotected ship when %s', async (_, build, allowed) => {
+    const resolver = build();
+    const { service, targetCargo } = cargoTransfer('NEUTRAL', resolver);
+
+    const transfer = service.transferShipCargo(1, 10, 2, 3, 1, 'TO_TARGET');
+    if (allowed) {
+      await expect(transfer).resolves.toBeUndefined();
+      expect(targetCargo.amount).toBe(1);
+    } else {
+      await expect(transfer).rejects.toThrow('Transfer nur zwischen Freunden erlaubt');
+      expect(targetCargo.amount).toBe(0);
+    }
+    expect(resolver.resolve).toHaveBeenCalledWith(11, 10);
+  });
+
+  it.each(cases)(
+    'cargo, crew and torpedoes to a protected ship when %s',
+    async (_, build, allowed) => {
+      const resolver = build();
+      const { quote, service } = shieldedTarget(resolver, 11, 'TO_TARGET');
+
+      await expect(quote()).resolves.toMatchObject({
+        available: allowed,
+        reason: allowed ? null : 'Transfer nur zwischen Freunden erlaubt',
+        crewTransferAvailable: allowed,
+        torpedoTransferAvailable: allowed,
+      });
+      if (!allowed) {
+        await expect(
+          service.transferShipCrew(1, 10, 2, 1, 'TO_TARGET'),
+        ).rejects.toThrow('Transfer nur zwischen Freunden erlaubt');
+      }
+      expect(resolver.resolve).toHaveBeenCalledWith(11, 10);
+      expect(resolver.resolve).not.toHaveBeenCalledWith(10, 11);
+    },
+  );
 });
 
 describe('TransferService wreck recovery', () => {

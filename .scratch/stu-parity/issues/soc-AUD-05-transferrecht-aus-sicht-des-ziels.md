@@ -1,6 +1,6 @@
 # Transferberechtigung aus Sicht des Zielbesitzers wie STU
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** S
 **Blocked by:** —
@@ -28,12 +28,12 @@ Beim Transfer an fremde Schiffe fragt SWU die Beziehung aus Sicht des **Absender
 
 ## Akzeptanzkriterien
 
-- [ ] `shipTransferCapabilities` bestimmt die Berechtigung aus Sicht des Zielbesitzers: `resolve(targetShip.userId, sourceShip.userId)`. Eigene Schiffe bleiben immer erlaubt.
-- [ ] Gleiche Richtung für `stanceAllowed` in `InteractionContextService` (EPS-Transfer und alle anderen Nutzer von `InteractionRule.STANCE`); jeder Aufrufer ist geprüft und im Kommentar begründet.
-- [ ] Einseitig eingetragener Freund (nur Absender führt Ziel als Freund) → Transfer an fremdes Schiff abgelehnt, auch an geschützte Ziele („Transfer nur zwischen Freunden erlaubt“).
-- [ ] Zielbesitzer führt Absender als Freund (oder Abkommen mit Freund-Recht für den Absender, oder gleiche Allianz) → erlaubt.
-- [ ] Alarmreaktion (`alert-reaction.service.ts`) und Handelsabkommen (`trade-agreement.policy.ts`) bleiben unverändert (fragen bereits in STU-Richtung).
-- [ ] Backend-Tests für beide Richtungen (einseitig Absender, einseitig Ziel, beidseitig, Allianz, Abkommen) für Waren-, Crew-, Torpedo- und EPS-Transfer.
+- [x] `shipTransferCapabilities` bestimmt die Berechtigung aus Sicht des Zielbesitzers: `resolve(targetShip.userId, sourceShip.userId)`. Eigene Schiffe bleiben immer erlaubt.
+- [x] Gleiche Richtung für `stanceAllowed` in `InteractionContextService` (EPS-Transfer und alle anderen Nutzer von `InteractionRule.STANCE`); jeder Aufrufer ist geprüft und im Kommentar begründet.
+- [x] Einseitig eingetragener Freund (nur Absender führt Ziel als Freund) → Transfer an fremdes Schiff abgelehnt, auch an geschützte Ziele („Transfer nur zwischen Freunden erlaubt“).
+- [x] Zielbesitzer führt Absender als Freund (oder Abkommen mit Freund-Recht für den Absender, oder gleiche Allianz) → erlaubt.
+- [x] Alarmreaktion (`alert-reaction.service.ts`) und Handelsabkommen (`trade-agreement.policy.ts`) bleiben unverändert (fragen bereits in STU-Richtung).
+- [x] Backend-Tests für beide Richtungen (einseitig Absender, einseitig Ziel, beidseitig, Allianz, Abkommen) für Waren-, Crew-, Torpedo- und EPS-Transfer.
 
 ## Herkunft
 
@@ -43,3 +43,10 @@ Beim Transfer an fremde Schiffe fragt SWU die Beziehung aus Sicht des **Absender
 ## Comments
 
 - 2026-11-17 Hinweis: Ein anderer Agent ändert `apps/backend/src/modules/spacecraft/transfer.service.ts` gerade uncommittet (siehe auch Hinweis in README H). Vor der Umsetzung auf den dann aktuellen Stand rebasen und Zeilenangaben neu prüfen.
+- 2026-11-18 – umgesetzt, Prüfung ausstehend (Opus 5.5 direkt, keine Delegation, da Autorisierung). Commit „fix(transfer): decide transfer friendship from the target owner (soc-AUD-05)“.
+  - `TransferService.shipTransferCapabilities` und `InteractionContextService` (`stanceAllowed`) fragen `resolve(targetOwner, sourceOwner)`. Geprüfte Aufrufer: `InteractionRule.STANCE` nutzt nur `EpsTransferService` (FOREIGN_RULES); `nearby-interaction.ts` setzt `stanceAllowed: true` im eigenen Kontext und fragt keine Beziehung; Waren-, Crew- und Torpedotransfer laufen alle über `shipTransferBlockReason`. Alarmreaktion und Handelsabkommen unverändert.
+  - Nur persönliche Kontakte sind gerichtet; Allianzmitgliedschaft und Abkommen (`treatAsFriend`) sind symmetrisch und bleiben erlaubt.
+  - Tests mit echtem `RelationshipResolverService` + `InMemoryAllianceStore` und gerichtetem Kontaktport: einseitig Absender (abgelehnt), einseitig Ziel, beidseitig, gleiche Allianz, Abkommen mit Freund-Recht (erlaubt) – Waren an ungeschütztes Ziel sowie Waren/Crew/Torpedo an geschütztes Ziel (Quote + Crew-Aktion). EPS: dieselbe Fünfermatrix über `InteractionContextService.load(…, ['stanceAllowed'])`. Gegenprobe: alter Stand → 10 neue Tests rot.
+  - Gelaufen: `jest src/modules/spacecraft src/modules/alliance/relationship-resolver src/modules/alert-reaction src/modules/trade` → 864/867 grün; die 3 Fehlschläge (`spacecraft-tachyon-scan.spec.ts`, `navicomputer-jump.spec.ts`) treten identisch auf unverändertem HEAD 5555d6a9 auf. ESLint ohne Fehler (3 vorbestehende `any`-Warnungen), Backend-`tsc --noEmit` sauber.
+  - Offen für den Prüfpass: Abschlussreview des Diffs, PostgreSQL-/API-Regression der Transferpfade, gemeinsamer Build.
+

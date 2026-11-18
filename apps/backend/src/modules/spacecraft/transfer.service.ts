@@ -786,9 +786,11 @@ export class TransferService {
     if (sourceShip.userId === targetShip.userId) {
       return { mayTransferSafely: true, mayProvisionProtectedShip: true };
     }
+    // STU `TransferInformationFactory`: the target owner decides whom they
+    // treat as a friend, so a one-sided contact by the sender grants nothing.
     return this.relationshipResolver.resolve(
-      sourceShip.userId,
       targetShip.userId,
+      sourceShip.userId,
     );
   }
 

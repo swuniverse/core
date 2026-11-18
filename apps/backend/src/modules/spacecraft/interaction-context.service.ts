@@ -78,8 +78,10 @@ export class InteractionContextService {
       requested.has('targetOnVacation')
         ? this.userRepo.findOneBy({ id: targetOwnerId ?? target.userId })
         : null,
+      // Target owner's view, as STU `isFriend($target->getUser(), $source->getUser())`.
+      // Only the EPS transfer checks STANCE; nearby interactions build their own context.
       requested.has('stanceAllowed')
-        ? this.relationships.resolve(source.userId, target.userId)
+        ? this.relationships.resolve(target.userId, source.userId)
         : null,
     ]);
     const sourceTractor = requested.has('sourceTractored')
