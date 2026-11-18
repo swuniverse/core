@@ -1,0 +1,26 @@
+{
+  "account": "Rebel",
+  "verifiedAt": "2026-11-18T09:07:41.787Z",
+  "completed": 191,
+  "confirmedBranchChoices": 14,
+  "invalidRows": 0,
+  "exclusionConflicts": 0,
+  "missingPrerequisites": 0,
+  "incompleteChoices": 0,
+  "availableUncompleted": [],
+  "unresolvedChoices": [],
+  "resourceChoices": [
+    {
+      "id": 250301,
+      "name": "Laminanium-Mine"
+    },
+    {
+      "id": 251201,
+      "name": "Cortosis-Mine"
+    },
+    {
+      "id": 252401,
+      "name": "Quadranium-Mine"
+    }
+  ]
+}

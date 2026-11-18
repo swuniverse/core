@@ -1,0 +1,945 @@
+{
+  "identicalToMain": 59,
+  "differentOrAbsent": [
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-a00c037285ad035c7",
+      "file": "pnpm-lock.yaml",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/PROMPT.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/inventory/shell-admin-runtime.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-A2-modul-und-torpedofertigung-nach-stu-regeln.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-A3b-werft-eps-kosten-und-ein-auftrag-je-werft.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-A6-demontage-nach-stu-regel.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-A8-komponentenfertigung.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-A9-jaegerwerft-rumpf-ins-lager.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-C3-schildgenerator-schnellschalter.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-D2a-forschungsbelohnung-schiff.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-D2b-forschungsabschluss-datenbankeintraege.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-D2c-forschungsabschluss-awards-und-award-gate.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-D3b-forschungsbaum-kantentypen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-E1a-kolonielimits-anzeige.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-E1b-kolonielimits-aus-forschungsdaten.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-E2-kolonieabgabe-ruinenmodell.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-F3-rangliste-zufriedene-arbeiter.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-G1a-subraumteleskop-panel.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-G1b-subraumteleskop-scan.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-G3a-kolonie-sandbox-datenmodell.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-G3b-kolonie-sandbox-bauen-und-schalten.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/col-G3c-kolonie-sandbox-produktionsvorschau.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-CLEAN-2-sonderfeatures-sw-pendants-festlegen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-CLOAK-1a-tarnvorrichtung-system-und-sichtbarkeit.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-CLOAK-2a-tachyon-scan.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-CLOAK-2b-getarntes-ziel-angreifen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-COMBAT-1-alarmreaktion-beim-einflug.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-CREW-2-raenge-expertise-befoerderung.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-CREW-3a-rettungskapseln-starten-und-landen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-CREW-3b-kapseln-bergen-und-verschollene-crew.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-CREW-3c-fremde-crew-an-handelsposten.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-CREW-4a-enterkommando.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-CREW-4b-uebernahme-unbemannter-schiffe.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-ENG-1-eps-transfer-schiff-zu-schiff.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-ENG-2a-interaktions-policy.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-ENG-2b-interaktionskontext-loader.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-ENG-2c-transfer-und-combat-integration.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-ENG-2d-scan-nbs-abfangen-integration.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-ENG-2e-kommunikation-bergung-integration.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-ENG-4-schiffsmuelleimer.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-ENG-5-reaktorladungstransfer.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-ENG-6b-abschaltmeldungen-und-wrackverfall.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-FLEET-1a-flottenverwaltung-backend-und-schiffsaktionen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-FLEET-2b-flotten-alarmstufe.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-FLEET-3-flottenpflege.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-NAV-2b-kolonie-sektor-scan-mit-signaturen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-NAV-2c-admin-signaturansicht.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-NAV-3b-rueckbau-zeitbasierter-hyperraumsprung.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-NAV-5a-hyperantrieb-booster.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-NAV-5b-transwarp-pendant.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-RES-1-ressourcen-sammeln-mining.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-RES-2-umwandlungssystem.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-SENS-1-bojen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-SENS-2a-subraumanalyse-und-spurenebene.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-SENS-2b-tracker.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-SHUT-1-shuttles-als-schiffe.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-SHUT-2-crew-und-torpedotransportmodul-wirksam.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-STAT-1a-konstrukt-errichten.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-STAT-1b-station-ausbauen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-STAT-2-stationsansicht-und-liste.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-STAT-3a-andocken-und-abdocken.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-STAT-3b-dockingrechte.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-STAT-4a-schiffsmanagement-an-station.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-STAT-4b-stationsreparatur.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-STAT-5-stationswerft.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-STAT-6a-station-demontieren.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-STAT-6b-allianzdepot.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-TRACT-1a-traktorstrahl-kern-eigene-schiffe.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-TRACT-1b-traktor-auf-fremde-schiffe.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-UI-1b-schiffslager-hover-in-liste.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-UI-2-schiffskopf-feinabgleich.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-UI-3a-kolonie-verteidigen-blockieren-am-schiff.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sc-WP-UI-4-letzter-kampfbericht-am-schiff.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-03-email-verifikation.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-04a-urlaubsmodus-vorlauf-login-anzeige.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-04b-urlaubsmodus-interaktionsschutz.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-04c-urlaubsmodus-tickwirkung-und-sperrfrist.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-05a-kontoloeschung-bestaetigung-und-orchestrator.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-05b-kontoloeschung-handler-konto-und-kommunikation.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-05c-kontoloeschung-handler-schiffe-und-wissen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-05d-kontoloeschung-kolonien.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-06-inaktivitaetsloeschung-und-warnmails.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-07b-tick-admin-seite-und-fehlerbenachrichtigung.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-07c-zeitzone-der-ticks-festlegen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-08a-spielerliste-und-spielersperre.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-08b-spieler-blockieren-und-loeschverbot.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-10-admin-massennachricht.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-13b-in-universe-datum.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-14a-navigations-icons-bereitstellen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-14b-navigation-auf-asset-icons-umstellen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-15b-forschungs-navlet.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-15c-kolonien-navlet-und-serverzeit.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-16-benutzereinstellungen-wirksam.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-17-impressum-datenschutz-hilfe.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-18-maindesk-restparitaet.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-19a-tutorial-modell-und-api.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-19b-tutorial-overlay-ui.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-19c-tutorial-inhalte-maindesk-kolonie-forschung.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-19d-tutorial-inhalte-schiffe-karte-kommunikation.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/sh-AP-20-spielstatus-tick-laeuft.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-A2-schnell-pm-ueberall.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-A3-lesebestaetigung-postausgang.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-A4-email-bei-neuer-pm.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-A5-verlinkte-meldungen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-A6-messenger-ansicht.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-A7-eigene-nachrichtenordner.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-A8-willkommens-pm-der-fraktion.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-B1a-kontaktliste-backend-und-freund-port.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-B1b-kontaktmodus-feind-wirkung.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-B2-kontaktliste-ui-und-profilaktionen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-B3-kontaktfreigaben-einseitig.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-C1a-ignorierliste-mit-pm-sperre.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-D2-holonet-admin-loeschung.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-D3-holonet-vorschau-und-neu-zaehler.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-E1-spielercharaktere.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-E2-charaktere-in-holonet-beitraegen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-E3a-rpg-plots-kern.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-E3b-holonet-beitraege-in-plots.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-E4a-fremde-beitraege-plot-zuordnen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-E4b-plots-im-profil-und-rpg-verhalten.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-F1a-freunde-im-profil.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-F1b-profilbesucher.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-F3a-online-status-sichtbarkeit.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-F3b-farbschema.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-F3c-login-nicht-speichern.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-F3d-flotten-und-reaktor-standards.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-F4-territorialfarbe-spieler.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-F5-notizsammlung.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-F6-email-aenderung-absichern.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-G1b-admin-award-vergabe.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-G2b-award-ausloeser-kartenzyklus.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-G2c-award-ausloeser-lotterie.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-H1-history-erzeuger-alliance.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-I1a-bbcode-color.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-I1b-bbcode-img-profil-und-holonet.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/soc-I1c-bbcode-in-spielernamen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-D0a-systemdetail-vertrag-wiederherstellen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-D0b-systemdetail-verhaltenstests-und-kartographiefragen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-D2-ranglisten-rpg-und-aurodium.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-D3-vielflieger-rangliste.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-D4-datenbankkategorie-regionen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-D5-award-bei-vollstaendiger-kategorie.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-D6a-datenbankkategorie-handelsposten.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-D6b-datenbankkategorie-stationsruempfe.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-D7-npc-und-admin-liste.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-FA1a-fraktionsstartdaten-als-daten.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-FA1b-fraktionswahl-limits-und-boni.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-K10a-anomalie-framework-und-subraumellipse.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-K10b-ionensturm.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-K10c-saisonale-anomalien.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-K1a-flugfolgen-pipeline-und-zielfeldhinweise.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-K1b-feldtyp-flugkosten-feldschaden-deflektor.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-K2-feldeffekte-lecks-und-ausfaelle.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-K3a-feldeffekte-sensorik.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-K3b-feldeffekte-kampf.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-K3c-feldeffekte-sperren.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-K4-sternenkarte-overlays.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-K5-ebenenkenntnis-und-kartenzyklus.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-K6-sternenkarte-als-bild-exportieren.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-K7a-wurmloch-betreten-und-verlassen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-K7b-wurmloch-zugangsbeschraenkungen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-K8a-regionsinfo-am-feld.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-K8b-regionskartographie.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T11a-handelsranglisten.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T11b-kontoloeschung-raeumt-handel-ab.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T12a-stationsbau-erzeugt-handelsposten.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T12b-handelsposten-verwaltung-an-station.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T12c-postenzerstoerung-und-aufgabe.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T13-wirkung-handelsabkommen-und-handelsmodifikator.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T1a-handelsmodell-und-speicher.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T1b-npc-handelsposten-seed.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T1c-handelsposten-api.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T1d-handelsseite-lesend.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T2-handelslizenzen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T3-warenkonto-und-schiff.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T4a-angebote-erstellen-und-zurueckziehen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T4b-angebote-annehmen-und-suchen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T5-transfers-im-handelsnetz.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T6-handels-shoutbox.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T7a-basishandel-mit-kursdiagramm.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T7b-basishandel-warenliste-und-startkurse.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T8a-deals-des-hutten-kartells.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T8b-deal-auktionen.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/issues/tmw-T9-lotterie.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/map.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab2ca68d559529da0",
+      "file": ".scratch/stu-parity/ralph.sh",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ab6ee656aa884f6d4",
+      "file": ".scratch/stu-parity/inventory/shell-admin-runtime.md",
+      "existsInMain": true
+    },
+    {
+      "worktree": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-ada2c7ddae8bfa17c",
+      "file": "pnpm-lock.yaml",
+      "existsInMain": true
+    }
+  ]
+}

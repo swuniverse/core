@@ -1,0 +1,170 @@
+[
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-a26ba98c938e9f638",
+    "branch": "refs/heads/worktree-agent-a26ba98c938e9f638",
+    "status": "removed",
+    "preserved": null
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/agent-a419fd3a8e309cf4f",
+    "branch": "refs/heads/worktree-agent-a419fd3a8e309cf4f",
+    "status": "removed",
+    "preserved": null
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core/.claude/worktrees/grafischer-systemeintrag",
+    "branch": "refs/heads/worktree-grafischer-systemeintrag",
+    "status": "removed",
+    "preserved": null
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core/.git/ralph-stu-parity/worktrees/20261102-182759-35c3f7/integration",
+    "branch": "refs/heads/ralph/integration/20261102-182759-35c3f7",
+    "status": "removed",
+    "preserved": null
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core/.git/ralph-stu-parity/worktrees/20261103-083255-ed7024/integration",
+    "branch": "refs/heads/ralph/integration/20261103-083255-ed7024",
+    "status": "removed",
+    "preserved": null
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/agent-col-c3",
+    "branch": "refs/heads/agent-col-C3",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-d462d13cc7d4.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/agent-col-d3b",
+    "branch": "refs/heads/agent-col-D3b",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-d048b462b591.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/agent-sc-wp-ui-1b",
+    "branch": "refs/heads/agent-sc-wp-ui-1b",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-1450b232340c.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/agent-sc-wp-ui-3a1",
+    "branch": "refs/heads/agent-sc-wp-ui-3a1",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-80bb281a1be3.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/agent-soc-e4b",
+    "branch": "refs/heads/agent-soc-e4b",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-72b442aebd1f.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/agent-soc-g1b",
+    "branch": "refs/heads/agent-soc-g1b",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-2ba98bf3bb2c.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/agent-tmw-k10a1-fast",
+    "branch": "refs/heads/agent-tmw-k10a1-fast",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-af2f5b7681b0.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/agent-tmw-k5b",
+    "branch": "refs/heads/agent-tmw-k5b",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-727aed4b1ac3.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/agent-tmw-k5e-fast",
+    "branch": "refs/heads/agent-tmw-k5e-fast",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-77d428c0198a.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/agent-tmw-k7a1",
+    "branch": "refs/heads/agent-tmw-k7a1",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-e274dde514e0.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/agent-tmw-k7a2",
+    "branch": "refs/heads/agent-tmw-k7a2",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-e4f0a1fda71b.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/agent-tmw-k7a2a",
+    "branch": "refs/heads/agent-tmw-k7a2a",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-80ccc93d83b8.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/agent-tmw-k7a2b",
+    "branch": "refs/heads/agent-tmw-k7a2b",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-a4f0e50a9441.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/agent-tmw-k7a3",
+    "branch": "refs/heads/agent-tmw-k7a3",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-a2e93d8cc5ac.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/agent-tmw-k7b-fast",
+    "branch": "refs/heads/agent-tmw-k7b-fast",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-014bfb82078a.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/consolidate-baseline-20261109",
+    "branch": "refs/heads/consolidate-baseline-20261109",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-e7acffa76c22.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/reconcile-tracker-20261109",
+    "branch": "refs/heads/reconcile-tracker-20261109",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-30ec85cac21d.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/review-baseline-20261109",
+    "branch": "refs/heads/review-baseline-20261109",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-e41a12d94d16.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/review-col-d3b-20261109",
+    "branch": "refs/heads/review/col-D3b-final-20261109",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-7f1294527858.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/review-soc-f3c-login-storage",
+    "branch": "refs/heads/review-soc-f3c-login-storage",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-285557246c1c.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/review-tmw-k7a1",
+    "branch": "refs/heads/review-tmw-k7a1",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-28378c7e4e31.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/soc-f3c-login-nicht-speichern",
+    "branch": "refs/heads/soc-F3c-login-nicht-speichern",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-72de7e0905cb.tar.gz"
+  },
+  {
+    "path": "/Users/TMUNDIN/git/github.com/swuniverse/core__worktrees/tmw-k10a2-subspace-ellipse",
+    "branch": "refs/heads/tmw-K10a2-subspace-ellipse",
+    "status": "removed",
+    "preserved": "/Users/TMUNDIN/git/github.com/swuniverse/core/output/worktree-cleanup-2026-11-17/preserved-0ecec84fcc50.tar.gz"
+  }
+]

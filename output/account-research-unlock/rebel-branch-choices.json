@@ -1,0 +1,147 @@
+{
+  "account": "Rebel",
+  "userId": 4,
+  "faction": "REBEL_ALLIANCE",
+  "choices": [
+    {
+      "group": "light-frigate",
+      "selectedTechId": 421101,
+      "selectedName": "Consular-Fregatte",
+      "excludedTechIds": [
+        422101
+      ],
+      "confirmedAt": "2026-11-17T18:34:58.711Z"
+    },
+    {
+      "group": "fighter",
+      "selectedTechId": 412101,
+      "selectedName": "A-Wing Abfangjäger",
+      "excludedTechIds": [
+        411101
+      ],
+      "confirmedAt": "2026-11-17T18:53:02.085Z"
+    },
+    {
+      "group": "shuttle",
+      "selectedTechId": 414901,
+      "selectedName": "LAAT Shuttle",
+      "excludedTechIds": [
+        414001
+      ],
+      "confirmedAt": "2026-11-18T08:03:18.741Z"
+    },
+    {
+      "group": "freighter",
+      "selectedTechId": 461101,
+      "selectedName": "BFF-1 Massenfrachter",
+      "excludedTechIds": [
+        462101
+      ],
+      "confirmedAt": "2026-11-18T08:06:20.161Z"
+    },
+    {
+      "group": "factory-1",
+      "selectedTechId": 903101,
+      "selectedName": "Laminanium-Schaltkreis-Fabrik",
+      "excludedTechIds": [
+        901101,
+        903201,
+        903301,
+        904101,
+        905101
+      ],
+      "confirmedAt": "2026-11-18T08:08:22.861Z"
+    },
+    {
+      "group": "energy-or-beskar",
+      "selectedTechId": 251901,
+      "selectedName": "Beskar-Mine",
+      "excludedTechIds": [
+        902101
+      ],
+      "confirmedAt": "2026-11-18T08:08:58.189Z"
+    },
+    {
+      "group": "corvette",
+      "selectedTechId": 432101,
+      "selectedName": "CR90 Korvette",
+      "excludedTechIds": [
+        431101
+      ],
+      "confirmedAt": "2026-11-18T08:09:46.295Z"
+    },
+    {
+      "group": "scout",
+      "selectedTechId": 434901,
+      "selectedName": "VCX-100 Aufklärer",
+      "excludedTechIds": [
+        434001
+      ],
+      "confirmedAt": "2026-11-18T08:20:20.745Z"
+    },
+    {
+      "group": "factory-2",
+      "selectedTechId": 904201,
+      "selectedName": "Hyperraum-Spulen-Fabrik",
+      "excludedTechIds": [
+        904101,
+        901201,
+        903201,
+        904301,
+        905201
+      ],
+      "confirmedAt": "2026-11-18T08:45:09.365Z"
+    },
+    {
+      "group": "capital-ship",
+      "selectedTechId": 459101,
+      "selectedName": "Venator-Klasse Kreuzer",
+      "excludedTechIds": [
+        451101,
+        452101,
+        459111
+      ],
+      "confirmedAt": "2026-11-18T08:46:33.293Z"
+    },
+    {
+      "group": "cruiser",
+      "selectedTechId": 441101,
+      "selectedName": "Dreadnought-Kreuzer",
+      "excludedTechIds": [
+        442101
+      ],
+      "confirmedAt": "2026-11-18T08:47:56.737Z"
+    },
+    {
+      "group": "research-ship",
+      "selectedTechId": 454901,
+      "selectedName": "Hammerhead-Forschungsschiff",
+      "excludedTechIds": [
+        454001
+      ],
+      "confirmedAt": "2026-11-18T08:55:51.695Z"
+    },
+    {
+      "group": "torpedo",
+      "selectedTechId": 501100,
+      "selectedName": "Schwerer Protonentorpedo",
+      "excludedTechIds": [
+        502100
+      ],
+      "confirmedAt": "2026-11-18T09:06:38.937Z"
+    },
+    {
+      "group": "factory-3",
+      "selectedTechId": 905301,
+      "selectedName": "Phasenkonverter-Fabrik",
+      "excludedTechIds": [
+        905101,
+        905201,
+        901301,
+        903301,
+        904301
+      ],
+      "confirmedAt": "2026-11-18T09:07:41.298Z"
+    }
+  ]
+}
