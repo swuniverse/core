@@ -70,6 +70,7 @@ import { ColonyStats } from '../../modules/colony/entities/colony-stats.entity';
 import { ColonyChangeable } from '../../modules/colony/entities/colony-changeable.entity';
 import { ColonyCrewTrainingQueue } from '../../modules/colony/entities/colony-crew-training-queue.entity';
 import { ColonyFabricationQueue } from '../../modules/colony/entities/colony-fabrication-queue.entity';
+import { OnboardingSelection } from '../../modules/onboarding/entities/onboarding-selection.entity';
 import { Crew } from '../../modules/colony/entities/crew.entity';
 import { CrewAssignment } from '../../modules/colony/entities/crew-assignment.entity';
 import { CrewSkill } from '../../modules/spacecraft/entities/crew-skill.entity';
@@ -171,6 +172,7 @@ export const INTEGRATION_ENTITIES = [
   ColonyChangeable,
   ColonyCrewTrainingQueue,
   ColonyFabricationQueue,
+  OnboardingSelection,
   Crew,
   CrewAssignment,
   CrewSkill,

@@ -91,8 +91,15 @@ export class OnboardingService {
     if (existing) {
       return existing;
     }
-
-    return this.onboardingRepo.save(this.onboardingRepo.create({ userId }));
+    // The onboarding page loads several endpoints at once on the first visit;
+    // a plain insert lets the second request fail on the unique userId.
+    await this.onboardingRepo
+      .createQueryBuilder()
+      .insert()
+      .values({ userId })
+      .orIgnore()
+      .execute();
+    return this.onboardingRepo.findOneOrFail({ where: { userId } });
   }
 
   async selectFaction(
