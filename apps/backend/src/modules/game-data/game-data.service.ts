@@ -280,6 +280,9 @@ export interface ColonyClassDef {
   baseProduction: Array<{ commodityId: number; amount: number }>;
   deposits?: ColonyClassDepositDef[];
   bevGrowthRate: number;
+  /** STU field types a colony may be founded on; absent for asteroid classes. */
+  colonizeableFields?: number[];
+  colonizeableFieldsSource?: 'stu' | 'swu-derived';
 }
 
 export interface FabricationCostDef {
@@ -1581,6 +1584,11 @@ export class GameDataService implements OnModuleInit {
 
   getColonyClass(classId: number): ColonyClassDef | undefined {
     return this.colonyClasses.get(classId);
+  }
+
+  /** Allowed start field types of a class; undefined = no list (asteroids, unknown class). */
+  getColonizeableFields(classId: number): number[] | undefined {
+    return this.getColonyClass(classId)?.colonizeableFields;
   }
 
   getColonyClassDeposits(classId: number): ColonyClassDepositDef[] {

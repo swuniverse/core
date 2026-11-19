@@ -73,6 +73,9 @@ describe('ColonizationService', () => {
       })),
     };
     const colonyEventService = { createActionEvent: jest.fn() };
+    const discoveryService = {
+      discover: jest.fn(async () => ({ discovered: true, prestigeAwarded: 1, name: 'M' })),
+    };
     const fieldRepo = repo({ find: jest.fn(async () => []), save: jest.fn(async (v) => v) });
 
     const service = new ColonizationService(
@@ -90,6 +93,9 @@ describe('ColonizationService', () => {
         getSwuLetterResources: jest.fn(() => []),
         getCommodity: jest.fn(),
         getCategoriesForTerrainTile: jest.fn(() => []),
+        getColonizeableFields: jest.fn((classId: number) =>
+          classId === 401 ? [101] : undefined,
+        ),
         getTechTree: jest.fn(() => [
           {
             id: 1001,
@@ -113,9 +119,11 @@ describe('ColonizationService', () => {
           },
         ]),
       } as never,
+      discoveryService as never,
     );
 
     return {
+      discoveryService,
       service,
       userRepo,
       colonyRepo,
@@ -972,6 +980,7 @@ describe('ColonizationService', () => {
       colonyRepo.find.mockResolvedValue([]);
       colonyRepo.findOne.mockResolvedValue({
         id: 99,
+        colonyClassId: 401,
         isAbandoned: true,
         energy: 0,
         surfaceWidth: 2,
@@ -999,7 +1008,7 @@ describe('ColonizationService', () => {
       return ctx;
     }
     const field = (fieldIndex: number, buildingId: number | null = null) => ({
-      colonyId: 99, fieldIndex, fieldType: 1, terrainTileId: '1', layer: 'SURFACE',
+      colonyId: 99, fieldIndex, fieldType: 101, terrainTileId: '101', layer: 'SURFACE',
       buildingId, isBuilding: false,
     });
 
@@ -1032,6 +1041,82 @@ describe('ColonizationService', () => {
       await service.colonize(1, 15, 7, 2);
       expect(fieldRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ fieldIndex: 2, buildingId: 82010100, buildProgress: 100 }),
+      );
+    });
+  });
+
+  describe('STU start rules (col-AUD-09a)', () => {
+    function setupFounding(existingColonies: unknown[], surfaceFieldType = 101) {
+      const ctx = createService();
+      const { userRepo, colonyRepo, objectRepo, shipRepo, shipClassRepo, unlockResolver, colonySeedService } = ctx;
+      userRepo.findOne.mockResolvedValue({ ...rebelUser, createdAt: new Date(), factionId: 1 });
+      colonyRepo.find.mockResolvedValue(existingColonies);
+      colonyRepo.findOne.mockResolvedValue(null);
+      colonyRepo.createQueryBuilder.mockReturnValue(colonyLayerCountQuery(0));
+      objectRepo.findOne.mockResolvedValue({
+        id: 7, objectType: 2, isColonizable: true, classId: 401,
+        systemId: 44, posX: 8, posY: 9,
+        starSystem: { layer: { id: 2, name: 'Outer Rim', isNoobzone: false } },
+      });
+      shipRepo.findOne.mockResolvedValue({
+        id: 15, userId: 1, shipClassId: 56, status: 'IDLE', locationId: 43,
+        location: { id: 43, kind: 'SYSTEM_FIELD', systemField: { starSystemId: 44, sx: 8, sy: 9 } },
+        name: 'Aerie',
+      });
+      shipClassRepo.findOneBy.mockResolvedValue({
+        id: 56, isColonizer: true, colonizerTier: 2, colonizationBuildingId: 82010100,
+      });
+      unlockResolver.hasTech.mockResolvedValue(true);
+      colonySeedService.createFollowUpColony.mockResolvedValue({ id: 123, name: 'Kolonie' });
+      colonySeedService.generateSurfaceSnapshot.mockReturnValue({
+        width: 2,
+        fields: [
+          { fieldIndex: 0, fieldType: surfaceFieldType, terrainTileId: surfaceFieldType, layer: 'SURFACE' },
+          { fieldIndex: 1, fieldType: 201, terrainTileId: 201, layer: 'SURFACE' },
+        ],
+      });
+      return ctx;
+    }
+
+    it('gives a follow-up colony only the default start goods (no override)', async () => {
+      const { service, colonySeedService } = setupFounding([{ celestialObject: { objectType: 1 } }]);
+      await service.colonize(1, 15, 7, 0);
+      expect(colonySeedService.createFollowUpColony.mock.calls[0][0].resources).toBeUndefined();
+    });
+
+    it('adds the STU start goods for the first colony', async () => {
+      const { service, colonySeedService } = setupFounding([]);
+      await service.colonize(1, 15, 7, 0);
+      expect(colonySeedService.createFollowUpColony.mock.calls[0][0].resources).toEqual([
+        { commodityId: 2, amount: 150 },
+        { commodityId: 4, amount: 150 },
+        { commodityId: 21, amount: 150 },
+        { commodityId: 5, amount: 100 },
+      ]);
+    });
+
+    it('allows only the class start field types', async () => {
+      const { service, colonySeedService } = setupFounding([{ celestialObject: { objectType: 1 } }]);
+      const check = await service.explainTarget(1, 7, 15);
+      expect(check.surface?.allowedFieldTypes).toEqual([101]);
+      expect(check.surface?.fields.map((f) => f.selectable)).toEqual([true, false]);
+      await expect(service.colonize(1, 15, 7, 1)).rejects.toThrow('Ungültiges Startfeld');
+      expect(colonySeedService.createFollowUpColony).not.toHaveBeenCalled();
+    });
+
+    it('refuses colonization when the surface has no allowed field', async () => {
+      const { service } = setupFounding([{ celestialObject: { objectType: 1 } }], 201);
+      const check = await service.explainTarget(1, 7, 15);
+      expect(check.canColonize).toBe(false);
+      expect(check.reasons.join(' ')).toContain('kein Feld');
+    });
+
+    it('requests the class database entry for the colonized target', async () => {
+      const { service, discoveryService } = setupFounding([{ celestialObject: { objectType: 1 } }]);
+      await service.colonize(1, 15, 7, 0);
+      expect(discoveryService.discover).toHaveBeenCalledTimes(1);
+      expect(discoveryService.discover).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 1, spacecraftId: 15, object: expect.objectContaining({ id: 7 }) }),
       );
     });
   });

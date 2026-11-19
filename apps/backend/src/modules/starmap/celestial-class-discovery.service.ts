@@ -30,6 +30,7 @@ export class CelestialClassDiscoveryService {
     userId: number;
     object: SwuTypeSource & { id: number };
     spacecraftId: number;
+    source?: 'SECTOR_SCAN' | 'COLONIZATION';
   }): Promise<{ discovered: boolean; prestigeAwarded: number; name: string } | null> {
     const definition = resolveSwuPlanetType(input.object);
     if (!definition) return null;
@@ -45,7 +46,7 @@ export class CelestialClassDiscoveryService {
           celestialObjectId: input.object.id,
           classId: definition.classId,
           swuTypeKey: definition.key,
-          source: 'SECTOR_SCAN',
+          source: input.source ?? 'SECTOR_SCAN',
         })
         .orIgnore()
         .returning('id')

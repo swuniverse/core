@@ -12,6 +12,7 @@ import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
+import { StarmapModule } from '../starmap/starmap.module';
 import { ResearchModule } from '../research/research.module';
 
 @Module({
@@ -28,6 +29,7 @@ import { ResearchModule } from '../research/research.module';
       CrewAssignment,
     ]),
     ResearchModule,
+    StarmapModule,
     forwardRef(() => ColonyModule),
   ],
   controllers: [ColonizationController],

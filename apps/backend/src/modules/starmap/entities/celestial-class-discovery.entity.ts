@@ -30,7 +30,7 @@ export class CelestialClassDiscovery {
   spacecraftId: number;
 
   @Column({ type: 'varchar', length: 32 })
-  source: 'SECTOR_SCAN';
+  source: 'SECTOR_SCAN' | 'COLONIZATION';
 
   @CreateDateColumn()
   discoveredAt: Date;

@@ -20,6 +20,7 @@ import { ColonyField } from '../colony/entities/colony-field.entity';
 import { AsteroidResourceDeposit } from '../colony/entities/asteroid-resource-deposit.entity';
 import {
   ColonySeedService,
+  FIRST_COLONY_STARTING_COMMODITIES,
   SWU_AURODIUM_DEPOSIT_MAX,
   SWU_AURODIUM_DEPOSIT_MIN,
 } from '../colony/colony-seed.service';
@@ -133,6 +134,8 @@ export interface ColonizationTargetCheckDto {
   } | null;
   surface?: {
     width: number;
+    /** Erlaubte Startfeld-Feldtypen der Kolonieklasse; null bei Asteroiden (eigene Regel). */
+    allowedFieldTypes: number[] | null;
     fields: Array<{
       fieldIndex: number;
       fieldType: number;
@@ -234,6 +237,7 @@ export class ColonizationService {
     private readonly colonySeedService: ColonySeedService,
     private readonly colonyEventService: ColonyEventService,
     private readonly gameData: GameDataService,
+    private readonly celestialClassDiscoveryService: CelestialClassDiscoveryService,
   ) {}
 
   async getColonizationStatus(userId: number): Promise<ColonizationStatusDto> {
@@ -352,6 +356,54 @@ export class ColonizationService {
     );
   }
 
+  /** Startfeld-Vorschau (STU-Oberflaeche oder Asteroid); erlaubt sind nur Feldtypen der Kolonieklasse. */
+  private buildStartSurface(
+    userId: number,
+    target: CelestialObject,
+  ): NonNullable<ColonizationTargetCheckDto['surface']> {
+    const seed = `colony-${userId}-${target.id}`;
+    const asteroid = this.colonySeedService.generateAsteroidSnapshot(
+      target.classId,
+      seed,
+    );
+    if (asteroid) {
+      return {
+        width: asteroid.width,
+        allowedFieldTypes: null,
+        fields: asteroid.fields.map((field) => ({
+          fieldIndex: field.fieldIndex,
+          fieldType: field.fieldType,
+          terrainTileId: field.terrainTileId ?? null,
+          layer: field.layer ?? null,
+          selectable: field.selectable,
+        })),
+      };
+    }
+    const allowedFieldTypes = this.allowedFieldTypes(target.classId);
+    const surface = this.colonySeedService.generateSurfaceSnapshot(
+      target.classId ?? 0,
+      seed,
+      target.starSystem?.bonusFields ?? 2,
+    );
+    return {
+      width: surface.width,
+      allowedFieldTypes,
+      fields: surface.fields.map((field) => ({
+        fieldIndex: field.fieldIndex,
+        fieldType: field.fieldType,
+        terrainTileId: field.terrainTileId ?? null,
+        layer: field.layer ?? null,
+        selectable:
+          field.layer === 'SURFACE' && allowedFieldTypes.includes(field.fieldType),
+      })),
+    };
+  }
+
+  /** STU `colonizeableFields` der Klasse; ohne Liste ist keine Gruendung moeglich. */
+  private allowedFieldTypes(classId: number | null | undefined): number[] {
+    return this.gameData.getColonizeableFields(classId ?? 0) ?? [];
+  }
+
   async explainTarget(
     userId: number,
     celestialObjectId: number,
@@ -458,6 +510,19 @@ export class ColonizationService {
       ? await this.computeSwuOrbitDistance(target)
       : null;
 
+    const surface =
+      existing?.isAbandoned || swuArchetype
+        ? null
+        : this.buildStartSurface(userId, target);
+    if (
+      surface?.allowedFieldTypes &&
+      !surface.fields.some((field) => field.selectable)
+    ) {
+      reasons.push(
+        'Auf diesem Planeten gibt es kein Feld, auf dem die Kolonie gegründet werden kann',
+      );
+    }
+
     return {
       canColonize: reasons.length === 0,
       reasons,
@@ -480,43 +545,7 @@ export class ColonizationService {
             ship ? (shipClass?.colonizationBuildingId ?? null) : null,
           )
         : null,
-      surface:
-        existing?.isAbandoned || swuArchetype
-          ? null
-          : (() => {
-              const asteroid = this.colonySeedService.generateAsteroidSnapshot(
-                target.classId,
-                `colony-${userId}-${target.id}`,
-              );
-              if (asteroid) {
-                return {
-                  width: asteroid.width,
-                  fields: asteroid.fields.map((field) => ({
-                    fieldIndex: field.fieldIndex,
-                    fieldType: field.fieldType,
-                    terrainTileId: field.terrainTileId ?? null,
-                    layer: field.layer ?? null,
-                    selectable: field.selectable,
-                  })),
-                };
-              }
-              const surface = this.colonySeedService.generateSurfaceSnapshot(
-                target.classId ?? 0,
-                `colony-${userId}-${target.id}`,
-                target.starSystem?.bonusFields ?? 2,
-              );
-              return {
-                width: surface.width,
-                fields: surface.fields.map((field) => ({
-                  fieldIndex: field.fieldIndex,
-                  fieldType: field.fieldType,
-                  terrainTileId: field.terrainTileId ?? null,
-                  layer: field.layer ?? null,
-                  selectable:
-                    field.layer === 'SURFACE' && field.fieldType !== 201,
-                })),
-              };
-            })(),
+      surface,
       swu:
         swuArchetype && !existing?.isAbandoned
           ? (() => {
@@ -687,8 +716,14 @@ export class ColonizationService {
         const field = surface.fields.find(
           (entry) => entry.fieldIndex === initialFieldIndex,
         );
-        if (!field || field.layer !== 'SURFACE' || field.fieldType === 201) {
-          throw new BadRequestException('Ungültiges Startfeld');
+        if (
+          !field ||
+          field.layer !== 'SURFACE' ||
+          !this.allowedFieldTypes(target.classId).includes(field.fieldType)
+        ) {
+          throw new BadRequestException(
+            'Ungültiges Startfeld: Die Kolonie kann nur auf einem Feld der erlaubten Feldtypen gegründet werden',
+          );
         }
       }
     }
@@ -709,6 +744,13 @@ export class ColonizationService {
         }
       }
     }
+    // STU: erste Kolonie ueber ein Kolonieschiff bringt zusaetzlich Startwaren.
+    const colonyCounts = await this.getColonyCountsByType(userId);
+    const isFirstColony =
+      colonyCounts.planet + colonyCounts.moon + colonyCounts.asteroid === 0;
+    const startResources = isFirstColony
+      ? FIRST_COLONY_STARTING_COMMODITIES
+      : undefined;
     const asteroidSnapshot = this.colonySeedService.generateAsteroidSnapshot(
       target.classId,
       `colony-${userId}-${target.id}`,
@@ -730,6 +772,7 @@ export class ColonizationService {
             rotation: swuInstance!.rotation,
             bodyFeature: swuInstance!.bodyFeature,
             zoneSlot: swuZoneSlot!,
+            resources: startResources,
             initialSurfaceIndex: initialFieldIndex,
             // Aendert sich nach der Gruendung nie mehr (Zone/Rotation/Archetyp/
             // Orbit-Distanz sind fix) - einmalig berechnen und speichern, statt
@@ -751,6 +794,7 @@ export class ColonizationService {
             celestialObjectId,
             buildingId: shipClass.colonizationBuildingId,
             initialFieldIndex,
+            resources: startResources,
             solarOutputTJ: asteroidSnapshot
               ? asteroidSolarOutputTJ(await this.computeSwuOrbitDistance(target))
               : undefined,
@@ -758,6 +802,14 @@ export class ColonizationService {
     if (target.objectType === CelestialObjectType.ASTEROID) {
       await this.colonySeedService.ensureAsteroidDepositMining(userId, target);
     }
+
+    // STU checkDatabaseItem: Datenbankeintrag der Klasse samt Prestige, einmalig.
+    await this.celestialClassDiscoveryService.discover({
+      userId,
+      object: target,
+      spacecraftId: ship.id,
+      source: 'COLONIZATION',
+    });
 
     const crewAssignments = await this.crewAssignmentRepo.find({
       where: { spacecraftId: ship.id, userId },
@@ -841,7 +893,7 @@ export class ColonizationService {
             !field.isBuilding &&
             (isSwu
               ? field.terrainTileId != null && this.isSwuStartTile(field.terrainTileId)
-              : field.fieldType !== 201),
+              : this.allowedFieldTypes(colony.colonyClassId).includes(field.fieldType)),
         })),
       },
     };

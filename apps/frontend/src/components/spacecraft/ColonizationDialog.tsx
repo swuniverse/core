@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../../services/api';
 import { colonyFieldTileImage } from '../../lib/assets';
 import { SettlementBadge, type SwuSettlementAssessment } from '../../lib/settlement-rating';
+import { FIELD_TYPE_NAMES } from '../../pages/colonies/constants';
 import { BONUS_MARKER_FRAME_CLASS, BonusMarkerBadge } from '../../lib/bonus-markers';
 
 type SwuZoneSlot = 1 | 2 | 3;
@@ -42,6 +43,8 @@ type Check = {
   target: { reclaimed?: boolean } | null;
   surface: {
     width: number;
+    /** Vom Backend vorgegebene erlaubte Feldtypen; null bei Asteroiden. */
+    allowedFieldTypes?: number[] | null;
     fields: Array<{
       fieldIndex: number;
       fieldType: number;
@@ -463,7 +466,17 @@ export function ColonizationDialog({
                 ? check?.surface
                 : null;
             if (!grid) return null;
+            const allowed = 'allowedFieldTypes' in grid ? grid.allowedFieldTypes : null;
             return (
+            <>
+            {allowed && allowed.length > 0 && (
+              <p className="text-swu-muted">
+                Erlaubte Feldtypen:{' '}
+                <span className="text-swu-primary">
+                  {allowed.map((type) => FIELD_TYPE_NAMES[type] ?? `Typ ${type}`).join(', ')}
+                </span>
+              </p>
+            )}
             <div
               className="grid gap-px bg-swu-border"
               style={{
@@ -498,6 +511,7 @@ export function ColonizationDialog({
                 </button>
               ))}
             </div>
+            </>
             );
           })()}
           <button

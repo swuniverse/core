@@ -84,12 +84,18 @@ const STARTING_COMMODITIES = [
   { commodityId: 21, amount: 50 }, // Durastahl
 ];
 
-const FOLLOW_UP_STARTING_COMMODITIES = [
-  { commodityId: 2, amount: 150 },
-  { commodityId: 4, amount: 75 },
-  { commodityId: 5, amount: 50 },
-  { commodityId: 21, amount: 75 },
+// STU PlanetColonization: a follow-up colony gets 150 Baumaterial only.
+const FOLLOW_UP_STARTING_COMMODITIES = [{ commodityId: 2, amount: 150 }];
+
+/** STU first colony via colony ship: Baumaterial, Transparentes Aluminium, Duranium, Deuterium. */
+export const FIRST_COLONY_STARTING_COMMODITIES = [
+  { commodityId: 2, amount: 150 }, // Baumaterial
+  { commodityId: 4, amount: 150 }, // Transparistahl
+  { commodityId: 21, amount: 150 }, // Durastahl
+  { commodityId: 5, amount: 100 }, // Deuterium
 ];
+
+const FOLLOW_UP_COLONY_NAME = 'Kolonie';
 
 export interface CreateFollowUpSwuColonyOptions {
   userId: number;
@@ -101,7 +107,7 @@ export interface CreateFollowUpSwuColonyOptions {
   bodyFeature: SwuBodyFeature;
   zoneSlot: SwuZoneSlot;
   resources?: Array<{ commodityId: number; amount: number }>;
-  /** Kolonie-Name; Default "<username>'s Kolonie". */
+  /** Kolonie-Name; Default "Kolonie". */
   name?: string;
   /** Solarertrag in TJ (siehe swu-solar.ts) - vom Aufrufer berechnet, der die Sternposition kennt. */
   solarOutputTJ?: number | null;
@@ -209,6 +215,17 @@ export class ColonySeedService {
     return colony;
   }
 
+  /** STU: energy = EPS storage, workless = housing of the start building. */
+  private followUpStartValues(buildingId: number) {
+    const building = this.gameData.getBuilding(buildingId);
+    const energy = building?.bonuses?.energy ?? 0;
+    return {
+      energy,
+      energyMax: energy || 100,
+      population: building?.bevPro ?? 0,
+    };
+  }
+
   async createFollowUpColony(
     options: CreateFollowUpColonyOptions,
   ): Promise<Colony> {
@@ -231,7 +248,7 @@ export class ColonySeedService {
     );
 
     const colony = this.colonyRepo.create({
-      name: options.name?.trim() || `${options.username}'s Kolonie`,
+      name: options.name?.trim() || FOLLOW_UP_COLONY_NAME,
       userId: options.userId,
       starSystemId: object?.systemId || null,
       systemFieldId: options.systemFieldId ?? systemField?.id ?? null,
@@ -242,9 +259,7 @@ export class ColonySeedService {
       surfaceMask: surface.mask,
       surfaceWidth: surface.width,
       rotationFactor: surface.rotationFactor,
-      energy: 50,
-      energyMax: 100,
-      population: 10,
+      ...this.followUpStartValues(options.buildingId),
       populationMax: 100,
       storageUsed: 0,
       storageMax: 1500,
@@ -254,6 +269,7 @@ export class ColonySeedService {
     await this.generateFields(colony, {
       initialBuildingId: options.buildingId,
       initialFieldIndex: options.initialFieldIndex,
+      keepFieldType: true,
       fields: surface.fields,
     });
     await this.createInitialStats(colony);
@@ -311,7 +327,7 @@ export class ColonySeedService {
     ).toString('base64');
 
     const colony = this.colonyRepo.create({
-      name: options.name ?? `${options.username}'s Kolonie`,
+      name: options.name ?? FOLLOW_UP_COLONY_NAME,
       userId: options.userId,
       starSystemId: object?.systemId || null,
       celestialObjectId: object?.id || null,
@@ -323,9 +339,7 @@ export class ColonySeedService {
       surfaceMask: mask,
       surfaceWidth,
       rotationFactor: 1,
-      energy: 50,
-      energyMax: 100,
-      population: 10,
+      ...this.followUpStartValues(options.buildingId),
       populationMax: 100,
       storageUsed: 0,
       storageMax: 1500,
@@ -410,7 +424,7 @@ export class ColonySeedService {
     ).toString('base64');
 
     const colony = this.colonyRepo.create({
-      name: options.name?.trim() || `${options.username}'s Kolonie`,
+      name: options.name?.trim() || FOLLOW_UP_COLONY_NAME,
       userId: options.userId,
       starSystemId: object?.systemId || null,
       systemFieldId: options.systemFieldId ?? systemField?.id ?? null,
@@ -422,9 +436,7 @@ export class ColonySeedService {
       surfaceMask: mask,
       surfaceWidth: snapshot.width,
       rotationFactor: 1,
-      energy: 50,
-      energyMax: 100,
-      population: 10,
+      ...this.followUpStartValues(options.buildingId),
       populationMax: 100,
       storageUsed: 0,
       storageMax: 1500,
@@ -696,6 +708,8 @@ export class ColonySeedService {
     options: {
       initialBuildingId?: number;
       initialFieldIndex?: number;
+      /** Colonization keeps the chosen field type (STU colonizeableFields); the starter colony converts it to plains. */
+      keepFieldType?: boolean;
       fields: StuColonyFieldData[];
     },
   ): Promise<void> {
@@ -715,9 +729,11 @@ export class ColonySeedService {
     const hqField =
       fields.find((field) => field.fieldIndex === options.initialFieldIndex) ??
       this.findHeadquartersField(fields);
-    hqField.fieldType = FIELD_TYPES.PLAINS;
-    hqField.terrainTileId = String(FIELD_TYPES.PLAINS);
-    hqField.layer = 'SURFACE';
+    if (!options.keepFieldType) {
+      hqField.fieldType = FIELD_TYPES.PLAINS;
+      hqField.terrainTileId = String(FIELD_TYPES.PLAINS);
+      hqField.layer = 'SURFACE';
+    }
     if (!options.initialBuildingId) {
       throw new BadRequestException('Faction has no starter building configured');
     }
