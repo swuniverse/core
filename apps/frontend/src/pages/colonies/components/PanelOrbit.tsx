@@ -6,10 +6,17 @@ import type { ColonyDetailV2, CommodityDef } from '../types';
 import { OrbitalManagementPanel } from './OrbitalManagementPanel';
 
 type OrbitShip = ColonyDetailV2['orbitShips'][number];
+type ForeignOrbitShip = NonNullable<ColonyDetailV2['foreignOrbitShips']>[number];
+type OrbitEntry =
+  | { foreign: false; id: number; ship: OrbitShip }
+  | { foreign: true; id: number; ship: ForeignOrbitShip };
+
+const FOREIGN_BEAM_BLOCKED = 'Beamen zu fremden Schiffen ist noch nicht möglich';
 
 type PanelOrbitProps = {
   colonyId: number;
   orbitShips: ColonyDetailV2['orbitShips'];
+  foreignOrbitShips?: ColonyDetailV2['foreignOrbitShips'];
   orbitBlockers?: ColonyDetailV2['orbitBlockers'];
   inventory?: ColonyDetailV2['inventory'];
   commodityMap: Record<number, CommodityDef>;
@@ -31,42 +38,53 @@ type PanelOrbitProps = {
 export function PanelOrbit({
   colonyId,
   orbitShips,
+  foreignOrbitShips = [],
   compact = false,
   onOpenManagement,
   showHeading = true,
   showManagementButton = true,
 }: PanelOrbitProps) {
+  const entries = useMemo<OrbitEntry[]>(
+    () => [
+      ...orbitShips.map((ship) => ({ foreign: false as const, id: ship.id, ship })),
+      ...foreignOrbitShips.map((ship) => ({ foreign: true as const, id: ship.id, ship })),
+    ],
+    [orbitShips, foreignOrbitShips],
+  );
   const [selectedId, setSelectedId] = useState<number | null>(
-    orbitShips[0]?.id ?? null,
+    entries[0]?.id ?? null,
   );
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [transfer, setTransfer] = useState<'TO_SHIP' | 'TO_COLONY' | null>(
     null,
   );
   const selected =
-    orbitShips.find((ship) => ship.id === selectedId) ?? orbitShips[0] ?? null;
+    entries.find((entry) => entry.id === selectedId) ?? entries[0] ?? null;
 
   useEffect(() => {
-    setSelectedId(orbitShips[0]?.id ?? null);
+    setSelectedId(entries[0]?.id ?? null);
     setSelectorOpen(false);
     setTransfer(null);
   }, [colonyId]);
 
   useEffect(() => {
-    if (!orbitShips.some((ship) => ship.id === selectedId)) {
-      setSelectedId(orbitShips[0]?.id ?? null);
+    if (!entries.some((entry) => entry.id === selectedId)) {
+      setSelectedId(entries[0]?.id ?? null);
       setSelectorOpen(false);
     }
-  }, [orbitShips, selectedId]);
+  }, [entries, selectedId]);
 
+  // STU groups by fleet and names the owner of foreign groups.
   const groups = useMemo(() => {
-    const result = new Map<string, OrbitShip[]>();
-    for (const ship of orbitShips) {
-      const label = ship.orbitGroupLabel ?? 'Einzelschiffe';
-      result.set(label, [...(result.get(label) ?? []), ship]);
+    const result = new Map<string, OrbitEntry[]>();
+    for (const entry of entries) {
+      const label = entry.foreign
+        ? `${entry.ship.fleetName ?? (entry.ship.fleetId != null ? `Flotte #${entry.ship.fleetId}` : 'Einzelschiffe')} von ${entry.ship.ownerName ?? 'Unbekannt'}`
+        : (entry.ship.orbitGroupLabel ?? 'Einzelschiffe');
+      result.set(label, [...(result.get(label) ?? []), entry]);
     }
     return [...result.entries()];
-  }, [orbitShips]);
+  }, [entries]);
 
   return (
     <section className="space-y-2">
@@ -82,12 +100,14 @@ export function PanelOrbit({
                 Schiffe im Orbit
               </h3>
             )}
-            <OrbitShipCard ship={selected} openShip={selected.canManage} />
+            <OrbitEntryCard entry={selected} openShip />
             <div className="flex items-center gap-2 border-t border-swu-border p-2">
               <button
                 type="button"
                 onClick={() => setTransfer('TO_COLONY')}
-                title="Von Schiff zur Kolonie entladen"
+                disabled={selected.foreign}
+                title={selected.foreign ? FOREIGN_BEAM_BLOCKED : 'Von Schiff zur Kolonie entladen'}
+                className="disabled:opacity-40"
               >
                 <img
                   src="/assets/buttons/b_down1.png"
@@ -98,7 +118,9 @@ export function PanelOrbit({
               <button
                 type="button"
                 onClick={() => setTransfer('TO_SHIP')}
-                title="Von Kolonie zum Schiff verladen"
+                disabled={selected.foreign}
+                title={selected.foreign ? FOREIGN_BEAM_BLOCKED : 'Von Kolonie zum Schiff verladen'}
+                className="disabled:opacity-40"
               >
                 <img
                   src="/assets/buttons/b_up1.png"
@@ -133,7 +155,7 @@ export function PanelOrbit({
       ) : (
         <OrbitalManagementPanel colonyId={colonyId} />
       )}
-      {transfer && selected && (
+      {transfer && selected && !selected.foreign && (
         <TransferDialog
           shipId={selected.id}
           colonyId={colonyId}
@@ -156,6 +178,30 @@ export function PanelOrbit({
         />
       )}
     </section>
+  );
+}
+
+function OrbitEntryCard({ entry, openShip }: { entry: OrbitEntry; openShip?: boolean }) {
+  if (!entry.foreign)
+    return <OrbitShipCard ship={entry.ship} openShip={openShip && entry.ship.canManage} />;
+  const ship = entry.ship;
+  return (
+    <div className="p-2">
+      <div className="mb-1 font-bold text-swu-primary">
+        {ship.name}{' '}
+        <span className="font-normal text-swu-muted">
+          | von {ship.ownerName ?? 'Unbekannt'}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <img
+          src={shipImage(ship.shipClassId, ship.shipClassKey)}
+          alt=""
+          className="h-9 w-16 object-contain"
+        />
+        <span className="text-swu-muted">{ship.shipClassName}</span>
+      </div>
+    </div>
   );
 }
 
@@ -256,7 +302,7 @@ function OrbitSelectorDialog({
   onSelect,
   onClose,
 }: {
-  groups: Array<[string, OrbitShip[]]>;
+  groups: Array<[string, OrbitEntry[]]>;
   selectedId: number | null;
   onSelect: (id: number) => void;
   onClose: () => void;
@@ -283,15 +329,15 @@ function OrbitSelectorDialog({
             <h4 className="border-b border-swu-border bg-swu-surface px-3 py-1 font-bold text-swu-muted">
               {label}
             </h4>
-            {ships.map((ship) => (
+            {ships.map((entry) => (
               <button
-                key={ship.id}
+                key={entry.id}
                 type="button"
-                onClick={() => onSelect(ship.id)}
-                aria-pressed={ship.id === selectedId}
+                onClick={() => onSelect(entry.id)}
+                aria-pressed={entry.id === selectedId}
                 className="block w-full border-b border-swu-border text-left aria-pressed:bg-swu-accent/10"
               >
-                <OrbitShipCard ship={ship} />
+                <OrbitEntryCard entry={entry} />
               </button>
             ))}
           </div>

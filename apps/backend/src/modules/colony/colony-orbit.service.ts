@@ -1,4 +1,7 @@
 import { isRpgHidden } from '../spacecraft/rpg-visibility';
+import { isCloaked } from '../spacecraft/spacecraft-cloak';
+import { resolveColonyLocation } from './colony-location';
+import { RelationshipResolverService } from '../alliance/relationship-resolver.service';
 import { ShuttleService } from '../spacecraft/shuttle.service';
 import {
   BadRequestException,
@@ -125,6 +128,7 @@ export class ColonyOrbitService implements OnModuleInit {
     @Optional()
     private readonly messaging?: MessagingService,
     @Optional() private readonly shuttles?: ShuttleService,
+    @Optional() private readonly relationships?: RelationshipResolverService,
   ) {}
 
   onModuleInit(): void {
@@ -222,14 +226,11 @@ export class ColonyOrbitService implements OnModuleInit {
 
   async getManagement(colonyId: number, userId: number) {
     const colony = await this.ownership.findOwnedColony(colonyId, userId);
-    const ships = await this.shipRepo.find({
-      where: { userId },
-      relations: ['fleet', 'modules', 'location', 'location.systemField'],
-      order: { id: 'ASC' },
-    });
-    const orbitShips = ships.filter((ship) =>
-      !isRpgHidden(ship) && this.isShipInColonyOrbit(colony, ship),
-    );
+    const orbitShips = await this.orbitManagementShips(colony, userId, [
+      'fleet',
+      'user',
+      'modules',
+    ]);
     const shipIds = orbitShips.map((ship) => ship.id);
     const [cargo, assignments, torpedoes] = await Promise.all([
       shipIds.length
@@ -280,10 +281,35 @@ export class ColonyOrbitService implements OnModuleInit {
       },
       ships: orbitShips.map((ship) => {
         const profile = reactorFuelProfile(ship.modules ?? []);
+        const fleet = {
+          fleetId: ship.fleetId,
+          fleetName: ship.fleet?.name ?? null,
+          ownerName: ship.user?.username ?? null,
+        };
+        // STU shows foreign ships without crew, battery, reactor or cargo state.
+        if (ship.userId !== userId) {
+          return {
+            id: ship.id,
+            name: ship.name,
+            shipClassId: ship.shipClassId,
+            foreign: true,
+            ...fleet,
+            crew: null,
+            battery: { current: null, max: ship.batteryMax },
+            reactor: { fuel: { current: null, max: ship.reactorFuelMax }, profile },
+            torpedoes: null,
+            cargo: null,
+            shieldsActive: isShieldActive(ship),
+            hyperdriveActive: false,
+            orbitAssignment: null,
+          };
+        }
         return {
           id: ship.id,
           name: ship.name,
           shipClassId: ship.shipClassId,
+          foreign: false,
+          ...fleet,
           crew: {
             current: ship.crew,
             max: ship.crewMax,
@@ -296,9 +322,7 @@ export class ColonyOrbitService implements OnModuleInit {
           },
           torpedoes: torpedoesByShip.get(ship.id) ?? null,
           cargo: { used: usedByShip.get(ship.id) ?? 0, max: ship.cargoMax },
-          shieldsActive:
-            (ship.runtimeSystems as Record<string, { active?: boolean }>)
-              .SHIELDS?.active === true,
+          shieldsActive: isShieldActive(ship),
           hyperdriveActive:
             (ship.runtimeSystems as Record<string, { active?: boolean }>)
               .WARPDRIVE?.active === true,
@@ -369,10 +393,10 @@ export class ColonyOrbitService implements OnModuleInit {
     const results: ShipManagementResult[] = [];
     for (const request of requests ?? []) {
       const ship = await this.shipRepo.findOne({
-        where: { id: request.shipId, userId },
+        where: { id: request.shipId },
         relations: ['modules', 'location', 'location.systemField'],
       });
-      if (!ship || isRpgHidden(ship) || !this.isShipInColonyOrbit(colony, ship)) {
+      if (!ship || !this.isOrbitManagementShip(colony, ship, userId)) {
         results.push({
           shipId: request.shipId,
           applied: [],
@@ -380,14 +404,30 @@ export class ColonyOrbitService implements OnModuleInit {
         });
         continue;
       }
-      results.push(
-        await this.shipManagement.manage(
-          this.shipRepo.manager,
-          source,
-          ship,
-          request,
-        ),
+      const foreign = ship.userId !== userId;
+      // Target owner's view, as STU `isFriend($ship->getUser(), $manager->getUser())`.
+      const mayProvisionShielded =
+        foreign &&
+        (await this.relationships?.resolve(ship.userId, userId))
+          ?.mayProvisionProtectedShip === true;
+      const result = await this.shipManagement.manage(
+        this.shipRepo.manager,
+        source,
+        ship,
+        request,
+        foreign,
+        mayProvisionShielded,
       );
+      results.push(result);
+      if (foreign && result.applied.length > 0) {
+        await this.messaging?.sendSystem(
+          ship.userId,
+          'Versorgung im Orbit',
+          `Die Kolonie ${colony.name} versorgt die ${ship.name}: ${result.applied.join(', ')}`,
+          undefined,
+          MessageFolder.SHIP,
+        );
+      }
     }
     return { results };
   }
@@ -985,6 +1025,30 @@ export class ColonyOrbitService implements OnModuleInit {
     return matchesColonyOrbit(ship, colony);
   }
 
+  /** STU `getSpacecraftsWithoutCloak`: own ships plus uncloaked, intact foreign ones. */
+  private isOrbitManagementShip(colony: Colony, ship: Spacecraft, userId: number): boolean {
+    if (isRpgHidden(ship) || !this.isShipInColonyOrbit(colony, ship)) return false;
+    return (
+      ship.userId === userId ||
+      (!isCloaked(ship) && ship.status !== SpacecraftStatus.DESTROYED)
+    );
+  }
+
+  private async orbitManagementShips(
+    colony: Colony,
+    userId: number,
+    relations: string[],
+  ): Promise<Spacecraft[]> {
+    const location = resolveColonyLocation(colony);
+    if (!location) return [];
+    const ships = await this.shipRepo.find({
+      where: { location: { systemField: { starSystemId: location.systemId } } },
+      relations: [...relations, 'location', 'location.systemField'],
+      order: { id: 'ASC' },
+    });
+    return ships.filter((ship) => this.isOrbitManagementShip(colony, ship, userId));
+  }
+
   private getActiveBuildingFunctionIds(colony: Colony): number[] {
     return (colony.fields ?? [])
       .filter(
@@ -1030,4 +1094,11 @@ export class ColonyOrbitService implements OnModuleInit {
       where: { colonyId, commodityId },
     });
   }
+}
+
+function isShieldActive(ship: Spacecraft): boolean {
+  return (
+    (ship.runtimeSystems as Record<string, { active?: boolean }> | undefined)
+      ?.SHIELDS?.active === true
+  );
 }

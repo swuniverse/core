@@ -15,10 +15,15 @@ type ManagementData = {
     id: number;
     name: string;
     shipClassId: number;
-    crew: { current: number; max: number; minimum: number };
-    battery: { current: number; max: number };
+    /** Foreign ships take no crew changes and hide their state (STU). */
+    foreign?: boolean;
+    ownerName?: string | null;
+    fleetId?: number | null;
+    fleetName?: string | null;
+    crew: { current: number; max: number; minimum: number } | null;
+    battery: { current: number | null; max: number };
     reactor: {
-      fuel: { current: number; max: number };
+      fuel: { current: number | null; max: number };
       profile: {
         label: string;
         loadUnits: number;
@@ -26,7 +31,7 @@ type ManagementData = {
       };
     };
     torpedoes: { torpedoTypeId: number; amount: number } | null;
-    cargo: { used: number; max: number };
+    cargo: { used: number; max: number } | null;
     shieldsActive: boolean;
     hyperdriveActive: boolean;
     orbitAssignment?: 'DEFEND' | 'BLOCKADE' | null;
@@ -80,7 +85,7 @@ export function OrbitalManagementPanel({
               ship.id,
               {
                 selected: false,
-                targetCrew: ship.crew.current,
+                targetCrew: ship.crew?.current ?? 0,
                 batteryCharge: 0,
                 reactorLoad: 0,
                 torpedoLoad: 0,
@@ -140,7 +145,7 @@ export function OrbitalManagementPanel({
       .filter((ship) => values[ship.id]?.selected)
       .map((ship) => ({
         shipId: ship.id,
-        targetCrew: values[ship.id].targetCrew,
+        targetCrew: ownCrew(ship) ? values[ship.id].targetCrew : undefined,
         batteryCharge: values[ship.id].batteryCharge,
         reactorLoad: values[ship.id].reactorLoad,
         torpedoLoad: values[ship.id].torpedoLoad,
@@ -193,7 +198,20 @@ export function OrbitalManagementPanel({
             </tr>
           </thead>
           <tbody>
-            {data.ships.map((ship) => (
+            {groupShips(data.ships).flatMap(([label, ships]) => [
+              ...(label
+                ? [
+                    <tr key={`group-${label}`}>
+                      <td
+                        colSpan={6}
+                        className="border border-swu-border bg-black/30 p-1 font-bold text-swu-muted"
+                      >
+                        {label}
+                      </td>
+                    </tr>,
+                  ]
+                : []),
+              ...ships.map((ship) => (
               <tr key={ship.id}>
                 <td className="border border-swu-border p-1">
                   <input
@@ -212,11 +230,19 @@ export function OrbitalManagementPanel({
                   >
                     {ship.name}
                   </a>
-                  <div className="text-[10px] font-normal text-swu-muted">
-                    Fracht {ship.cargo.used}/{ship.cargo.max}
-                  </div>
+                  {ship.cargo && (
+                    <div className="text-[10px] font-normal text-swu-muted">
+                      Fracht {ship.cargo.used}/{ship.cargo.max}
+                    </div>
+                  )}
                 </td>
                 <td className="border border-swu-border p-1">
+                  {!ownCrew(ship) ? (
+                    <span className="text-[10px] text-swu-muted">
+                      Nur bei eigenen Schiffen
+                    </span>
+                  ) : (
+                  <>
                   <div className="mb-1 flex justify-between text-[10px] text-swu-muted">
                     <span>Crew</span>
                     <span className="font-mono">
@@ -253,12 +279,14 @@ export function OrbitalManagementPanel({
                       max
                     </button>
                   </div>
+                  </>
+                  )}
                 </td>
                 <td className="border border-swu-border p-1">
                   <div className="mb-2 flex justify-between text-[10px] text-swu-muted">
                     <span>Batterie</span>
                     <span className="font-mono text-swu-primary">
-                      {ship.battery.current}/{ship.battery.max}
+                      {ship.battery.current ?? '?'}/{ship.battery.max}
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
@@ -282,7 +310,7 @@ export function OrbitalManagementPanel({
                         updateValue(
                           ship.id,
                           'batteryCharge',
-                          ship.battery.max - ship.battery.current,
+                          ship.battery.max - (ship.battery.current ?? 0),
                         )
                       }
                       className="border border-swu-border px-1 text-[10px]"
@@ -293,7 +321,7 @@ export function OrbitalManagementPanel({
                 </td>
                 <td className="border border-swu-border p-1">
                   <div className="font-mono">
-                    {ship.reactor.fuel.current}/{ship.reactor.fuel.max}
+                    {ship.reactor.fuel.current ?? '?'}/{ship.reactor.fuel.max}
                   </div>
                   <div className="text-[10px] text-swu-muted">
                     {ship.reactor.profile.label} · +
@@ -318,7 +346,7 @@ export function OrbitalManagementPanel({
                         updateValue(
                           ship.id,
                           'reactorLoad',
-                          ship.reactor.fuel.max - ship.reactor.fuel.current,
+                          ship.reactor.fuel.max - (ship.reactor.fuel.current ?? 0),
                         )
                       }
                       className="ml-1 border border-swu-border px-1 text-[10px]"
@@ -383,7 +411,8 @@ export function OrbitalManagementPanel({
                   </button>
                 </td>
               </tr>
-            ))}
+              )),
+            ])}
             {data.ships.length === 0 && (
               <tr>
                 <td
@@ -427,3 +456,27 @@ export function OrbitalManagementPanel({
     </section>
   );
 }
+
+type ManagedShip = ManagementData['ships'][number];
+
+function ownCrew(ship: ManagedShip): ship is ManagedShip & { crew: NonNullable<ManagedShip['crew']> } {
+  return !ship.foreign && ship.crew != null;
+}
+
+/** STU management groups: fleet (or single ships) and owner; no headings without that data. */
+function groupShips(ships: ManagedShip[]): Array<[string, ManagedShip[]]> {
+  const groups = new Map<string, ManagedShip[]>();
+  for (const ship of ships) {
+    const fleet =
+      ship.fleetName ?? (ship.fleetId != null ? `Flotte #${ship.fleetId}` : 'Einzelschiffe');
+    const label =
+      ship.ownerName === undefined && ship.fleetName === undefined
+        ? ''
+        : ship.ownerName
+          ? `${fleet} von ${ship.ownerName}`
+          : fleet;
+    groups.set(label, [...(groups.get(label) ?? []), ship]);
+  }
+  return [...groups.entries()];
+}
+

@@ -6946,6 +6946,42 @@ describe('orbit dto blockers', () => {
   });
 });
 
+describe('foreign orbit ships (STU OrbitShipWrappersRetriever)', () => {
+  it('lists uncloaked foreign ships with owner and fleet, without their state', async () => {
+    const { service, colonyRepo, shipRepo, shipClassRepo, spacecraftModuleRepo } =
+      createColonyService();
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1, userId: 1, name: 'Orbit Test', ...orbitColonyLocation, starSystemId: 10,
+      celestialObjectId: 20, colonyClassId: 999, fields: [], storage: [],
+      stats: { workers: 0, workless: 0, maxStorage: 500, maxEnergy: 120, isBlockaded: false },
+    });
+    const foreign = (id: number, overrides = {}) => ({
+      id, userId: 2, name: `Fremd ${id}`, shipClassId: 1, ...orbitShipLocation, status: 'IDLE',
+      hull: 80, hullMax: 100, crew: 4, fleetId: 9, fleet: { id: 9, name: 'Rot' },
+      user: { id: 2, username: 'Rivale' }, runtimeSystems: {}, ...overrides,
+    });
+    shipRepo.find.mockImplementation(async (options: any) =>
+      typeof options?.where?.userId === 'number'
+        ? []
+        : [foreign(8), foreign(9, { runtimeSystems: { CLOAK: { active: true } } })],
+    );
+    spacecraftModuleRepo.find.mockResolvedValue([]);
+    Object.assign(shipClassRepo, {
+      findBy: jest.fn(async () => [{ id: 1, key: 'FRIGATE_KEY', name: 'Fregatte' }]),
+    });
+
+    const colony = (await service.findOne(1, 1)) as { detailV2?: Record<string, unknown> };
+    const detail = colony.detailV2 as { foreignOrbitShips?: Array<Record<string, unknown>> };
+
+    expect(detail.foreignOrbitShips).toEqual([
+      {
+        id: 8, name: 'Fremd 8', shipClassId: 1, shipClassKey: 'FRIGATE_KEY',
+        shipClassName: 'Fregatte', ownerId: 2, ownerName: 'Rivale', fleetId: 9, fleetName: 'Rot',
+      },
+    ]);
+  });
+});
+
 describe('colony projection upgrades', () => {
   it('projects FZ II upgrades only when the required research is completed', async () => {
     const { service, colonyRepo, unlockResolver } = createColonyService();

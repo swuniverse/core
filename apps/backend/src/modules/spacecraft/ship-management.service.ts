@@ -47,7 +47,9 @@ export class ShipManagementService {
 
   /**
    * Applies one request to a ship. `ship` must carry its `modules`.
-   * `foreign` ships (not owned by the source) take no crew changes.
+   * `foreign` ships (not owned by the source) take no crew changes; their
+   * battery and reactor load through active shields only for friends
+   * (`mayProvisionShielded`, STU `ManageBattery`/`ManageReactor`).
    */
   async manage(
     manager: EntityManager,
@@ -55,13 +57,14 @@ export class ShipManagementService {
     ship: Spacecraft,
     request: ShipManagementRequest,
     foreign = false,
+    mayProvisionShielded = false,
   ): Promise<ShipManagementResult> {
     const applied: string[] = [];
     const rejected: string[] = [];
     const steps: Array<() => Promise<void>> = [
       () => this.growCrew(source, ship, request, foreign, applied),
-      () => this.chargeBattery(source, ship, request, foreign, applied),
-      () => this.loadReactor(source, ship, request, foreign, applied),
+      () => this.chargeBattery(source, ship, request, foreign && !mayProvisionShielded, applied),
+      () => this.loadReactor(source, ship, request, foreign && !mayProvisionShielded, applied),
       () => this.shrinkCrew(source, ship, request, foreign, applied),
       () => this.loadTorpedoes(manager, source, ship, request, foreign, applied),
     ];
@@ -85,7 +88,13 @@ export class ShipManagementService {
     foreign: boolean,
     applied: string[],
   ) {
-    if (foreign || request.targetCrew == null) return;
+    if (request.targetCrew == null) return;
+    // STU `ManageCrew`: crew only on own ships.
+    if (foreign) {
+      if (Math.floor(request.targetCrew) !== ship.crew)
+        throw new BadRequestException('Crew nur bei eigenen Schiffen');
+      return;
+    }
     const amount = Math.max(0, Math.floor(request.targetCrew) - ship.crew);
     if (!amount) return;
     if (ship.status === 'UNDER_SCRAPPING')

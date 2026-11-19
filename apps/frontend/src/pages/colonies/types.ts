@@ -371,6 +371,18 @@ export interface ColonyDetailV2 {
     progress: number;
   }>;
   effects: Array<{ label: string; value: number; source: string }>;
+  /** Uncloaked foreign ships in orbit, public data only (STU). */
+  foreignOrbitShips?: Array<{
+    id: number;
+    name: string;
+    shipClassId: number;
+    shipClassKey: string | null;
+    shipClassName: string;
+    ownerId: number;
+    ownerName: string | null;
+    fleetId: number | null;
+    fleetName: string | null;
+  }>;
   orbitShips: Array<{
     id: number;
     name: string;

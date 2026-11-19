@@ -57,6 +57,7 @@ import { PlanetField } from '../starmap/entities/planet-field.entity';
 import { StarmapModule } from '../starmap/starmap.module';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { SpacecraftModule as SpacecraftFeatureModule } from '../spacecraft/spacecraft.module';
+import { AllianceModule } from '../alliance/alliance.module';
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
 import { SpacecraftTorpedoStorage } from '../spacecraft/entities/spacecraft-torpedo-storage.entity';
 import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
@@ -110,6 +111,7 @@ import { Layer } from '../starmap/entities/layer.entity';
     StarmapModule,
     AnomalyModule,
     forwardRef(() => SpacecraftFeatureModule),
+    forwardRef(() => AllianceModule),
   ],
   controllers: [ColonySandboxController, ColonyController, SpacecraftOrbitOrderController],
   providers: [

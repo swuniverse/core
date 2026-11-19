@@ -124,6 +124,7 @@ export function PanelInfo({
           {...orbitProps}
           colonyId={colony.id}
           orbitShips={detail?.orbitShips ?? []}
+          foreignOrbitShips={detail?.foreignOrbitShips ?? []}
           compact
           showHeading={false}
           showManagementButton={false}

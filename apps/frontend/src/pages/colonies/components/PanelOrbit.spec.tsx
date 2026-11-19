@@ -8,7 +8,7 @@ vi.mock('../../../components/spacecraft/TransferDialog', () => ({
   ),
 }));
 
-function renderPanel() {
+function renderPanel(foreignOrbitShips: Parameters<typeof PanelOrbit>[0]['foreignOrbitShips'] = []) {
   render(
     <MemoryRouter>
       <PanelOrbit
@@ -35,6 +35,7 @@ function renderPanel() {
             canLand: true,
           },
         ]}
+        foreignOrbitShips={foreignOrbitShips}
         commodityMap={{}}
         onDisassembleShip={vi.fn()}
         onDefendShip={vi.fn()}
@@ -77,3 +78,38 @@ describe('PanelOrbit landing', () => {
     expect(screen.getAllByText('Hyperantrieb')).toHaveLength(2);
   });
 });
+
+describe('PanelOrbit foreign ships (STU OrbitShipWrappersRetriever)', () => {
+  const rival = {
+    id: 8,
+    name: 'Nemesis',
+    shipClassId: 2,
+    shipClassKey: null,
+    shipClassName: 'Korvette',
+    ownerId: 2,
+    ownerName: 'Rivale',
+    fleetId: 9,
+    fleetName: 'Rot',
+  };
+
+  it('groups foreign ships by fleet with their owner and hides their state', () => {
+    renderPanel([rival]);
+    fireEvent.click(screen.getByRole('button', { name: 'Schiffe auswählen' }));
+    expect(screen.getByText('Rot von Rivale')).toBeTruthy();
+    expect(screen.getByText('Nemesis')).toBeTruthy();
+    expect(screen.getByText('Korvette')).toBeTruthy();
+    // Only the own ship shows hull and shields.
+    expect(screen.getAllByText('Hülle')).toHaveLength(2);
+  });
+
+  it('blocks beaming once a foreign ship is selected', () => {
+    renderPanel([rival]);
+    fireEvent.click(screen.getByRole('button', { name: 'Schiffe auswählen' }));
+    fireEvent.click(screen.getByText('Nemesis').closest('button')!);
+    const unload = screen.getByRole('button', { name: 'Entladen' });
+    expect((unload as HTMLButtonElement).disabled).toBe(true);
+    expect(unload.getAttribute('title')).toContain('fremden Schiffen');
+    expect((screen.getByRole('button', { name: 'Verladen' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+

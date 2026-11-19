@@ -1,8 +1,10 @@
+import { isRpgHidden } from '../spacecraft/rpg-visibility';
+import { isCloaked } from '../spacecraft/spacecraft-cloak';
 import { isSwuBonusMarkerUsable } from '../starmap/generator/swu-bonus-markers';
 import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { ColonyTimingService } from './colony-timing.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import {
   COLONIZER_LIMIT_MESSAGE,
@@ -486,6 +488,28 @@ export class ColonyProjectionService {
           })
         ).filter((ship) => matchesColonyOrbit(ship, colony))
       : [];
+    // STU `OrbitShipWrappersRetriever`: uncloaked foreign ships, public data only.
+    const foreignOrbitShips = colonyLocation
+      ? (
+          await this.shipRepo.find({
+            where: {
+              userId: Not(userId),
+              status: Not(SpacecraftStatus.DESTROYED),
+              location: {
+                systemField: { starSystemId: colonyLocation.systemId },
+              },
+            },
+            relations: ['fleet', 'user', 'location', 'location.systemField'],
+            order: { id: 'ASC' },
+          })
+        ).filter(
+          (ship) =>
+            ship.userId !== userId &&
+            matchesColonyOrbit(ship, colony) &&
+            !isCloaked(ship) &&
+            !isRpgHidden(ship),
+        )
+      : [];
     // The policy sees a fleet's order at any colony, exactly like the mutation.
     const orbitFleetIds = [
       ...new Set(
@@ -538,7 +562,9 @@ export class ColonyProjectionService {
       cargoByShipId.set(cargoItem.spacecraftId, cargo);
     }
     const orbitShipClassIds = [
-      ...new Set(orbitShips.map((ship) => ship.shipClassId)),
+      ...new Set(
+        [...orbitShips, ...foreignOrbitShips].map((ship) => ship.shipClassId),
+      ),
     ];
     const orbitShipClasses = orbitShipClassIds.length
       ? await this.shipClassRepo.findBy({ id: In(orbitShipClassIds) })
@@ -951,6 +977,21 @@ export class ColonyProjectionService {
             };
           }),
         effects: this.buildEffectSummary(summary),
+        foreignOrbitShips: foreignOrbitShips.map((ship) => {
+          const shipClass = orbitShipClassMap.get(ship.shipClassId);
+          return {
+            id: ship.id,
+            name: ship.name,
+            shipClassId: ship.shipClassId,
+            shipClassKey: shipClass?.key ?? null,
+            shipClassName:
+              shipClass?.name ?? `Schiffsklasse #${ship.shipClassId}`,
+            ownerId: ship.userId,
+            ownerName: ship.user?.username ?? null,
+            fleetId: ship.fleetId,
+            fleetName: ship.fleet?.name ?? null,
+          };
+        }),
         orbitShips: orbitShips.map((ship) => {
           const shipClass = orbitShipClassMap.get(ship.shipClassId);
           const canManage = this.colonyOrbitService.canManageOrbitShip(
@@ -1106,7 +1147,9 @@ export class ColonyProjectionService {
             shuttleStored,
             orbitGroup: ship.fleetId != null ? 'FLEET' : 'SINGLE',
             orbitGroupLabel:
-              ship.fleetId != null ? `Flotte #${ship.fleetId}` : 'Einzelschiff',
+              ship.fleetId != null
+                ? (ship.fleet?.name ?? `Flotte #${ship.fleetId}`)
+                : 'Einzelschiff',
             fleetId: ship.fleetId,
             actionBlockers: {
               defend: defendDecision.reason,
