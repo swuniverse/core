@@ -161,6 +161,26 @@ describe('Colony fabrication batch (PostgreSQL)', () => {
     expect(await source.getRepository(ColonyFabricationQueue).count()).toBe(0);
   });
 
+  it('rolls back instead of reporting a rejected item when stock fails after the clamp', async () => {
+    const storage = (service as unknown as { colonyStorageService: { lowerStorage: (...args: unknown[]) => Promise<number> } })
+      .colonyStorageService;
+    const real = storage.lowerStorage.bind(storage);
+    const spy = jest
+      .spyOn(storage, 'lowerStorage')
+      .mockImplementationOnce(real)
+      .mockRejectedValueOnce(new BadRequestException('Not enough resources in colony storage'));
+    await expect(
+      service.queueFabricationBatch(colonyId, ownerId, FN, [
+        { itemKey: 'a', amount: 1 },
+        { itemKey: 'b', amount: 1 },
+      ]),
+    ).rejects.toThrow('Not enough resources in colony storage');
+    spy.mockRestore();
+    expect(await stock()).toBe(25);
+    expect(await energy()).toBe(100);
+    expect(await source.getRepository(ColonyFabricationQueue).count()).toBe(0);
+  });
+
   it('rejects the whole request when the building is not active', async () => {
     await source
       .getRepository(ColonyField)

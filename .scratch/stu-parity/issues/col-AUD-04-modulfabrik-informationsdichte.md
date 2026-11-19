@@ -1,6 +1,6 @@
 # Modulfabrik mit STU-Informationsdichte (Bedarfsfilter, Accountbestand, Sammelbestellung)
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -26,14 +26,14 @@ In der SWU-Modulfabrik startet man jedes Modul einzeln und sieht nur das lokale 
 
 ## Akzeptanzkriterien
 
-- [ ] Filter „Rumpf“ und „Bauplan“ wie STU: Bei gewähltem Rumpf bzw. Bauplan werden nur passende Module gezeigt, je Modul mit „(Benötigt: n)“ aus dem Bauplan.
-- [ ] Je Modul zeigt die Spalte „Lagernd“ den accountweiten Bestand. Ein Klick öffnet die Lagerorte (`CommodityLocationsDialog`). Der lokale Bestand bleibt erkennbar.
-- [ ] Mengen lassen sich für mehrere Module eintragen und mit einem Knopf „Modulherstellung“ bestellen. Das Backend nimmt die Sammelbestellung in einer Transaktion an. Teilergebnisse meldet es je Modul wie STU `CreateModules` (welche Module, wie viele, wo es scheiterte).
-- [ ] Vor dem Absenden zeigt eine Vorschau die Gesamtkosten (Waren, Energie) und die Fehlmengen je Ware.
-- [ ] Die Entwickler-Metadaten („STU: rawName · Tech … · Bundle …“) erscheinen nicht mehr.
-- [ ] Torpedo- und Komponentenfertigung im selben Panel funktionieren weiter.
-- [ ] Backend-Tests: Sammelbestellung (alles ok, teilweise Mangel, EPS-Mangel), Bedarfszahlen je Bauplan, accountweiter Bestand.
-- [ ] Frontend-Tests `PanelFabrication.spec.tsx`: Filter mit „Benötigt“, Vorschau mit Fehlmengen, Sammelknopf, keine Metadaten.
+- [x] Filter „Rumpf“ und „Bauplan“ wie STU: Bei gewähltem Rumpf bzw. Bauplan werden nur passende Module gezeigt, je Modul mit „(Benötigt: n)“ aus dem Bauplan.
+- [x] Je Modul zeigt die Spalte „Lagernd“ den accountweiten Bestand. Ein Klick öffnet die Lagerorte (`CommodityLocationsDialog`). Der lokale Bestand bleibt erkennbar.
+- [x] Mengen lassen sich für mehrere Module eintragen und mit einem Knopf „Modulherstellung“ bestellen. Das Backend nimmt die Sammelbestellung in einer Transaktion an. Teilergebnisse meldet es je Modul wie STU `CreateModules` (welche Module, wie viele, wo es scheiterte).
+- [x] Vor dem Absenden zeigt eine Vorschau die Gesamtkosten (Waren, Energie) und die Fehlmengen je Ware.
+- [x] Die Entwickler-Metadaten („STU: rawName · Tech … · Bundle …“) erscheinen nicht mehr.
+- [x] Torpedo- und Komponentenfertigung im selben Panel funktionieren weiter.
+- [x] Backend-Tests: Sammelbestellung (alles ok, teilweise Mangel, EPS-Mangel), Bedarfszahlen je Bauplan, accountweiter Bestand.
+- [x] Frontend-Tests `PanelFabrication.spec.tsx`: Filter mit „Benötigt“, Vorschau mit Fehlmengen, Sammelknopf, keine Metadaten.
 
 ## Herkunft
 
@@ -45,3 +45,11 @@ In der SWU-Modulfabrik startet man jedes Modul einzeln und sieht nur das lokale 
 ## Comments
 
 - 2026-11-17: Aus dem Audit angelegt.
+- 2026-11-19 – umgesetzt, Prüfung ausstehend. Umsetzung an Sonnet-Agent delegiert (Transaktions- und Kürzungsregeln vom Planer vorgegeben), Review durch Opus 5.5. Commits `5067d0b9` und „fix(colony): roll back a module batch when stock fails after the clamp (col-AUD-04)“.
+  - `POST colonies/:id/fabrication-queue/batch` (1–50 Positionen): eine Transaktion mit gesperrter Kolonie; je Modul nacheinander der bestehende `queueFabrication` (optionaler `manager`) auf demselben Kolonieobjekt, also dieselbe STU-Kürzung wie beim Einzelstart. Ungültige Module werden je Modul gemeldet, inaktives Gebäude lehnt alles ab, unerwartete Fehler rollen alles zurück.
+  - Review-Befund behoben: `BadRequestException` aus `lowerStorage`/`deductColonyEnergy` nach der Kürzung wurde als abgelehntes Modul geschluckt und hätte einen Teilabzug committet; im Batch wird daraus jetzt ein Serverfehler mit Rollback (PostgreSQL-Test).
+  - `GET colonies/:id/commodity-totals?ids=` liefert den accountweiten Bestand (eigene Kolonielager + eigene Schiffsfracht, eigentümergeprüft, max. 500 IDs), einmal je Panel geladen; Anzeige „Lagernd: gesamt (lokal x)“ mit Klick auf die Lagerorte.
+  - Bauplan-/Rumpffilter mit „(Benötigt: n)“ aus bereits geladenen Bauplänen und Rumpfslots, kein Zusatzendpunkt; bei aktivem Filter nur Module. Vorschau mit Gesamtkosten und Fehlmengen je Ware/Energie (lokales Lager, ohne Bestellreihenfolge). Entwickler-Metadaten entfernt; Torpedo-/Komponentenfertigung unverändert.
+  - Checks: PostgreSQL `colony-fabrication-batch` 5/5 (Kürzung über zwei Module, EPS-Mangel, Rollback, Rollback nach Kürzung, inaktives Gebäude), Jest 245/245, Vitest `src/pages/colonies` 127/127, `tsc` sauber, `nx lint backend/frontend` 0 Fehler.
+  - Nicht getestet: DTO-Grenzen (50 Positionen, positive Ganzzahlen). Offen für den Prüfpass: Browserprüfung, gemeinsamer Build.
+

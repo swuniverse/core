@@ -1,4 +1,5 @@
 import {
+  InternalServerErrorException,
   BadRequestException,
   Injectable,
   NotFoundException,
@@ -138,17 +139,26 @@ export class ColonyFabricationService {
       return { queue: null, requested: amount, accepted: 0, message };
     }
 
-    for (const cost of item.costs) {
-      await this.colonyStorageService.lowerStorage(
-        colony,
-        cost.commodityId,
-        cost.amount * accepted,
-        manager,
-      );
-    }
     const energyCost = (item.energyCost ?? 0) * accepted;
-    if (energyCost > 0) {
-      deductColonyEnergy(colony, energyCost);
+    try {
+      for (const cost of item.costs) {
+        await this.colonyStorageService.lowerStorage(
+          colony,
+          cost.commodityId,
+          cost.amount * accepted,
+          manager,
+        );
+      }
+      if (energyCost > 0) {
+        deductColonyEnergy(colony, energyCost);
+      }
+    } catch (error) {
+      // After the clamp a shortage means inconsistent stock; in a batch it must
+      // roll the whole order back instead of being reported as one rejected item.
+      if (manager && error instanceof BadRequestException) {
+        throw new InternalServerErrorException(error.message);
+      }
+      throw error;
     }
     await colonyRepo.save(colony);
 
