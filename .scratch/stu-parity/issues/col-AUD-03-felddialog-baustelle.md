@@ -49,4 +49,4 @@ Für eine Baustelle zeigt der SWU-Felddialog nur „IM BAU“. Fertigstellungsze
   - Restfenster (wie STU): Liest der Abschluss das Feld unmittelbar vor dem Umschalten, gilt für dieses Gebäude noch der alte Wert, obwohl die Anfrage erfolgreich war.
   - Checks: Jest `colony-tick` 241/241, Vitest `src/pages/colonies` 122/122, `tsc` sauber, `nx lint frontend` 0 Fehler (die 3 vom Agenten gemeldeten Fehler waren ein Aufruf ohne Projektkonfiguration). Kein PostgreSQL-Test für das bedingte Update (keine passende Suite für den Kolonie-Bau).
   - Offen für den Prüfpass: Browserprüfung (Dialog, Umschalten, Overlay), gemeinsamer Build; Fortschritt bewegt sich nur beim Neuladen.
-
+- 2026-11-19 – Prüfpass (Opus 5.5): Diff bei der Übergabe geprüft, kein weiterer Befund. Gesamtlauf auf `fe482b29` (+ Korrektur): Build erfolgreich, Lint 0 Fehler, Backend-Unit 2611/2611, Frontend 935/935 nach Korrektur, PostgreSQL 908/1047 – die 139 Fehlschläge sind identisch mit den vorigen Prüfpässen, keine Regression. Offen: Browserprüfung – Felddialog Baustelle, Umschalten, Overlay. Status bleibt `claimed`.

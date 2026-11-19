@@ -44,4 +44,4 @@ Die Rumpfkacheln der SWU-Werft zeigen kein Rumpfbild, keinen Typ, nicht „Im Ei
   - Alle englischen Texte im Werft-Panel übersetzt, darüber hinaus „Buildplan“→„Bauplan“, „Retrofit“→„Umrüstung“ (auch der Standardname neuer Umrüstungspläne), „Ressourcen-only“→„Reine Ressourcenrümpfe“. Zähler als Text statt STU-Icons.
   - Checks: Jest `colony-shipyard colony-tick` 243/243, Vitest `src/pages/colonies` 128/128, `tsc` sauber, `nx lint` 0 Fehler, PostgreSQL `shipbuilding-workflow` 21/21.
   - Offen für den Prüfpass: Browserprüfung der Kacheln, gemeinsamer Build.
-
+- 2026-11-19 – Prüfpass (Opus 5.5): `app.spec.tsx` erwartete noch den alten Standardnamen „Buildplan“ (Agent hatte nur `src/pages/colonies` geprüft); angepasst. Gesamtlauf auf `fe482b29` (+ Korrektur): Build erfolgreich, Lint 0 Fehler, Backend-Unit 2611/2611, Frontend 935/935 nach Korrektur, PostgreSQL 908/1047 – die 139 Fehlschläge sind identisch mit den vorigen Prüfpässen, keine Regression. Offen: Browserprüfung – Rumpfkacheln mit Bild, Typ, Zählern; deutsche Texte. Status bleibt `claimed`.
