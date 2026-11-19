@@ -1,6 +1,6 @@
 # Hangar wie STU: ein Kolonieschiff, Rumpfbau stückweise
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -24,11 +24,11 @@ STU verbietet den Start eines Kolonieschiffs aus dem Hangar, wenn der Spieler sc
 
 ## Akzeptanzkriterien
 
-- [ ] `startHangarShip` lehnt den Start eines Kolonieschiffs ab, wenn der Spieler bereits ein nicht zerstörtes Kolonieschiff besitzt. Die Prüfung nutzt dieselbe Funktion wie der Werftbau.
-- [ ] Der Hangar-Rumpfbau baut bis zur gewünschten Menge Stück für Stück, solange Energie und Waren reichen. Werden weniger gebaut als bestellt, meldet er „Es wurden daher nur n Stück gebaut“. Bei 0 Stück lehnt er mit Grund ab.
-- [ ] `PanelHangar` zeigt die Meldung und den Grund für ein gesperrtes Kolonieschiff.
-- [ ] Backend-Tests: Limit (mit/ohne vorhandenes Kolonieschiff), Teilbau bei knapper Energie, Teilbau bei knappen Waren.
-- [ ] Frontend-Test `PanelHangar.spec.tsx`: Teilbau-Meldung, Sperrhinweis.
+- [x] `startHangarShip` lehnt den Start eines Kolonieschiffs ab, wenn der Spieler bereits ein nicht zerstörtes Kolonieschiff besitzt. Die Prüfung nutzt dieselbe Funktion wie der Werftbau.
+- [x] Der Hangar-Rumpfbau baut bis zur gewünschten Menge Stück für Stück, solange Energie und Waren reichen. Werden weniger gebaut als bestellt, meldet er „Es wurden daher nur n Stück gebaut“. Bei 0 Stück lehnt er mit Grund ab.
+- [x] `PanelHangar` zeigt die Meldung und den Grund für ein gesperrtes Kolonieschiff.
+- [x] Backend-Tests: Limit (mit/ohne vorhandenes Kolonieschiff), Teilbau bei knapper Energie, Teilbau bei knappen Waren.
+- [x] Frontend-Test `PanelHangar.spec.tsx`: Teilbau-Meldung, Sperrhinweis.
 
 ## Herkunft
 
@@ -39,3 +39,10 @@ STU verbietet den Start eines Kolonieschiffs aus dem Hangar, wenn der Spieler sc
 ## Comments
 
 - 2026-11-17: Aus dem Audit angelegt. Startwerte je Hangar-Rumpf in col-AUD-10b.
+- 2026-11-19 – umgesetzt, Prüfung ausstehend. Umsetzung an Sonnet-Agent delegiert, Review durch Opus 5.5. Commits `4e88c4a7` und „fix(colony): German hangar and colonizer messages (col-AUD-10a)“.
+  - Kolonieschiff-Limit als gemeinsame Funktion `ownsOperationalColonizer` (aus `ShipbuildingCoreService.startBuild` herausgezogen), genutzt von Werftbau, `startHangarShip` und der Hangar-Ansicht (`startLockReason`, eine Abfrage je Ansicht).
+  - Hangar-Rumpfbau stückweise wie STU `BuildAirfieldRump`: min(Bestellung, EPS/Kosten, Bestand/Kosten je Ware); Abbuchung nur für gebaute Stücke; Meldung „Es wurden daher nur n Stück gebaut“, bei 0 Ablehnung mit Grund ohne Änderung. Wie bisher ohne Transaktion (unverändert).
+  - Review-Befund behoben: Sperrgrund und Hangar-Gründe waren englisch und erscheinen im Panel; jetzt STU-Wortlaut „Es kann nur ein Schiff mit Kolonisierungsfunktion genutzt werden“ und „Nicht genug Energie/<Ware>: benötigt X, vorhanden Y“ (betrifft auch die Werftmeldung). Andere englische Energietexte im Koloniecode bleiben außerhalb dieses Tickets.
+  - Checks: Jest `colony shipbuilding hangar` 450/450, Vitest `src/pages/colonies` 136/136, `nx typecheck backend/frontend` grün, `nx lint` 0 Fehler, PostgreSQL `shipbuilding-workflow` 21/21.
+  - Offen für den Prüfpass: Browserprüfung Hangar, gemeinsamer Build.
+

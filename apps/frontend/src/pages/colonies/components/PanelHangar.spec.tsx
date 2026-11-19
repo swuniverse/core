@@ -139,7 +139,7 @@ describe('PanelHangar STU costs', () => {
   });
 
   it('locks starting a colony ship and shows the reason', () => {
-    const reason = 'Only one operational colonization ship is allowed';
+    const reason = 'Es kann nur ein Schiff mit Kolonisierungsfunktion genutzt werden';
     render(
       <PanelHangar
         hangar={{

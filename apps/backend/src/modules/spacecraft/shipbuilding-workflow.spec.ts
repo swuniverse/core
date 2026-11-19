@@ -246,7 +246,7 @@ describe('source-neutral shipbuilding workflow', () => {
         { userId: 2, shipClassId: 4, name: 'Second' },
         f.adapter,
       ),
-    ).rejects.toThrow('Only one operational');
+    ).rejects.toThrow('Es kann nur ein Schiff mit Kolonisierungsfunktion');
     expect(f.cargo()).toBe(4);
     f.rows().Spacecraft[0].status = 'DESTROYED';
     await expect(

@@ -1163,7 +1163,7 @@ export class ColonyService {
       limit(
         Math.floor(changeable.energy / hangarDef.buildEnergyCost),
         () =>
-          `Not enough energy: need ${hangarDef.buildEnergyCost}, have ${changeable.energy}`,
+          `Nicht genug Energie: benötigt ${hangarDef.buildEnergyCost}, vorhanden ${changeable.energy}`,
       );
     }
     for (const cost of unitCosts) {
@@ -1175,7 +1175,7 @@ export class ColonyService {
       limit(
         Math.floor(available / cost.amount),
         () =>
-          `Not enough ${this.gameData.getCommodity(cost.commodityId)?.name ?? `resource #${cost.commodityId}`}: need ${cost.amount}, have ${available}`,
+          `Nicht genug ${this.gameData.getCommodity(cost.commodityId)?.name ?? `Ware #${cost.commodityId}`}: benötigt ${cost.amount}, vorhanden ${available}`,
       );
     }
     if (built <= 0) throw new BadRequestException(shortage);
@@ -1233,7 +1233,7 @@ export class ColonyService {
     const changeable = getColonyChangeable(colony);
     if (changeable.energy < hangarDef.startEnergyCost) {
       throw new BadRequestException(
-        `Not enough energy: need ${hangarDef.startEnergyCost}, have ${changeable.energy}`,
+        `Nicht genug Energie: benötigt ${hangarDef.startEnergyCost}, vorhanden ${changeable.energy}`,
       );
     }
     const crewRequired = hangarDef.crewRequired;

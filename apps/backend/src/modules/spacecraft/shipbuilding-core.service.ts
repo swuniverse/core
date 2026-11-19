@@ -104,7 +104,7 @@ export type ShipbuildingCompletionHandler = (
 ) => Promise<void>;
 
 export const COLONIZER_LIMIT_MESSAGE =
-  'Only one operational colonization ship is allowed';
+  'Es kann nur ein Schiff mit Kolonisierungsfunktion genutzt werden';
 
 /** Shared by shipyard build and hangar start: a player may own one non-destroyed colony ship. */
 export async function ownsOperationalColonizer(

@@ -9237,14 +9237,14 @@ describe('airfield hangar loop', () => {
     it('rejects with the reason and changes nothing when zero can be built', async () => {
       const { service, colony, storage } = rumpSetup(50, goods(4));
       await expect(service.buildAirfieldRump(1, 1, 1, 2)).rejects.toThrow(
-        'Not enough energy',
+        'Nicht genug Energie',
       );
       expect(colony.energy).toBe(50);
       expect(storage[10201].amount).toBe(4);
       const goodsShort = rumpSetup(500, { ...goods(4), 10301: 0 });
       await expect(
         goodsShort.service.buildAirfieldRump(1, 1, 1, 2),
-      ).rejects.toThrow('Not enough');
+      ).rejects.toThrow('Nicht genug');
       expect(goodsShort.colony.energy).toBe(500);
     });
 
@@ -9272,7 +9272,7 @@ describe('airfield hangar loop', () => {
     it('rejects starting a colony ship while the player owns one', async () => {
       const { service, storage, shipRepo } = await startColonizer(1);
       await expect(service.startHangarShip(1, 1, 1, 'Second')).rejects.toThrow(
-        'Only one operational colonization ship is allowed',
+        'Es kann nur ein Schiff mit Kolonisierungsfunktion genutzt werden',
       );
       expect(storage[21401].amount).toBe(1);
       const where = (shipRepo.count.mock.calls[0] as any[])[0].where;
@@ -9296,7 +9296,7 @@ describe('airfield hangar loop', () => {
     storageRepo.findOne.mockResolvedValue(null);
 
     await expect(service.buildAirfieldRump(1, 1, 1, 1)).rejects.toThrow(
-      'Not enough',
+      'Nicht genug',
     );
   });
 

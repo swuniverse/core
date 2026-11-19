@@ -732,7 +732,7 @@ describe('shipbuilding workflow (Nest + PostgreSQL)', () => {
         user.id,
         { shipClassId: hull.id, name: 'Third' },
       ),
-    ).rejects.toThrow('Only one operational');
+    ).rejects.toThrow('Es kann nur ein Schiff mit Kolonisierungsfunktion');
   });
 
   it('finishes an existing station build while admitting the next one without a player/source foreign-key deadlock', async () => {
