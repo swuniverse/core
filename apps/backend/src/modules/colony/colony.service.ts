@@ -1,5 +1,6 @@
 import { ShuttleService } from '../spacecraft/shuttle.service';
 import { FlightSignatureService } from '../spacecraft/flight-signature.service';
+import { ColonyTimingService } from './colony-timing.service';
 import {
   Injectable,
   Optional,
@@ -140,6 +141,7 @@ export class ColonyService {
     private readonly colonyTickProcessorService: ColonyTickProcessorService,
     @Optional() private readonly shuttles?: ShuttleService,
     @Optional() private readonly flightSignatures?: FlightSignatureService,
+    @Optional() private readonly timing?: ColonyTimingService,
   ) {}
 
   giveUpColony(colonyId: number, userId: number, confirmation: string) {
@@ -295,11 +297,24 @@ export class ColonyService {
       const terraformingJobs = (colony.fields ?? []).flatMap((f) => {
         const id = f.terraformingId;
         if (!id) return [];
+        const terraforming = this.gameData.getTerraforming(id);
+        // No start time is stored; it is the finish time minus the scaled duration.
+        const total =
+          terraforming && this.timing
+            ? this.timing.scaleBuildTimeSeconds(terraforming.duration) * 1000
+            : null;
+        const remaining = f.terraformingFinishesAt
+          ? f.terraformingFinishesAt.getTime() - Date.now()
+          : null;
         return [
           {
             fieldIndex: f.fieldIndex,
-            name: this.gameData.getTerraforming(id)?.description ?? id,
+            name: terraforming?.description ?? id,
             finishesAt: f.terraformingFinishesAt?.toISOString() ?? null,
+            progress:
+              total && remaining != null
+                ? Math.min(100, Math.max(0, Math.round((1 - remaining / total) * 100)))
+                : null,
           },
         ];
       });

@@ -796,6 +796,8 @@ export interface Colony {
     fieldIndex: number;
     name: string;
     finishesAt: string | null;
+    /** 0–100; null when the duration is unknown. */
+    progress?: number | null;
   }>;
   moduleJobs?: Array<{ name: string; amount: number }>;
   activeBuildJobs?: Array<{

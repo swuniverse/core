@@ -352,6 +352,12 @@ export function ColonyOverview({
                     <span className="text-swu-primary font-medium">
                       {job.name}
                     </span>
+                    {job.progress != null && (
+                      <span className="inline-flex items-center gap-1">
+                        {statusBar(job.progress, 100, 'bg-swu-accent')}
+                        <span className="font-mono">{job.progress} %</span>
+                      </span>
+                    )}
                     {job.finishesAt && (
                       <span className="text-swu-muted ml-auto">
                         {formatJobTime(job.finishesAt)}

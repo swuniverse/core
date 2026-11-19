@@ -10381,11 +10381,34 @@ describe('findAllByUser colony list values (col-AUD-02a)', () => {
       { commodityId: 4, amount: -2, rounds: 25 },
     ]);
     expect(result[0].terraformingJobs).toEqual([
-      { fieldIndex: 7, name: 'Wueste zu Wiese', finishesAt: '2026-11-20T10:00:00.000Z' },
+      // Without a timing service the duration is unknown.
+      { fieldIndex: 7, name: 'Wueste zu Wiese', finishesAt: '2026-11-20T10:00:00.000Z', progress: null },
     ]);
     expect(result[0].moduleJobs).toEqual([{ name: 'Huelle Mk1', amount: 3 }]);
     expect(result[1].terraformingJobs).toEqual([]);
     expect(result[1].moduleJobs).toEqual([]);
     expect(fabricationQueueRepo.find).toHaveBeenCalledTimes(1);
+  });
+
+  it('derives terraforming progress from the finish time and the scaled duration (col-AUD-02b)', async () => {
+    const { service, colonyRepo, colonyCrewService, fabricationQueueRepo, gameData } = createColonyService();
+    gameData.getTerraforming.mockReturnValue({ description: 'Wueste zu Wiese', duration: 1800 });
+    // Build time multiplier 2: 1800 s become 60 min; 15 min remain → 75 %.
+    Object.assign(service, { timing: { scaleBuildTimeSeconds: (seconds: number) => seconds * 2 } });
+    colonyRepo.find.mockResolvedValue([
+      {
+        ...listColony(1, null),
+        fields: [
+          { fieldIndex: 7, terraformingId: 'T1', terraformingFinishesAt: new Date(Date.now() + 15 * 60_000) },
+        ],
+      },
+    ]);
+    (colonyCrewService.getCrewCountsByColonyIds as jest.Mock).mockResolvedValue(new Map());
+    fabricationQueueRepo.find.mockResolvedValue([]);
+    jest.spyOn(service, 'calculatePopulationGrowth').mockReturnValue(0);
+
+    const [colony]: any[] = await service.findAllByUser(1);
+
+    expect(colony.terraformingJobs[0].progress).toBe(75);
   });
 });

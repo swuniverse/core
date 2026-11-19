@@ -1,6 +1,6 @@
 # Kolonieliste: Warenverbrauch, Terraforming, Modulproduktion, Aktivierungshinweis
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -26,13 +26,13 @@ Unter der Kolonieliste zeigt STU Waren mit negativer Bilanz samt Reichweite „(
 
 ## Akzeptanzkriterien
 
-- [ ] Je Kolonie listet die Übersicht die Waren mit negativer Bilanz: Ware, Verbrauch je Tick und „(x Runden)“ = `floor(Lagerbestand / |Bilanz|)` wie STU `CommodityConsumption`.
-- [ ] Block „Aktuelle Terraformingvorgänge“: Kolonie, Feld, Vorgang, Fertigstellung, Fortschritt. Er fehlt, wenn nichts läuft.
-- [ ] Block „Modulproduktion“: Kolonie, Modul, Menge, Fertigstellung. Er fehlt, wenn nichts läuft.
-- [ ] Bauvorgänge zeigen „wird nach dem Bau aktiviert“ bzw. „deaktiviert“ anhand von `activateAfterBuild`.
-- [ ] Die Daten werden gesammelt für alle Kolonien des Spielers geladen (keine N+1-Abfragen).
-- [ ] Backend-Test: Reichweitenberechnung (inkl. Bestand 0 und positiver Bilanz), Terraforming- und Modulliste.
-- [ ] Frontend-Test `ColonyOverview.spec.tsx`: alle drei Blöcke und der Aktivierungshinweis, leere Blöcke ausgeblendet.
+- [x] Je Kolonie listet die Übersicht die Waren mit negativer Bilanz: Ware, Verbrauch je Tick und „(x Runden)“ = `floor(Lagerbestand / |Bilanz|)` wie STU `CommodityConsumption`.
+- [x] Block „Aktuelle Terraformingvorgänge“: Kolonie, Feld, Vorgang, Fertigstellung, Fortschritt. Er fehlt, wenn nichts läuft.
+- [x] Block „Modulproduktion“: Kolonie, Modul, Menge, Fertigstellung. Er fehlt, wenn nichts läuft.
+- [x] Bauvorgänge zeigen „wird nach dem Bau aktiviert“ bzw. „deaktiviert“ anhand von `activateAfterBuild`.
+- [x] Die Daten werden gesammelt für alle Kolonien des Spielers geladen (keine N+1-Abfragen).
+- [x] Backend-Test: Reichweitenberechnung (inkl. Bestand 0 und positiver Bilanz), Terraforming- und Modulliste.
+- [x] Frontend-Test `ColonyOverview.spec.tsx`: alle drei Blöcke und der Aktivierungshinweis, leere Blöcke ausgeblendet.
 
 ## Herkunft
 
@@ -43,3 +43,11 @@ Unter der Kolonieliste zeigt STU Waren mit negativer Bilanz samt Reichweite „(
 ## Comments
 
 - 2026-11-17: Aus dem Audit angelegt. Die echten Werte (Signaturen, Verteidigung, Wachstum) stehen in col-AUD-02a.
+- 2026-11-19 – umgesetzt, Prüfung ausstehend. Umsetzung an Sonnet-Agent delegiert, Review und Ergänzung durch Opus 5.5. Commits `b2c0f26a` und „feat(colony): show terraforming progress in the colony list (col-AUD-02b)“.
+  - Warenverbrauch je Kolonie aus der bereits berechneten Bilanz: nur negative, lagerbare Waren, „(x Runden)“ = `floor(Bestand / |Bilanz|)`, Sortierung nach `commodity.sort`. Bestand aus der geladenen Relation `storage`.
+  - Terraforming-Block mit Kolonie, Feld, Vorgang, Fertigstellung und Fortschritt. Ohne gespeicherten Start wird der Fortschritt aus Fertigstellung und skalierter Dauer abgeleitet (`ColonyTimingService.scaleBuildTimeSeconds`), begrenzt auf 0–100 %; unbekannte Dauer → kein Balken.
+  - Modulproduktion: eingeplante Modulaufträge aller Kolonien in einer Abfrage; Fertigstellung „mit dem nächsten Tick“, weil `finishesAt` laut Entity nicht mehr ausgewertet wird (Module werden im nächsten Koloniatick fertig). Torpedoaufträge nicht im Block.
+  - Bauvorgänge der Kolonieliste zeigen „wird nach dem Bau aktiviert/deaktiviert“ (`activateAfterBuild`).
+  - Checks: Jest `colony-tick` 237/237, Vitest `src/pages/colonies` 119/119, `tsc` Backend/Frontend sauber, ESLint 0 Fehler.
+  - Offen für den Prüfpass: Browserprüfung der Blöcke, gemeinsamer Build.
+

@@ -73,7 +73,7 @@ describe('ColonyOverview', () => {
       colonyClassId: 201,
       consumption: [{ commodityId: 2, amount: -5, rounds: 4 }],
       terraformingJobs: [
-        { fieldIndex: 3, name: 'Wueste zu Wiese', finishesAt: null },
+        { fieldIndex: 3, name: 'Wueste zu Wiese', finishesAt: null, progress: 40 },
       ],
       moduleJobs: [{ name: 'Huelle Mk1', amount: 2 }],
       activeBuildJobs: [
@@ -98,6 +98,7 @@ describe('ColonyOverview', () => {
     expect(screen.getByText(/\(4 Runden\)/)).toBeTruthy();
     expect(screen.getByText('Aktuelle Terraformingvorgänge')).toBeTruthy();
     expect(screen.getByText('Wueste zu Wiese')).toBeTruthy();
+    expect(screen.getByText('40 %')).toBeTruthy();
     expect(screen.getByText('Modulproduktion')).toBeTruthy();
     expect(screen.getByText('Huelle Mk1')).toBeTruthy();
     expect(screen.getByText('wird nach dem Bau deaktiviert')).toBeTruthy();
