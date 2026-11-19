@@ -98,6 +98,8 @@ export async function createUser(
       username: `pilot${userCounter}`,
       email: `pilot${userCounter}@example.test`,
       passwordHash: 'x',
+      // Email verification is always enforced (sh-AUD-01); tests opt out with null.
+      emailVerifiedAt: new Date(0),
       ...overrides,
     }),
   );

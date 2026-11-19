@@ -22,6 +22,7 @@ import { Fleet } from './entities/fleet.entity';
 import { AddFleetListPreferences20261116133000 } from '../../database/migrations/20261116133000-add-fleet-list-preferences';
 import { ShipClassService } from './ship-class.service';
 import { SpacecraftService } from './spacecraft.service';
+import { LastCombatReportService } from './last-combat-report.service';
 import { lockFleetParticipants } from './fleet-lock';
 import { SpacecraftCrewService } from './spacecraft-crew.service';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
@@ -119,6 +120,10 @@ async function fleetService(dataSource: DataSource) {
       {
         provide: StatisticsService,
         useValue: new StatisticsService(dataSource, []),
+      },
+      {
+        provide: LastCombatReportService,
+        useValue: new LastCombatReportService(dataSource.getRepository(Spacecraft)),
       },
       { provide: GameGateway, useValue: gateway },
       { provide: DataSource, useValue: dataSource },

@@ -146,6 +146,11 @@ describe('anomaly scan contracts (PostgreSQL, HTTP)', () => {
       name: 'Scout',
       shipClassId,
       locationId,
+      // Sensors start OFF like STU (sc-AUD-02); the local scan needs them running.
+      runtimeSystems: {
+        LONG_RANGE_SENSORS: { active: true, integrity: 100, cooldown: 0 },
+        SHORT_RANGE_SENSORS: { active: true, integrity: 100, cooldown: 0 },
+      },
     });
     await source.getRepository(SpacecraftModule).save({
       spacecraftId: ship.id,
