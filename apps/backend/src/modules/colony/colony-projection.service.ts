@@ -5,7 +5,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import {
+  COLONIZER_LIMIT_MESSAGE,
   calculateShipCrewRequired,
+  ownsOperationalColonizer,
   shipBuildSeconds,
 } from '../spacecraft/shipbuilding-core.service';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
@@ -632,6 +634,16 @@ export class ColonyProjectionService {
       userId,
       colony,
     );
+    const colonizerLockReason = startableHangarShips.some(
+      ({ shipClass }) => shipClass.isColonizer,
+    )
+      ? (await ownsOperationalColonizer(
+          (options) => this.shipRepo.count(options),
+          userId,
+        ))
+        ? COLONIZER_LIMIT_MESSAGE
+        : null
+      : null;
     const hasAirfield =
       featureAccess.functions.groups.airfield.activeFunctionIds.length > 0;
     const hasFighterShipyard =
@@ -1385,6 +1397,9 @@ export class ColonyProjectionService {
               hangarCommodityId: hangarDef.hangarCommodityId,
               displayName: hangarDef.displayName,
               amount,
+              startLockReason: shipClass.isColonizer
+                ? colonizerLockReason
+                : null,
               startEnergyCost: hangarDef.startEnergyCost,
               defaultModules: this.defaultModuleSummaries(hangarDef),
               crewRequired: hangarDef.crewRequired,

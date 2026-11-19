@@ -603,15 +603,15 @@ export function ColoniesPage() {
           loadColonyDetail(selected.id);
         })
       }
-      onBuildAirfieldRump={(shipClassId, amount) =>
-        act(async () => {
-          await api.post(`/colonies/${selected.id}/hangar/build-rump`, {
-            shipClassId,
-            amount,
-          });
-          loadColonyDetail(selected.id);
-        })
-      }
+      onBuildAirfieldRump={async (shipClassId, amount) => {
+        // Errors surface in PanelHangar, which also shows the server message.
+        const result = await api.post<{ message?: string }>(
+          `/colonies/${selected.id}/hangar/build-rump`,
+          { shipClassId, amount },
+        );
+        loadColonyDetail(selected.id);
+        return result?.message;
+      }}
       onStartHangarShip={(shipClassId, name) =>
         act(async () => {
           await api.post(`/colonies/${selected.id}/hangar/start-ship`, {
@@ -877,7 +877,7 @@ export function ColonyDetail({
   onBuildAirfieldRump: (
     shipClassId: number,
     amount: number,
-  ) => Promise<void> | void;
+  ) => Promise<string | void> | string | void;
   onStartHangarShip: (
     shipClassId: number,
     name?: string,

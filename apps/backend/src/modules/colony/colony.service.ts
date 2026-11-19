@@ -1,3 +1,7 @@
+import {
+  COLONIZER_LIMIT_MESSAGE,
+  ownsOperationalColonizer,
+} from '../spacecraft/shipbuilding-core.service';
 import { ShuttleService } from '../spacecraft/shuttle.service';
 import { FlightSignatureService } from '../spacecraft/flight-signature.service';
 import { ColonyTimingService } from './colony-timing.service';
@@ -1118,7 +1122,7 @@ export class ColonyService {
     userId: number,
     shipClassId: number,
     amount = 1,
-  ): Promise<Colony> {
+  ): Promise<Colony & { message: string }> {
     const colony = await this.findOne(colonyId, userId);
     if (!this.hasActiveHangarRumpFacility(colony)) {
       throw new BadRequestException(
@@ -1144,18 +1148,42 @@ export class ColonyService {
     );
     if (!unlocked) throw new BadRequestException('Ship class is not unlocked');
 
-    const totalEnergy = hangarDef.buildEnergyCost * amount;
+    // STU BuildAirfieldRump: build piece by piece while EPS and goods last.
     const changeable = getColonyChangeable(colony);
-    if (changeable.energy < totalEnergy) {
-      throw new BadRequestException(
-        `Not enough energy: need ${totalEnergy}, have ${changeable.energy}`,
+    const unitCosts = this.getHangarBuildCosts(hangarDef, 1);
+    let built = amount;
+    let shortage = '';
+    const limit = (possible: number, reason: () => string) => {
+      if (possible < built) {
+        built = possible;
+        shortage = reason();
+      }
+    };
+    if (hangarDef.buildEnergyCost > 0) {
+      limit(
+        Math.floor(changeable.energy / hangarDef.buildEnergyCost),
+        () =>
+          `Not enough energy: need ${hangarDef.buildEnergyCost}, have ${changeable.energy}`,
       );
     }
+    for (const cost of unitCosts) {
+      if (cost.amount <= 0) continue;
+      const storage = await this.storageRepo.findOne({
+        where: { colonyId: colony.id, commodityId: cost.commodityId },
+      });
+      const available = storage?.amount ?? 0;
+      limit(
+        Math.floor(available / cost.amount),
+        () =>
+          `Not enough ${this.gameData.getCommodity(cost.commodityId)?.name ?? `resource #${cost.commodityId}`}: need ${cost.amount}, have ${available}`,
+      );
+    }
+    if (built <= 0) throw new BadRequestException(shortage);
     await this.deductBuildCosts(
       colony,
-      this.getHangarBuildCosts(hangarDef, amount),
+      this.getHangarBuildCosts(hangarDef, built),
     );
-    deductColonyEnergy(colony, totalEnergy);
+    deductColonyEnergy(colony, hangarDef.buildEnergyCost * built);
     await this.colonyRepo.save(colony);
 
     const maxStorage =
@@ -1163,13 +1191,17 @@ export class ColonyService {
     const stored = await this.colonyStorageService.upperStorage(
       colony,
       hangarDef.hangarCommodityId,
-      amount,
+      built,
       maxStorage,
     );
-    if (stored < amount) {
+    if (stored < built) {
       throw new BadRequestException('Not enough colony storage capacity');
     }
-    return this.findOne(colonyId, userId);
+    const message =
+      built < amount
+        ? `${hangarDef.displayName}: Es wurden daher nur ${built} Stück gebaut`
+        : `${built} × ${hangarDef.displayName} gebaut`;
+    return Object.assign(await this.findOne(colonyId, userId), { message });
   }
 
   async startHangarShip(
@@ -1189,6 +1221,15 @@ export class ColonyService {
     const hangarDef = this.getHangarDefForShipClass(shipClass);
     if (!hangarDef)
       throw new BadRequestException('Ship class is not startable from hangar');
+    if (
+      shipClass.isColonizer &&
+      (await ownsOperationalColonizer(
+        (options) => this.shipRepo.count(options),
+        userId,
+      ))
+    ) {
+      throw new BadRequestException(COLONIZER_LIMIT_MESSAGE);
+    }
     const changeable = getColonyChangeable(colony);
     if (changeable.energy < hangarDef.startEnergyCost) {
       throw new BadRequestException(

@@ -9186,6 +9186,107 @@ describe('airfield hangar loop', () => {
     ).toBe(4);
   });
 
+  describe('hangar piecewise build and colony ship limit (col-AUD-10a)', () => {
+    const rumpSetup = (energy: number, amounts: Record<number, number>) => {
+      const ctx = createColonyService();
+      const colony = { ...airfieldColony(), energy };
+      ctx.colonyRepo.findOne.mockResolvedValue(colony);
+      ctx.shipClassRepo.findOneBy.mockResolvedValue(hangarShipClass);
+      const storage: Record<number, any> = Object.fromEntries(
+        Object.entries(amounts).map(([id, amount]) => [
+          id,
+          { colonyId: 1, commodityId: Number(id), amount },
+        ]),
+      );
+      ctx.storageRepo.findOne.mockImplementation(
+        async ({ where }: any) => storage[where.commodityId] ?? null,
+      );
+      ctx.storageRepo.create.mockImplementation((value: any) => {
+        storage[value.commodityId] = { ...value };
+        return storage[value.commodityId];
+      });
+      return { ...ctx, colony, storage };
+    };
+    const goods = (amount: number) =>
+      Object.fromEntries(
+        [10201, 10301, 10401, 10501, 10701, 10801].map((id) => [id, amount]),
+      );
+
+    it('builds only what the energy allows and reports it', async () => {
+      const { service, colony, storage } = rumpSetup(200, goods(4));
+      const result = await service.buildAirfieldRump(1, 1, 1, 4);
+      expect(result.message).toContain('Es wurden daher nur 2 Stück gebaut');
+      expect(storage[21401].amount).toBe(2);
+      expect(storage[10201].amount).toBe(2);
+      expect(colony.energy).toBe(20);
+    });
+
+    it('builds only what the goods allow and reports it', async () => {
+      const { service, colony, storage } = rumpSetup(500, {
+        ...goods(4),
+        10301: 3,
+      });
+      const result = await service.buildAirfieldRump(1, 1, 1, 4);
+      expect(result.message).toContain('Es wurden daher nur 3 Stück gebaut');
+      expect(storage[21401].amount).toBe(3);
+      expect(storage[10301].amount).toBe(0);
+      expect(storage[10201].amount).toBe(1);
+      expect(colony.energy).toBe(230);
+    });
+
+    it('rejects with the reason and changes nothing when zero can be built', async () => {
+      const { service, colony, storage } = rumpSetup(50, goods(4));
+      await expect(service.buildAirfieldRump(1, 1, 1, 2)).rejects.toThrow(
+        'Not enough energy',
+      );
+      expect(colony.energy).toBe(50);
+      expect(storage[10201].amount).toBe(4);
+      const goodsShort = rumpSetup(500, { ...goods(4), 10301: 0 });
+      await expect(
+        goodsShort.service.buildAirfieldRump(1, 1, 1, 2),
+      ).rejects.toThrow('Not enough');
+      expect(goodsShort.colony.energy).toBe(500);
+    });
+
+    const startColonizer = async (existingColonizers: number) => {
+      const ctx = createColonyService();
+      ctx.colonyRepo.findOne.mockResolvedValue(airfieldColony());
+      ctx.shipClassRepo.findOneBy.mockResolvedValue({
+        ...hangarShipClass,
+        isColonizer: true,
+      });
+      ctx.shipRepo.count.mockResolvedValue(existingColonizers);
+      const storage: Record<number, any> = {
+        21401: { colonyId: 1, commodityId: 21401, amount: 1 },
+      };
+      ctx.storageRepo.findOne.mockImplementation(
+        async ({ where }: any) => storage[where.commodityId] ?? null,
+      );
+      ctx.shipRepo.save.mockImplementation(async (value: any) => ({
+        id: 77,
+        ...value,
+      }));
+      return { ...ctx, storage };
+    };
+
+    it('rejects starting a colony ship while the player owns one', async () => {
+      const { service, storage, shipRepo } = await startColonizer(1);
+      await expect(service.startHangarShip(1, 1, 1, 'Second')).rejects.toThrow(
+        'Only one operational colonization ship is allowed',
+      );
+      expect(storage[21401].amount).toBe(1);
+      const where = (shipRepo.count.mock.calls[0] as any[])[0].where;
+      expect(where.shipClass).toEqual({ isColonizer: true });
+      expect(where.userId).toBe(1);
+    });
+
+    it('starts a colony ship when the player owns none', async () => {
+      const { service, storage } = await startColonizer(0);
+      await service.startHangarShip(1, 1, 1, 'First');
+      expect(storage[21401].amount).toBe(0);
+    });
+  });
+
   it('rejects hangar rump construction without default modules', async () => {
     const { service, colonyRepo, shipClassRepo, storageRepo } =
       createColonyService();

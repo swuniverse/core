@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { createHash } from 'crypto';
-import { DataSource, EntityManager, Not } from 'typeorm';
+import { DataSource, EntityManager, FindManyOptions, Not } from 'typeorm';
 import { User as UserEntity } from '../auth/user.entity';
 import { ColonyShipBuildplan } from '../colony/entities/colony-ship-buildplan.entity';
 import { ColonyTimingService } from '../colony/colony-timing.service';
@@ -103,6 +103,25 @@ export type ShipbuildingCompletionHandler = (
   ship: Spacecraft,
 ) => Promise<void>;
 
+export const COLONIZER_LIMIT_MESSAGE =
+  'Only one operational colonization ship is allowed';
+
+/** Shared by shipyard build and hangar start: a player may own one non-destroyed colony ship. */
+export async function ownsOperationalColonizer(
+  count: (options: FindManyOptions<Spacecraft>) => Promise<number>,
+  userId: number,
+): Promise<boolean> {
+  return (
+    (await count({
+      where: {
+        userId,
+        status: Not(SpacecraftStatus.DESTROYED),
+        shipClass: { isColonizer: true },
+      },
+    })) > 0
+  );
+}
+
 @Injectable()
 export class ShipbuildingCoreService {
   constructor(
@@ -163,17 +182,12 @@ export class ShipbuildingCoreService {
         throw new BadRequestException('Ship class is not unlocked');
       if (hull.isColonizer) {
         if (
-          await manager.count(Spacecraft, {
-            where: {
-              userId: request.userId,
-              status: Not(SpacecraftStatus.DESTROYED),
-              shipClass: { isColonizer: true },
-            },
-          })
+          await ownsOperationalColonizer(
+            (options) => manager.count(Spacecraft, options),
+            request.userId,
+          )
         ) {
-          throw new BadRequestException(
-            'Only one operational colonization ship is allowed',
-          );
+          throw new BadRequestException(COLONIZER_LIMIT_MESSAGE);
         }
         if (
           await manager.count(ColonyShipBuildQueue, {

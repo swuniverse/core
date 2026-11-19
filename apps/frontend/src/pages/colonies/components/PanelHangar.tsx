@@ -11,10 +11,11 @@ export function PanelHangar({
 }: {
   hangar: NonNullable<ColonyDetailV2['hangar']>;
   commodityMap: Record<number, CommodityDef>;
+  // A returned string is the server message to show (e.g. partial build).
   onBuildAirfieldRump: (
     shipClassId: number,
     amount: number,
-  ) => Promise<void> | void;
+  ) => Promise<string | void> | string | void;
   onStartHangarShip: (
     shipClassId: number,
     name?: string,
@@ -26,12 +27,18 @@ export function PanelHangar({
   const [nameByClass, setNameByClass] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  const run = async (key: string, action: () => Promise<void> | void) => {
+  const run = async (
+    key: string,
+    action: () => Promise<string | void> | string | void,
+  ) => {
     setBusy(key);
     setError(null);
+    setNotice(null);
     try {
-      await action();
+      const result = await action();
+      if (typeof result === 'string') setNotice(result);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Hangar-Aktion fehlgeschlagen');
     } finally {
@@ -170,6 +177,11 @@ export function PanelHangar({
                     Startenergie {item.startEnergyCost} · Crew{' '}
                     {item.crewRequired}
                   </div>
+                  {item.startLockReason && (
+                    <div className="text-[10px] text-red-400">
+                      {item.startLockReason}
+                    </div>
+                  )}
                 </div>
                 <input
                   type="text"
@@ -192,7 +204,10 @@ export function PanelHangar({
                       ),
                     )
                   }
-                  disabled={busy === `start-${item.shipClassId}`}
+                  disabled={
+                    !!item.startLockReason ||
+                    busy === `start-${item.shipClassId}`
+                  }
                   className="px-2 py-1 bg-swu-accent/20 border border-swu-accent text-swu-accent text-[10px] rounded disabled:opacity-40"
                 >
                   Starten
@@ -202,6 +217,7 @@ export function PanelHangar({
         )}
       </div>
 
+      {notice && <p className="text-[10px] text-swu-accent">{notice}</p>}
       {error && <p className="text-[10px] text-red-400">{error}</p>}
     </div>
   );

@@ -571,6 +571,7 @@ export interface ColonyDetailV2 {
       hangarCommodityId: number;
       displayName: string;
       amount: number;
+      startLockReason?: string | null;
       startEnergyCost: number;
       crewRequired: number;
       defaultModules: Array<{ commodityId: number; name: string }>;
