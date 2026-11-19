@@ -4,6 +4,14 @@ import { PlanetImg } from '../../../components/PlanetImg';
 import { formatSignedAmount } from '../utils';
 import { isColonyShielded, type Colony, type CommodityDef } from '../types';
 
+const formatJobTime = (iso: string) =>
+  new Date(iso).toLocaleString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
 export function ColonyOverview({
   colonies,
   commodities,
@@ -37,6 +45,25 @@ export function ColonyOverview({
           ...job,
           colonyName: c.name,
         })),
+      ),
+    [colonies],
+  );
+
+  const allTerraformingJobs = useMemo(
+    () =>
+      colonies.flatMap((c) =>
+        (c.terraformingJobs ?? []).map((job) => ({
+          ...job,
+          colonyName: c.name,
+        })),
+      ),
+    [colonies],
+  );
+
+  const allModuleJobs = useMemo(
+    () =>
+      colonies.flatMap((c) =>
+        (c.moduleJobs ?? []).map((job) => ({ ...job, colonyName: c.name })),
       ),
     [colonies],
   );
@@ -129,9 +156,7 @@ export function ColonyOverview({
                       <td className="px-4 py-3 text-center">
                         <PlanetImg
                           classId={
-                            c.celestialObject?.classId ??
-                            c.colonyClassId ??
-                            201
+                            c.celestialObject?.classId ?? c.colonyClassId ?? 201
                           }
                           name={c.celestialObject?.name}
                           objectType={c.celestialObject?.objectType}
@@ -170,6 +195,32 @@ export function ColonyOverview({
                             ? `${location.x}|${location.y} (${location.systemName ?? 'Unbekannt'}-System ${location.systemX ?? '?'}|${location.systemY ?? '?'})`
                             : c.locationLabel || 'Unbekannt'}
                         </div>
+                        {(c.consumption ?? []).length > 0 && (
+                          <ul className="mt-1 space-y-0.5 text-xs text-swu-muted">
+                            {(c.consumption ?? []).map((item) => (
+                              <li
+                                key={item.commodityId}
+                                className="flex items-center gap-1"
+                              >
+                                <img
+                                  src={commodityImage(
+                                    item.commodityId,
+                                    commodityMap[item.commodityId]?.name,
+                                  )}
+                                  alt=""
+                                  className="size-4 object-contain"
+                                  loading="lazy"
+                                />
+                                {commodityMap[item.commodityId]?.name ??
+                                  `#${item.commodityId}`}{' '}
+                                <span className="font-mono text-red-400">
+                                  {formatSignedAmount(item.amount)}
+                                </span>{' '}
+                                ({item.rounds} Runden)
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-center font-mono">
                         <button
@@ -264,16 +315,72 @@ export function ColonyOverview({
                     )}
                     {job.finishesAt && (
                       <span className="text-swu-muted">
-                        {new Date(job.finishesAt).toLocaleString('de-DE', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        {formatJobTime(job.finishesAt)}
+                      </span>
+                    )}
+                    {job.activateAfterBuild != null && (
+                      <span className="text-swu-muted">
+                        {job.activateAfterBuild
+                          ? 'wird nach dem Bau aktiviert'
+                          : 'wird nach dem Bau deaktiviert'}
                       </span>
                     )}
                     <span className="text-swu-muted ml-auto">
                       {job.colonyName}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {allTerraformingJobs.length > 0 && (
+            <div className="border border-swu-border bg-swu-surface">
+              <div className="border-b border-swu-border/50 px-4 py-2 text-xs font-bold uppercase text-swu-muted">
+                Aktuelle Terraformingvorg&auml;nge
+              </div>
+              <div className="divide-y divide-swu-border/20">
+                {allTerraformingJobs.map((job, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 px-4 py-2 text-xs"
+                  >
+                    <span className="text-swu-muted">{job.colonyName}</span>
+                    <span className="text-swu-muted">
+                      Feld {job.fieldIndex}
+                    </span>
+                    <span className="text-swu-primary font-medium">
+                      {job.name}
+                    </span>
+                    {job.finishesAt && (
+                      <span className="text-swu-muted ml-auto">
+                        {formatJobTime(job.finishesAt)}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {allModuleJobs.length > 0 && (
+            <div className="border border-swu-border bg-swu-surface">
+              <div className="border-b border-swu-border/50 px-4 py-2 text-xs font-bold uppercase text-swu-muted">
+                Modulproduktion
+              </div>
+              <div className="divide-y divide-swu-border/20">
+                {allModuleJobs.map((job, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 px-4 py-2 text-xs"
+                  >
+                    <span className="text-swu-muted">{job.colonyName}</span>
+                    <span className="text-swu-primary font-medium">
+                      {job.name}
+                    </span>
+                    <span className="font-mono">{job.amount}x</span>
+                    <span className="text-swu-muted ml-auto">
+                      mit dem nächsten Tick
                     </span>
                   </div>
                 ))}

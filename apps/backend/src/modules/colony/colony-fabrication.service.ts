@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
 import {
   FabricationItemDef,
@@ -49,6 +49,19 @@ export class ColonyFabricationService {
     @InjectRepository(Colony)
     private readonly colonyRepo: Repository<Colony>,
   ) {}
+
+  /** Queued module jobs of several colonies in one query (colony list). */
+  getQueuedModuleJobs(colonyIds: number[]): Promise<ColonyFabricationQueue[]> {
+    if (colonyIds.length === 0) return Promise.resolve([]);
+    return this.fabricationQueueRepo.find({
+      where: {
+        colonyId: In(colonyIds),
+        queueType: ColonyFabricationQueueType.MODULE,
+        status: ColonyFabricationQueueStatus.QUEUED,
+      },
+      order: { id: 'ASC' },
+    });
+  }
 
   async queueFabrication(
     colonyId: number,
@@ -186,10 +199,7 @@ export class ColonyFabricationService {
         'Only queued fabrication jobs can be cancelled',
       );
     }
-    if (
-      amount != null &&
-      (!Number.isInteger(amount) || amount <= 0)
-    ) {
+    if (amount != null && (!Number.isInteger(amount) || amount <= 0)) {
       throw new BadRequestException('Amount must be positive');
     }
     const count = Math.min(amount ?? queue.amount, queue.amount);
@@ -289,9 +299,10 @@ export class ColonyFabricationService {
     accepted: number,
     requested: number,
   ): string {
-    const noun = queueType === ColonyFabricationQueueType.MODULE
-      ? 'Modulen in Auftrag gegeben'
-      : 'Torpedos hergestellt';
+    const noun =
+      queueType === ColonyFabricationQueueType.MODULE
+        ? 'Modulen in Auftrag gegeben'
+        : 'Torpedos hergestellt';
     if (accepted <= 0) {
       return `Es wurden keine ${queueType === ColonyFabricationQueueType.MODULE ? 'Module in Auftrag gegeben' : 'Torpedos hergestellt'}: ${item.displayName}`;
     }

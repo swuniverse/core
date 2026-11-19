@@ -790,11 +790,20 @@ export interface Colony {
   };
   crewSummary?: { assigned: number; limit: number; inTraining: number };
   productionDeltas?: Array<{ commodityId: number; amount: number }>;
+  /** Negative balances with range in ticks (STU CommodityConsumption). */
+  consumption?: Array<{ commodityId: number; amount: number; rounds: number }>;
+  terraformingJobs?: Array<{
+    fieldIndex: number;
+    name: string;
+    finishesAt: string | null;
+  }>;
+  moduleJobs?: Array<{ name: string; amount: number }>;
   activeBuildJobs?: Array<{
     fieldIndex: number;
     buildingId: number;
     buildingName: string;
     finishesAt: string | null;
+    activateAfterBuild?: boolean;
   }>;
 }
 

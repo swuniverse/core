@@ -10328,4 +10328,64 @@ describe('findAllByUser colony list values (col-AUD-02a)', () => {
       7, 7, 7,
     ]);
   });
+
+  it('lists consumption ranges, terraforming and module jobs (col-AUD-02b)', async () => {
+    const { service, colonyRepo, colonyCrewService, fabricationQueueRepo, gameData, statsService } =
+      createColonyService();
+    const commodities: Record<number, any> = {
+      1: { isSaveable: true, sort: 20 },
+      2: { isSaveable: true, sort: 10 },
+      3: { isSaveable: true, sort: 30 },
+      4: { isSaveable: true, sort: 40 },
+      5: { isSaveable: false, sort: 5 },
+    };
+    gameData.getCommodity.mockImplementation((id: number) => commodities[id]);
+    gameData.getTerraforming.mockReturnValue({ description: 'Wueste zu Wiese' });
+    gameData.getFabricationItem.mockReturnValue({ displayName: 'Huelle Mk1' });
+    const colony = {
+      ...listColony(1, null),
+      storage: [
+        { commodityId: 1, amount: 25 },
+        { commodityId: 2, amount: 0 },
+        { commodityId: 4, amount: 50 },
+      ],
+      fields: [
+        { fieldIndex: 7, terraformingId: 'T1', terraformingFinishesAt: new Date('2026-11-20T10:00:00Z') },
+        { fieldIndex: 8, terraformingId: null },
+      ],
+    };
+    colonyRepo.find.mockResolvedValue([colony, listColony(2, null)]);
+    (colonyCrewService.getCrewCountsByColonyIds as jest.Mock).mockResolvedValue(new Map());
+    fabricationQueueRepo.find.mockResolvedValue([
+      { colonyId: 1, itemKey: 'hull', amount: 3 },
+    ]);
+    jest.spyOn(service, 'calculatePopulationGrowth').mockReturnValue(0);
+    const real = statsService.calculateSummary.bind(statsService);
+    jest.spyOn(statsService, 'calculateSummary').mockImplementation((c: any) => ({
+      ...real(c),
+      productionDelta: new Map([
+        [1, -10],
+        [2, -4],
+        [3, 6],
+        [4, -2],
+        [5, -9],
+      ]),
+    }));
+
+    const result: any[] = await service.findAllByUser(1);
+
+    // sort order 2,1,4; stock 0 -> 0 rounds; 25/10 -> 2; positive and unsaveable skipped
+    expect(result[0].consumption).toEqual([
+      { commodityId: 2, amount: -4, rounds: 0 },
+      { commodityId: 1, amount: -10, rounds: 2 },
+      { commodityId: 4, amount: -2, rounds: 25 },
+    ]);
+    expect(result[0].terraformingJobs).toEqual([
+      { fieldIndex: 7, name: 'Wueste zu Wiese', finishesAt: '2026-11-20T10:00:00.000Z' },
+    ]);
+    expect(result[0].moduleJobs).toEqual([{ name: 'Huelle Mk1', amount: 3 }]);
+    expect(result[1].terraformingJobs).toEqual([]);
+    expect(result[1].moduleJobs).toEqual([]);
+    expect(fabricationQueueRepo.find).toHaveBeenCalledTimes(1);
+  });
 });

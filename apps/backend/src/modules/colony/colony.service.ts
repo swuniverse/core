@@ -219,25 +219,38 @@ export class ColonyService {
     const locationIds = colonies.flatMap((c) =>
       c.systemFieldId != null ? [c.systemFieldId] : [],
     );
-    const [crewCounts, trainingQueues, signatureCounts, defendedIds] =
-      await Promise.all([
-        this.colonyCrewService.getCrewCountsByColonyIds(colonyIds),
-        this.crewTrainingQueueRepo.find({
-          where: {
-            userId,
-            status: ColonyCrewTrainingQueueStatus.QUEUED,
-          },
-        }),
-        this.flightSignatures?.countVisibleAt(locationIds, userId) ??
-          new Map<number, number>(),
-        this.colonyOrbitService.getDefendedColonyIds(colonyIds),
-      ]);
+    const [
+      crewCounts,
+      trainingQueues,
+      signatureCounts,
+      defendedIds,
+      moduleJobs,
+    ] = await Promise.all([
+      this.colonyCrewService.getCrewCountsByColonyIds(colonyIds),
+      this.crewTrainingQueueRepo.find({
+        where: {
+          userId,
+          status: ColonyCrewTrainingQueueStatus.QUEUED,
+        },
+      }),
+      this.flightSignatures?.countVisibleAt(locationIds, userId) ??
+        new Map<number, number>(),
+      this.colonyOrbitService.getDefendedColonyIds(colonyIds),
+      this.colonyFabricationService.getQueuedModuleJobs(colonyIds),
+    ]);
     const trainingByColony = new Map<number, number>();
     for (const q of trainingQueues) {
       trainingByColony.set(
         q.colonyId,
         (trainingByColony.get(q.colonyId) || 0) + q.amount,
       );
+    }
+
+    const moduleJobsByColony = new Map<number, typeof moduleJobs>();
+    for (const job of moduleJobs) {
+      const list = moduleJobsByColony.get(job.colonyId) ?? [];
+      list.push(job);
+      moduleJobsByColony.set(job.colonyId, list);
     }
 
     return colonies.map((colony) => {
@@ -254,9 +267,54 @@ export class ColonyService {
         if (commodity?.isEffect || commodity?.isDeposit) continue;
         productionDeltas.push({ commodityId, amount });
       }
+      // STU CommodityConsumption: negative balance only, range = floor(stock / |balance|).
+      const stock = new Map(
+        (colony.storage ?? []).map((s) => [s.commodityId, s.amount]),
+      );
+      const consumption: Array<{
+        commodityId: number;
+        amount: number;
+        rounds: number;
+      }> = [];
+      for (const { commodityId, amount } of productionDeltas) {
+        if (amount >= 0) continue;
+        if (!this.gameData.getCommodity(commodityId)?.isSaveable) continue;
+        consumption.push({
+          commodityId,
+          amount,
+          rounds: Math.floor((stock.get(commodityId) ?? 0) / -amount),
+        });
+      }
+      consumption.sort(
+        (a, b) =>
+          (this.gameData.getCommodity(a.commodityId)?.sort ??
+            Number.MAX_SAFE_INTEGER) -
+            (this.gameData.getCommodity(b.commodityId)?.sort ??
+              Number.MAX_SAFE_INTEGER) || a.commodityId - b.commodityId,
+      );
+      const terraformingJobs = (colony.fields ?? []).flatMap((f) => {
+        const id = f.terraformingId;
+        if (!id) return [];
+        return [
+          {
+            fieldIndex: f.fieldIndex,
+            name: this.gameData.getTerraforming(id)?.description ?? id,
+            finishesAt: f.terraformingFinishesAt?.toISOString() ?? null,
+          },
+        ];
+      });
+      const colonyModuleJobs = (moduleJobsByColony.get(colony.id) ?? []).map(
+        (job) => ({
+          name:
+            this.gameData.getFabricationItem(job.itemKey)?.displayName ??
+            job.itemKey,
+          amount: job.amount,
+        }),
+      );
       const activeBuildJobs = (colony.fields ?? [])
         .filter((f) => f.isBuilding && f.buildingId)
         .map((f) => ({
+          activateAfterBuild: f.activateAfterBuild,
           fieldIndex: f.fieldIndex,
           buildingId: f.buildingId!,
           buildingName:
@@ -311,6 +369,9 @@ export class ColonyService {
           inTraining: crewInTraining,
         },
         productionDeltas,
+        consumption,
+        terraformingJobs,
+        moduleJobs: colonyModuleJobs,
         activeBuildJobs,
         storage: (colony.storage ?? []).map((item) => ({
           commodityId: item.commodityId,
