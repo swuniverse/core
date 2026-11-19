@@ -1447,12 +1447,6 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     timingService,
   );
 
-  const factionService = {
-    findByKey: jest.fn(async (key) => ({
-      key,
-      modifiers: [{ colonyGrowthMultiplier: 1 }],
-    })),
-  };
   const tickProcessorService = new ColonyTickProcessorService(
     colonyRepo as any,
     statsRepo as any,
@@ -1471,7 +1465,6 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     colonyDefenseService as any,
     fabricationService as any,
     shipyardService as any,
-    factionService as any,
   );
 
   const service = new ColonyService(
@@ -1558,7 +1551,6 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       dataSource,
       constructionService,
       tickProcessorService,
-      factionService,
       config,
     },
     overrides,
@@ -1815,20 +1807,50 @@ describe('colony tick calculations', () => {
     expect(summary.effectiveStorageMax).toBe(4000);
   });
 
-  it('applies the current owner faction growth multiplier once before capacity limits', async () => {
-    const { service, statsService, userRepo, factionService } =
-      createColonyService();
+  it.each(['REBEL_ALLIANCE', 'GALACTIC_EMPIRE'])(
+    'grows a %s colony by STU getGrowth without a faction factor',
+    async (faction) => {
+      const { service, userRepo } = createColonyService();
+      userRepo.findOneBy.mockResolvedValue({ id: 7, faction });
+      const colony = {
+        id: 1,
+        userId: 7,
+        colonyClassId: 201,
+        population: 84,
+        populationMax: 168,
+        storageMax: 3000,
+        stats: {
+          workers: 24,
+          workless: 60,
+          maxPopulation: 168,
+          populationLimit: 0,
+          immigrationEnabled: true,
+        },
+        fields: [
+          { id: 1, buildingId: 82010100, isBuilding: false, isActive: true },
+        ],
+      };
+
+      await service.growPopulation(colony as never);
+
+      // ceil((168 - 84) / 3 / 100 * bevGrowthRate * lifeStandard / 50) for both factions.
+      expect(colony.population).toBe(141);
+    },
+  );
+
+  it('lets workless emigrate in the same tick when housing is lost (STU ProceedMigration)', async () => {
+    const { service } = createColonyService();
     const colony = {
       id: 1,
       userId: 7,
       colonyClassId: 201,
       population: 84,
-      populationMax: 168,
+      populationMax: 60,
       storageMax: 3000,
       stats: {
         workers: 24,
         workless: 60,
-        maxPopulation: 168,
+        maxPopulation: 60,
         populationLimit: 0,
         immigrationEnabled: true,
       },
@@ -1836,67 +1858,11 @@ describe('colony tick calculations', () => {
         { id: 1, buildingId: 82010100, isBuilding: false, isActive: true },
       ],
     };
-    userRepo.findOneBy.mockResolvedValueOnce({
-      id: 7,
-      faction: 'REBEL_ALLIANCE',
-    });
-    factionService.findByKey.mockResolvedValueOnce({
-      key: 'REBEL_ALLIANCE',
-      modifiers: [{ colonyGrowthMultiplier: 1.25 }],
-    });
 
     await service.growPopulation(colony as never);
 
-    expect(colony.stats.workless).toBe(131);
-    expect(colony.population).toBe(155);
-    expect(userRepo.findOneBy).toHaveBeenCalledWith({ id: 7 });
-    expect(factionService.findByKey).toHaveBeenCalledWith('REBEL_ALLIANCE');
-    expect(statsService.calculateSummary(colony as never).maxHousing).toBe(168);
-  });
-
-  it('floors fractional faction growth and uses the new owner faction on the next tick', async () => {
-    const { service, userRepo, factionService } = createColonyService();
-    const colony = {
-      id: 1,
-      userId: 7,
-      colonyClassId: 201,
-      population: 84,
-      populationMax: 168,
-      storageMax: 3000,
-      stats: {
-        workers: 24,
-        workless: 60,
-        maxPopulation: 168,
-        populationLimit: 0,
-        immigrationEnabled: true,
-      },
-      fields: [
-        { id: 1, buildingId: 82010100, isBuilding: false, isActive: true },
-      ],
-    };
-    userRepo.findOneBy
-      .mockResolvedValueOnce({ id: 7, faction: 'REBEL_ALLIANCE' })
-      .mockResolvedValueOnce({ id: 8, faction: 'GALACTIC_EMPIRE' });
-    factionService.findByKey
-      .mockResolvedValueOnce({
-        key: 'REBEL_ALLIANCE',
-        modifiers: [{ colonyGrowthMultiplier: 1 }],
-      })
-      .mockResolvedValueOnce({
-        key: 'GALACTIC_EMPIRE',
-        modifiers: [{ colonyGrowthMultiplier: 0.5 }],
-      });
-
-    await service.growPopulation(colony as never);
-    expect(colony.population).toBe(141);
-
-    colony.userId = 8;
-    colony.stats.workless = 60;
-    colony.population = 84;
-    await service.growPopulation(colony as never);
-
-    expect(colony.population).toBe(112);
-    expect(userRepo.findOneBy).toHaveBeenNthCalledWith(2, { id: 8 });
+    expect(colony.stats.workless).toBeLessThan(60);
+    expect(colony.stats.workers).toBe(24);
   });
 
   it('matches STU screenshot-style housing and immigration numbers', () => {
@@ -4014,6 +3980,49 @@ describe('colony tick calculations', () => {
 
     expect(mining.amountLeft).toBe(7);
     expect(depositMiningRepo.save).toHaveBeenCalledWith(mining);
+  });
+
+  it('books production in commodity sort order and fills the first overflowing commodity up to the limit', async () => {
+    const upperStorage = jest.fn(async (_colony, _commodityId, amount: number) => amount);
+    const processor = Object.assign(Object.create(ColonyTickProcessorService.prototype), {
+      colonyStatsService: {
+        calculateSummary: () => ({
+          // Production map order is the opposite of the STU sort order.
+          productionDelta: new Map([[20, 30], [10, 30], [30, 5]]),
+          depositConsumption: new Map(),
+          depositDelta: new Map(),
+          activeFields: [],
+          workersUsed: 0,
+          energyDelta: 0,
+          effectiveStorageMax: 40,
+          effectiveState: { energy: { max: 0 } },
+        }),
+      },
+      gameData: {
+        getCommodity: (id: number) => ({ id, name: String(id), sort: { 10: 1, 20: 2, 30: 3 }[id], isSaveable: true }),
+      },
+      colonyStorageService: {
+        getStorageUsed: async () => 0,
+        capToMax: (amount: number, free: number) => Math.min(amount, free),
+        upperStorage,
+        lowerStorage: jest.fn(),
+      },
+      storageRepo: { findOne: async () => ({ amount: 1000 }) },
+      colonyRepo: { save: jest.fn() },
+      applyDepositConsumption: jest.fn(),
+    });
+    const events: Array<{ type: string; commodityId?: number }> = [];
+
+    await processor.balanceAndProduce(
+      { id: 1, stats: { maxPopulation: 100, energy: 0 }, fields: [] },
+      events,
+    );
+
+    expect(upperStorage.mock.calls.map(([, id, amount]) => [id, amount])).toEqual([
+      [10, 30],
+      [20, 10],
+    ]);
+    expect(events).toEqual([{ type: 'STORAGE_FULL', commodityId: 20 }]);
   });
 
   it('deactivates a mine-like building when deposit remainder is insufficient', async () => {

@@ -109,6 +109,35 @@ export function getEffectiveCurrentPopulation(colony: Colony): number {
   return (changeable.workers ?? 0) + (changeable.workless ?? 0);
 }
 
+/**
+ * STU `ColonyPopulationCalculator::getGrowth`: housing is the active-building
+ * capacity (`getMaxBev`), not max(housing, population). No faction factor.
+ */
+export function calculateColonyGrowth(
+  colony: Colony,
+  lifeStandardProduction: number,
+  bevGrowthRate: number,
+): number {
+  const changeable = getColonyChangeable(colony);
+  if (changeable.immigrationEnabled === false) return 0;
+  const population = getEffectiveCurrentPopulation(colony);
+  const housing = changeable.maxPopulation ?? 0;
+  if (housing - population <= 0 || lifeStandardProduction === 0) return 0;
+  const lifeStandardPercentage =
+    lifeStandardProduction > population || population <= 0
+      ? 100
+      : Math.floor((lifeStandardProduction * 100) / population);
+  let immigration = Math.ceil(
+    ((housing - population) / 3 / 100) * bevGrowthRate * (lifeStandardPercentage / 50),
+  );
+  immigration = Math.min(immigration, housing - population);
+  const populationLimit = changeable.populationLimit ?? 0;
+  if (populationLimit > 0 && population + immigration > populationLimit) {
+    immigration = populationLimit - population;
+  }
+  return Math.max(0, immigration);
+}
+
 export function syncLegacyColonySnapshot(colony: Colony): void {
   const changeable = getColonyChangeable(colony);
   colony.energy = changeable.energy;

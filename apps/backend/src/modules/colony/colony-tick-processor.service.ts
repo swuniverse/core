@@ -7,7 +7,6 @@ import {
 } from '@swuniverse/shared';
 import { Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
-import { FactionService } from '../faction/faction.service';
 import { BuildingDef, GameDataService } from '../game-data/game-data.service';
 import { ColonyEventService } from '../messaging/colony-event.service';
 import {
@@ -25,6 +24,7 @@ import {
   ColonyInternalSummary,
   adjustColonyPopulationParts,
   getColonyChangeable,
+  calculateColonyGrowth,
   getEffectiveCurrentPopulation,
   setColonyEnergy,
   syncLegacyColonySnapshot,
@@ -65,7 +65,7 @@ export class ColonyTickProcessorService {
     @InjectRepository(ColonyCrewTrainingQueue)
     private readonly crewTrainingQueueRepo: Repository<ColonyCrewTrainingQueue>,
     @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
+    _userRepo: Repository<User>,
     private readonly gameData: GameDataService,
     private readonly colonyStatsService: ColonyStatsService,
     private readonly colonyStorageService: ColonyStorageService,
@@ -76,7 +76,6 @@ export class ColonyTickProcessorService {
     private readonly colonyDefenseService: ColonyDefenseService,
     private readonly colonyFabricationService: ColonyFabricationService,
     private readonly colonyShipyardService: ColonyShipyardService,
-    private readonly factionService: FactionService,
   ) {}
 
   async processCrewTrainingQueue(colony: Colony): Promise<void> {
@@ -187,47 +186,11 @@ export class ColonyTickProcessorService {
     colony: Colony,
     summary: ColonyInternalSummary,
   ): number {
-    const changeable = getColonyChangeable(colony);
-    if (changeable.immigrationEnabled === false) {
-      return 0;
-    }
-
-    const currentPopulation =
-      (changeable.workers ?? 0) + (changeable.workless ?? 0);
-    const freeHousing = summary.maxHousing - currentPopulation;
-    if (freeHousing <= 0) {
-      return 0;
-    }
-
-    const lifeStandardProduction = summary.productionDelta.get(1300) ?? 0;
-    if (lifeStandardProduction === 0) {
-      return 0;
-    }
-
-    const lifeStandardPercentage =
-      lifeStandardProduction > currentPopulation || currentPopulation <= 0
-        ? 100
-        : Math.floor((lifeStandardProduction * 100) / currentPopulation);
-    const bevGrowthRate =
-      this.gameData.getColonyClass(colony.colonyClassId)?.bevGrowthRate ?? 100;
-
-    let immigration = Math.ceil(
-      (freeHousing / 3 / 100) * bevGrowthRate * (lifeStandardPercentage / 50),
+    return calculateColonyGrowth(
+      colony,
+      summary.productionDelta.get(1300) ?? 0,
+      this.gameData.getColonyClass(colony.colonyClassId)?.bevGrowthRate ?? 100,
     );
-
-    if (currentPopulation + immigration > summary.maxHousing) {
-      immigration = summary.maxHousing - currentPopulation;
-    }
-
-    const populationLimit = changeable.populationLimit ?? 0;
-    if (
-      populationLimit > 0 &&
-      currentPopulation + immigration > populationLimit
-    ) {
-      immigration = populationLimit - currentPopulation;
-    }
-
-    return Math.max(0, immigration);
   }
 
   async processTick(colony: Colony): Promise<ColonyTickResult> {
@@ -528,7 +491,14 @@ export class ColonyTickProcessorService {
         }
       }
 
-      for (const [commodityId, amount] of finalProduction) {
+      // STU `ProceedStorage`: book in commodity sort order; the first commodity
+      // that no longer fits is filled up to the limit, later ones are lost.
+      const bookingOrder = [...finalProduction].sort(
+        ([a], [b]) =>
+          (this.gameData.getCommodity(a)?.sort ?? Number.MAX_SAFE_INTEGER) -
+            (this.gameData.getCommodity(b)?.sort ?? Number.MAX_SAFE_INTEGER) || a - b,
+      );
+      for (const [commodityId, amount] of bookingOrder) {
         if (amount <= 0) continue;
         const commodity = this.gameData.getCommodity(commodityId);
         if (!commodity?.isSaveable) continue;
@@ -551,6 +521,7 @@ export class ColonyTickProcessorService {
           summary.effectiveStorageMax,
         );
         currentStored += actualStored;
+        if (storedAmount < amount) break;
       }
 
       colony.storageUsed = currentStored;
@@ -672,7 +643,8 @@ export class ColonyTickProcessorService {
     const changeable = getColonyChangeable(colony);
     const currentPopulation = getEffectiveCurrentPopulation(colony);
 
-    if (currentPopulation > summary.maxHousing) {
+    // STU `ProceedMigration`: compare with real housing; summary.maxHousing masks overcrowding.
+    if (currentPopulation > (changeable.maxPopulation ?? 0)) {
       if (changeable.workless > 0) {
         const amount = this.randomInt(1, changeable.workless);
         adjustColonyPopulationParts(colony, 0, -amount);
@@ -710,17 +682,7 @@ export class ColonyTickProcessorService {
     }
 
     const populationAfterMigration = getEffectiveCurrentPopulation(colony);
-    const baseGrowth = this.calculatePopulationGrowth(colony, summary);
-    const owner =
-      colony.userId == null
-        ? null
-        : await this.userRepo.findOneBy({ id: colony.userId });
-    const faction = owner?.faction
-      ? await this.factionService.findByKey(owner.faction)
-      : null;
-    const growth = Math.floor(
-      baseGrowth * (faction?.modifiers[0]?.colonyGrowthMultiplier ?? 1),
-    );
+    const growth = this.calculatePopulationGrowth(colony, summary);
     if (growth <= 0) {
       if (colony.population !== populationAfterMigration) {
         syncLegacyColonySnapshot(colony);

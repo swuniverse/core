@@ -17,11 +17,7 @@ const DEFAULT_FACTIONS: Array<{
   starterProfileKey: string;
   startResearchTechId: number;
   startBuildingId: number;
-  modifiers: Pick<
-    FactionModifier,
-    | 'researchMultiplier'
-    | 'colonyGrowthMultiplier'
-  >;
+  modifiers: Pick<FactionModifier, 'researchMultiplier'>;
 }> = [
   {
     key: Faction.REBEL_ALLIANCE,
@@ -35,7 +31,6 @@ const DEFAULT_FACTIONS: Array<{
     startBuildingId: 82010100,
     modifiers: {
       researchMultiplier: 1.1,
-      colonyGrowthMultiplier: 1,
     },
   },
   {
@@ -50,7 +45,6 @@ const DEFAULT_FACTIONS: Array<{
     startBuildingId: 82010300,
     modifiers: {
       researchMultiplier: 1,
-      colonyGrowthMultiplier: 1.1,
     },
   },
 ];

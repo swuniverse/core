@@ -23,7 +23,4 @@ export class FactionModifier {
 
   @Column({ type: 'float', default: 1 })
   researchMultiplier: number;
-
-  @Column({ type: 'float', default: 1 })
-  colonyGrowthMultiplier: number;
 }

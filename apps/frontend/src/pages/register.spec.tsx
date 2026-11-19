@@ -24,6 +24,21 @@ describe('RegisterPage', () => {
     vi.mocked(api.post).mockReset();
   });
 
+  it('shows no colony growth bonus, even if an old API still sends one', async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      { ...faction, modifiers: [{ researchMultiplier: 1.1, colonyGrowthMultiplier: 1.1 }] },
+    ]);
+    render(
+      <MemoryRouter>
+        <RegisterPage />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Galaktisches Imperium');
+    expect(screen.getByText('+10%')).toBeTruthy();
+    expect(screen.queryByText(/Koloniewachstum/)).toBeNull();
+  });
+
   it('has no invite key field', async () => {
     render(
       <MemoryRouter>

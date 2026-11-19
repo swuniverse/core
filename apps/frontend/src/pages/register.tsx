@@ -8,12 +8,10 @@ import type { AuthResponse, RegisterResponse } from '@swuniverse/shared';
 
 interface FactionModifiers {
   researchMultiplier: number;
-  colonyGrowthMultiplier: number;
 }
 
 const MODIFIER_LABELS: Record<keyof FactionModifiers, string> = {
   researchMultiplier: 'Forschung',
-  colonyGrowthMultiplier: 'Koloniewachstum',
 };
 
 function getBonuses(m: FactionModifiers): { label: string; value: string }[] {

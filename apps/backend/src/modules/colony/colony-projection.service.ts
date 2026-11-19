@@ -25,7 +25,7 @@ import { ColonyEconomyService } from './colony-economy.service';
 import { colonyWreckRepairPlan, isWreckColonyField } from './wreck-repair';
 import { ColonyOrbitService } from './colony-orbit.service';
 import { ColonySocialService } from './colony-social.service';
-import {
+import { calculateColonyGrowth,
   ColonyInternalSummary,
   getColonyChangeable,
   getEffectiveCurrentPopulation,
@@ -1416,45 +1416,11 @@ export class ColonyProjectionService {
     colony: Colony,
     summary: ColonyInternalSummary,
   ): number {
-    if (getColonyChangeable(colony).immigrationEnabled === false) {
-      return 0;
-    }
-
-    const currentPopulation = getEffectiveCurrentPopulation(colony);
-    const freeHousing = summary.maxHousing - currentPopulation;
-    if (freeHousing <= 0) {
-      return 0;
-    }
-
-    const lifeStandardProduction = summary.productionDelta.get(1300) ?? 0;
-    if (lifeStandardProduction === 0) {
-      return 0;
-    }
-
-    const lifeStandardPercentage =
-      lifeStandardProduction > currentPopulation || currentPopulation <= 0
-        ? 100
-        : Math.floor((lifeStandardProduction * 100) / currentPopulation);
-    const bevGrowthRate =
-      this.gameData.getColonyClass(colony.colonyClassId)?.bevGrowthRate ?? 100;
-
-    let immigration = Math.ceil(
-      (freeHousing / 3 / 100) * bevGrowthRate * (lifeStandardPercentage / 50),
+    return calculateColonyGrowth(
+      colony,
+      summary.productionDelta.get(1300) ?? 0,
+      this.gameData.getColonyClass(colony.colonyClassId)?.bevGrowthRate ?? 100,
     );
-
-    if (currentPopulation + immigration > summary.maxHousing) {
-      immigration = summary.maxHousing - currentPopulation;
-    }
-
-    const populationLimit = getColonyChangeable(colony).populationLimit ?? 0;
-    if (
-      populationLimit > 0 &&
-      currentPopulation + immigration > populationLimit
-    ) {
-      immigration = populationLimit - currentPopulation;
-    }
-
-    return Math.max(0, immigration);
   }
 
   private buildEffectSummary(summary: ColonyInternalSummary) {
