@@ -1,5 +1,6 @@
 import { DataSource } from 'typeorm';
 import { AdminFlightSignatureService } from '../../modules/starmap/admin-flight-signature.service';
+import { FlightSignatureService } from '../../modules/spacecraft/flight-signature.service';
 import {
   connectIntegrationDatabase,
   createUser,
@@ -176,6 +177,27 @@ describe('Admin flight signature aggregation (PostgreSQL)', () => {
     ).rejects.toThrow('gültige ID');
     await expect(service.getFields(999, bounds, now)).rejects.toThrow(
       'Ebene nicht gefunden',
+    );
+  });
+  it('counts colony-list signatures in one query exactly like the sector scan (col-AUD-02a)', async () => {
+    const { user, other, origin, destination } = await setup();
+    const signatures = new FlightSignatureService(
+      source.getRepository('FlightSignature') as never,
+      {} as never,
+    );
+    const locations = [origin.location.id, destination.location.id];
+    for (const viewer of [user, other]) {
+      const counts = await signatures.countVisibleAt(locations, viewer.id, now);
+      for (const locationId of locations) {
+        const scan = await signatures.getVisibleAt(locationId, viewer.id, now, true);
+        expect(counts.get(locationId) ?? 0).toBe(
+          scan.signatures.length + scan.fadedSignatures.uncloaked + scan.fadedSignatures.cloaked,
+        );
+      }
+    }
+    // Viewer `other` sees ship 101 on both fields; the 49 h and future rows never count.
+    expect(await signatures.countVisibleAt(locations, other.id, now)).toEqual(
+      new Map([[origin.location.id, 1], [destination.location.id, 1]]),
     );
   });
 });

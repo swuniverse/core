@@ -1,6 +1,6 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, In, LessThan, Repository } from 'typeorm';
+import { And, EntityManager, In, LessThan, MoreThan, Repository } from 'typeorm';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import {
@@ -114,8 +114,16 @@ export class FlightSignatureService {
   ): Promise<Map<number, number>> {
     const counts = new Map<number, number>();
     if (locationIds.length === 0) return counts;
+    // Rows older than the longest window (48 h uncloaked) never count; the list
+    // must not load the whole flight history of every colony location.
     const rows = await this.signatureRepo.find({
-      where: { locationId: In(locationIds), createdAt: LessThan(now) },
+      where: {
+        locationId: In(locationIds),
+        createdAt: And(
+          MoreThan(new Date(now.getTime() - FLIGHT_SIGNATURE_RETENTION_MS)),
+          LessThan(now),
+        ),
+      },
       order: { createdAt: 'DESC' },
     });
     const byLocation = new Map<number, FlightSignature[]>();
