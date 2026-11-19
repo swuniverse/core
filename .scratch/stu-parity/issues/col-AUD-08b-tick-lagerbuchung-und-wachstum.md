@@ -1,6 +1,6 @@
 # Kolonie-Tick: Lagerbuchung nach `commodity.sort`, Wachstum und Wohnraum wie STU
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** col-AUD-08a
@@ -52,4 +52,4 @@ Außerdem nutzt SWU `max(Wohnraum, Bevölkerung)` als Wohnraum. Dadurch setzt di
   - `colonyGrowthMultiplier` entfernt: Tick, Entity/Migration-Entity, Fraktions-Seed, Registrierungsanzeige; Migration `20261119090000-drop-faction-colony-growth-multiplier` (down legt Spalte mit Default 1 wieder an). `FactionService`-Abhängigkeit des Tick-Prozessors entfällt.
   - Tests: Wachstum Rebellen = Imperium (141), Auswanderung bei Wohnraumverlust im selben Tick, Buchungsreihenfolge mit anteiliger Auffüllung, Registrierung ohne Koloniewachstum-Bonus. `jest colony` 415/415, Registrierung 3/3, PostgreSQL mit allen Migrationen (Tick-/Anomalie-/Migrationssuites) 74/74; `tsc` Backend und Frontend (app + spec) sauber, ESLint 0 Fehler.
   - Offen für den Prüfpass: Abschlussreview, gemeinsamer Build; Kolonieliste (col-AUD-02a) nutzt die gemeinsame Funktion, sobald sie Wachstum anzeigt.
-
+- 2026-11-19 – Prüfpass (Opus 5.5): Frischer Diff-Review ohne Befund: Wachstum entspricht STU `getGrowth` mit `getMaxBev`, eine Formel für Tick und Ansicht. `maxPopulation` ist `NOT NULL` und wird beim Schalten von Gebäuden gepflegt; Dev-DB (1 Kolonie) ohne Überbelegung. Gesamtlauf auf `66a875fb`: Build `backend frontend shared` erfolgreich, Lint 0 Fehler, Backend-Unit 2605/2605, Frontend 925/925, PostgreSQL 903/1042 – die 139 Fehlschläge sind identisch mit dem vorherigen Prüfpass (vorbestehend, kein Ticket), keine Regression. resolved.

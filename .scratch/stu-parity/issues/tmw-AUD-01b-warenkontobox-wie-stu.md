@@ -62,4 +62,4 @@ Je Konto zeigt die Box:
   - Checks: `vitest src/pages/trade.spec.tsx src/components/trade` 58/58, `tsc` Frontend app + spec sauber, ESLint ohne Befund.
   - Netzicon nachgezogen (Nutzerwahl „1“): vorhandene Avatare `Avatar_Imperium.png`/`Avatar_Rebellen.png` je NPC-Netz, nur an NPC-Posten; Hutten ohne Bild. Test im NPC-/Spielerposten-Fall.
   - Offen: Browserprüfung der Box; gemeinsamer Build im Prüfpass.
-
+- 2026-11-19 – Prüfpass (Opus 5.5): Diff bereits bei der Übergabe geprüft (Umbenennen nur mit Namen, Netzicon). Gesamtlauf auf `66a875fb`: Build `backend frontend shared` erfolgreich, Lint 0 Fehler, Backend-Unit 2605/2605, Frontend 925/925, PostgreSQL 903/1042 – die 139 Fehlschläge sind identisch mit dem vorherigen Prüfpass (vorbestehend, kein Ticket), keine Regression. Offen: Browserprüfung – Kontobox: Warenmenü, Angebote je Ware, Schiffe vor Ort, Schwarzes Brett, Umbenennen, Farben, Netzicon in 20 px. Status bleibt `claimed`.

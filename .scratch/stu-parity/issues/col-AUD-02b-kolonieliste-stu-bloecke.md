@@ -50,4 +50,4 @@ Unter der Kolonieliste zeigt STU Waren mit negativer Bilanz samt Reichweite „(
   - Bauvorgänge der Kolonieliste zeigen „wird nach dem Bau aktiviert/deaktiviert“ (`activateAfterBuild`).
   - Checks: Jest `colony-tick` 237/237, Vitest `src/pages/colonies` 119/119, `tsc` Backend/Frontend sauber, ESLint 0 Fehler.
   - Offen für den Prüfpass: Browserprüfung der Blöcke, gemeinsamer Build.
-
+- 2026-11-19 – Prüfpass (Opus 5.5): Diff bereits bei der Übergabe geprüft (Bestand aus geladener `storage`-Relation, Terraforming-Fortschritt ergänzt). Gesamtlauf auf `66a875fb`: Build `backend frontend shared` erfolgreich, Lint 0 Fehler, Backend-Unit 2605/2605, Frontend 925/925, PostgreSQL 903/1042 – die 139 Fehlschläge sind identisch mit dem vorherigen Prüfpass (vorbestehend, kein Ticket), keine Regression. Offen: Browserprüfung – Verbrauchszeile, Terraforming-Balken, Modulblock, Aktivierungshinweis, leere Blöcke ausgeblendet. Status bleibt `claimed`.
