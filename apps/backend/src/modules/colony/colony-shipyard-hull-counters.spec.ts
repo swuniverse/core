@@ -27,6 +27,7 @@ describe('shipyard hull counters', () => {
     expect(qb.andWhere).toHaveBeenCalledWith('s.status != :destroyed', {
       destroyed: SpacecraftStatus.DESTROYED,
     });
+    expect(qb.andWhere).toHaveBeenCalledWith('s.rpgHidden = false');
     expect(qb.groupBy).toHaveBeenCalledWith('s.shipClassId');
   });
 });

@@ -1,6 +1,6 @@
 # Werft: Rumpfauswahl mit Bild, Zählern und deutschen Labels
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -23,11 +23,11 @@ Die Rumpfkacheln der SWU-Werft zeigen kein Rumpfbild, keinen Typ, nicht „Im Ei
 
 ## Akzeptanzkriterien
 
-- [ ] Jede Rumpfkachel zeigt das Rumpfbild, „Typ: <Kategorie>“ (deutsch), „Im Einsatz: n“ (eigene nicht zerstörte Schiffe dieses Rumpfs) und „Baupläne: n“ (eigene Baupläne dieses Rumpfs).
-- [ ] Die Zahlen liefert das Backend gesammelt mit der Rumpfliste (keine Abfrage je Rumpf).
-- [ ] Alle Labels sind deutsch: „Hülle“, „Schilde“, „Crew“, „Laderaum“, „Keine Module verfügbar“ usw. Im Panel bleibt kein englischer Text.
-- [ ] Backend-Test für die Zähler.
-- [ ] Frontend-Test `PanelShipyard.spec.tsx`: Bild, Typ, Zähler, deutsche Labels.
+- [x] Jede Rumpfkachel zeigt das Rumpfbild, „Typ: <Kategorie>“ (deutsch), „Im Einsatz: n“ (eigene nicht zerstörte Schiffe dieses Rumpfs) und „Baupläne: n“ (eigene Baupläne dieses Rumpfs).
+- [x] Die Zahlen liefert das Backend gesammelt mit der Rumpfliste (keine Abfrage je Rumpf).
+- [x] Alle Labels sind deutsch: „Hülle“, „Schilde“, „Crew“, „Laderaum“, „Keine Module verfügbar“ usw. Im Panel bleibt kein englischer Text.
+- [x] Backend-Test für die Zähler.
+- [x] Frontend-Test `PanelShipyard.spec.tsx`: Bild, Typ, Zähler, deutsche Labels.
 
 ## Herkunft
 
@@ -38,3 +38,10 @@ Die Rumpfkacheln der SWU-Werft zeigen kein Rumpfbild, keinen Typ, nicht „Im Ei
 ## Comments
 
 - 2026-11-17: Aus dem Audit angelegt. Die Baupläne stehen in col-AUD-05b.
+- 2026-11-19 – umgesetzt, Prüfung ausstehend. Umsetzung an Sonnet-Agent delegiert, Review durch Opus 5.5. Commits `33050bad` und „fix(colony): keep RPG-hidden ships out of the hull in-use count (col-AUD-05a)“.
+  - Rumpfkachel mit Bild (`shipImage`), „Typ“ (deutsche Kategorie), „Im Einsatz“ und „Baupläne“. Zähler in `ColonyProjectionService` (dort entsteht `shipClassLayouts`): eine gruppierte Abfrage je Spieler; Baupläne aus der bereits geladenen Bauplanliste.
+  - Zählregel wie STU `SpacecraftRepository::getAmountByUserAndRump` (alle Schiffe des Rumpfs, auch im Bau); SWU schließt `DESTROYED` aus (STU löscht zerstörte Schiffe). Review-Befund behoben: RPG-versteckte Schiffe sind auch für den Eigentümer verborgen und werden nicht mitgezählt.
+  - Alle englischen Texte im Werft-Panel übersetzt, darüber hinaus „Buildplan“→„Bauplan“, „Retrofit“→„Umrüstung“ (auch der Standardname neuer Umrüstungspläne), „Ressourcen-only“→„Reine Ressourcenrümpfe“. Zähler als Text statt STU-Icons.
+  - Checks: Jest `colony-shipyard colony-tick` 243/243, Vitest `src/pages/colonies` 128/128, `tsc` sauber, `nx lint` 0 Fehler, PostgreSQL `shipbuilding-workflow` 21/21.
+  - Offen für den Prüfpass: Browserprüfung der Kacheln, gemeinsamer Build.
+

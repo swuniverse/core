@@ -241,6 +241,8 @@ export class ColonyProjectionService {
         .andWhere('s.status != :destroyed', {
           destroyed: SpacecraftStatus.DESTROYED,
         })
+        // Admin-hidden RPG ships stay hidden from their owner's lists as well.
+        .andWhere('s.rpgHidden = false')
         .groupBy('s.shipClassId')
         .getRawMany();
     return new Map(rows.map((r) => [Number(r.shipClassId), Number(r.count)]));
