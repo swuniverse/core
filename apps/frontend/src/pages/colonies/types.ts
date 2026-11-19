@@ -689,6 +689,9 @@ export interface ColonyDetailV2 {
     }>;
     shipClassLayouts?: Array<{
       shipClassId: number;
+      /** Own non-destroyed ships of this hull. */
+      inUseCount?: number;
+      buildplanCount?: number;
       imageKey: string;
       layoutKey: string;
       fixedModuleCommodityIds?: number[] | null;

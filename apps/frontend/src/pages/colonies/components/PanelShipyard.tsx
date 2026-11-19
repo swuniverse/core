@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { shipImage } from '../../../lib/assets';
 import { shipyardDrydockImage } from '../../../lib/shipyard-assets';
 import { Tooltip } from '../../../components/Tooltip';
 import type {
@@ -17,6 +18,21 @@ type ShipyardView =
   | 'repairSelection'
   | 'retrofitSelection'
   | 'moduleDesign';
+
+const HULL_CATEGORY_LABELS: Record<string, string> = {
+  FIGHTER: 'Jäger',
+  ESCORT: 'Eskortschiff',
+  CORVETTE: 'Korvette',
+  FRIGATE: 'Fregatte',
+  CRUISER: 'Kreuzer',
+  DESTROYER: 'Zerstörer',
+  FREIGHTER: 'Frachter',
+  STATION: 'Station',
+};
+
+function hullCategoryLabel(category: string): string {
+  return HULL_CATEGORY_LABELS[category] ?? category;
+}
 
 type DesignerMode = 'build' | 'retrofit';
 
@@ -315,10 +331,8 @@ function summarizeSelections(
     .join(' · ');
 }
 
-function typeEmptyLabel(type: ShipyardTypeKey) {
-  return type === 'COMPUTER'
-    ? 'No modules available'
-    : 'Keine Module verfügbar';
+function typeEmptyLabel(_type: ShipyardTypeKey) {
+  return 'Keine Module verfügbar';
 }
 
 function getSpecialTypeLabel(
@@ -908,7 +922,7 @@ export function PanelShipyard({
       }));
     setDesignerMode('retrofit');
     setSelectedClass(shipClass);
-    setBuildPlanName(`${ship.name} Retrofit`);
+    setBuildPlanName(`${ship.name} Umrüstung`);
     setShipName(ship.name);
     setModuleSelections(selections);
     setRetrofitShipId(ship.id);
@@ -1392,7 +1406,7 @@ export function PanelShipyard({
                 )}
               </div>
               <div className="text-[10px] text-swu-muted">
-                Wähle einen erforschten Rumpf. Ressourcen-only Rümpfe werden
+                Wähle einen erforschten Rumpf. Reine Ressourcenrümpfe werden
                 direkt ohne Moduldesigner gebaut.
               </div>
             </div>
@@ -1518,26 +1532,45 @@ export function PanelShipyard({
                       );
                     setSelectedClass(shipClass);
                     setShipName(shipClass.name);
-                    setBuildPlanName(`${shipClass.name} Buildplan`);
+                    setBuildPlanName(`${shipClass.name} Bauplan`);
                     setModuleSelections([]);
                     setView('moduleDesign');
                   }}
                   className="rounded border border-swu-border bg-swu-surface px-3 py-3 text-left hover:border-swu-accent/50"
                 >
+                  <img
+                    src={shipImage(shipClass.id, shipClass.key)}
+                    alt={shipClass.name}
+                    className="mb-1 h-12 object-contain"
+                  />
                   <div className="font-semibold text-swu-primary">
                     {shipClass.name}
                   </div>
                   <div className="text-[10px] text-swu-muted">
-                    {shipClass.category} · Hull {shipClass.hullBase} · Shields{' '}
-                    {shipClass.shieldBase}
+                    Typ: {hullCategoryLabel(shipClass.category)} · Hülle{' '}
+                    {shipClass.hullBase} · Schilde {shipClass.shieldBase}
                   </div>
                   <div className="mt-2 text-[10px] text-swu-muted">
-                    Crew {shipClass.crewMin}/{availableCrew} · Cargo{' '}
+                    Crew {shipClass.crewMin}/{availableCrew} · Laderaum{' '}
                     {shipClass.cargoCapacity}
+                  </div>
+                  <div className="mt-1 text-[10px] text-swu-muted">
+                    Im Einsatz:{' '}
+                    {
+                      shipLayouts.find(
+                        (layout) => layout.shipClassId === shipClass.id,
+                      )?.inUseCount ?? 0
+                    }{' '}
+                    · Baupläne:{' '}
+                    {
+                      shipLayouts.find(
+                        (layout) => layout.shipClassId === shipClass.id,
+                      )?.buildplanCount ?? 0
+                    }
                   </div>
                   {isResourceOnlyFixedRump && (
                     <div className="mt-1 text-[10px] text-swu-accent">
-                      Ressourcen-only: keine Module auswählbar.
+                      Nur Ressourcen: keine Module auswählbar.
                     </div>
                   )}
                 </button>
@@ -1552,7 +1585,7 @@ export function PanelShipyard({
             <div>
               <div className="text-sm font-semibold text-swu-primary">
                 {designerMode === 'retrofit'
-                  ? 'Retrofit-Designer'
+                  ? 'Umrüstungs-Designer'
                   : isResourceOnlyFixedRump
                     ? 'Rumpf-Bau'
                     : 'Modul-Designer'}{' '}
@@ -1605,7 +1638,7 @@ export function PanelShipyard({
               </div>
               <div className="flex-1 min-w-[8rem]">
                 <div className="text-[10px] font-bold uppercase text-swu-muted">
-                  Buildplanname
+                  Bauplanname
                 </div>
                 <input
                   type="text"
@@ -1658,7 +1691,7 @@ export function PanelShipyard({
                   disabled={busyShipyardAction === `retrofit-${retrofitShipId}`}
                   className="rounded border border-swu-accent bg-swu-accent/15 px-3 py-1.5 text-xs font-semibold text-swu-accent disabled:opacity-40"
                 >
-                  Retrofit starten
+                  Umrüstung starten
                 </button>
               )}
             </div>
@@ -1676,7 +1709,7 @@ export function PanelShipyard({
             )}
             {isResourceOnlyFixedRump && (
               <div className="mt-2 rounded border border-swu-accent/40 bg-swu-accent/10 px-2 py-2 text-[10px] text-swu-accent">
-                Ressourcen-only Rumpf: gemäß STU benötigen erste Frachtschiffe,
+                Reiner Ressourcenrumpf: gemäß STU benötigen erste Frachtschiffe,
                 Workbees und erste unbemannte Kolonieschiffe nur Ressourcen und
                 keine Module.
               </div>
@@ -1684,7 +1717,7 @@ export function PanelShipyard({
             {designerMode === 'retrofit' && selectedShip && selectedLayout && (
               <div className="mt-2 rounded border border-swu-border/40 bg-swu-bg/40 px-2 py-2 text-[10px] text-swu-muted space-y-1">
                 <div className="font-semibold text-swu-primary">
-                  Retrofit-Delta
+                  Umrüstungs-Delta
                 </div>
                 {selectedLayout.slots.map((slot) => {
                   const previousCommodityId = (selectedShip.modules ?? []).find(
@@ -1728,7 +1761,7 @@ export function PanelShipyard({
           {isResourceOnlyFixedRump ? (
             <div className="rounded border border-swu-border bg-swu-surface px-3 py-3 text-xs space-y-2">
               <div className="text-sm font-semibold text-swu-primary">
-                Ressourcen-only Rumpf
+                Reiner Ressourcenrumpf
               </div>
               <div className="text-[10px] text-swu-muted">
                 Dieser Rumpf entspricht der STU-Regel für erste Frachtschiffe,

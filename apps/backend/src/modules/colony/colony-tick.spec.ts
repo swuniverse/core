@@ -94,6 +94,12 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     create: jest.fn((value) => value),
     save: jest.fn(async (value) => value),
     remove: jest.fn(async (value) => value),
+    createQueryBuilder: jest.fn(() => {
+      const qb: any = {};
+      for (const m of ['select', 'addSelect', 'where', 'andWhere', 'groupBy']) qb[m] = () => qb;
+      qb.getRawMany = async () => [];
+      return qb;
+    }),
   };
   const systemFieldRepo = {
     findOneByOrFail: jest.fn(async () => ({ id: 301 })),

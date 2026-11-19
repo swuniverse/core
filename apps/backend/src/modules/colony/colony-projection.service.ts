@@ -230,6 +230,22 @@ export class ColonyProjectionService {
     @Optional() private readonly timing?: ColonyTimingService,
   ) {}
 
+  /** One grouped query: own ships per hull; STU `getAmountByUserAndRump` counts every row, SWU only drops DESTROYED. */
+  async countShipsByClass(userId: number): Promise<Map<number, number>> {
+    const rows: Array<{ shipClassId: number; count: string }> =
+      await this.shipRepo
+        .createQueryBuilder('s')
+        .select('s.shipClassId', 'shipClassId')
+        .addSelect('COUNT(*)', 'count')
+        .where('s.userId = :userId', { userId })
+        .andWhere('s.status != :destroyed', {
+          destroyed: SpacecraftStatus.DESTROYED,
+        })
+        .groupBy('s.shipClassId')
+        .getRawMany();
+    return new Map(rows.map((r) => [Number(r.shipClassId), Number(r.count)]));
+  }
+
   /** Build start is not stored: total = scaled buildTime of the target building (new builds and upgrades alike). */
   private buildProgressPercent(field: Colony['fields'][number]): number | null {
     const buildTime = field.buildingId
@@ -472,6 +488,7 @@ export class ColonyProjectionService {
       where: { userId },
       order: { id: 'ASC' },
     });
+    const hullInUse = await this.countShipsByClass(userId);
     const fabricationQueue = await this.fabricationQueueRepo.find({
       where: {
         colonyId: colony.id,
@@ -1371,6 +1388,10 @@ export class ColonyProjectionService {
               return layout
                 ? {
                     shipClassId: shipClass.id,
+                    inUseCount: hullInUse.get(shipClass.id) ?? 0,
+                    buildplanCount: buildplans.filter(
+                      (plan) => plan.shipClassId === shipClass.id,
+                    ).length,
                     imageKey: layout.imageKey,
                     layoutKey: layout.layoutKey,
                     slots: layout.slots,

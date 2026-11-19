@@ -79,6 +79,8 @@ describe('PanelShipyard EPS cost and function occupation', () => {
     shipClassLayouts: [
       {
         shipClassId: 1,
+        inUseCount: 3,
+        buildplanCount: 2,
         imageKey: 'x',
         layoutKey: 'x',
         slots: [],
@@ -202,6 +204,25 @@ describe('PanelShipyard EPS cost and function occupation', () => {
       expect.anything(),
       6,
     );
+  });
+
+  it('shows hull image, German type, counters and German labels on the hull tile', () => {
+    renderPanel([]);
+    fireEvent.click(screen.getByRole('button', { name: 'Werft öffnen' }));
+    fireEvent.click(screen.getByRole('button', { name: /Schiffbau/ }));
+
+    const tile = screen.getByRole('button', { name: /Test Corvette/ });
+    expect(tile.querySelector('img')?.getAttribute('src')).toMatch(
+      /\/ships\/.+/,
+    );
+    const text = tile.textContent ?? '';
+    expect(text).toContain('Typ: Korvette');
+    expect(text).toContain('Hülle 10');
+    expect(text).toContain('Schilde 5');
+    expect(text).toContain('Laderaum 1');
+    expect(text).toContain('Im Einsatz: 3');
+    expect(text).toContain('Baupläne: 2');
+    expect(text).not.toMatch(/Hull|Shields|Cargo/);
   });
 
   it('marks a function with an active build or retrofit job as occupied', () => {
