@@ -142,6 +142,18 @@ export class ColonyOrbitService implements OnModuleInit {
     }
   }
 
+  /** STU `Colony::isDefended`: colonies with a running DEFEND order. */
+  async getDefendedColonyIds(colonyIds: number[]): Promise<Set<number>> {
+    if (colonyIds.length === 0) return new Set();
+    const orders = await this.orbitAssignmentRepo.find({
+      where: {
+        colonyId: In(colonyIds),
+        mode: ColonyOrbitAssignmentMode.DEFEND,
+      },
+    });
+    return new Set(orders.map((order) => order.colonyId));
+  }
+
   /** STU `AbstractDirectedMovement`: a running order holds its fleet in orbit. */
   async flightBlockReason(
     manager: EntityManager,

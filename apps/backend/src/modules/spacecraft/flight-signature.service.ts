@@ -1,6 +1,6 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, LessThan, Repository } from 'typeorm';
+import { EntityManager, In, LessThan, Repository } from 'typeorm';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import {
@@ -100,6 +100,55 @@ export class FlightSignatureService {
       },
       order: { createdAt: 'DESC' },
     });
+    return this.classify(rows, userId, now, includeCloaked);
+  }
+
+  /**
+   * Signature count per location, same rules as `getVisibleAt(..., true)`
+   * (visible + faded, cloaked included; STU `getVisibleSignatureCount`).
+   */
+  async countVisibleAt(
+    locationIds: number[],
+    userId: number,
+    now = new Date(),
+  ): Promise<Map<number, number>> {
+    const counts = new Map<number, number>();
+    if (locationIds.length === 0) return counts;
+    const rows = await this.signatureRepo.find({
+      where: { locationId: In(locationIds), createdAt: LessThan(now) },
+      order: { createdAt: 'DESC' },
+    });
+    const byLocation = new Map<number, FlightSignature[]>();
+    for (const row of rows) {
+      const list = byLocation.get(row.locationId) ?? [];
+      list.push(row);
+      byLocation.set(row.locationId, list);
+    }
+    for (const [locationId, list] of byLocation) {
+      const { signatures, fadedSignatures } = this.classify(
+        list,
+        userId,
+        now,
+        true,
+      );
+      counts.set(
+        locationId,
+        signatures.length + fadedSignatures.uncloaked + fadedSignatures.cloaked,
+      );
+    }
+    return counts;
+  }
+
+  /** `rows` are the rows of ONE location, newest first. */
+  private classify(
+    rows: FlightSignature[],
+    userId: number,
+    now: Date,
+    includeCloaked: boolean,
+  ): {
+    signatures: VisibleFlightSignature[];
+    fadedSignatures: { uncloaked: number; cloaked: number };
+  } {
     const latest = new Map<number, FlightSignature>();
     for (const row of rows) {
       if (row.userId !== userId && !latest.has(row.spacecraftId)) {

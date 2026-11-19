@@ -1,4 +1,5 @@
 import { ShuttleService } from '../spacecraft/shuttle.service';
+import { FlightSignatureService } from '../spacecraft/flight-signature.service';
 import {
   Injectable,
   Optional,
@@ -138,6 +139,7 @@ export class ColonyService {
     private readonly colonyConstructionService: ColonyConstructionService,
     private readonly colonyTickProcessorService: ColonyTickProcessorService,
     @Optional() private readonly shuttles?: ShuttleService,
+    @Optional() private readonly flightSignatures?: FlightSignatureService,
   ) {}
 
   giveUpColony(colonyId: number, userId: number, confirmation: string) {
@@ -214,15 +216,22 @@ export class ColonyService {
       order: { id: 'ASC' },
     });
     const colonyIds = colonies.map((c) => c.id);
-    const [crewCounts, trainingQueues] = await Promise.all([
-      this.colonyCrewService.getCrewCountsByColonyIds(colonyIds),
-      this.crewTrainingQueueRepo.find({
-        where: {
-          userId,
-          status: ColonyCrewTrainingQueueStatus.QUEUED,
-        },
-      }),
-    ]);
+    const locationIds = colonies.flatMap((c) =>
+      c.systemFieldId != null ? [c.systemFieldId] : [],
+    );
+    const [crewCounts, trainingQueues, signatureCounts, defendedIds] =
+      await Promise.all([
+        this.colonyCrewService.getCrewCountsByColonyIds(colonyIds),
+        this.crewTrainingQueueRepo.find({
+          where: {
+            userId,
+            status: ColonyCrewTrainingQueueStatus.QUEUED,
+          },
+        }),
+        this.flightSignatures?.countVisibleAt(locationIds, userId) ??
+          new Map<number, number>(),
+        this.colonyOrbitService.getDefendedColonyIds(colonyIds),
+      ]);
     const trainingByColony = new Map<number, number>();
     for (const q of trainingQueues) {
       trainingByColony.set(
@@ -263,7 +272,10 @@ export class ColonyService {
       (base as any).energyMax = summary.effectiveState.energy.max;
       (base as any).storageMax = summary.effectiveStorageMax;
       return Object.assign(base, {
-        signatureCount: 0,
+        signatureCount:
+          (colony.systemFieldId != null &&
+            signatureCounts.get(colony.systemFieldId)) ||
+          0,
         overview: {
           location: {
             x: location?.x ?? colony.posX,
@@ -275,15 +287,12 @@ export class ColonyService {
           },
           status: {
             blocked: colony.stats?.isBlockaded ?? false,
-            defended: false,
+            defended: defendedIds.has(colony.id),
           },
           population: {
             current: summary.effectiveState.population.current,
             max: summary.effectiveState.population.maxHousing,
-            immigration:
-              colony.stats?.immigrationEnabled === false
-                ? 0
-                : summary.effectiveState.population.available,
+            immigration: this.calculatePopulationGrowth(colony, summary),
           },
           energy: {
             current: summary.effectiveState.energy.current,

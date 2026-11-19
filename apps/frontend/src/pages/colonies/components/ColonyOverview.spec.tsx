@@ -26,8 +26,8 @@ describe('ColonyOverview', () => {
           systemY: 76,
           systemTypeId: 1001,
         },
-        status: { blocked: true, defended: false },
-        population: { current: 630, max: 630, immigration: 0 },
+        status: { blocked: true, defended: true },
+        population: { current: 630, max: 630, immigration: 12 },
         energy: { current: 237, max: 388, production: 32 },
         storage: { current: 5914, max: 6000, production: 34 },
       },
@@ -44,13 +44,17 @@ describe('ColonyOverview', () => {
     );
 
     expect(screen.getByText('Signaturen')).toBeTruthy();
+    expect(screen.getByTitle('Verteidigt')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Signaturen von Alpha/ }));
     expect(screen.getByText('3')).toBeTruthy();
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenLastCalledWith(7);
     expect(screen.getByAltText('Blockiert')).toBeTruthy();
     expect(screen.getByText('9|16 (Mavik-System 116|76)')).toBeTruthy();
     expect(
       screen.getByText(
         (_, element) =>
-          element?.tagName === 'TD' && element.textContent === '630/630 (0)',
+          element?.tagName === 'TD' && element.textContent === '630/630 (+12)',
       ),
     ).toBeTruthy();
     expect(screen.getByText(/237\/388 \(\+32\)/)).toBeTruthy();

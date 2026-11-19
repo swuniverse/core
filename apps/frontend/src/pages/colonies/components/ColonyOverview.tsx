@@ -152,6 +152,7 @@ export function ColonyOverview({
                             <img
                               src="/assets/buttons/defend1.png"
                               alt="Verteidigt"
+                              title="Verteidigt"
                               className="size-5"
                             />
                           )}
@@ -171,7 +172,18 @@ export function ColonyOverview({
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center font-mono">
-                        {c.signatureCount ?? 0}
+                        <button
+                          type="button"
+                          title="Sektor-Scan öffnen"
+                          aria-label={`Signaturen von ${c.name}: Sektor-Scan öffnen`}
+                          className="text-swu-accent underline"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onSelect(c.id);
+                          }}
+                        >
+                          {c.signatureCount ?? 0}
+                        </button>
                       </td>
                       <td
                         className={`px-4 py-3 text-center font-mono ${crewOverLimit ? 'text-red-400' : 'text-swu-text'}`}

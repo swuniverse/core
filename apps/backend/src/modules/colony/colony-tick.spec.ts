@@ -1467,6 +1467,9 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     shipyardService as any,
   );
 
+  const flightSignatures = {
+    countVisibleAt: jest.fn(async () => new Map<number, number>()),
+  };
   const service = new ColonyService(
     colonyRepo as any,
     storageRepo as any,
@@ -1498,6 +1501,8 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     shipyardService as any,
     constructionService as any,
     tickProcessorService as any,
+    undefined,
+    flightSignatures as any,
   );
 
   return Object.assign(
@@ -1516,6 +1521,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       shipBuildQueueRepo,
       shipBuildplanRepo,
       orbitAssignmentRepo,
+      flightSignatures,
       fleetRepo,
       spacecraftModuleRepo,
       crewAssignmentRepo,
@@ -2713,7 +2719,7 @@ describe('colony tick calculations', () => {
           systemTypeId: 1001,
         },
         status: { blocked: true, defended: false },
-        population: { current: 276, max: 312, immigration: 252 },
+        population: { current: 276, max: 312, immigration: 0 },
         energy: { current: 50, max: 100, production: 0 },
         storage: { current: 25, max: 3000, production: 0 },
       },
@@ -10252,5 +10258,74 @@ describe('shipyard EPS cost and one job per shipyard function', () => {
       service.buildShip(1, 1, 1, 'Red One', [], undefined, undefined, 6),
     ).rejects.toThrow('Not enough');
     expect(transactionManager.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('findAllByUser colony list values (col-AUD-02a)', () => {
+  const listColony = (id: number, systemFieldId: number | null) =>
+    ({
+      id,
+      userId: 1,
+      name: `C${id}`,
+      colonyClassId: 201,
+      population: 10,
+      populationMax: 100,
+      energy: 0,
+      energyMax: 100,
+      storageUsed: 0,
+      storageMax: 100,
+      systemFieldId,
+      stats: {
+        workers: 5,
+        workless: 5,
+        maxPopulation: 100,
+        immigrationEnabled: true,
+      },
+      fields: [],
+      posX: 1,
+      posY: 1,
+      starSystem: null,
+      celestialObject: null,
+    }) as any;
+
+  it('loads signatures, defense and growth in batched queries', async () => {
+    const {
+      service,
+      colonyRepo,
+      colonyCrewService,
+      flightSignatures,
+      orbitAssignmentRepo,
+    } = createColonyService();
+    colonyRepo.find.mockResolvedValue([
+      listColony(1, 40),
+      listColony(2, 41),
+      listColony(3, null),
+    ]);
+    (colonyCrewService.getCrewCountsByColonyIds as jest.Mock).mockResolvedValue(
+      new Map(),
+    );
+    flightSignatures.countVisibleAt.mockResolvedValue(new Map([[40, 3]]));
+    orbitAssignmentRepo.find.mockResolvedValue([
+      { colonyId: 2, mode: 'DEFEND' },
+    ]);
+    const growth = jest
+      .spyOn(service, 'calculatePopulationGrowth')
+      .mockReturnValue(7);
+
+    const result: any[] = await service.findAllByUser(1);
+
+    expect(flightSignatures.countVisibleAt).toHaveBeenCalledTimes(1);
+    expect(flightSignatures.countVisibleAt).toHaveBeenCalledWith([40, 41], 1);
+    expect(orbitAssignmentRepo.find).toHaveBeenCalledTimes(1);
+    expect(result.map((c) => c.signatureCount)).toEqual([3, 0, 0]);
+    expect(result.map((c) => c.overview.status.defended)).toEqual([
+      false,
+      true,
+      false,
+    ]);
+    expect(growth).toHaveBeenCalledTimes(3);
+    expect(result.map((c) => c.overview.population.immigration)).toEqual([
+      7, 7, 7,
+    ]);
   });
 });

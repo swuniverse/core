@@ -72,6 +72,39 @@ describe('FlightSignatureService', () => {
     ).toBe(1);
   });
 
+  it('countVisibleAt agrees with getVisibleAt(includeCloaked) per location', async () => {
+    const now = new Date('2026-10-22T12:00:00Z');
+    const at = (loc: number, r: any) => ({ ...r, locationId: loc });
+    const rows = [
+      at(8, row(1, 2, false, 13, now)), // faded
+      at(8, row(1, 2, false, 2, now)), // newer row of ship 1 wins: visible
+      at(8, row(2, 3, false, 49, now)), // expired
+      at(8, row(3, 4, true, 13, now)), // cloaked, visible
+      at(8, row(4, 5, true, 19, now)), // cloaked, expired
+      at(8, row(5, 1, false, 1, now)), // own
+      at(9, row(1, 2, false, 30, now)), // other location: faded
+    ];
+    repo.find.mockImplementation(async (q: any) => {
+      const ids: number[] = [].concat(
+        q.where.locationId.value ?? q.where.locationId,
+      );
+      return rows.filter((r) => ids.includes(r.locationId));
+    });
+    const counts = await service.countVisibleAt([8, 9, 10], 1, now);
+    for (const loc of [8, 9]) {
+      const v = await service.getVisibleAt(loc, 1, now, true);
+      expect(counts.get(loc) ?? 0).toBe(
+        v.signatures.length +
+          v.fadedSignatures.uncloaked +
+          v.fadedSignatures.cloaked,
+      );
+    }
+    expect(counts.get(8)).toBe(2); // ship 1 visible, ship 3 cloaked+faded
+    expect(counts.get(9)).toBe(1);
+    expect(counts.has(10)).toBe(false);
+    expect(await service.countVisibleAt([], 1, now)).toEqual(new Map());
+  });
+
   it('deletes signatures older than 48 hours', async () => {
     const now = new Date('2026-10-22T12:00:00Z');
     await service.deleteExpired(now);
