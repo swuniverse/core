@@ -1,6 +1,6 @@
 # Baupläne: eigene Liste mit Schiffsanzahl, Bauzeit, Modulen und Umbenennen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -25,12 +25,12 @@ col-A4 ist resolved, aber Baupläne lassen sich in SWU nicht umbenennen. Endpunk
 
 ## Akzeptanzkriterien
 
-- [ ] Ein Bauplan lässt sich in der Bauplanliste und im Bauplan-Editor umbenennen (Eingabefeld, Speichern, Abbrechen). Die Validierungsfehler aus col-A4 (leer, zu lang, doppelt) erscheinen auf Deutsch. Der tote State ist entweder benutzt oder entfernt.
-- [ ] Die Bauplanliste zeigt je Bauplan Name, Rumpf, Zahl der Schiffe mit diesem Bauplan, Bauzeit, Crewbedarf und die Module (Symbol oder Name je Slot).
-- [ ] Wie bisher: Bauplan auswählen/bearbeiten, direkt bauen, Löschen nur wenn erlaubt (Sperre aus col-A4).
-- [ ] Das Backend liefert Schiffsanzahl, Bauzeit und Crewbedarf je Bauplan gesammelt.
-- [ ] Backend-Test: Schiffsanzahl und Bauzeit im Listen-DTO.
-- [ ] Frontend-Tests `PanelShipyard.spec.tsx`: Umbenennen (Erfolg und Fehler), Listenspalten, Löschsperre.
+- [x] Ein Bauplan lässt sich in der Bauplanliste und im Bauplan-Editor umbenennen (Eingabefeld, Speichern, Abbrechen). Die Validierungsfehler aus col-A4 (leer, zu lang, doppelt) erscheinen auf Deutsch. Der tote State ist entweder benutzt oder entfernt.
+- [x] Die Bauplanliste zeigt je Bauplan Name, Rumpf, Zahl der Schiffe mit diesem Bauplan, Bauzeit, Crewbedarf und die Module (Symbol oder Name je Slot).
+- [x] Wie bisher: Bauplan auswählen/bearbeiten, direkt bauen, Löschen nur wenn erlaubt (Sperre aus col-A4).
+- [x] Das Backend liefert Schiffsanzahl, Bauzeit und Crewbedarf je Bauplan gesammelt.
+- [x] Backend-Test: Schiffsanzahl und Bauzeit im Listen-DTO.
+- [x] Frontend-Tests `PanelShipyard.spec.tsx`: Umbenennen (Erfolg und Fehler), Listenspalten, Löschsperre.
 
 ## Herkunft
 
@@ -42,3 +42,10 @@ col-A4 ist resolved, aber Baupläne lassen sich in SWU nicht umbenennen. Endpunk
 ## Comments
 
 - 2026-11-17: Aus dem Audit angelegt. Die Rumpfauswahl steht in col-AUD-05a; beide ändern `PanelShipyard.tsx`.
+- 2026-11-19 – umgesetzt, Prüfung ausstehend. Umsetzung an Sonnet-Agent delegiert, Review durch Opus 5.5. Commit `a89b639e`.
+  - Bauplanliste aus `ColonyProjectionService.listBuildplans`: zwei gruppierte Abfragen (Schiffe, offene Aufträge) für alle Pläne. `shipCount` ohne zerstörte und RPG-versteckte Schiffe; `buildSeconds` und `crewRequired` über die aus `ShipbuildingCoreService` herausgezogenen Funktionen `shipBuildSeconds` und `calculateShipCrewRequired` (Baupfad nutzt sie jetzt ebenfalls, Verhalten unverändert). Bauzeit hängt nur am Rumpf und der globalen Zeitskalierung.
+  - Umbenennen in Liste und Editor (Eingabe, Speichern, Abbrechen), Serverfehler inline; col-A4-Validierungstexte auf Deutsch.
+  - Befund des Agenten behoben: Die Koloniedetail-Liste lieferte nie `canDelete`, der Löschknopf war im Spiel immer gesperrt. Jetzt geliefert, Regel wie `deleteShipBuildplan` (beliebige Schiffe inkl. zerstörter, offene Aufträge QUEUED/PAUSED). Hinweis: Die Regel steht damit an zwei Stellen und muss bei Änderungen gemeinsam angepasst werden; ein Plan, an dem nur RPG-versteckte Schiffe hängen, bleibt gesperrt, obwohl die Liste 0 Schiffe zeigt (gleiches Verhalten wie der Lösch-Endpunkt).
+  - Checks: Jest Schiffbau/Werft/Kolonie 459/459, Vitest `src/pages/colonies` + `app.spec` 172/172, `tsc` sauber, `nx lint` 0 Fehler, PostgreSQL `shipbuilding-workflow` 21/21.
+  - Offen für den Prüfpass: Browserprüfung (Liste, Umbenennen, Löschen), gemeinsamer Build.
+
