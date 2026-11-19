@@ -338,17 +338,27 @@ export function PanelFabrication({
     setBusyKey('batch');
     setError(null);
     setBatchResult(null);
-    try {
-      const results: FabricationBatchResult[] = [];
-      for (const [fn, items] of byFunction) {
-        results.push(await onStartFabricationBatch(fn, items));
-      }
+    const results: FabricationBatchResult[] = [];
+    const showResults = () =>
+      results.length > 0 &&
       setBatchResult({
         items: results.flatMap((r) => r.items),
         message: results.map((r) => r.message).join(' · '),
       });
+    try {
+      for (const [fn, items] of byFunction) {
+        results.push(await onStartFabricationBatch(fn, items));
+      }
+      showResults();
       setAmounts({});
     } catch (e: unknown) {
+      // Earlier groups are already ordered and paid: show them and clear their
+      // amounts so a retry does not order them twice.
+      showResults();
+      const ordered = new Set(results.flatMap((r) => r.items.map((i) => i.itemKey)));
+      setAmounts((prev) =>
+        Object.fromEntries(Object.entries(prev).filter(([key]) => !ordered.has(key))),
+      );
       setError(
         e instanceof Error ? e.message : 'Modulherstellung fehlgeschlagen',
       );

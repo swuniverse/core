@@ -258,5 +258,36 @@ describe('PanelFabrication', () => {
         await screen.findByText('Es wurden 1 von 2 Modulen in Auftrag gegeben'),
       ).toBeTruthy();
     });
+
+    it('keeps the results of ordered groups and clears their amounts when a later group fails', async () => {
+      const second = {
+        ...catalog[0],
+        itemKey: 'module.weapon.ionenkanone-k1',
+        displayName: 'Ionenkanone (Klasse 1)',
+        buildingFunctionIds: [11],
+      };
+      const onBatch = vi
+        .fn()
+        .mockResolvedValueOnce({
+          items: [{ itemKey: catalog[0].itemKey, requested: 1, accepted: 1, message: 'Turbolaser bestellt' }],
+          message: '1 von 1 Aufträgen angenommen',
+        })
+        .mockRejectedValueOnce(new Error('Fabrik 11 nicht verfügbar'));
+      renderRich({
+        catalog: [catalog[0], second] as typeof catalog,
+        activeFunctionIds: [10, 11],
+        onStartFabricationBatch: onBatch,
+      });
+      fireEvent.click(screen.getByText('Offensivsysteme'));
+      fireEvent.click(screen.getByText('Energiewaffe'));
+      fireEvent.change(screen.getByLabelText('Menge Turbolaser (Klasse 1)'), { target: { value: '1' } });
+      fireEvent.change(screen.getByLabelText('Menge Ionenkanone (Klasse 1)'), { target: { value: '1' } });
+      fireEvent.click(screen.getByText('Modulherstellung'));
+
+      expect(await screen.findByText('Fabrik 11 nicht verfügbar')).toBeTruthy();
+      expect(screen.getByText('Turbolaser bestellt')).toBeTruthy();
+      expect((screen.getByLabelText('Menge Turbolaser (Klasse 1)') as HTMLInputElement).value).toBe('');
+      expect((screen.getByLabelText('Menge Ionenkanone (Klasse 1)') as HTMLInputElement).value).toBe('1');
+    });
   });
 });

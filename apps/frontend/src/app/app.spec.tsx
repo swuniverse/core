@@ -1555,7 +1555,7 @@ describe('ColonyDetail', () => {
         { slotId: 'frigate-special-1', commodityId: 9004 },
         { slotId: 'frigate-special-2', commodityId: 9005 },
       ]),
-      'Nebulon-B Buildplan',
+      'Nebulon-B Bauplan',
       7,
     );
   });
