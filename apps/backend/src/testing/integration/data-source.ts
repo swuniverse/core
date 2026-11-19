@@ -69,6 +69,7 @@ import { ColonyStorage } from '../../modules/colony/entities/colony-storage.enti
 import { ColonyStats } from '../../modules/colony/entities/colony-stats.entity';
 import { ColonyChangeable } from '../../modules/colony/entities/colony-changeable.entity';
 import { ColonyCrewTrainingQueue } from '../../modules/colony/entities/colony-crew-training-queue.entity';
+import { ColonyFabricationQueue } from '../../modules/colony/entities/colony-fabrication-queue.entity';
 import { Crew } from '../../modules/colony/entities/crew.entity';
 import { CrewAssignment } from '../../modules/colony/entities/crew-assignment.entity';
 import { CrewSkill } from '../../modules/spacecraft/entities/crew-skill.entity';
@@ -169,6 +170,7 @@ export const INTEGRATION_ENTITIES = [
   ColonyStats,
   ColonyChangeable,
   ColonyCrewTrainingQueue,
+  ColonyFabricationQueue,
   Crew,
   CrewAssignment,
   CrewSkill,

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type {
   ColonyDetailV2,
   ColonyEffectiveFunction,
@@ -60,11 +60,6 @@ const TYPE_LABELS: Record<ShipyardTypeKey, string> = {
   SPECIAL: 'Spezial',
 };
 
-const FACTION_LABELS: Record<string, string> = {
-  REBEL_ALLIANCE: 'Rebellen-exklusiv',
-  GALACTIC_EMPIRE: 'Imperium-exklusiv',
-};
-
 const TIER_LABELS: Record<number, string> = {
   1: 'Stufe I',
   2: 'Stufe II',
@@ -96,6 +91,18 @@ function getTierLabel(item: FabricationCatalogItem): string {
   return classLabel ?? 'Ohne Stufe';
 }
 
+export interface FabricationBatchItemResult {
+  itemKey: string;
+  requested: number;
+  accepted: number;
+  message: string;
+}
+
+export interface FabricationBatchResult {
+  items: FabricationBatchItemResult[];
+  message: string;
+}
+
 export function PanelFabrication({
   catalog,
   queue,
@@ -103,7 +110,14 @@ export function PanelFabrication({
   presentFunctions = [],
   commodityMap,
   storageAmounts = {},
+  energy,
+  buildplans = [],
+  shipClasses = [],
+  shipClassLayouts = [],
+  loadTotals,
+  onOpenCommodityLocations,
   onStartFabrication,
+  onStartFabricationBatch,
   onCancelFabrication,
 }: {
   catalog: NonNullable<ColonyDetailV2['fabricationCatalog']>;
@@ -112,12 +126,29 @@ export function PanelFabrication({
   presentFunctions?: ColonyEffectiveFunction[];
   commodityMap: Record<number, CommodityDef>;
   storageAmounts?: Record<number, number>;
+  /** Current colony energy, for the batch preview. */
+  energy?: number;
+  buildplans?: NonNullable<ColonyDetailV2['buildplans']>;
+  shipClasses?: Array<{ id: number; name: string }>;
+  shipClassLayouts?: NonNullable<
+    ColonyDetailV2['shipyard']['shipClassLayouts']
+  >;
+  /** Account-wide stock (storage + cargo) per commodity, loaded once. */
+  loadTotals?: (commodityIds: number[]) => Promise<Record<number, number>>;
+  onOpenCommodityLocations?: (
+    commodityId: number,
+    trigger: HTMLElement,
+  ) => void;
   onStartFabrication: (
     itemKey: string,
     queueType: 'MODULE' | 'TORPEDO',
     buildingFunctionId: number,
     amount: number,
   ) => Promise<void> | void;
+  onStartFabricationBatch?: (
+    buildingFunctionId: number,
+    items: Array<{ itemKey: string; amount: number }>,
+  ) => Promise<FabricationBatchResult>;
   onCancelFabrication: (
     queueId: number,
     amount?: number,
@@ -134,6 +165,78 @@ export function PanelFabrication({
   const [cancelAmounts, setCancelAmounts] = useState<Record<number, string>>(
     {},
   );
+  const [hullId, setHullId] = useState('');
+  const [planId, setPlanId] = useState('');
+  const [totals, setTotals] = useState<Record<number, number> | null>(null);
+  const [batchResult, setBatchResult] = useState<FabricationBatchResult | null>(
+    null,
+  );
+  const outputIdsKey = useMemo(
+    () =>
+      [
+        ...new Set(
+          catalog
+            .filter((item) => item.queueType === 'MODULE')
+            .map((item) => item.outputCommodityId),
+        ),
+      ]
+        .sort((a, b) => a - b)
+        .join(','),
+    [catalog],
+  );
+  useEffect(() => {
+    if (!loadTotals || !outputIdsKey) return;
+    let cancelled = false;
+    loadTotals(outputIdsKey.split(',').map(Number))
+      .then((result) => {
+        if (!cancelled) setTotals(result);
+      })
+      .catch(() => {
+        if (!cancelled) setTotals(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadTotals, outputIdsKey]);
+
+  /** "(Benötigt: n)" per output commodity for the chosen plan, or per module type for a hull. */
+  const requirement = useMemo(() => {
+    if (planId) {
+      const plan = buildplans.find((p) => String(p.id) === planId);
+      const counts = new Map<number, number>();
+      for (const sel of plan?.moduleSelections ?? []) {
+        counts.set(sel.commodityId, (counts.get(sel.commodityId) ?? 0) + 1);
+      }
+      return (item: FabricationCatalogItem) =>
+        counts.get(item.outputCommodityId) ?? 0;
+    }
+    if (hullId) {
+      const layout = shipClassLayouts.find(
+        (l) => String(l.shipClassId) === hullId,
+      );
+      const counts = new Map<string, number>();
+      for (const slot of layout?.slots ?? []) {
+        counts.set(
+          slot.moduleCategory,
+          (counts.get(slot.moduleCategory) ?? 0) + 1,
+        );
+      }
+      return (item: FabricationCatalogItem) =>
+        item.shipyardType ? (counts.get(item.shipyardType) ?? 0) : 0;
+    }
+    return null;
+  }, [planId, hullId, buildplans, shipClassLayouts]);
+
+  const visibleCatalog = useMemo(
+    () =>
+      requirement
+        ? catalog.filter(
+            (item) => item.queueType === 'MODULE' && requirement(item) > 0,
+          )
+        : catalog,
+    [catalog, requirement],
+  );
+
   const queuedByItem = useMemo(() => {
     const map = new Map<string, number>();
     for (const job of queue) {
@@ -151,7 +254,7 @@ export function PanelFabrication({
       activeFunctionSet.has(functionId),
     );
     if (!buildingFunctionId) return;
-    const amount = Math.floor(Number(amounts[item.itemKey] ?? 1));
+    const amount = Math.floor(Number(amounts[item.itemKey] || 1));
     if (!Number.isFinite(amount) || amount <= 0) {
       setError('Bitte eine positive Menge angeben');
       return;
@@ -165,8 +268,90 @@ export function PanelFabrication({
         buildingFunctionId,
         amount,
       );
+      setAmounts((prev) => {
+        const next = { ...prev };
+        delete next[item.itemKey];
+        return next;
+      });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Fabrikation fehlgeschlagen');
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const batchEntries = useMemo(
+    () =>
+      catalog
+        .filter((item) => item.queueType === 'MODULE')
+        .map((item) => ({
+          item,
+          amount: Math.floor(Number(amounts[item.itemKey] ?? 0)),
+        }))
+        .filter(
+          ({ item, amount }) =>
+            amount > 0 &&
+            item.buildingFunctionIds.some((id) => activeFunctionSet.has(id)),
+        ),
+    [catalog, amounts, activeFunctionSet],
+  );
+  const preview = useMemo(() => {
+    const need = new Map<number, number>();
+    let energyNeed = 0;
+    for (const { item, amount } of batchEntries) {
+      energyNeed += (item.energyCost ?? 0) * amount;
+      for (const cost of item.costs) {
+        need.set(
+          cost.commodityId,
+          (need.get(cost.commodityId) ?? 0) + cost.amount * amount,
+        );
+      }
+    }
+    const rows = [...need.entries()].map(([commodityId, amount]) => ({
+      commodityId,
+      amount,
+      missing: Math.max(0, amount - (storageAmounts[commodityId] ?? 0)),
+    }));
+    return {
+      rows,
+      energyNeed,
+      energyMissing:
+        energy == null ? 0 : Math.max(0, energyNeed - Math.floor(energy)),
+    };
+  }, [batchEntries, storageAmounts, energy]);
+
+  const startBatch = async () => {
+    if (!onStartFabricationBatch || batchEntries.length === 0) return;
+    const byFunction = new Map<
+      number,
+      Array<{ itemKey: string; amount: number }>
+    >();
+    for (const { item, amount } of batchEntries) {
+      const fn = item.buildingFunctionIds.find((id) =>
+        activeFunctionSet.has(id),
+      )!;
+      byFunction.set(fn, [
+        ...(byFunction.get(fn) ?? []),
+        { itemKey: item.itemKey, amount },
+      ]);
+    }
+    setBusyKey('batch');
+    setError(null);
+    setBatchResult(null);
+    try {
+      const results: FabricationBatchResult[] = [];
+      for (const [fn, items] of byFunction) {
+        results.push(await onStartFabricationBatch(fn, items));
+      }
+      setBatchResult({
+        items: results.flatMap((r) => r.items),
+        message: results.map((r) => r.message).join(' · '),
+      });
+      setAmounts({});
+    } catch (e: unknown) {
+      setError(
+        e instanceof Error ? e.message : 'Modulherstellung fehlgeschlagen',
+      );
     } finally {
       setBusyKey(null);
     }
@@ -205,7 +390,7 @@ export function PanelFabrication({
       Map<FabricationTypeKey, Map<string, FabricationCatalogItem[]>>
     >();
 
-    for (const item of catalog) {
+    for (const item of visibleCatalog) {
       const groupKey = getGroupKey(item);
       const typeKey = item.shipyardType ?? groupKey;
       const tierLabel = getTierLabel(item);
@@ -252,13 +437,13 @@ export function PanelFabrication({
           ),
       };
     }).filter((group): group is NonNullable<typeof group> => group !== null);
-  }, [catalog]);
+  }, [visibleCatalog]);
 
   const searchLower = search.toLowerCase();
-  const isSearching = searchLower.length > 0;
+  const isSearching = searchLower.length > 0 || requirement != null;
 
   const filteredCatalog = useMemo(() => {
-    if (!isSearching) return groupedCatalog;
+    if (searchLower.length === 0) return groupedCatalog;
     return groupedCatalog
       .map((group) => ({
         ...group,
@@ -277,7 +462,7 @@ export function PanelFabrication({
           .filter((type) => type.tiers.length > 0),
       }))
       .filter((group) => group.types.length > 0);
-  }, [groupedCatalog, searchLower, isSearching]);
+  }, [groupedCatalog, searchLower]);
 
   const toggleGroup = (key: FabricationGroupKey) => {
     setOpenGroups((prev) => {
@@ -379,6 +564,47 @@ export function PanelFabrication({
             placeholder="Modul suchen…"
             className="w-full bg-swu-bg/60 border border-swu-border/40 rounded px-2 py-1.5 text-xs text-swu-primary placeholder:text-swu-muted/60 focus:outline-none focus:border-swu-accent/50"
           />
+          {(buildplans.length > 0 || shipClassLayouts.length > 0) && (
+            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+              <label className="flex items-center gap-1 text-swu-muted">
+                Rumpf
+                <select
+                  value={hullId}
+                  onChange={(e) => {
+                    setHullId(e.target.value);
+                    setPlanId('');
+                  }}
+                  className="bg-swu-bg/60 border border-swu-border/40 rounded px-1 py-1 text-swu-primary"
+                >
+                  <option value="">Alle</option>
+                  {shipClassLayouts.map((layout) => (
+                    <option key={layout.shipClassId} value={layout.shipClassId}>
+                      {shipClasses.find((c) => c.id === layout.shipClassId)
+                        ?.name ?? `Rumpf #${layout.shipClassId}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-1 text-swu-muted">
+                Bauplan
+                <select
+                  value={planId}
+                  onChange={(e) => {
+                    setPlanId(e.target.value);
+                    setHullId('');
+                  }}
+                  className="bg-swu-bg/60 border border-swu-border/40 rounded px-1 py-1 text-swu-primary"
+                >
+                  <option value="">Alle</option>
+                  {buildplans.map((plan) => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
         </div>
         {filteredCatalog.length === 0 ? (
           <div className="px-3 py-4 text-xs text-swu-muted">
@@ -454,6 +680,11 @@ export function PanelFabrication({
                                             <div className="min-w-0">
                                               <div className="font-bold text-swu-primary truncate">
                                                 {item.displayName}
+                                                {requirement && (
+                                                  <span className="ml-1 font-normal text-swu-muted">
+                                                    {`(Benötigt: ${requirement(item)})`}
+                                                  </span>
+                                                )}
                                               </div>
                                               <div className="text-[10px] text-swu-muted">
                                                 Output: {item.outputAmount}×{' '}
@@ -461,31 +692,15 @@ export function PanelFabrication({
                                                   `Ware #${item.outputCommodityId}`}{' '}
                                                 · {getFunctionLabel(item)}
                                               </div>
-                                              {(item.stuRawName ||
-                                                item.stuSourceTechId) && (
-                                                <div className="text-[10px] text-swu-muted/80">
-                                                  STU:{' '}
-                                                  {item.stuRawName ??
-                                                    'unbekannte Quelle'}
-                                                  {item.stuSourceTechId
-                                                    ? ` · Tech ${item.stuSourceTechId}`
-                                                    : ''}
-                                                  {item.researchRequired
-                                                    ? ` · Bundle ${item.researchRequired}`
-                                                    : ''}
-                                                  {item.faction
-                                                    ? ` · ${FACTION_LABELS[item.faction] ?? item.faction}`
-                                                    : ''}
-                                                </div>
-                                              )}
                                             </div>
                                             <div className="flex items-center gap-1">
                                               <input
                                                 type="number"
                                                 min={1}
                                                 value={
-                                                  amounts[item.itemKey] ?? '1'
+                                                  amounts[item.itemKey] ?? ''
                                                 }
+                                                placeholder="1"
                                                 onChange={(e) =>
                                                   setAmounts((prev) => ({
                                                     ...prev,
@@ -511,12 +726,45 @@ export function PanelFabrication({
                                             </div>
                                           </div>
                                           <div className="flex flex-wrap gap-2 text-[10px] text-swu-muted">
-                                            <span>
-                                              Lagernd:{' '}
-                                              {storageAmounts[
-                                                item.outputCommodityId
-                                              ] ?? 0}
-                                            </span>
+                                            {(() => {
+                                              const local =
+                                                storageAmounts[
+                                                  item.outputCommodityId
+                                                ] ?? 0;
+                                              const total =
+                                                item.queueType === 'MODULE'
+                                                  ? totals?.[
+                                                      item.outputCommodityId
+                                                    ]
+                                                  : undefined;
+                                              if (total == null) {
+                                                return (
+                                                  <span>{`Lagernd: ${local}`}</span>
+                                                );
+                                              }
+                                              return (
+                                                <span>
+                                                  {onOpenCommodityLocations ? (
+                                                    <button
+                                                      type="button"
+                                                      className="underline"
+                                                      aria-label={`Lagerorte ${item.displayName}`}
+                                                      onClick={(e) =>
+                                                        onOpenCommodityLocations(
+                                                          item.outputCommodityId,
+                                                          e.currentTarget,
+                                                        )
+                                                      }
+                                                    >
+                                                      {`Lagernd: ${total}`}
+                                                    </button>
+                                                  ) : (
+                                                    `Lagernd: ${total}`
+                                                  )}
+                                                  {` (lokal ${local})`}
+                                                </span>
+                                              );
+                                            })()}
                                             {item.queueType === 'MODULE' && (
                                               <span>
                                                 In Bau:{' '}
@@ -550,6 +798,66 @@ export function PanelFabrication({
                 </section>
               );
             })}
+          </div>
+        )}
+        {onStartFabricationBatch && (
+          <div className="border-t border-swu-border/30 px-3 py-2 text-xs space-y-1">
+            {batchEntries.length > 0 && (
+              <div
+                data-testid="batch-preview"
+                className="space-y-0.5 text-[10px] text-swu-muted"
+              >
+                <div>
+                  {`Gesamtkosten: Energie ${preview.energyNeed}`}
+                  {preview.rows.map(
+                    (row) =>
+                      `, ${row.amount} ${commodityMap[row.commodityId]?.name ?? row.commodityId}`,
+                  )}
+                </div>
+                {preview.energyMissing > 0 && (
+                  <div className="text-red-300">
+                    {`Fehlmenge Energie: ${preview.energyMissing}`}
+                  </div>
+                )}
+                {preview.rows
+                  .filter((row) => row.missing > 0)
+                  .map((row) => (
+                    <div key={row.commodityId} className="text-red-300">
+                      {`Fehlmenge ${commodityMap[row.commodityId]?.name ?? row.commodityId}: ${row.missing}`}
+                    </div>
+                  ))}
+              </div>
+            )}
+            {batchResult && (
+              <div
+                data-testid="batch-result"
+                className="space-y-0.5 text-[10px]"
+              >
+                <div className="font-bold text-swu-primary">
+                  {batchResult.message}
+                </div>
+                {batchResult.items.map((r, i) => (
+                  <div
+                    key={`${r.itemKey}-${i}`}
+                    className={
+                      r.accepted < r.requested
+                        ? 'text-red-300'
+                        : 'text-swu-muted'
+                    }
+                  >
+                    {r.message}
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={startBatch}
+              disabled={batchEntries.length === 0 || busyKey === 'batch'}
+              className="px-2 py-1 rounded bg-swu-accent/15 text-swu-accent hover:bg-swu-accent/25 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Modulherstellung
+            </button>
           </div>
         )}
       </div>

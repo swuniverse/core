@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { Colony } from './entities/colony.entity';
 
 @Injectable()
@@ -14,8 +14,14 @@ export class ColonyOwnershipService {
     private readonly colonyRepo: Repository<Colony>,
   ) {}
 
-  async findOwnedColony(colonyId: number, userId: number): Promise<Colony> {
-    const colony = await this.colonyRepo.findOne({
+  async findOwnedColony(
+    colonyId: number,
+    userId: number,
+    manager?: EntityManager,
+  ): Promise<Colony> {
+    const colony = await (
+      manager?.getRepository(Colony) ?? this.colonyRepo
+    ).findOne({
       where: { id: colonyId, userId, isAbandoned: false },
       relations: [
         'fields',

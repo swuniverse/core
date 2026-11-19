@@ -16,6 +16,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsEnum,
@@ -110,6 +112,30 @@ class QueueFabricationDto {
   @IsInt()
   @Min(1)
   buildingFunctionId: number;
+}
+
+class FabricationBatchItemDto {
+  @IsString()
+  itemKey: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  amount: number;
+}
+
+class QueueFabricationBatchDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  buildingFunctionId: number;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => FabricationBatchItemDto)
+  items: FabricationBatchItemDto[];
 }
 
 class ShipModuleSelectionDto implements ShipModuleSelection {
@@ -422,6 +448,37 @@ export class ColonyController {
       dto.itemKey,
       dto.amount,
       dto.buildingFunctionId,
+    );
+  }
+
+  @Post(':id/fabrication-queue/batch')
+  queueFabricationBatch(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body() dto: QueueFabricationBatchDto,
+  ) {
+    return this.colonyService.queueFabricationBatch(
+      id,
+      req.user.sub,
+      dto.buildingFunctionId,
+      dto.items,
+    );
+  }
+
+  @Get(':id/commodity-totals')
+  getCommodityTotals(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('ids') ids: string | undefined,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.colonyCommodityLocationsService.getTotals(
+      id,
+      (ids ?? '')
+        .split(',')
+        .map(Number)
+        .filter((n) => Number.isInteger(n) && n > 0)
+        .slice(0, 500),
+      req.user.sub,
     );
   }
 

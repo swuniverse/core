@@ -144,4 +144,119 @@ describe('PanelFabrication', () => {
     fireEvent.click(screen.getByText('Abbrechen'));
     await waitFor(() => expect(onCancel).toHaveBeenCalledWith(7, 2));
   });
+
+  it('hides developer metadata', () => {
+    renderPanel();
+    expect(screen.queryByText(/STU:|Bundle|Tech /)).toBeNull();
+  });
+
+  describe('plan filter, account stock and batch order', () => {
+    const buildplans = [
+      {
+        id: 1,
+        shipClassId: 5,
+        name: 'Jäger Alpha',
+        signature: 's',
+        moduleSelections: [
+          { slotId: 'w1', commodityId: 10701 },
+          { slotId: 'w2', commodityId: 10701 },
+        ],
+        moduleCommodityIds: [10701, 10701],
+        moduleTypes: [],
+        canDelete: true,
+      },
+    ] as NonNullable<ColonyDetailV2['buildplans']>;
+    const layouts = [
+      {
+        shipClassId: 5,
+        slots: [{ slotId: 'w1', moduleCategory: 'ENERGY_WEAPON' }],
+      },
+    ] as unknown as NonNullable<ColonyDetailV2['shipyard']['shipClassLayouts']>;
+
+    function renderRich(
+      overrides: Partial<React.ComponentProps<typeof PanelFabrication>> = {},
+    ) {
+      render(
+        <PanelFabrication
+          catalog={catalog}
+          queue={[]}
+          activeFunctionIds={[10]}
+          commodityMap={commodityMap}
+          storageAmounts={{ 2: 15, 10701: 3 }}
+          energy={30}
+          buildplans={buildplans}
+          shipClasses={[{ id: 5, name: 'Jäger' }]}
+          shipClassLayouts={layouts}
+          onOpenCommodityLocations={vi.fn()}
+          onStartFabrication={vi.fn()}
+          onStartFabricationBatch={vi.fn()}
+          onCancelFabrication={vi.fn()}
+          {...overrides}
+        />,
+      );
+    }
+
+    it('filters by buildplan and shows the required count', () => {
+      renderRich();
+      expect(screen.getByLabelText('Bauplan')).toBeTruthy();
+      fireEvent.change(screen.getByLabelText('Bauplan'), {
+        target: { value: '1' },
+      });
+      expect(screen.getByText('(Benötigt: 2)')).toBeTruthy();
+    });
+
+    it('hides modules outside the chosen hull', () => {
+      renderRich({ shipClassLayouts: [{ ...layouts[0], slots: [] }] });
+      fireEvent.change(screen.getByLabelText('Rumpf'), {
+        target: { value: '5' },
+      });
+      expect(screen.getByText('Keine Treffer.')).toBeTruthy();
+    });
+
+    it('shows account-wide stock next to local stock and opens locations', async () => {
+      const onOpen = vi.fn();
+      renderRich({
+        onOpenCommodityLocations: onOpen,
+        loadTotals: async () => ({ 10701: 9 }),
+      });
+      fireEvent.click(screen.getByText('Offensivsysteme'));
+      fireEvent.click(screen.getByText('Energiewaffe'));
+      const button = await screen.findByText('Lagernd: 9');
+      expect(screen.getByText(/\(lokal 3\)/)).toBeTruthy();
+      fireEvent.click(button);
+      expect(onOpen).toHaveBeenCalledWith(10701, button);
+    });
+
+    it('previews total cost with shortfalls and sends the batch', async () => {
+      const onBatch = vi.fn(async () => ({
+        items: [
+          {
+            itemKey: 'module.weapon.turbolaser-k1',
+            requested: 2,
+            accepted: 1,
+            message: 'Es wurden 1 von 2 Modulen in Auftrag gegeben',
+          },
+        ],
+        message: '1 von 1 Aufträgen angenommen',
+      }));
+      renderRich({ onStartFabricationBatch: onBatch });
+      fireEvent.click(screen.getByText('Offensivsysteme'));
+      fireEvent.click(screen.getByText('Energiewaffe'));
+      fireEvent.change(screen.getByLabelText('Menge Turbolaser (Klasse 1)'), {
+        target: { value: '2' },
+      });
+      // 2 x 10 Durastahl (have 15), 2 x 20 energy (have 30)
+      expect(screen.getByText('Fehlmenge Durastahl: 5')).toBeTruthy();
+      expect(screen.getByText('Fehlmenge Energie: 10')).toBeTruthy();
+      fireEvent.click(screen.getByText('Modulherstellung'));
+      await waitFor(() =>
+        expect(onBatch).toHaveBeenCalledWith(10, [
+          { itemKey: 'module.weapon.turbolaser-k1', amount: 2 },
+        ]),
+      );
+      expect(
+        await screen.findByText('Es wurden 1 von 2 Modulen in Auftrag gegeben'),
+      ).toBeTruthy();
+    });
+  });
 });

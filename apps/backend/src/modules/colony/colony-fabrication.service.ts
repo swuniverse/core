@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import { User } from '../auth/user.entity';
 import {
   FabricationItemDef,
@@ -31,6 +31,18 @@ export interface FabricationQueueResult {
   queue: ColonyFabricationQueue | null;
   requested: number;
   accepted: number;
+  message: string;
+}
+
+export interface FabricationBatchItemResult {
+  itemKey: string;
+  requested: number;
+  accepted: number;
+  message: string;
+}
+
+export interface FabricationBatchResult {
+  items: FabricationBatchItemResult[];
   message: string;
 }
 
@@ -70,7 +82,13 @@ export class ColonyFabricationService {
     itemKey: string,
     amount: number,
     buildingFunctionId: number,
+    manager?: EntityManager,
+    loadedColony?: Colony,
   ): Promise<FabricationQueueResult> {
+    const colonyRepo = manager?.getRepository(Colony) ?? this.colonyRepo;
+    const queueRepo =
+      manager?.getRepository(ColonyFabricationQueue) ??
+      this.fabricationQueueRepo;
     const normalizedItemKey = itemKey?.trim();
     const item = this.gameData.getFabricationItem(normalizedItemKey);
     if (!item) {
@@ -105,7 +123,9 @@ export class ColonyFabricationService {
       }
     }
 
-    const colony = await this.ownership.findOwnedColony(colonyId, userId);
+    const colony =
+      loadedColony ??
+      (await this.ownership.findOwnedColony(colonyId, userId, manager));
     if (!this.hasActiveBuildingFunction(colony, buildingFunctionId)) {
       throw new BadRequestException(
         'Required fabrication building is not active',
@@ -123,13 +143,14 @@ export class ColonyFabricationService {
         colony,
         cost.commodityId,
         cost.amount * accepted,
+        manager,
       );
     }
     const energyCost = (item.energyCost ?? 0) * accepted;
     if (energyCost > 0) {
       deductColonyEnergy(colony, energyCost);
     }
-    await this.colonyRepo.save(colony);
+    await colonyRepo.save(colony);
 
     if (queueType === ColonyFabricationQueueType.TORPEDO) {
       const maxStorage =
@@ -139,11 +160,12 @@ export class ColonyFabricationService {
         item.outputCommodityId,
         item.outputAmount * accepted,
         maxStorage,
+        manager,
       );
       return { queue: null, requested: amount, accepted, message };
     }
 
-    const existing = await this.fabricationQueueRepo.findOne({
+    const existing = await queueRepo.findOne({
       where: {
         colonyId: colony.id,
         buildingFunctionId,
@@ -153,11 +175,11 @@ export class ColonyFabricationService {
     });
     if (existing) {
       existing.amount += accepted;
-      const queue = await this.fabricationQueueRepo.save(existing);
+      const queue = await queueRepo.save(existing);
       return { queue, requested: amount, accepted, message };
     }
-    const queue = await this.fabricationQueueRepo.save(
-      this.fabricationQueueRepo.create({
+    const queue = await queueRepo.save(
+      queueRepo.create({
         colonyId: colony.id,
         userId,
         queueType,
@@ -170,6 +192,72 @@ export class ColonyFabricationService {
       }),
     );
     return { queue, requested: amount, accepted, message };
+  }
+
+  /**
+   * STU `CreateModules`: orders are processed in request order, each one is
+   * truncated to what the previous ones left over. Invalid or unaffordable
+   * items are reported and skipped; an unexpected error rolls everything back.
+   */
+  async queueFabricationBatch(
+    colonyId: number,
+    userId: number,
+    buildingFunctionId: number,
+    items: Array<{ itemKey: string; amount: number }>,
+  ): Promise<FabricationBatchResult> {
+    return this.colonyRepo.manager.transaction(async (manager) => {
+      await manager.getRepository(Colony).findOne({
+        select: { id: true },
+        where: { id: colonyId, userId, isAbandoned: false },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const colony = await this.ownership.findOwnedColony(
+        colonyId,
+        userId,
+        manager,
+      );
+      if (!this.hasActiveBuildingFunction(colony, buildingFunctionId)) {
+        throw new BadRequestException(
+          'Required fabrication building is not active',
+        );
+      }
+      const results: FabricationBatchItemResult[] = [];
+      for (const { itemKey, amount } of items) {
+        const item = this.gameData.getFabricationItem(itemKey?.trim());
+        try {
+          if (!item) throw new BadRequestException('Unknown fabrication item');
+          const result = await this.queueFabrication(
+            colonyId,
+            userId,
+            item.queueType,
+            itemKey,
+            amount,
+            buildingFunctionId,
+            manager,
+            colony,
+          );
+          results.push({
+            itemKey,
+            requested: amount,
+            accepted: result.accepted,
+            message: result.message,
+          });
+        } catch (error) {
+          if (!(error instanceof BadRequestException)) throw error;
+          results.push({
+            itemKey,
+            requested: amount,
+            accepted: 0,
+            message: `${item?.displayName ?? itemKey}: ${error.message}`,
+          });
+        }
+      }
+      const ok = results.filter((r) => r.accepted > 0).length;
+      return {
+        items: results,
+        message: `${ok} von ${results.length} Aufträgen angenommen`,
+      };
+    });
   }
 
   /**

@@ -183,6 +183,19 @@ describe('ColonyCommodityLocationsService', () => {
       13, 14, 15,
     ]);
   });
+
+  it('sums account-wide stock of colonies and cargo per commodity', async () => {
+    const { service, storageRepo, cargoRepo } = setup();
+    storageRepo.find.mockResolvedValue([
+      storage(1, 3, 'A', 1, 99, 5, 2),
+      storage(2, 4, 'B', 1, 99, 7, 2),
+      storage(3, 4, 'B', 1, 99, 1, 9),
+    ]);
+    cargoRepo.find.mockResolvedValue([cargo(1, 9, 'Y', 44, 99, 4, 2)]);
+
+    expect(await service.getTotals(7, [2, 9], 99)).toEqual({ 2: 16, 9: 1 });
+    expect(await service.getTotals(7, [], 99)).toEqual({});
+  });
 });
 
 function storage(

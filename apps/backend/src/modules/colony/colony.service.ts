@@ -978,6 +978,20 @@ export class ColonyService {
     );
   }
 
+  queueFabricationBatch(
+    colonyId: number,
+    userId: number,
+    buildingFunctionId: number,
+    items: Array<{ itemKey: string; amount: number }>,
+  ) {
+    return this.colonyFabricationService.queueFabricationBatch(
+      colonyId,
+      userId,
+      buildingFunctionId,
+      items,
+    );
+  }
+
   async cancelFabricationQueue(
     colonyId: number,
     userId: number,

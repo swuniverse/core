@@ -100,4 +100,35 @@ export class ColonyCommodityLocationsService {
         ),
     };
   }
+
+  /** Account-wide stock (colony storage + own spacecraft cargo) per commodity. */
+  async getTotals(
+    colonyId: number,
+    commodityIds: number[],
+    userId: number,
+  ): Promise<Record<number, number>> {
+    await this.ownership.findOwnedColony(colonyId, userId);
+    const totals: Record<number, number> = {};
+    if (commodityIds.length === 0) return totals;
+    const [storage, cargo] = await Promise.all([
+      this.storageRepo.find({
+        where: {
+          commodityId: In(commodityIds),
+          amount: MoreThan(0),
+          colony: { userId },
+        },
+      }),
+      this.cargoRepo.find({
+        where: {
+          commodityId: In(commodityIds),
+          amount: MoreThan(0),
+          spacecraft: { userId },
+        },
+      }),
+    ]);
+    for (const row of [...storage, ...cargo]) {
+      totals[row.commodityId] = (totals[row.commodityId] ?? 0) + row.amount;
+    }
+    return totals;
+  }
 }

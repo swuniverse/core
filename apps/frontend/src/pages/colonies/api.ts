@@ -188,6 +188,27 @@ export const colonyApi = {
       amount,
       buildingFunctionId,
     }),
+  startFabricationBatch: (
+    colonyId: number,
+    buildingFunctionId: number,
+    items: Array<{ itemKey: string; amount: number }>,
+  ) =>
+    api.post<{
+      items: Array<{
+        itemKey: string;
+        requested: number;
+        accepted: number;
+        message: string;
+      }>;
+      message: string;
+    }>(`/colonies/${colonyId}/fabrication-queue/batch`, {
+      buildingFunctionId,
+      items,
+    }),
+  fetchCommodityTotals: (colonyId: number, commodityIds: number[]) =>
+    api.get<Record<number, number>>(
+      `/colonies/${colonyId}/commodity-totals?ids=${commodityIds.join(',')}`,
+    ),
   cancelFabrication: (colonyId: number, queueId: number, amount?: number) =>
     api.delete(
       `/colonies/${colonyId}/fabrication-queue/${queueId}${

@@ -34,7 +34,10 @@ import { PanelShipyard } from './components/PanelShipyard';
 import { PanelDefense } from './components/PanelDefense';
 import { PanelSettings } from './components/PanelSettings';
 import { PanelBuildingManagement } from './components/PanelBuildingManagement';
-import { PanelFabrication } from './components/PanelFabrication';
+import {
+  PanelFabrication,
+  type FabricationBatchResult,
+} from './components/PanelFabrication';
 import { PanelCrew } from './components/PanelCrew';
 import { PanelHangar } from './components/PanelHangar';
 import { PanelOrbit } from './components/PanelOrbit';
@@ -441,6 +444,15 @@ export function ColoniesPage() {
           loadColonyDetail(selected.id);
         })
       }
+      onStartFabricationBatch={async (buildingFunctionId, items) => {
+        const result = await colonyApi.startFabricationBatch(
+          selected.id,
+          buildingFunctionId,
+          items,
+        );
+        loadColonyDetail(selected.id);
+        return result;
+      }}
       onCancelFabrication={(queueId, amount) =>
         act(async () => {
           await api.delete(
@@ -754,6 +766,7 @@ export function ColonyDetail({
   onRepairWreck,
   onBuildShip,
   onStartFabrication,
+  onStartFabricationBatch,
   onCancelFabrication,
   onQueueCrewTraining,
   onAssignCrewToShip,
@@ -819,6 +832,10 @@ export function ColonyDetail({
     buildingFunctionId: number,
     amount: number,
   ) => Promise<void> | void;
+  onStartFabricationBatch: (
+    buildingFunctionId: number,
+    items: Array<{ itemKey: string; amount: number }>,
+  ) => Promise<FabricationBatchResult>;
   onCancelFabrication: (
     queueId: number,
     amount?: number,
@@ -1038,6 +1055,20 @@ export function ColonyDetail({
       return result;
     },
     [colony.id],
+  );
+
+  const loadCommodityTotals = useCallback(
+    (commodityIds: number[]) =>
+      colonyApi.fetchCommodityTotals(colony.id, commodityIds),
+    [colony.id],
+  );
+
+  const openCommodityLocations = useCallback(
+    (commodityId: number, trigger: HTMLElement) => {
+      commodityLocationsRequestSequenceRef.current += 1;
+      setCommodityLocations({ commodityId, trigger });
+    },
+    [],
   );
 
   useEffect(() => {
@@ -1273,7 +1304,14 @@ export function ColonyDetail({
             storageAmounts={Object.fromEntries(
               storage.map((row) => [row.commodityId, row.amount]),
             )}
+            energy={detail.energy?.current}
+            buildplans={detail.buildplans ?? []}
+            shipClasses={shipClasses}
+            shipClassLayouts={detail.shipyard?.shipClassLayouts ?? []}
+            loadTotals={loadCommodityTotals}
+            onOpenCommodityLocations={openCommodityLocations}
             onStartFabrication={onStartFabrication}
+            onStartFabricationBatch={onStartFabricationBatch}
             onCancelFabrication={onCancelFabrication}
           />
         );
