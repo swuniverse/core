@@ -57,6 +57,8 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 - 2026-11-18 – **sc-AUD-10 umgesetzt, Prüfung ausstehend**: Eigenständige kostenlose Schildregeneration nach persistentem 15-Minuten-Timer, mit Crew-/System-/Feld-/Anomaliebedingungen, gemeinsamem gedeckeltem `ceil(10 %)`-Wert für Liste/Kopf und Live-Aktualisierung. Haupttick-Gutschrift entfernt, Timer-Resets und Metadatenerhaltung ergänzt. 102 Backend- und 36 Frontend-Tests erfolgreich; PostgreSQL-/Anomalie-/Kampfregressionen, Abschlussreview, Browser, Lint/Typechecks und Build ausstehend. Status `claimed` – siehe [Ticket](issues/sc-AUD-10-schildregeneration-wie-stu.md).
 
+- 2026-11-19 – **col-AUD-03 umgesetzt, Prüfung ausstehend**: Felddialog zeigt Baustelle mit Zielgebäude, Fortschritt (aus skalierter Bauzeit, auch bei Upgrades), Fertigstellung und umschaltbarem „Nach Bau aktivieren/deaktivieren“ (bedingtes Update, kein Konflikt mit dem Minutenabschluss); Oberfläche mit anteiligem Overlay. Umsetzung Sonnet-Agent, Review Opus. Status `claimed` – siehe [Ticket](issues/col-AUD-03-felddialog-baustelle.md).
+
 - 2026-11-19 – **Prüfpass tmw-AUD-01b, col-AUD-02a, col-AUD-02b bis auf Browser bestanden**: Gesamtlauf auf `66a875fb` ohne Regression (Build, Lint, 2605 Backend-, 925 Frontend-Tests; PostgreSQL unverändert 139 vorbestehende Fehler).
 
 - 2026-11-19 – **col-AUD-02b umgesetzt, Prüfung ausstehend**: Kolonieliste zeigt Warenverbrauch mit Reichweite in Runden, laufendes Terraforming mit Fortschritt, Modulproduktion und den Aktivierungshinweis bei Bauvorgängen; alle Daten gesammelt geladen. Umsetzung Sonnet-Agent, Review/Fortschritt Opus. Status `claimed` – siehe [Ticket](issues/col-AUD-02b-kolonieliste-stu-bloecke.md).
