@@ -49,7 +49,7 @@ export function TradeShoutboxTab() {
   );
 }
 
-function ShoutboxBox({ networkId }: { networkId: number }) {
+export function ShoutboxBox({ networkId }: { networkId: number }) {
   const [box, setBox] = useState<TradeShoutboxDto | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState<string | null>(null);

@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type {
   SpaceLocationDto,
-  TradeAccountStorageDto,
   TradeLicenseDto,
   TradeOverviewDto,
   TradePostListItemDto,
@@ -16,8 +15,7 @@ import { TradeOffersTab } from '../components/trade/TradeOffersTab';
 import { TradeDealsTab } from '../components/trade/TradeDealsTab';
 import { TradeShoutboxTab } from '../components/trade/TradeShoutboxTab';
 import { TradeLotteryTab } from '../components/trade/TradeLotteryTab';
-import { TradeNetworkTransferDialog } from '../components/trade/TradeNetworkTransferDialog';
-import { commodityImage } from '../lib/assets';
+import { TradeAccountBox } from '../components/trade/TradeAccountBox';
 import { formatDateTime, formatNumber } from '../lib/format';
 import { api } from '../services/api';
 
@@ -175,8 +173,7 @@ export function TradePage() {
       ) : tab === 'accounts' ? (
         <AccountsTab
           posts={posts}
-          accounts={overview.accounts}
-          capacities={overview.transferCapacities}
+          overview={overview}
           commodityName={commodityName}
           onSelect={(id) => select({ tab: 'posts', post: id })}
           onChanged={reloadOverview}
@@ -215,25 +212,18 @@ export function TradePage() {
 
 function AccountsTab({
   posts,
-  accounts,
-  capacities,
+  overview,
   commodityName,
   onSelect,
   onChanged,
 }: {
   posts: TradePostListItemDto[];
-  accounts: TradeAccountStorageDto[];
-  capacities: TradeOverviewDto['transferCapacities'];
+  overview: TradeOverviewDto;
   commodityName: (id: number) => string;
   onSelect: (postId: number) => void;
   onChanged: () => Promise<void>;
 }) {
-  const [transferring, setTransferring] = useState<TradeAccountStorageDto | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const postsWithAccounts = posts.filter((post) =>
-    accounts.some((account) => account.tradePostId === post.id),
-  );
-  if (postsWithAccounts.length === 0) {
+  if (overview.accountBoxes.length === 0) {
     return (
       <p className="border border-swu-border bg-black/30 p-2 text-swu-muted">
         Du besitzt keine Warenkonten.
@@ -242,86 +232,17 @@ function AccountsTab({
   }
   return (
     <div className="max-w-3xl space-y-2">
-      {notice && <p role="status" className="text-emerald-300">{notice}</p>}
-      {postsWithAccounts.map((post) => {
-        const capacity = capacities.find((entry) => entry.tradePostId === post.id);
-        const rows = accounts.filter(
-          (account) => account.tradePostId === post.id && account.amount > 0,
-        );
-        const total = rows.reduce((sum, row) => sum + row.amount, 0);
-        return (
-          <section key={post.id} className="border border-swu-border bg-black/30">
-            <h2 className="flex justify-between border-b border-swu-border px-2 py-1 font-bold text-swu-primary">
-              <button
-                type="button"
-                onClick={() => onSelect(post.id)}
-                className="text-swu-accent hover:underline"
-              >
-                {post.name}
-              </button>
-              <span className="font-mono text-swu-muted">
-                {formatNumber(total)} / {formatNumber(post.storageLimit)}
-              </span>
-            </h2>
-            {capacity && (
-              <p className="border-b border-swu-border/60 px-2 py-1 text-swu-muted">
-                Transferkapazität: {formatNumber(capacity.free)} / {formatNumber(capacity.capacity)} (24 h)
-              </p>
-            )}
-            <table className="w-full">
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr>
-                    <td className="px-2 py-1 text-swu-muted">Konto ist leer.</td>
-                  </tr>
-                ) : (
-                  rows.map((row) => (
-                    <tr key={row.commodityId} className="border-t border-swu-border/60">
-                      <td className="px-2 py-1">
-                        <span className="flex items-center gap-2">
-                          <img
-                            src={commodityImage(row.commodityId, commodityName(row.commodityId))}
-                            alt=""
-                            className="h-6 w-6 object-contain"
-                          />
-                          {commodityName(row.commodityId)}
-                        </span>
-                      </td>
-                      <td className="px-2 py-1 text-right font-mono">
-                        {formatNumber(row.amount)}
-                      </td>
-                      <td className="w-px px-2 py-1">
-                        <button
-                          type="button"
-                          aria-label={`${commodityName(row.commodityId)} transferieren`}
-                          onClick={() => { setNotice(null); setTransferring(row); }}
-                          className="text-swu-accent hover:underline"
-                        >
-                          Transferieren
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </section>
-        );
-      })}
-      {transferring && (
-        <TradeNetworkTransferDialog
-          tradePostId={transferring.tradePostId}
-          commodityId={transferring.commodityId}
-          commodityName={commodityName(transferring.commodityId)}
-          stock={transferring.amount}
-          onClose={() => setTransferring(null)}
-          onTransferred={async (message) => {
-            setTransferring(null);
-            setNotice(message);
-            await onChanged();
-          }}
+      {overview.accountBoxes.map((box) => (
+        <TradeAccountBox
+          key={box.tradePostId}
+          box={box}
+          description={posts.find((post) => post.id === box.tradePostId)?.description ?? ''}
+          ships={overview.spacecraft.filter((ship) => ship.tradePostId === box.tradePostId)}
+          commodityName={commodityName}
+          onSelect={onSelect}
+          onChanged={onChanged}
         />
-      )}
+      ))}
     </div>
   );
 }

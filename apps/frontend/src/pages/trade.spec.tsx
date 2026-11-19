@@ -4,7 +4,7 @@ import { vi } from 'vitest';
 import { TradePage } from './trade';
 import { formatDateTime } from '../lib/format';
 
-const apiMocks = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn() }));
+const apiMocks = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() }));
 vi.mock('../services/api', () => ({ api: apiMocks }));
 
 const posts = [
@@ -40,6 +40,22 @@ const overview = {
     { tradePostId: 1, spacecraftId: 77, spacecraftName: 'Falke', shipClassId: 3, kind: 'SHIP' },
   ],
   transferCapacities: [{ tradePostId: 1, free: 60, capacity: 200 }],
+  accountBoxes: [
+    {
+      tradePostId: 1, name: 'Nar Shaddaa Markt', isNpcPost: true,
+      location: { scope: 'GALAXY', layerId: 1, x: 4, y: 5 }, networkId: 2, networkName: 'Hutten-Netz',
+      stock: [{ commodityId: 10101, amount: 1200 }], offerStock: [{ commodityId: 10101, amount: 50 }],
+      storage: { occupied: 1200, limit: 5000, isOverStorage: false },
+      issuedLicenseCount: 3, licenseCondition: null, isOwner: false,
+      transferCapacity: { free: 60, capacity: 200 },
+    },
+    {
+      tradePostId: 3, name: 'Eigener Posten', isNpcPost: false, location: null, networkId: 2, networkName: 'Hutten-Netz',
+      stock: [{ commodityId: 10101, amount: 900 }], offerStock: [],
+      storage: { occupied: 900, limit: 500, isOverStorage: true },
+      issuedLicenseCount: 2, licenseCondition: null, isOwner: true, transferCapacity: null,
+    },
+  ],
 };
 
 const baseMenu = {
@@ -69,6 +85,8 @@ describe('TradePage', () => {
     apiMocks.get.mockReset();
     apiMocks.post.mockReset();
     apiMocks.put.mockReset();
+    apiMocks.patch.mockReset();
+    apiMocks.delete.mockReset();
     apiMocks.get.mockImplementation(async (url: string) => {
       if (url === '/trade/posts') return posts;
       if (url === '/trade/overview') return overview;
@@ -90,8 +108,8 @@ describe('TradePage', () => {
   it('shows account balances on the Warenkonten tab', async () => {
     renderPage();
 
-    expect(await screen.findByText('Durastahl')).toBeTruthy();
-    expect(screen.getByText('1.200')).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Nar Shaddaa Markt' })).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: 'Warenkonto Nar Shaddaa Markt' })).getByRole('button', { name: 'Waren lagernd Durastahl' }).textContent).toBe('1.200');
     expect(screen.queryByText('Verborgener Posten')).toBeNull();
   });
 
@@ -105,8 +123,10 @@ describe('TradePage', () => {
     apiMocks.post.mockResolvedValue({ message: 'Es wurde 25 Durastahl zum Kessel transferiert', amount: 25 });
     renderPage();
 
-    expect(await screen.findByText('Transferkapazität: 60 / 200 (24 h)')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Durastahl transferieren' }));
+    const npc = await screen.findByRole('region', { name: 'Warenkonto Nar Shaddaa Markt' });
+    expect(npc.textContent).toContain('60 frei (200 pro Tag)');
+    fireEvent.click(within(npc).getByRole('button', { name: 'Waren lagernd Durastahl' }));
+    fireEvent.click(within(npc).getByRole('button', { name: 'Transferieren' }));
     const dialog = await screen.findByRole('dialog', { name: 'Waren transferieren' });
     const target = await within(dialog).findByRole('combobox', { name: 'Zielposten' });
     expect(Array.from(target.querySelectorAll('option')).map((option) => option.textContent)).toEqual(['Kessel (300 frei)']);
@@ -124,15 +144,95 @@ describe('TradePage', () => {
     serveMenu({}, { '/trade/posts/1/transfer-targets': { tradePostId: 1, free: 60, capacity: 200, targets: [] } });
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Durastahl transferieren' }));
+    const npc = await screen.findByRole('region', { name: 'Warenkonto Nar Shaddaa Markt' });
+    fireEvent.click(within(npc).getByRole('button', { name: 'Waren lagernd Durastahl' }));
+    fireEvent.click(within(npc).getByRole('button', { name: 'Transferieren' }));
 
     expect(await screen.findByText('Du besitzt an keinem anderen Posten dieses Handelsnetzes eine gültige Lizenz.')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Transferieren' })).toBeNull();
   });
 
+  it('offers Transferieren only at NPC posts and colors the storage by over-storage', async () => {
+    renderPage();
+    const npc = await screen.findByRole('region', { name: 'Warenkonto Nar Shaddaa Markt' });
+    const own = screen.getByRole('region', { name: 'Warenkonto Eigener Posten' });
+
+    fireEvent.click(within(own).getByRole('button', { name: 'Waren lagernd Durastahl' }));
+    expect(within(own).getByRole('button', { name: 'Angebot erstellen' })).toBeTruthy();
+    expect(within(own).queryByRole('button', { name: 'Transferieren' })).toBeNull();
+    expect(within(own).queryByText(/pro Tag/)).toBeNull();
+    fireEvent.click(within(npc).getByRole('button', { name: 'Waren lagernd Durastahl' }));
+    expect(within(npc).getByRole('button', { name: 'Transferieren' })).toBeTruthy();
+
+    expect(within(own).getByText('900 / 500').className).toContain('text-red-400');
+    expect(within(npc).getByText('1.200 / 5.000').className).toContain('text-emerald-400');
+  });
+
+  it('opens the offer dialog preset with post and commodity', async () => {
+    serveMenu({}, {
+      '/trade/licenses': [{ id: 1, tradePostId: 1, tradePostName: 'Nar Shaddaa Markt', networkId: 2, startsAt: '', expiresAt: '' }, { id: 2, tradePostId: 3, tradePostName: 'Eigener Posten', networkId: 2, startsAt: '', expiresAt: '' }],
+      '/trade/posts/3/offer-options': {
+        tradePostId: 3, tradePostName: 'Eigener Posten', hasLicense: true, accountFree: 10,
+        accountGoods: [{ commodityId: 5, commodityName: 'Tibanna', amount: 1 }, { commodityId: 10101, commodityName: 'Durastahl', amount: 900 }],
+        tradeableCommodities: [{ id: 5, name: 'Tibanna' }, { id: 10101, name: 'Durastahl' }],
+      },
+    });
+    renderPage();
+    const own = await screen.findByRole('region', { name: 'Warenkonto Eigener Posten' });
+    fireEvent.click(within(own).getByRole('button', { name: 'Waren lagernd Durastahl' }));
+    fireEvent.click(within(own).getByRole('button', { name: 'Angebot erstellen' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Neues Angebot' });
+    await waitFor(() => expect((within(dialog).getByRole('combobox', { name: 'Angebotene Ware' }) as HTMLSelectElement).value).toBe('10101'));
+    expect((within(dialog).getByRole('combobox', { name: 'Handelsposten' }) as HTMLSelectElement).value).toBe('3');
+  });
+
+  it('shows own offers of a commodity at the post and withdraws them', async () => {
+    const offer = {
+      id: 8, tradePostId: 1, tradePostName: 'Nar Shaddaa Markt', offeredCommodityId: 10101, offeredCommodityName: 'Durastahl',
+      offeredAmount: 10, wantedCommodityId: 5, wantedCommodityName: 'Tibanna', wantedAmount: 2, offerCount: 5, reservedAmount: 50, createdAt: '',
+    };
+    serveMenu({}, { '/trade/offers/mine': [offer, { ...offer, id: 9, tradePostId: 3 }] });
+    apiMocks.delete.mockResolvedValue({ message: 'Angebot zurückgezogen' });
+    renderPage();
+    const npc = await screen.findByRole('region', { name: 'Warenkonto Nar Shaddaa Markt' });
+    fireEvent.click(within(npc).getByRole('button', { name: 'Waren in Angeboten Durastahl' }));
+
+    expect(await within(npc).findByText(/10 Durastahl gegen 2 Tibanna/)).toBeTruthy();
+    expect(within(npc).getAllByRole('button', { name: 'Zurückziehen' })).toHaveLength(1);
+    fireEvent.click(within(npc).getByRole('button', { name: 'Zurückziehen' }));
+    await waitFor(() => expect(apiMocks.delete).toHaveBeenCalledWith('/trade/offers/8'));
+  });
+
+  it('shows the issued license count and the fee link by role, and renames own posts', async () => {
+    apiMocks.patch.mockRejectedValue(new Error('Name zu lang'));
+    renderPage();
+    const npc = await screen.findByRole('region', { name: 'Warenkonto Nar Shaddaa Markt' });
+    const own = screen.getByRole('region', { name: 'Warenkonto Eigener Posten' });
+
+    expect(within(npc).queryByText('Ausgestellte Lizenzen')).toBeNull();
+    expect(within(npc).getByRole('button', { name: 'Anzeigen' })).toBeTruthy();
+    expect(within(npc).queryByRole('button', { name: 'Umbenennen' })).toBeNull();
+    expect(within(own).getByText('Ausgestellte Lizenzen').nextElementSibling?.textContent).toContain('2');
+    expect(within(own).getByRole('button', { name: 'Bearbeiten' })).toBeTruthy();
+
+    fireEvent.click(within(own).getByRole('button', { name: 'Umbenennen' }));
+    fireEvent.change(within(own).getByRole('textbox', { name: 'Name' }), { target: { value: 'Neu' } });
+    fireEvent.click(within(own).getByRole('button', { name: 'Speichern' }));
+    await waitFor(() => expect(apiMocks.patch).toHaveBeenCalledWith('/trade/posts/3', { name: 'Neu', description: '' }));
+    expect((await within(own).findByRole('alert')).textContent).toBe('Name zu lang');
+  });
+
+  it('lists own ships at the post', async () => {
+    renderPage();
+    const npc = await screen.findByRole('region', { name: 'Warenkonto Nar Shaddaa Markt' });
+    fireEvent.click(within(npc).getByRole('button', { name: 'Schiffe vor Ort' }));
+    expect(within(npc).getByRole('link', { name: 'Falke' }).getAttribute('href')).toBe('/spacecraft/77');
+  });
+
   it('lists posts without a location link for unknown posts and opens post info', async () => {
     renderPage();
-    await screen.findByText('Durastahl');
+    await screen.findByRole('region', { name: 'Warenkonto Nar Shaddaa Markt' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Handelsposten' }));
 

@@ -138,10 +138,13 @@ export function offerProblems(
   return problems;
 }
 
-function NewOfferDialog({
+export function NewOfferDialog({
+  initial,
   onClose,
   onCreated,
 }: {
+  /** Preselects post and offered commodity (STU offer menu from the account box). */
+  initial?: { tradePostId: number; commodityId: number };
   onClose: () => void;
   onCreated: (message: string) => Promise<void>;
 }) {
@@ -163,7 +166,7 @@ function NewOfferDialog({
       .get<TradeLicenseDto[]>('/trade/licenses')
       .then((next) => {
         setLicenses(next);
-        setPostId(next[0]?.tradePostId ?? null);
+        setPostId(initial?.tradePostId ?? next[0]?.tradePostId ?? null);
       })
       .catch((err: unknown) => setError(errorText(err, 'Lizenzen konnten nicht geladen werden')));
   }, []);
@@ -175,14 +178,18 @@ function NewOfferDialog({
       .get<TradeOfferOptionsDto>(`/trade/posts/${postId}/offer-options`)
       .then((next) => {
         setOptions(next);
+        const offeredId =
+          next.accountGoods.find((good) => good.commodityId === initial?.commodityId)?.commodityId ??
+          next.accountGoods[0]?.commodityId ??
+          0;
         setInput((current) => ({
           ...current,
-          offeredCommodityId: next.accountGoods[0]?.commodityId ?? 0,
-          wantedCommodityId: next.tradeableCommodities.find((entry) => entry.id !== next.accountGoods[0]?.commodityId)?.id ?? 0,
+          offeredCommodityId: offeredId,
+          wantedCommodityId: next.tradeableCommodities.find((entry) => entry.id !== offeredId)?.id ?? 0,
         }));
       })
       .catch((err: unknown) => setError(errorText(err, 'Angebotsdaten konnten nicht geladen werden')));
-  }, [postId]);
+  }, [postId, initial?.commodityId]);
 
   const problems = options ? offerProblems(options, input) : [];
   const offered = options?.accountGoods.find((good) => good.commodityId === input.offeredCommodityId);
