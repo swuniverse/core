@@ -1,6 +1,6 @@
 # Warenkontobox wie STU tradeAccounts.twig
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** tmw-AUD-01a
@@ -63,3 +63,4 @@ Je Konto zeigt die Box:
   - Netzicon nachgezogen (Nutzerwahl „1“): vorhandene Avatare `Avatar_Imperium.png`/`Avatar_Rebellen.png` je NPC-Netz, nur an NPC-Posten; Hutten ohne Bild. Test im NPC-/Spielerposten-Fall.
   - Offen: Browserprüfung der Box; gemeinsamer Build im Prüfpass.
 - 2026-11-19 – Prüfpass (Opus 5.5): Diff bereits bei der Übergabe geprüft (Umbenennen nur mit Namen, Netzicon). Gesamtlauf auf `66a875fb`: Build `backend frontend shared` erfolgreich, Lint 0 Fehler, Backend-Unit 2605/2605, Frontend 925/925, PostgreSQL 903/1042 – die 139 Fehlschläge sind identisch mit dem vorherigen Prüfpass (vorbestehend, kein Ticket), keine Regression. Offen: Browserprüfung – Kontobox: Warenmenü, Angebote je Ware, Schiffe vor Ort, Schwarzes Brett, Umbenennen, Farben, Netzicon in 20 px. Status bleibt `claimed`.
+- 2026-11-19 – Abschluss (Opus 5.5): Browserprüfung vom Product Owner als bestanden gesetzt (nicht von Opus selbst im Browser gesehen). Prüflauf auf `7924fb96`: `nx typecheck backend frontend` grün, Build und Lint 0 Fehler, Backend-Unit 2625/2625, Frontend 943/943, PostgreSQL 1048/1048. resolved.

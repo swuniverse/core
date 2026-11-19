@@ -1,6 +1,6 @@
 # Baupläne: eigene Liste mit Schiffsanzahl, Bauzeit, Modulen und Umbenennen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -48,4 +48,4 @@ col-A4 ist resolved, aber Baupläne lassen sich in SWU nicht umbenennen. Endpunk
   - Befund des Agenten behoben: Die Koloniedetail-Liste lieferte nie `canDelete`, der Löschknopf war im Spiel immer gesperrt. Jetzt geliefert, Regel wie `deleteShipBuildplan` (beliebige Schiffe inkl. zerstörter, offene Aufträge QUEUED/PAUSED). Hinweis: Die Regel steht damit an zwei Stellen und muss bei Änderungen gemeinsam angepasst werden; ein Plan, an dem nur RPG-versteckte Schiffe hängen, bleibt gesperrt, obwohl die Liste 0 Schiffe zeigt (gleiches Verhalten wie der Lösch-Endpunkt).
   - Checks: Jest Schiffbau/Werft/Kolonie 459/459, Vitest `src/pages/colonies` + `app.spec` 172/172, `tsc` sauber, `nx lint` 0 Fehler, PostgreSQL `shipbuilding-workflow` 21/21.
   - Offen für den Prüfpass: Browserprüfung (Liste, Umbenennen, Löschen), gemeinsamer Build.
-
+- 2026-11-19 – Abschluss (Opus 5.5): Browserprüfung vom Product Owner als bestanden gesetzt (nicht von Opus selbst im Browser gesehen). Prüflauf auf `7924fb96`: `nx typecheck backend frontend` grün, Build und Lint 0 Fehler, Backend-Unit 2625/2625, Frontend 943/943, PostgreSQL 1048/1048. resolved.

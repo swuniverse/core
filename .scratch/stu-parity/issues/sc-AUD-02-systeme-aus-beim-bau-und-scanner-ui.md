@@ -1,6 +1,6 @@
 # Systeme beim Bau ausgeschaltet, Scanner schaltbar, Subraumanalyse im UI
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -92,3 +92,4 @@ Scanner-Schalter verwenden den bestehenden PATCH-Endpunkt und zeigen Backend-Feh
 
 Modellrouting: UI an `ticket-coder` (GPT-6 Luna, high) delegiert, Backend/Migration und Kurzreview im verfügbaren Sitzungsmodell. Die laufende Sitzung kann nicht auf GPT-6.1 Sol wechseln; dokumentierter Workflow-Fallback genutzt. Ein lokaler UI-Korrekturdurchgang für Icons, redaktierten Namen und Analyse-Sperre; keine messbaren Tokenzahlen verfügbar.
 - 2026-11-18 – Prüfpass (Opus 5.5): Diff-Review: Startmodi entsprechen STU (`AbstractSpacecraftSystemType::getDefaultMode` = OFF, Ausnahmen Computer/Reaktor/Lebenserhaltung/EPS); Deflektor startet daher ebenfalls aus. Migration setzt nur `active:false`, `down` bewusst leer; `scanner-startup-migration.int-spec.ts` grün. Folgefehler in Fixtures behoben (`bd2ea161`): 38 PostgreSQL- und 3 Unit-Tests gingen noch von aktiven Sensoren/Hyperantrieb/Scannern aus; Spielregel unverändert. Gesamtlauf auf `bd2ea161`: Backend-Unit 2599/2599, Frontend 917/917, PostgreSQL 902/1041 – die 139 Fehlschläge sind identisch mit dem Stand vor allen acht Prüfpass-Tickets (`26ff9e76~1`; überwiegend globale HTTP-403 und `lastReports`-Konstruktorverschiebung aus sc-WP-UI-4), also keine Regression. Build `backend frontend shared` und Lint 0 Fehler. Offen: Browserprüfung – beide Scanner an/aus, EPS-/Tarnungsfehler, Scan und Analyse mit realen Daten, Schiff-/Feldwechsel. Status bleibt `claimed`.
+- 2026-11-19 – Abschluss (Opus 5.5): Browserprüfung vom Product Owner als bestanden gesetzt (nicht von Opus selbst im Browser gesehen). Prüflauf auf `7924fb96`: `nx typecheck backend frontend` grün, Build und Lint 0 Fehler, Backend-Unit 2625/2625, Frontend 943/943, PostgreSQL 1048/1048. resolved.

@@ -1,6 +1,6 @@
 # Hangar wie STU: ein Kolonieschiff, Rumpfbau stückweise
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -45,4 +45,4 @@ STU verbietet den Start eines Kolonieschiffs aus dem Hangar, wenn der Spieler sc
   - Review-Befund behoben: Sperrgrund und Hangar-Gründe waren englisch und erscheinen im Panel; jetzt STU-Wortlaut „Es kann nur ein Schiff mit Kolonisierungsfunktion genutzt werden“ und „Nicht genug Energie/<Ware>: benötigt X, vorhanden Y“ (betrifft auch die Werftmeldung). Andere englische Energietexte im Koloniecode bleiben außerhalb dieses Tickets.
   - Checks: Jest `colony shipbuilding hangar` 450/450, Vitest `src/pages/colonies` 136/136, `nx typecheck backend/frontend` grün, `nx lint` 0 Fehler, PostgreSQL `shipbuilding-workflow` 21/21.
   - Offen für den Prüfpass: Browserprüfung Hangar, gemeinsamer Build.
-
+- 2026-11-19 – Abschluss (Opus 5.5): Browserprüfung vom Product Owner als bestanden gesetzt (nicht von Opus selbst im Browser gesehen). Prüflauf auf `7924fb96`: `nx typecheck backend frontend` grün, Build und Lint 0 Fehler, Backend-Unit 2625/2625, Frontend 943/943, PostgreSQL 1048/1048. resolved.

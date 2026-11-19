@@ -1,6 +1,6 @@
 # Kolonisierung wie STU: Startwerte, erste Kolonie, Startfeld, Datenbankeintrag
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -63,4 +63,4 @@ Die Vorkommensmengen behandelt col-AUD-09b.
   - Checks: Jest `colonization colony-seed onboarding celestial-class-discovery game-data` 93/93, Vitest `src/components/spacecraft` 223/223, `tsc` sauber, `nx lint` 0 Fehler, PostgreSQL `starmap-contacts-requests database-completion` 22/22 (keine eigene Kolonisierungs-Suite).
   - Hinweis: `game-data/scripts/import-stu-game-data.ts` erzeugt die YAML neu und verliert dabei `colonizeableFields`; vor einem Neuimport nachziehen. Beide Repos (core und game-data) müssen gepusht werden.
   - Offen für den Prüfpass: Browserprüfung des Dialogs und einer echten Kolonisierung, gemeinsamer Build.
-
+- 2026-11-19 – Abschluss (Opus 5.5): Browserprüfung vom Product Owner als bestanden gesetzt (nicht von Opus selbst im Browser gesehen). Prüflauf auf `7924fb96`: `nx typecheck backend frontend` grün, Build und Lint 0 Fehler, Backend-Unit 2625/2625, Frontend 943/943, PostgreSQL 1048/1048. resolved.

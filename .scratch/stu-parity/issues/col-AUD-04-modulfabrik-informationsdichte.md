@@ -1,6 +1,6 @@
 # Modulfabrik mit STU-Informationsdichte (Bedarfsfilter, Accountbestand, Sammelbestellung)
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -53,3 +53,4 @@ In der SWU-Modulfabrik startet man jedes Modul einzeln und sieht nur das lokale 
   - Checks: PostgreSQL `colony-fabrication-batch` 5/5 (Kürzung über zwei Module, EPS-Mangel, Rollback, Rollback nach Kürzung, inaktives Gebäude), Jest 245/245, Vitest `src/pages/colonies` 127/127, `tsc` sauber, `nx lint backend/frontend` 0 Fehler.
   - Nicht getestet: DTO-Grenzen (50 Positionen, positive Ganzzahlen). Offen für den Prüfpass: Browserprüfung, gemeinsamer Build.
 - 2026-11-19 – Prüfpass (Opus 5.5): Frontend-Review-Befund behoben: Scheiterte bei mehreren aktiven Modulfabriken eine spätere Gruppe, gingen die Ergebnisse der bereits bezahlten Gruppen verloren und ihre Mengen blieben stehen (Gefahr doppelter Bestellung); jetzt angezeigt und geleert, mit Test. Gesamtlauf auf `fe482b29` (+ Korrektur): Build erfolgreich, Lint 0 Fehler, Backend-Unit 2611/2611, Frontend 935/935 nach Korrektur, PostgreSQL 908/1047 – die 139 Fehlschläge sind identisch mit den vorigen Prüfpässen, keine Regression. Offen: Browserprüfung – Filter, Lagernd/Lagerorte, Vorschau, Sammelbestellung. Status bleibt `claimed`.
+- 2026-11-19 – Abschluss (Opus 5.5): Browserprüfung vom Product Owner als bestanden gesetzt (nicht von Opus selbst im Browser gesehen). Prüflauf auf `7924fb96`: `nx typecheck backend frontend` grün, Build und Lint 0 Fehler, Backend-Unit 2625/2625, Frontend 943/943, PostgreSQL 1048/1048. resolved.

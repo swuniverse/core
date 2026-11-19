@@ -1,6 +1,6 @@
 # Schildregeneration wie STU
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -91,3 +91,4 @@ STU geprüft: ShieldRegeneration, SpacecraftRepository::getSuitableForShieldRege
 
 Modellrouting: Regeln, Datenbank-/Cron-Code und Kurzreview direkt im verfügbaren Sitzungsmodell; begrenzte UI-Arbeit an `ticket-coder` (GPT-6 Luna, high) delegiert. Sol-Umschaltung in der laufenden Sitzung nicht verfügbar, Workflow-Fallback dokumentiert. Eine gezielte UI-Ergänzung für Live-Aktualisierung; keine messbaren Tokenzahlen verfügbar.
 - 2026-11-18 – Prüfpass (Opus 5.5): Befund behoben (`3ee68c69`): ein fehlerhaftes Schiff brach den Minutenlauf für alle folgenden ab; jetzt je Schiff isoliert und geloggt, mit Test. `shield-regeneration.int-spec.ts` (Fixture-Kollision behoben) grün. Gesamtlauf auf `bd2ea161`: Backend-Unit 2599/2599, Frontend 917/917, PostgreSQL 902/1041 – die 139 Fehlschläge sind identisch mit dem Stand vor allen acht Prüfpass-Tickets (`26ff9e76~1`; überwiegend globale HTTP-403 und `lastReports`-Konstruktorverschiebung aus sc-WP-UI-4), also keine Regression. Build `backend frontend shared` und Lint 0 Fehler. Offen: Browserprüfung – Liste/Schiffskopf vor/nach Ablauf, Sperrbedingungen, Live-Aktualisierung. Status bleibt `claimed`.
+- 2026-11-19 – Abschluss (Opus 5.5): Browserprüfung vom Product Owner als bestanden gesetzt (nicht von Opus selbst im Browser gesehen). Prüflauf auf `7924fb96`: `nx typecheck backend frontend` grün, Build und Lint 0 Fehler, Backend-Unit 2625/2625, Frontend 943/943, PostgreSQL 1048/1048. resolved.

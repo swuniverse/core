@@ -1,6 +1,6 @@
 # Werft: Rumpfauswahl mit Bild, Zählern und deutschen Labels
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -45,3 +45,4 @@ Die Rumpfkacheln der SWU-Werft zeigen kein Rumpfbild, keinen Typ, nicht „Im Ei
   - Checks: Jest `colony-shipyard colony-tick` 243/243, Vitest `src/pages/colonies` 128/128, `tsc` sauber, `nx lint` 0 Fehler, PostgreSQL `shipbuilding-workflow` 21/21.
   - Offen für den Prüfpass: Browserprüfung der Kacheln, gemeinsamer Build.
 - 2026-11-19 – Prüfpass (Opus 5.5): `app.spec.tsx` erwartete noch den alten Standardnamen „Buildplan“ (Agent hatte nur `src/pages/colonies` geprüft); angepasst. Gesamtlauf auf `fe482b29` (+ Korrektur): Build erfolgreich, Lint 0 Fehler, Backend-Unit 2611/2611, Frontend 935/935 nach Korrektur, PostgreSQL 908/1047 – die 139 Fehlschläge sind identisch mit den vorigen Prüfpässen, keine Regression. Offen: Browserprüfung – Rumpfkacheln mit Bild, Typ, Zählern; deutsche Texte. Status bleibt `claimed`.
+- 2026-11-19 – Abschluss (Opus 5.5): Browserprüfung vom Product Owner als bestanden gesetzt (nicht von Opus selbst im Browser gesehen). Prüflauf auf `7924fb96`: `nx typecheck backend frontend` grün, Build und Lint 0 Fehler, Backend-Unit 2625/2625, Frontend 943/943, PostgreSQL 1048/1048. resolved.

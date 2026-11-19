@@ -1,6 +1,6 @@
 # Kampfvorbereitung und -nachbereitung wie STU
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** —
@@ -97,3 +97,4 @@ Kurzer tatsächlicher Diffreview und Whitespace-Prüfung erfolgreich. Die direkt
 
 Modellrouting: Spielregeln, Transaktionen und Kurzreview direkt im verfügbaren Sitzungsmodell umgesetzt; keine Codierdelegation. GPT-6.1 Sol ist in der laufenden Sitzung nicht umschaltbar, daher dokumentierter Workflow-Fallback. Keine messbaren Tokenzahlen verfügbar.
 - 2026-11-18 – Prüfpass (Opus 5.5): Diff-Review: Umrüstungs-Rückerstattung in der Kampfvorbereitung bucht ohne Lagergrenze (verlustfrei, Lager kann überlaufen), anders als der Werft-Abbruch, der kappt. Als sichere Variante belassen, kein Defekt. Gesamtlauf auf `bd2ea161`: Backend-Unit 2599/2599, Frontend 917/917, PostgreSQL 902/1041 – die 139 Fehlschläge sind identisch mit dem Stand vor allen acht Prüfpass-Tickets (`26ff9e76~1`; überwiegend globale HTTP-403 und `lastReports`-Konstruktorverschiebung aus sc-WP-UI-4), also keine Regression. Build `backend frontend shared` und Lint 0 Fehler. Offen: Browserprüfung – Alarm-/EPS-Fehler und Vorbereitungszeilen im realen Kampfbericht. Status bleibt `claimed`.
+- 2026-11-19 – Abschluss (Opus 5.5): Browserprüfung vom Product Owner als bestanden gesetzt (nicht von Opus selbst im Browser gesehen). Prüflauf auf `7924fb96`: `nx typecheck backend frontend` grün, Build und Lint 0 Fehler, Backend-Unit 2625/2625, Frontend 943/943, PostgreSQL 1048/1048. resolved.

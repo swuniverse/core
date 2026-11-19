@@ -1,6 +1,6 @@
 # Kolonieliste mit echten Werten (Signaturen, Verteidigung, Wachstum)
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -55,3 +55,4 @@ Die Kolonieliste zeigt Signaturen immer als `0` und „verteidigt“ immer als `
   - Hinweis: `FlightSignatureService` ist im Kolonieservice `@Optional()` (positionale Testkonstruktoren); fehlt er, zeigt die Liste 0. Nest stellt ihn bereit (gleiche Injektion wie im Umgebungsscan).
   - Offen für den Prüfpass: Browserprüfung (Klick auf Signaturzahl, Icon), gemeinsamer Build.
 - 2026-11-19 – Prüfpass (Opus 5.5): Diff bereits bei der Übergabe geprüft (Signaturabfrage auf 48 h begrenzt, PostgreSQL-Vergleich mit dem Sektor-Scan). Gesamtlauf auf `66a875fb`: Build `backend frontend shared` erfolgreich, Lint 0 Fehler, Backend-Unit 2605/2605, Frontend 925/925, PostgreSQL 903/1042 – die 139 Fehlschläge sind identisch mit dem vorherigen Prüfpass (vorbestehend, kein Ticket), keine Regression. Offen: Browserprüfung – Signaturzahl öffnet den Umgebungsscan, Verteidigt-Icon mit Tooltip. Status bleibt `claimed`.
+- 2026-11-19 – Abschluss (Opus 5.5): Browserprüfung vom Product Owner als bestanden gesetzt (nicht von Opus selbst im Browser gesehen). Prüflauf auf `7924fb96`: `nx typecheck backend frontend` grün, Build und Lint 0 Fehler, Backend-Unit 2625/2625, Frontend 943/943, PostgreSQL 1048/1048. resolved.
