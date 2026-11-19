@@ -1,5 +1,6 @@
 import { isSwuBonusMarkerUsable } from '../starmap/generator/swu-bonus-markers';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
+import { ColonyTimingService } from './colony-timing.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
@@ -226,7 +227,20 @@ export class ColonyProjectionService {
     private readonly colonySocialService: ColonySocialService,
     private readonly colonyOrbitService: ColonyOrbitService,
     private readonly spacecraftTorpedoService: SpacecraftTorpedoService,
+    @Optional() private readonly timing?: ColonyTimingService,
   ) {}
+
+  /** Build start is not stored: total = scaled buildTime of the target building (new builds and upgrades alike). */
+  private buildProgressPercent(field: Colony['fields'][number]): number | null {
+    const buildTime = field.buildingId
+      ? this.gameData.getBuilding(field.buildingId)?.costs?.buildTime
+      : undefined;
+    if (!field.isBuilding || !field.buildFinishesAt || !buildTime || !this.timing)
+      return null;
+    const total = this.timing.scaleBuildTimeSeconds(buildTime) * 1000;
+    const remaining = field.buildFinishesAt.getTime() - Date.now();
+    return Math.min(100, Math.max(0, Math.round((1 - remaining / total) * 100)));
+  }
 
   /**
    * 'hidden' = Untergrund fuer normale Spieler unerforscht: echte Feld-
@@ -292,6 +306,8 @@ export class ColonyProjectionService {
           maxIntegrity: field.maxIntegrity,
           buildProgress: field.buildProgress,
           buildFinishesAt: field.buildFinishesAt?.toISOString() ?? null,
+          buildProgressPercent: this.buildProgressPercent(field),
+          activateAfterBuild: field.activateAfterBuild,
           terraformingId: field.terraformingId,
           terraformingFinishesAt:
             field.terraformingFinishesAt?.toISOString() ?? null,

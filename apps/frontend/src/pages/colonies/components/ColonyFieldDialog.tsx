@@ -89,6 +89,7 @@ export function ColonyFieldDialog({
   storageAmounts = {},
   onFetchRepairPreview,
   onRepairBuilding,
+  onSetActivateAfterBuild,
   wasteAvailability,
 }: {
   field: ColonyField;
@@ -119,6 +120,10 @@ export function ColonyFieldDialog({
     fieldIndex: number,
   ) => Promise<BuildingRepairPreview>;
   onRepairBuilding?: (fieldIndex: number) => Promise<void> | void;
+  onSetActivateAfterBuild?: (
+    fieldIndex: number,
+    activateAfterBuild: boolean,
+  ) => Promise<void> | void;
   wasteAvailability?: { enabled: boolean; reason?: string };
 }) {
   const dialogRef = useRef<HTMLElement>(null);
@@ -292,6 +297,16 @@ export function ColonyFieldDialog({
     } finally {
       repairPendingRef.current = false;
       setRepairPending(false);
+    }
+  };
+  const [siteError, setSiteError] = useState<string | null>(null);
+  const activateAfterBuild = field.activateAfterBuild ?? true;
+  const submitActivateAfterBuild = async () => {
+    setSiteError(null);
+    try {
+      await onSetActivateAfterBuild?.(field.fieldIndex, !activateAfterBuild);
+    } catch (error: unknown) {
+      setSiteError(repairErrorMessage(error));
     }
   };
   const availableUpgrades = field.availableUpgrades ?? [];
@@ -722,6 +737,73 @@ export function ColonyFieldDialog({
                           {repairPending ? 'Wird repariert …' : 'Reparieren'}
                         </button>
                       </>
+                    )}
+                  </div>
+                </Section>
+              )}
+
+              {field.isBuilding && (
+                <Section title="Baustelle">
+                  <div className="space-y-2 text-sm">
+                    <div className="text-swu-primary">{building.name}</div>
+                    {field.buildProgressPercent != null && (
+                      <div>
+                        <div
+                          role="progressbar"
+                          aria-label="Baufortschritt"
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={field.buildProgressPercent}
+                          className="h-2 overflow-hidden rounded bg-swu-border/40"
+                        >
+                          <div
+                            className="h-full bg-cyan-400"
+                            style={{ width: `${field.buildProgressPercent}%` }}
+                          />
+                        </div>
+                        <div className="mt-1 text-center text-xs text-swu-muted">
+                          {field.buildProgressPercent} %
+                        </div>
+                      </div>
+                    )}
+                    <div className="text-xs text-swu-muted">
+                      Fertigstellung:{' '}
+                      {field.buildFinishesAt
+                        ? new Date(field.buildFinishesAt).toLocaleString(
+                            'de-DE',
+                            {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            },
+                          )
+                        : '?'}
+                    </div>
+                    <div className="text-xs text-swu-muted">
+                      {activateAfterBuild
+                        ? 'wird nach dem Bau aktiviert'
+                        : 'wird nach dem Bau deaktiviert'}
+                    </div>
+                    {onSetActivateAfterBuild && !sandboxMode && (
+                      <button
+                        type="button"
+                        disabled={pendingActions.has('site-activation')}
+                        onClick={() =>
+                          runAction('site-activation', submitActivateAfterBuild)
+                        }
+                        className="rounded border border-swu-border px-3 py-1.5 text-xs font-bold text-swu-primary"
+                      >
+                        {activateAfterBuild
+                          ? 'Nach Bau deaktivieren'
+                          : 'Nach Bau aktivieren'}
+                      </button>
+                    )}
+                    {siteError && (
+                      <div role="alert" className="text-xs text-red-400">
+                        {siteError}
+                      </div>
                     )}
                   </div>
                 </Section>

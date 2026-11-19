@@ -712,6 +712,13 @@ export function ColoniesPage() {
           await loadColonyDetail(colonyId);
         }
       }}
+      onSetActivateAfterBuild={async (fieldIndex, value) => {
+        const colonyId = selected.id;
+        await colonyApi.setActivateAfterBuild(colonyId, fieldIndex, value);
+        if (targetColonyIdRef.current === colonyId) {
+          await loadColonyDetail(colonyId);
+        }
+      }}
       onRepairDamagedBuildings={async () => {
         const colonyId = selected.id;
         const result = await colonyApi.repairDamagedBuildings(colonyId);
@@ -779,6 +786,7 @@ export function ColonyDetail({
   onDeactivateBuildings,
   onFetchRepairPreview,
   onRepairBuilding,
+  onSetActivateAfterBuild,
   onRepairDamagedBuildings,
 }: {
   colony: Colony;
@@ -881,6 +889,10 @@ export function ColonyDetail({
     fieldIndexes?: number[],
   ) => Promise<BuildingRepairPreview>;
   onRepairBuilding?: (fieldIndex: number) => Promise<void> | void;
+  onSetActivateAfterBuild?: (
+    fieldIndex: number,
+    activateAfterBuild: boolean,
+  ) => Promise<void> | void;
   onRepairDamagedBuildings?: () => Promise<BuildingRepairResult>;
 }) {
   const ecosystem = useSwuColonyEcosystem(colony.id);
@@ -1522,6 +1534,7 @@ export function ColonyDetail({
               : undefined
           }
           onRepairBuilding={onRepairBuilding}
+          onSetActivateAfterBuild={onSetActivateAfterBuild}
           building={
             selectedField.buildingId
               ? buildingMap[selectedField.buildingId]

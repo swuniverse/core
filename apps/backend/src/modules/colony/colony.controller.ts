@@ -82,6 +82,11 @@ class BuildBuildingDto {
   activateAfterBuild?: boolean;
 }
 
+class SetActivateAfterBuildDto {
+  @IsBoolean()
+  activateAfterBuild: boolean;
+}
+
 class QueueCrewTrainingDto {
   @Type(() => Number)
   @IsInt()
@@ -842,6 +847,21 @@ export class ColonyController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.colonyService.repairBuilding(id, req.user.sub, fieldIndex);
+  }
+
+  @Patch(':id/fields/:fieldIndex/activate-after-build')
+  setActivateAfterBuild(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('fieldIndex', ParseIntPipe) fieldIndex: number,
+    @Request() req: { user: { sub: number } },
+    @Body() dto: SetActivateAfterBuildDto,
+  ) {
+    return this.colonyService.setActivateAfterBuild(
+      id,
+      req.user.sub,
+      fieldIndex,
+      dto.activateAfterBuild,
+    );
   }
 
   @Post(':id/fields/:fieldIndex/toggle')

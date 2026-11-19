@@ -174,6 +174,67 @@ function deferred<T = void>() {
 }
 
 describe('ColonyFieldDialog', () => {
+  describe('construction site', () => {
+    const site: ColonyField = {
+      ...builtField,
+      isBuilding: true,
+      isActive: false,
+      buildProgressPercent: 40,
+      activateAfterBuild: true,
+      buildFinishesAt: '2026-11-20T10:30:00.000Z',
+    };
+
+    it('shows target, progress, finish time and toggles via the API handler', async () => {
+      const onSetActivateAfterBuild = vi.fn().mockResolvedValue(undefined);
+      render(
+        <ColonyFieldDialog
+          {...defaultProps}
+          field={site}
+          onSetActivateAfterBuild={onSetActivateAfterBuild}
+        />,
+      );
+
+      expect(screen.getAllByText('Raumbahnhof').length).toBeGreaterThan(0);
+      expect(
+        screen
+          .getByRole('progressbar', { name: 'Baufortschritt' })
+          .getAttribute('aria-valuenow'),
+      ).toBe('40');
+      expect(screen.getByText('40 %')).toBeTruthy();
+      expect(screen.getByText(/Fertigstellung:/).textContent).toContain('2026');
+      expect(screen.getByText('wird nach dem Bau aktiviert')).toBeTruthy();
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Nach Bau deaktivieren' }),
+      );
+      expect(onSetActivateAfterBuild).toHaveBeenCalledWith(79, false);
+    });
+
+    it('offers activation when the site is set to deactivate and shows server errors', async () => {
+      const onSetActivateAfterBuild = vi
+        .fn()
+        .mockRejectedValue(new Error('Auf diesem Feld wird nicht gebaut'));
+      render(
+        <ColonyFieldDialog
+          {...defaultProps}
+          field={{ ...site, activateAfterBuild: false }}
+          onSetActivateAfterBuild={onSetActivateAfterBuild}
+        />,
+      );
+
+      expect(screen.getByText('wird nach dem Bau deaktiviert')).toBeTruthy();
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole('button', { name: 'Nach Bau aktivieren' }),
+        );
+      });
+      expect(onSetActivateAfterBuild).toHaveBeenCalledWith(79, true);
+      expect((await screen.findByRole('alert')).textContent).toBe(
+        'Auf diesem Feld wird nicht gebaut',
+      );
+    });
+  });
+
   it.each([
     ['Colony not found', 'Kolonie nicht gefunden'],
     [

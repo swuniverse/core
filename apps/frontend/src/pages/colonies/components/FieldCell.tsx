@@ -99,7 +99,7 @@ export function FieldCell({
         ${!isSelected && !isHighlighted && !inactive && bonusUsed ? 'border-green-400/70' : ''}
         ${FIELD_TYPE_COLORS[field.fieldType] || 'bg-swu-bg'}
         ${marker && !buildingId && !field.isBuilding && field.bonusMarkerActive !== false && !isSelected && !isHighlighted ? BONUS_MARKER_FRAME_CLASS : ''}
-        ${field.isBuilding ? 'animate-pulse' : ''}
+        ${field.isBuilding && field.buildProgressPercent == null ? 'animate-pulse' : ''}
         ${field.terraformingId ? 'border-2 border-cyan-400 animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.6)]' : ''}
         ${isBuildMode && !isHighlighted ? 'opacity-30' : ''}
         ${isHighlighted ? 'cursor-crosshair' : ''}
@@ -142,6 +142,13 @@ export function FieldCell({
             marker,
             field.bonusMarkerActive !== false,
           )}
+        />
+      )}
+      {field.isBuilding && field.buildProgressPercent != null && (
+        <span
+          data-testid="build-progress-overlay"
+          className="absolute inset-x-0 bottom-0 bg-cyan-400/35"
+          style={{ height: `${field.buildProgressPercent}%` }}
         />
       )}
       {field.terraformingId && (

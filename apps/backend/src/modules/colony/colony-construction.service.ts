@@ -1232,6 +1232,25 @@ export class ColonyConstructionService {
     return this.fieldRepo.save(field);
   }
 
+  /** One conditional update, so a concurrent minute-tick completion cannot be overwritten. */
+  async setActivateAfterBuild(
+    colonyId: number,
+    userId: number,
+    fieldIndex: number,
+    activateAfterBuild: boolean,
+  ): Promise<void> {
+    const colony = await this.findOne(colonyId, userId);
+    const field = colony.fields.find((f) => f.fieldIndex === fieldIndex);
+    if (!field) throw new NotFoundException('Field not found');
+    const result = await this.fieldRepo.update(
+      { id: field.id, isBuilding: true },
+      { activateAfterBuild },
+    );
+    if (!result.affected) {
+      throw new BadRequestException('Auf diesem Feld wird nicht gebaut');
+    }
+  }
+
   async toggleBuilding(
     colonyId: number,
     userId: number,

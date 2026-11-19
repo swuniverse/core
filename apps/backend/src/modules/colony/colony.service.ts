@@ -769,6 +769,20 @@ export class ColonyService {
     );
   }
 
+  async setActivateAfterBuild(
+    colonyId: number,
+    userId: number,
+    fieldIndex: number,
+    activateAfterBuild: boolean,
+  ): Promise<void> {
+    return this.colonyConstructionService.setActivateAfterBuild(
+      colonyId,
+      userId,
+      fieldIndex,
+      activateAfterBuild,
+    );
+  }
+
   async toggleBuilding(
     colonyId: number,
     userId: number,

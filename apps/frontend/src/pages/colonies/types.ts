@@ -29,6 +29,9 @@ export interface ColonyField {
   maxIntegrity?: number;
   buildProgress: number;
   buildFinishesAt: string | null;
+  /** Server-berechneter Baufortschritt 0..100 (null, wenn unbekannt). */
+  buildProgressPercent?: number | null;
+  activateAfterBuild?: boolean;
   terraformingId?: string | null;
   terraformingFinishesAt?: string | null;
   /** Kuppel fertig / im Bau (Fertigstellung). */

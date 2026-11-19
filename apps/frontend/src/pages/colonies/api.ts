@@ -127,6 +127,15 @@ export const colonyApi = {
     }),
   demolishBuilding: (colonyId: number, fieldIndex: number) =>
     api.delete(`/colonies/${colonyId}/fields/${fieldIndex}/building`),
+  setActivateAfterBuild: (
+    colonyId: number,
+    fieldIndex: number,
+    activateAfterBuild: boolean,
+  ) =>
+    api.patch(
+      `/colonies/${colonyId}/fields/${fieldIndex}/activate-after-build`,
+      { activateAfterBuild },
+    ),
   toggleBuilding: (colonyId: number, fieldIndex: number) =>
     api.post(`/colonies/${colonyId}/fields/${fieldIndex}/toggle`, {}),
   terraformField: (

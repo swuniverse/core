@@ -78,7 +78,10 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     },
   };
   const fleetRepo = { findOne: jest.fn(async () => null) };
-  const fieldRepo = { save: jest.fn(async (value) => value) };
+  const fieldRepo = {
+    save: jest.fn(async (value) => value),
+    update: jest.fn(async () => ({ affected: 1 })),
+  };
   const statsRepo = { save: jest.fn(async (value) => value) };
   const userRepo = {
     findOneBy: jest.fn(),
@@ -1319,6 +1322,7 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     colonySocialService as any,
     orbitService as any,
     spacecraftTorpedoService as any,
+    timingService,
   );
   const messagingService = { sendSystem: jest.fn() };
   // Occupied BUILD/RETROFIT slots seen by the transactional slot check.
@@ -3799,6 +3803,112 @@ describe('colony tick calculations', () => {
       10103, 101,
     ]);
     expect(result).toEqual([baseBuilding, bonusOnlyBuilding]);
+  });
+
+  it('sets activateAfterBuild on an own construction site in both directions', async () => {
+    const { service, colonyRepo, fieldRepo } = createColonyService();
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      fields: [{ id: 77, fieldIndex: 5, buildingId: 300, isBuilding: true }],
+    });
+
+    await service.setActivateAfterBuild(1, 1, 5, false);
+    await service.setActivateAfterBuild(1, 1, 5, true);
+
+    expect(fieldRepo.update).toHaveBeenNthCalledWith(
+      1,
+      { id: 77, isBuilding: true },
+      { activateAfterBuild: false },
+    );
+    expect(fieldRepo.update).toHaveBeenNthCalledWith(
+      2,
+      { id: 77, isBuilding: true },
+      { activateAfterBuild: true },
+    );
+  });
+
+  it('rejects activateAfterBuild for finished buildings, empty fields and foreign colonies', async () => {
+    const { service, colonyRepo, fieldRepo } = createColonyService();
+    colonyRepo.findOne.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      fields: [{ id: 77, fieldIndex: 5, buildingId: 300, isBuilding: false }],
+    });
+    // finished meanwhile (or never a site): the conditional update matches 0 rows
+    fieldRepo.update.mockResolvedValue({ affected: 0 });
+    await expect(service.setActivateAfterBuild(1, 1, 5, false)).rejects.toThrow(
+      'Auf diesem Feld wird nicht gebaut',
+    );
+    await expect(service.setActivateAfterBuild(1, 1, 9, false)).rejects.toThrow(
+      'Field not found',
+    );
+    colonyRepo.findOne.mockResolvedValue(null);
+    await expect(service.setActivateAfterBuild(1, 2, 5, false)).rejects.toThrow();
+  });
+
+  it('completes a site with the last set activateAfterBuild value', async () => {
+    const { service } = createColonyService();
+    const field = {
+      id: 1,
+      fieldIndex: 4,
+      buildingId: 82010100,
+      isBuilding: true,
+      isActive: false,
+      activateAfterBuild: false,
+      buildProgress: 0,
+      buildFinishesAt: new Date(Date.now() - 1),
+      integrity: 0,
+      maxIntegrity: 0,
+    };
+    const colony = {
+      id: 1,
+      userId: 1,
+      colonyClassId: 201,
+      population: 84,
+      populationMax: 84,
+      energy: 0,
+      energyMax: 100,
+      storageMax: 3000,
+      storageUsed: 0,
+      stats: { workers: 24, workless: 60, maxPopulation: 84 },
+      changeable: {
+        workers: 24,
+        workless: 60,
+        maxPopulation: 84,
+        populationLimit: 0,
+        immigrationEnabled: true,
+        energy: 0,
+        maxEnergy: 100,
+        maxStorage: 3000,
+      },
+      fields: [field],
+      storage: [],
+    };
+
+    await service.processTick(colony as never);
+
+    expect(field).toMatchObject({ isBuilding: false, isActive: false });
+  });
+
+  it('derives the construction progress percent from the scaled build time', () => {
+    const { projectionService, gameData } = createColonyService();
+    const buildTime = gameData.getBuilding(300).costs.buildTime;
+    const field = {
+      id: 1,
+      fieldIndex: 5,
+      buildingId: 300,
+      isBuilding: true,
+      activateAfterBuild: false,
+      buildFinishesAt: new Date(Date.now() + (buildTime * 1000) / 2),
+    };
+    const summary = projectionService.toColonySummary({
+      id: 1,
+      fields: [field],
+    } as never) as any;
+
+    expect(summary.fields[0].activateAfterBuild).toBe(false);
+    expect(Math.abs(summary.fields[0].buildProgressPercent - 50)).toBeLessThanOrEqual(1);
   });
 
   it('enforces formalized per-colony building limits', async () => {

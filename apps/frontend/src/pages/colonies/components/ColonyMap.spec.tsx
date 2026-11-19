@@ -56,4 +56,21 @@ describe('ColonyMap', () => {
     expect(shield.getAttribute('aria-valuenow')).toBe('25');
     expect(shield.getAttribute('aria-valuemax')).toBe('100');
   });
+
+  it('shows the build progress as a proportional overlay instead of pulsing', () => {
+    const site = {
+      ...field,
+      buildingId: 1,
+      isBuilding: true,
+      buildProgressPercent: 40,
+    };
+    render(<ColonyMap {...props} surfaceFields={[site]} />);
+
+    expect(screen.getByTestId('build-progress-overlay').style.height).toBe(
+      '40%',
+    );
+    expect(screen.getByRole('button', { name: /Feld 1/ }).className).not.toContain(
+      'animate-pulse',
+    );
+  });
 });
