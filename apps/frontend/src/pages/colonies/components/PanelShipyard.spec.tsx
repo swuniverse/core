@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { PanelShipyard } from './PanelShipyard';
 
 const noop = vi.fn();
@@ -242,5 +242,203 @@ describe('PanelShipyard EPS cost and function occupation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Werft öffnen' }));
 
     expect(screen.getByText(/Frei: ein Bau- oder Umrüstauftrag/)).toBeTruthy();
+  });
+});
+
+describe('PanelShipyard buildplan list and rename', () => {
+  const shipClass = {
+    id: 1,
+    key: 'TEST_CORVETTE',
+    name: 'Test Corvette',
+    category: 'CORVETTE',
+    unlocked: true,
+    crewMin: 0,
+    crewMax: 2,
+    hullBase: 10,
+    shieldBase: 5,
+    cargoCapacity: 1,
+    allowedBuildingFunctionIds: [6],
+  };
+  const shipyard = {
+    unlocked: true,
+    completed: true,
+    inProgress: false,
+    buildingId: 85130100,
+    buildingName: 'Korvettenwerft',
+    presentFunctionIds: [6],
+    activeFunctionIds: [6],
+    repairPresentFunctionIds: [],
+    repairActiveFunctionIds: [],
+    slotRules: [],
+    shipClassLayouts: [
+      {
+        shipClassId: 1,
+        inUseCount: 0,
+        buildplanCount: 1,
+        imageKey: 'x',
+        layoutKey: 'x',
+        slots: [],
+        stuRumpId: 6501,
+        baseStats: {
+          moduleLevel: 3,
+          baseCrew: 1,
+          baseEvadeChance: 0,
+          baseHull: 10,
+          baseShield: 0,
+          baseDamage: 0,
+          baseSensorRange: 0,
+          baseWarpdrive: 0,
+          baseEps: 10,
+          baseReactor: 10,
+          epsCost: 50,
+        },
+      },
+    ],
+  };
+  const plan = (overrides: Record<string, unknown>) => ({
+    id: 1,
+    shipClassId: 1,
+    name: 'Alpha-Plan',
+    signature: 's',
+    moduleSelections: [{ slotId: 'weapon_1', commodityId: 50 }],
+    moduleCommodityIds: [50],
+    moduleTypes: ['PHASER'],
+    moduleNames: ['Phaser Mk1'],
+    shipCount: 4,
+    buildSeconds: 4500,
+    crewRequired: 7,
+    canDelete: true,
+    ...overrides,
+  });
+  const renderPlans = (
+    buildplans: unknown[],
+    onRenameBuildplan: (
+      id: number,
+      name: string,
+    ) => Promise<void> | void = noop,
+  ) => {
+    render(
+      <PanelShipyard
+        shipyard={shipyard as never}
+        shipClasses={[shipClass as never]}
+        queue={[]}
+        availableModules={[]}
+        slotRules={[]}
+        availableCrew={0}
+        commodityMap={{}}
+        orbitShips={[]}
+        buildplans={buildplans as never}
+        onBuildShip={noop}
+        onDisassembleShip={noop}
+        onQueueShipRepair={noop}
+        onQueueShipRetrofit={noop}
+        onCancelShipyardQueue={noop}
+        onReactivateShipyardQueue={noop}
+        onCreateBuildplan={noop}
+        onRenameBuildplan={onRenameBuildplan}
+        onDeleteBuildplan={noop}
+        onBuildFromBuildplan={noop}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Werft öffnen' }));
+    fireEvent.click(screen.getByRole('button', { name: /Schiffbau/ }));
+  };
+
+  it('shows ship count, build time, crew and module per slot', () => {
+    renderPlans([plan({})]);
+
+    const text = screen.getByText('Alpha-Plan').closest('div')
+      ?.parentElement?.textContent;
+    expect(text).toContain('Test Corvette');
+    expect(text).toContain('4 Schiffe');
+    expect(text).toContain('Bauzeit 1h 15m');
+    expect(text).toContain('Crew 7');
+    expect(text).toContain('weapon_1: Phaser Mk1');
+  });
+
+  it('locks delete for a plan in use and keeps it for an unused plan', () => {
+    renderPlans([
+      plan({ canDelete: false }),
+      plan({ id: 2, name: 'Beta-Plan', signature: 't' }),
+    ]);
+
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Bauplan Alpha-Plan löschen',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Bauplan Beta-Plan löschen',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+  });
+
+  it('renames a plan in the list and cancels without saving', async () => {
+    const rename = vi.fn().mockResolvedValue(undefined);
+    renderPlans([plan({})], rename);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Bauplan Alpha-Plan umbenennen' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }));
+    expect(rename).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('Neuer Bauplanname')).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Bauplan Alpha-Plan umbenennen' }),
+    );
+    fireEvent.change(screen.getByLabelText('Neuer Bauplanname'), {
+      target: { value: '  Neuer Name ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
+
+    await waitFor(() => expect(rename).toHaveBeenCalledWith(1, 'Neuer Name'));
+    await waitFor(() =>
+      expect(screen.queryByLabelText('Neuer Bauplanname')).toBeNull(),
+    );
+  });
+
+  it('shows the server error and keeps the form open when renaming fails', async () => {
+    const rename = vi
+      .fn()
+      .mockRejectedValue(
+        new Error('Ein Bauplan mit diesem Namen existiert bereits.'),
+      );
+    renderPlans([plan({})], rename);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Bauplan Alpha-Plan umbenennen' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
+
+    expect(
+      await screen.findByText(
+        'Ein Bauplan mit diesem Namen existiert bereits.',
+      ),
+    ).toBeTruthy();
+    expect(screen.getByLabelText('Neuer Bauplanname')).toBeTruthy();
+  });
+
+  it('renames from the editor of a saved plan', async () => {
+    const rename = vi.fn().mockResolvedValue(undefined);
+    renderPlans([plan({})], rename);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Bearbeiten & Bauen' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Name ändern' }));
+    fireEvent.change(screen.getByLabelText('Neuer Bauplanname'), {
+      target: { value: 'Editor-Name' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
+
+    await waitFor(() => expect(rename).toHaveBeenCalledWith(1, 'Editor-Name'));
+    expect(
+      ((await screen.findByDisplayValue('Editor-Name')) as HTMLInputElement)
+        .value,
+    ).toBe('Editor-Name');
   });
 });

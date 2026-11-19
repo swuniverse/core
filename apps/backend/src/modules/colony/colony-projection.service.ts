@@ -4,6 +4,10 @@ import { ColonyTimingService } from './colony-timing.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
+import {
+  calculateShipCrewRequired,
+  shipBuildSeconds,
+} from '../spacecraft/shipbuilding-core.service';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
 import {
@@ -26,7 +30,8 @@ import { ColonyEconomyService } from './colony-economy.service';
 import { colonyWreckRepairPlan, isWreckColonyField } from './wreck-repair';
 import { ColonyOrbitService } from './colony-orbit.service';
 import { ColonySocialService } from './colony-social.service';
-import { calculateColonyGrowth,
+import {
+  calculateColonyGrowth,
   ColonyInternalSummary,
   getColonyChangeable,
   getEffectiveCurrentPopulation,
@@ -248,16 +253,101 @@ export class ColonyProjectionService {
     return new Map(rows.map((r) => [Number(r.shipClassId), Number(r.count)]));
   }
 
+  /**
+   * Buildplan list rows: two grouped queries (ships, open queue jobs), no per-plan query.
+   * shipCount hides destroyed/RPG-hidden ships like countShipsByClass; the delete lock
+   * (col-A4) still counts every ship row and every queued/paused job.
+   */
+  async listBuildplans(
+    userId: number,
+    shipClassMap: Map<number, ShipClassDef>,
+  ) {
+    const plans = await this.shipBuildplanRepo.find({
+      where: { userId },
+      order: { id: 'ASC' },
+    });
+    if (plans.length === 0) return [];
+    const planIds = plans.map((plan) => plan.id);
+    const shipRows: Array<{ planId: number; total: string; visible: string }> =
+      await this.shipRepo
+        .createQueryBuilder('s')
+        .select('s.buildPlanId', 'planId')
+        .addSelect('COUNT(*)', 'total')
+        .addSelect(
+          'SUM(CASE WHEN s.status != :destroyed AND s.rpgHidden = false THEN 1 ELSE 0 END)',
+          'visible',
+        )
+        .where('s.buildPlanId IN (:...planIds)', { planIds })
+        .setParameter('destroyed', SpacecraftStatus.DESTROYED)
+        .groupBy('s.buildPlanId')
+        .getRawMany();
+    const queueRows: Array<{ planId: number; count: string }> =
+      await this.shipBuildQueueRepo
+        .createQueryBuilder('q')
+        .select('q.buildPlanId', 'planId')
+        .addSelect('COUNT(*)', 'count')
+        .where('q.buildPlanId IN (:...planIds)', { planIds })
+        .andWhere('q.status IN (:...open)', {
+          open: [
+            ColonyShipBuildQueueStatus.QUEUED,
+            ColonyShipBuildQueueStatus.PAUSED,
+          ],
+        })
+        .groupBy('q.buildPlanId')
+        .getRawMany();
+    const ships = new Map(shipRows.map((r) => [Number(r.planId), r]));
+    const queued = new Map(
+      queueRows.map((r) => [Number(r.planId), Number(r.count)]),
+    );
+    return plans.map((plan) => {
+      const hull = shipClassMap.get(plan.shipClassId);
+      const row = ships.get(plan.id);
+      const buildSeconds = hull ? shipBuildSeconds(hull) : null;
+      return {
+        id: plan.id,
+        shipClassId: plan.shipClassId,
+        name: plan.name,
+        signature: plan.signature,
+        moduleSelections: plan.moduleSelections,
+        moduleCommodityIds: plan.moduleCommodityIds,
+        moduleTypes: plan.moduleTypes,
+        moduleNames: this.moduleSelectionNames(plan.moduleSelections ?? []),
+        shipCount: Number(row?.visible ?? 0),
+        buildSeconds:
+          buildSeconds == null
+            ? null
+            : (this.timing?.scaleBuildTimeSeconds(buildSeconds) ??
+              buildSeconds),
+        crewRequired: hull
+          ? calculateShipCrewRequired(
+              this.gameData,
+              hull,
+              (plan.moduleSelections ?? []).map((m) => m.commodityId),
+            )
+          : null,
+        canDelete: Number(row?.total ?? 0) === 0 && !queued.get(plan.id),
+      };
+    });
+  }
+
   /** Build start is not stored: total = scaled buildTime of the target building (new builds and upgrades alike). */
   private buildProgressPercent(field: Colony['fields'][number]): number | null {
     const buildTime = field.buildingId
       ? this.gameData.getBuilding(field.buildingId)?.costs?.buildTime
       : undefined;
-    if (!field.isBuilding || !field.buildFinishesAt || !buildTime || !this.timing)
+    if (
+      !field.isBuilding ||
+      !field.buildFinishesAt ||
+      !buildTime ||
+      !this.timing
+    )
       return null;
     const total = this.timing.scaleBuildTimeSeconds(buildTime) * 1000;
     const remaining = field.buildFinishesAt.getTime() - Date.now();
-    return Math.min(100, Math.max(0, Math.round((1 - remaining / total) * 100)));
+    return Math.min(
+      100,
+      Math.max(0, Math.round((1 - remaining / total) * 100)),
+    );
   }
 
   /**
@@ -397,11 +487,17 @@ export class ColonyProjectionService {
       : [];
     // The policy sees a fleet's order at any colony, exactly like the mutation.
     const orbitFleetIds = [
-      ...new Set(orbitShips.flatMap((ship) => (ship.fleetId == null ? [] : [ship.fleetId]))),
+      ...new Set(
+        orbitShips.flatMap((ship) =>
+          ship.fleetId == null ? [] : [ship.fleetId],
+        ),
+      ),
     ];
     const fleetOrderByFleetId = new Map(
       (orbitFleetIds.length
-        ? await this.orbitAssignmentRepo.find({ where: { fleetId: In(orbitFleetIds) } })
+        ? await this.orbitAssignmentRepo.find({
+            where: { fleetId: In(orbitFleetIds) },
+          })
         : []
       ).map((assignment) => [assignment.fleetId, assignment]),
     );
@@ -486,10 +582,7 @@ export class ColonyProjectionService {
       },
       order: { finishesAt: 'ASC' },
     });
-    const buildplans = await this.shipBuildplanRepo.find({
-      where: { userId },
-      order: { id: 'ASC' },
-    });
+    const buildplans = await this.listBuildplans(userId, shipyardShipClassMap);
     const hullInUse = await this.countShipsByClass(userId);
     const fabricationQueue = await this.fabricationQueueRepo.find({
       where: {
@@ -919,7 +1012,9 @@ export class ColonyProjectionService {
             shipIdle: ship.status === SpacecraftStatus.IDLE,
             colonyOccupied: isOwnedColony(colony),
             fleetOrder:
-              (ship.fleetId != null ? fleetOrderByFleetId.get(ship.fleetId) : null) ?? null,
+              (ship.fleetId != null
+                ? fleetOrderByFleetId.get(ship.fleetId)
+                : null) ?? null,
             colonyDefended: otherOrders.some(
               (assignment) =>
                 assignment.mode === ColonyOrbitAssignmentMode.DEFEND,
@@ -1191,15 +1286,7 @@ export class ColonyProjectionService {
           };
         }),
         availableShipModules,
-        buildplans: buildplans.map((buildplan) => ({
-          id: buildplan.id,
-          shipClassId: buildplan.shipClassId,
-          name: buildplan.name,
-          signature: buildplan.signature,
-          moduleSelections: buildplan.moduleSelections,
-          moduleCommodityIds: buildplan.moduleCommodityIds,
-          moduleTypes: buildplan.moduleTypes,
-        })),
+        buildplans,
         fabricationQueue: fabricationQueue.map((job) => {
           const item = this.gameData.getFabricationItem(job.itemKey);
           return {

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { shipImage } from '../../../lib/assets';
 import { shipyardDrydockImage } from '../../../lib/shipyard-assets';
 import { Tooltip } from '../../../components/Tooltip';
+import { formatBuildTime } from '../utils';
 import type {
   ColonyDetailV2,
   CommodityDef,
@@ -809,6 +810,8 @@ export function PanelShipyard({
     null,
   );
   const [renameBuildplanName, setRenameBuildplanName] = useState('');
+  // Saved plan opened in the editor ("Bearbeiten & Bauen"); enables "Name ändern" there.
+  const [editingPlanId, setEditingPlanId] = useState<number | null>(null);
 
   const shipLayouts = shipyard?.shipClassLayouts ?? [];
   const selectedLayout = selectedClass
@@ -891,6 +894,8 @@ export function PanelShipyard({
     setBuildPlanName('');
     setModuleSelections([]);
     setRetrofitShipId(null);
+    setEditingPlanId(null);
+    setRenamingBuildplanId(null);
     setView('buildSelection');
     setError(null);
   };
@@ -903,6 +908,8 @@ export function PanelShipyard({
     setDesignerMode('build');
     setSelectedClass(shipClass);
     setBuildPlanName(plan.name);
+    setEditingPlanId(plan.id);
+    setRenamingBuildplanId(null);
     setModuleSelections(plan.moduleSelections ?? []);
     setShipName(buildplanShipNames[planId]?.trim() || shipClass?.name || '');
     setRetrofitShipId(null);
@@ -926,6 +933,7 @@ export function PanelShipyard({
     setShipName(ship.name);
     setModuleSelections(selections);
     setRetrofitShipId(ship.id);
+    setEditingPlanId(null);
     setView('moduleDesign');
   };
 
@@ -976,7 +984,46 @@ export function PanelShipyard({
   const startRenameBuildplan = (planId: number, currentName: string) => {
     setRenamingBuildplanId(planId);
     setRenameBuildplanName(currentName);
+    setError(null);
   };
+
+  const submitRenameBuildplan = (planId: number) =>
+    runShipyardAction(`rename-plan-${planId}`, async () => {
+      const name = renameBuildplanName.trim();
+      await onRenameBuildplan(planId, name);
+      setRenamingBuildplanId(null);
+      if (planId === editingPlanId) setBuildPlanName(name);
+    });
+
+  const renderRenameForm = (planId: number) => (
+    <div className="flex flex-wrap items-center gap-2">
+      <input
+        type="text"
+        value={renameBuildplanName}
+        onChange={(event) => setRenameBuildplanName(event.target.value)}
+        aria-label="Neuer Bauplanname"
+        className="min-w-[8rem] flex-1 px-2 py-1 bg-swu-bg border border-swu-border rounded text-[10px] text-swu-primary"
+      />
+      <button
+        type="button"
+        onClick={() => submitRenameBuildplan(planId)}
+        disabled={busyShipyardAction === `rename-plan-${planId}`}
+        className="px-2 py-1 rounded bg-swu-primary/10 border border-swu-border text-[10px] text-swu-primary disabled:opacity-40"
+      >
+        Speichern
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setRenamingBuildplanId(null);
+          setError(null);
+        }}
+        className="px-2 py-1 rounded border border-swu-border text-[10px] text-swu-muted"
+      >
+        Abbrechen
+      </button>
+    </div>
+  );
 
   const buildplanShipName = (planId: number, fallback: string) =>
     buildplanShipNames[planId]?.trim() || fallback;
@@ -1308,7 +1355,9 @@ export function PanelShipyard({
             onBack={() => setView('yardActions')}
           />
           <div className="rounded border border-swu-border/50 bg-swu-bg/30 px-3 py-2 text-[10px] text-swu-muted">
-            Material wird je Reparaturschritt verbraucht; fehlende Ersatzteile pausieren den Auftrag. Abgebrochene Aufträge verursachen keine Vorabkosten.
+            Material wird je Reparaturschritt verbraucht; fehlende Ersatzteile
+            pausieren den Auftrag. Abgebrochene Aufträge verursachen keine
+            Vorabkosten.
           </div>
           {(repairStationActive || repairStationPresent) && (
             <div
@@ -1425,6 +1474,7 @@ export function PanelShipyard({
               <div className="text-[10px] font-bold text-swu-muted uppercase">
                 Baupläne dieser Werft
               </div>
+              {error && <p className="text-[10px] text-red-400">{error}</p>}
               {buildplansForSelectedShipyard.map((plan) => {
                 const shipClass = shipClasses.find(
                   (sc) => sc.id === plan.shipClassId,
@@ -1437,12 +1487,47 @@ export function PanelShipyard({
                     className="flex flex-col gap-2 border-b border-swu-border/20 pb-2 last:border-0 last:pb-0 md:flex-row md:items-center"
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="font-bold text-swu-primary truncate">
-                        {plan.name}
-                      </div>
+                      {renamingBuildplanId === plan.id ? (
+                        renderRenameForm(plan.id)
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-swu-primary truncate">
+                            {plan.name}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              startRenameBuildplan(plan.id, plan.name)
+                            }
+                            aria-label={`Bauplan ${plan.name} umbenennen`}
+                            className="px-1.5 py-0.5 rounded border border-swu-border text-[10px] text-swu-muted"
+                          >
+                            Name ändern
+                          </button>
+                        </div>
+                      )}
                       <div className="text-[10px] text-swu-muted">
                         {shipClass?.name ?? `Klasse #${plan.shipClassId}`}
+                        {' · '}
+                        {plan.shipCount ?? 0} Schiffe
+                        {plan.buildSeconds != null &&
+                          ` · Bauzeit ${formatBuildTime(plan.buildSeconds)}`}
+                        {plan.crewRequired != null &&
+                          ` · Crew ${plan.crewRequired}`}
                       </div>
+                      {(plan.moduleSelections ?? []).length > 0 && (
+                        <div className="text-[10px] text-swu-muted/80">
+                          {(plan.moduleSelections ?? [])
+                            .map(
+                              (selection, index) =>
+                                `${selection.slotId}: ${
+                                  plan.moduleNames?.[index] ??
+                                  `Modul #${selection.commodityId}`
+                                }`,
+                            )
+                            .join(' · ')}
+                        </div>
+                      )}
                     </div>
                     <input
                       type="text"
@@ -1533,6 +1618,7 @@ export function PanelShipyard({
                     setSelectedClass(shipClass);
                     setShipName(shipClass.name);
                     setBuildPlanName(`${shipClass.name} Bauplan`);
+                    setEditingPlanId(null);
                     setModuleSelections([]);
                     setView('moduleDesign');
                   }}
@@ -1556,17 +1642,13 @@ export function PanelShipyard({
                   </div>
                   <div className="mt-1 text-[10px] text-swu-muted">
                     Im Einsatz:{' '}
-                    {
-                      shipLayouts.find(
-                        (layout) => layout.shipClassId === shipClass.id,
-                      )?.inUseCount ?? 0
-                    }{' '}
+                    {shipLayouts.find(
+                      (layout) => layout.shipClassId === shipClass.id,
+                    )?.inUseCount ?? 0}{' '}
                     · Baupläne:{' '}
-                    {
-                      shipLayouts.find(
-                        (layout) => layout.shipClassId === shipClass.id,
-                      )?.buildplanCount ?? 0
-                    }
+                    {shipLayouts.find(
+                      (layout) => layout.shipClassId === shipClass.id,
+                    )?.buildplanCount ?? 0}
                   </div>
                   {isResourceOnlyFixedRump && (
                     <div className="mt-1 text-[10px] text-swu-accent">
@@ -1640,12 +1722,36 @@ export function PanelShipyard({
                 <div className="text-[10px] font-bold uppercase text-swu-muted">
                   Bauplanname
                 </div>
-                <input
-                  type="text"
-                  value={buildPlanName}
-                  onChange={(event) => setBuildPlanName(event.target.value)}
-                  className="mt-0.5 w-full rounded border border-swu-border bg-swu-bg px-2 py-1 text-xs text-swu-primary"
-                />
+                {editingPlanId != null &&
+                renamingBuildplanId === editingPlanId ? (
+                  <div className="mt-0.5">
+                    {renderRenameForm(editingPlanId)}
+                  </div>
+                ) : (
+                  <div className="mt-0.5 flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={buildPlanName}
+                      onChange={(event) => setBuildPlanName(event.target.value)}
+                      className="w-full rounded border border-swu-border bg-swu-bg px-2 py-1 text-xs text-swu-primary"
+                    />
+                    {editingPlanId != null && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          startRenameBuildplan(
+                            editingPlanId,
+                            buildplans.find((p) => p.id === editingPlanId)
+                              ?.name ?? buildPlanName,
+                          )
+                        }
+                        className="whitespace-nowrap rounded border border-swu-border px-2 py-1 text-[10px] text-swu-muted"
+                      >
+                        Name ändern
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="text-[10px] text-swu-muted whitespace-nowrap">
                 Crew {availableCrew}/{selectedClass.crewMin ?? 0}
@@ -1658,7 +1764,9 @@ export function PanelShipyard({
                 }`}
               >
                 EPS-Kosten {designerEpsCost}
-                {availableEnergy != null ? ` (vorhanden ${availableEnergy})` : ''}
+                {availableEnergy != null
+                  ? ` (vorhanden ${availableEnergy})`
+                  : ''}
               </div>
               {occupyingJob && (
                 <div className="text-[10px] text-yellow-300 whitespace-nowrap">

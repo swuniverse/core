@@ -480,6 +480,12 @@ export interface ColonyDetailV2 {
     moduleSelections: ShipModuleSelection[];
     moduleCommodityIds: number[];
     moduleTypes: string[];
+    /** Name per selected slot, same order as moduleSelections. */
+    moduleNames?: string[];
+    shipCount?: number;
+    /** Scaled build time in seconds; null when the hull is unknown. */
+    buildSeconds?: number | null;
+    crewRequired?: number | null;
     canDelete: boolean;
   }>;
   fabricationQueue?: Array<{

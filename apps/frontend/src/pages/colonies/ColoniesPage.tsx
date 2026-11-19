@@ -581,14 +581,13 @@ export function ColoniesPage() {
           loadColonyDetail(selected.id);
         })
       }
-      onRenameBuildplan={(planId, name) =>
-        act(async () => {
-          await api.patch(`/colonies/${selected.id}/buildplans/${planId}`, {
-            name,
-          });
-          loadColonyDetail(selected.id);
-        })
-      }
+      // Not wrapped in act(): the panel shows the server text next to the rename form.
+      onRenameBuildplan={async (planId, name) => {
+        await api.patch(`/colonies/${selected.id}/buildplans/${planId}`, {
+          name,
+        });
+        loadColonyDetail(selected.id);
+      }}
       onDeleteBuildplan={(planId) =>
         act(async () => {
           await api.delete(`/colonies/${selected.id}/buildplans/${planId}`);

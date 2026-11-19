@@ -30,6 +30,29 @@ import { UnlockResolverService } from '../research/unlock-resolver.service';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
 
+/** Crew a hull needs with these modules; shared by the build quote and the buildplan list. */
+export function calculateShipCrewRequired(
+  gameData: GameDataService,
+  shipClass: Pick<ShipClassDef, 'crewMin'>,
+  moduleCommodityIds: number[],
+): number {
+  return (
+    shipClass.crewMin +
+    moduleCommodityIds.reduce(
+      (sum, commodityId) =>
+        sum +
+        (gameData.getFabricationItemByOutputCommodity(commodityId)
+          ?.shipyardModuleStats?.crew ?? 0),
+      0,
+    )
+  );
+}
+
+/** Unscaled build seconds of a hull (STU: finish_date = time() + buildtime). */
+export function shipBuildSeconds(hull: Pick<ShipClassDef, 'buildTimeTicks'>) {
+  return Math.max(1, hull.buildTimeTicks || 1);
+}
+
 export interface PreparedShipModule {
   slotId: string;
   commodityId: number;
@@ -75,7 +98,10 @@ export interface ShipbuildingSourceAdapter {
   ): Promise<{ locationId: number; dockedAtId: number | null } | null>;
 }
 
-export type ShipbuildingCompletionHandler = (manager: EntityManager, ship: Spacecraft) => Promise<void>;
+export type ShipbuildingCompletionHandler = (
+  manager: EntityManager,
+  ship: Spacecraft,
+) => Promise<void>;
 
 @Injectable()
 export class ShipbuildingCoreService {
@@ -231,9 +257,7 @@ export class ShipbuildingCoreService {
         repairSnapshot: null,
         retrofitSnapshot: null,
         // buildTimeTicks are seconds (STU: finish_date = time() + buildtime).
-        finishesAt: this.timing.dateAfterScaledSeconds(
-          Math.max(1, hull.buildTimeTicks || 1),
-        ),
+        finishesAt: this.timing.dateAfterScaledSeconds(shipBuildSeconds(hull)),
         stoppedAt: null,
         status: ColonyShipBuildQueueStatus.QUEUED,
       });
@@ -414,7 +438,9 @@ export class ShipbuildingCoreService {
         where: { userId, name: requestedName },
       }))
     )
-      throw new BadRequestException('Buildplan name already exists');
+      throw new BadRequestException(
+        'Ein Bauplan mit diesem Namen existiert bereits.',
+      );
     const signature = this.signature(hull.id, build.moduleSelections);
     const existing = await manager.findOne(ColonyShipBuildplan, {
       where: { userId, signature },
@@ -435,7 +461,9 @@ export class ShipbuildingCoreService {
       (await manager.findOne(ColonyShipBuildplan, { where: { userId, name } }))
     ) {
       if (requestedName != null)
-        throw new BadRequestException('Buildplan name already exists');
+        throw new BadRequestException(
+          'Ein Bauplan mit diesem Namen existiert bereits.',
+        );
       const ending = ` (${suffix++})`;
       name = `${[...baseName].slice(0, 255 - ending.length).join('')}${ending}`;
     }
@@ -455,13 +483,16 @@ export class ShipbuildingCoreService {
 
   validateBuildplanName(name: string): string {
     const trimmed = name?.trim();
-    if (!trimmed) throw new BadRequestException('Buildplan name is required');
+    if (!trimmed)
+      throw new BadRequestException('Der Bauplanname darf nicht leer sein.');
     if (/\p{Cc}/u.test(trimmed))
       throw new BadRequestException(
-        'Buildplan name contains control characters',
+        'Der Bauplanname enthält unzulässige Steuerzeichen.',
       );
     if ([...trimmed].length > 255)
-      throw new BadRequestException('Buildplan name is too long');
+      throw new BadRequestException(
+        'Der Bauplanname ist zu lang (maximal 255 Zeichen).',
+      );
     return trimmed;
   }
 
@@ -582,15 +613,11 @@ export class ShipbuildingCoreService {
       );
     }
 
-    const crewRequired =
-      shipClass.crewMin +
-      modules.reduce(
-        (sum, module) =>
-          sum +
-          (this.gameData.getFabricationItemByOutputCommodity(module.commodityId)
-            ?.shipyardModuleStats?.crew ?? 0),
-        0,
-      );
+    const crewRequired = calculateShipCrewRequired(
+      this.gameData,
+      shipClass,
+      modules.map((module) => module.commodityId),
+    );
     if (crewRequired > shipClass.crewMax) {
       throw new BadRequestException(
         `Crew maximum exceeded: build requires ${crewRequired}, hull allows ${shipClass.crewMax}`,

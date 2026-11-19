@@ -6158,13 +6158,13 @@ describe('ship building compatibility', () => {
 
     await expect(
       service.createShipBuildplan(1, 1, 1, '   ', []),
-    ).rejects.toThrow('Buildplan name is required');
+    ).rejects.toThrow('Der Bauplanname darf nicht leer sein.');
     await expect(
       service.createShipBuildplan(1, 1, 1, 'Plan\u0000Name', []),
-    ).rejects.toThrow('Buildplan name contains control characters');
+    ).rejects.toThrow('Der Bauplanname enthält unzulässige Steuerzeichen.');
     await expect(
       service.createShipBuildplan(1, 1, 1, 'Ä'.repeat(256), []),
-    ).rejects.toThrow('Buildplan name is too long');
+    ).rejects.toThrow('Der Bauplanname ist zu lang (maximal 255 Zeichen).');
 
     shipBuildplanRepo.findOne.mockResolvedValue({
       id: 4,
@@ -6174,7 +6174,7 @@ describe('ship building compatibility', () => {
     });
     await expect(
       service.createShipBuildplan(1, 1, 1, 'Scout Plan', []),
-    ).rejects.toThrow('Buildplan name already exists');
+    ).rejects.toThrow('Ein Bauplan mit diesem Namen existiert bereits.');
   });
 
   it('rejects duplicate buildplan signatures and rename collisions', async () => {
@@ -6218,7 +6218,7 @@ describe('ship building compatibility', () => {
       });
     await expect(
       service.renameShipBuildplan(1, 1, 7, 'Existing Name'),
-    ).rejects.toThrow('Buildplan name already exists');
+    ).rejects.toThrow('Ein Bauplan mit diesem Namen existiert bereits.');
   });
 
   it('blocks deleting buildplans used by active queues or spacecraft', async () => {
@@ -6236,13 +6236,13 @@ describe('ship building compatibility', () => {
     shipBuildQueueRepo.count.mockResolvedValueOnce(1);
 
     await expect(service.deleteShipBuildplan(1, 1, 7)).rejects.toThrow(
-      'Buildplan is in use',
+      'Der Bauplan wird von einem Auftrag oder Schiff verwendet.',
     );
 
     shipBuildQueueRepo.count.mockResolvedValueOnce(0);
     shipRepo.count.mockResolvedValueOnce(1);
     await expect(service.deleteShipBuildplan(1, 1, 7)).rejects.toThrow(
-      'Buildplan is in use',
+      'Der Bauplan wird von einem Auftrag oder Schiff verwendet.',
     );
     expect(shipBuildplanRepo.delete).not.toHaveBeenCalled();
   });
@@ -6406,7 +6406,7 @@ describe('ship building compatibility', () => {
     shipBuildplanRepo.findOne.mockResolvedValueOnce(buildplan);
     shipBuildQueueRepo.count.mockResolvedValueOnce(1);
     await expect(service.deleteShipBuildplan(1, 1, 7)).rejects.toThrow(
-      'Buildplan is in use',
+      'Der Bauplan wird von einem Auftrag oder Schiff verwendet.',
     );
 
     expect(shipBuildplanRepo.delete).not.toHaveBeenCalled();

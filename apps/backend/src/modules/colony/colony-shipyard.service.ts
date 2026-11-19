@@ -1112,7 +1112,7 @@ export class ColonyShipyardService {
       where: { userId, name },
     });
     if (existing && existing.id !== exceptId) {
-      throw new BadRequestException('Buildplan name already exists');
+      throw new BadRequestException('Ein Bauplan mit diesem Namen existiert bereits.');
     }
   }
 
@@ -1239,7 +1239,7 @@ export class ColonyShipyardService {
       this.shipRepo.count({ where: { buildPlanId: buildplan.id } }),
     ]);
     if (activeQueueCount > 0 || spacecraftCount > 0) {
-      throw new BadRequestException('Buildplan is in use');
+      throw new BadRequestException('Der Bauplan wird von einem Auftrag oder Schiff verwendet.');
     }
     await this.shipBuildplanRepo.delete({ id: buildplan.id });
     return { deleted: true, id: buildplan.id };
