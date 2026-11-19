@@ -6,7 +6,7 @@ import type {
   TradeOfferDto,
   TradePostSpacecraftDto,
 } from '@swuniverse/shared';
-import { commodityImage } from '../../lib/assets';
+import { commodityImage, npcTradeNetworkImage } from '../../lib/assets';
 import { formatNumber } from '../../lib/format';
 import { api } from '../../services/api';
 import { TradeLicensePanel } from './TradeLicensePanel';
@@ -104,6 +104,7 @@ export function TradeAccountBox({
     await onChanged();
   };
 
+  const networkIcon = box.isNpcPost ? npcTradeNetworkImage(box.networkId) : null;
   const stockAmount = (id: number) => box.stock.find((s) => s.commodityId === id)?.amount ?? 0;
   const goods = (
     entries: TradeAccountBoxDto['stock'],
@@ -183,7 +184,8 @@ export function TradeAccountBox({
           <button type="button" onClick={() => toggle('ships')} className={linkClass}>Schiffe vor Ort</button>
         </dd>
         <dt className="text-swu-muted">Handelsnetz</dt>
-        <dd className="flex gap-2">
+        <dd className="flex items-center gap-2">
+          {networkIcon && <img src={networkIcon} alt="" className="h-5 w-5 object-contain" />}
           <span>{box.networkName}</span>
           <button type="button" onClick={() => toggle('shoutbox')} className={linkClass}>Schwarzes Brett</button>
         </dd>

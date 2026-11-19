@@ -166,6 +166,9 @@ describe('TradePage', () => {
 
     expect(within(own).getByText('900 / 500').className).toContain('text-red-400');
     expect(within(npc).getByText('1.200 / 5.000').className).toContain('text-emerald-400');
+    // Network 2 is the rebel NPC supply network; player posts show no faction icon.
+    expect(npc.querySelector('img[src$="avatars/Avatar_Rebellen.png"]')).not.toBeNull();
+    expect(own.querySelector('img[src*="avatars/"]')).toBeNull();
   });
 
   it('opens the offer dialog preset with post and commodity', async () => {

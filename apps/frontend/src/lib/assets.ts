@@ -44,6 +44,15 @@ export function factionAvatarImage(
   }
 }
 
+/** Faction icon of the fixed NPC trade networks (STU race icon); Hutt network has none yet. */
+export function npcTradeNetworkImage(networkId: number): string | null {
+  return networkId === 1
+    ? `${ASSET_BASE}/avatars/Avatar_Imperium.png`
+    : networkId === 2
+      ? `${ASSET_BASE}/avatars/Avatar_Rebellen.png`
+      : null;
+}
+
 const PNG_PLANET_IMAGES = new Set([
   701, 702, 703, 704, 705, 706, 707, 708, 709, 716, 717, 718,
 ]);

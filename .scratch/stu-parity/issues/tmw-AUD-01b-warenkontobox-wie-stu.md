@@ -39,7 +39,7 @@ Je Konto zeigt die Box:
 
 ## Akzeptanzkriterien
 
-- [ ] Die Box zeigt alle oben genannten Elemente aus den Daten von tmw-AUD-01a; keine zusätzlichen Abfragen je Konto außer beim Öffnen von Untermenüs. – offen: Fraktions-/Netzicon an NPC-Posten fehlt (kein Asset-Helfer), alles andere vorhanden.
+- [x] Die Box zeigt alle oben genannten Elemente aus den Daten von tmw-AUD-01a; keine zusätzlichen Abfragen je Konto außer beim Öffnen von Untermenüs. – Netzicon: `npcTradeNetworkImage` (Netz 1 Imperium, 2 Rebellen); das Hutten-Netz 3 hat noch kein Bild und zeigt nur den Namen.
 - [x] Klick auf eine lagernde Ware öffnet „Angebot erstellen“ mit vorbelegtem Posten und Ware; an NPC-Posten zusätzlich „Transferieren“. An Spielerposten gibt es weder Transferknopf noch Kapazitätszeile (die Sofortkorrektur dafür liefert tmw-AUD-06a; die neue Box muss sie beibehalten).
 - [x] Klick auf eine Ware in Angeboten zeigt die eigenen Angebote dieser Ware am Posten mit Zurückziehen.
 - [x] Lagerraum wird rot bei `isOverStorage`, sonst grün; die Zahl ist nur der Bestand.
@@ -60,5 +60,6 @@ Je Konto zeigt die Box:
   - Neue Komponente `TradeAccountBox.tsx`; `NewOfferDialog` mit Vorbelegung (`initial`), `ShoutboxBox` exportiert. „Liste anzeigen“ (nur Eigentümer) und der Gebührenlink öffnen das bestehende `TradeLicensePanel`, dessen Eigentümerbereich die Lizenznehmer zeigt; eigene Liste folgt mit tmw-AUD-10.
   - Review-Befund behoben: Umbenennen schickte die Beschreibung aus der Postenliste mit und hätte eine neuere Beschreibung überschreiben können; `PATCH` erhält jetzt nur `name` (`UpdateTradePostDto` erlaubt Einzelfelder).
   - Checks: `vitest src/pages/trade.spec.tsx src/components/trade` 58/58, `tsc` Frontend app + spec sauber, ESLint ohne Befund.
-  - Offen: Netz-/Fraktionsicon (Kriterium 1); Browserprüfung der Box; gemeinsamer Build im Prüfpass.
+  - Netzicon nachgezogen (Nutzerwahl „1“): vorhandene Avatare `Avatar_Imperium.png`/`Avatar_Rebellen.png` je NPC-Netz, nur an NPC-Posten; Hutten ohne Bild. Test im NPC-/Spielerposten-Fall.
+  - Offen: Browserprüfung der Box; gemeinsamer Build im Prüfpass.
 
