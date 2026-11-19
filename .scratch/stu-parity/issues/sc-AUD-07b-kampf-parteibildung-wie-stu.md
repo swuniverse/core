@@ -1,6 +1,6 @@
 # Kampf-Parteibildung wie STU (Flotte über Führer, angedockte Station verteidigt mit)
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** S
 **Blocked by:** sc-AUD-07a
@@ -29,9 +29,9 @@ STU bildet die Parteien so:
 ## Akzeptanzkriterien
 
 - [ ] Eine gemeinsame Parteibildung (z. B. `buildAttackingParty`/`buildAttackedParty`) wird von manuellem Angriff, Alarmreaktion und ThreatReaction (sc-AUD-09) genutzt.
-- [ ] Angreifende Flotte nur über den Führer; einfache Mitglieder greifen allein an.
-- [ ] Verteidiger sind Ziel bzw. ungetarnte Flottenmitglieder plus die Station, an der sie angedockt sind; die SWU-Mitverteidiger-Regel (alle alarmierten Schiffe des Eigners am Feld) entfällt.
-- [ ] Backend-Tests: Mitglied vs. Führer greift an, angedocktes Ziel mit verteidigender Station, getarnte Flottenmitglieder nicht dabei, fremde alarmierte Schiffe desselben Eigners nicht dabei.
+- [x] Angreifende Flotte nur über den Führer; einfache Mitglieder greifen allein an.
+- [x] Verteidiger sind Ziel bzw. ungetarnte Flottenmitglieder plus die Station, an der sie angedockt sind; die SWU-Mitverteidiger-Regel (alle alarmierten Schiffe des Eigners am Feld) entfällt.
+- [x] Backend-Tests: Mitglied vs. Führer greift an, angedocktes Ziel mit verteidigender Station, getarnte Flottenmitglieder nicht dabei, fremde alarmierte Schiffe desselben Eigners nicht dabei.
 
 ## Herkunft
 
@@ -39,3 +39,19 @@ STU bildet die Parteien so:
 - Ersetzt die Mitverteidiger-Regel aus [sc-WP-COMBAT-2](sc-WP-COMBAT-2-mehrparteienkampf.md) (resolved; `map.md`-Eintrag „Mehrparteienkampf für Flotten und alarmierte Mitverteidiger“). PO-Linie „wie STU“ vom 2026-11-17.
 
 ## Comments
+
+### 2026-11-19 – umgesetzt, Prüfung ausstehend
+
+Commit: `fix(combat): form battle parties like STU (sc-AUD-07b)`.
+
+- Neues `combat/battle-parties.ts`: `attackingParty` (STU `AttackingBattleParty`: ganze Flotte nur, wenn der Angreifer laut `Fleet.leaderId` Führer ist, sonst Einzelschiff) und `attackedParty` (STU `AttackedBattleParty`: Ziel plus ungetarnte Flottenmitglieder plus Stationen, an denen sie angedockt sind; NPC-Stationen ausgenommen). Das Ziel zählt immer als ungetarnt, weil der akzeptierte Angriff es enttarnt; der STU-Sonderfall „alle getarnt → ganze Flotte“ entfällt dadurch.
+- `CombatService.attack` nutzt beide Funktionen; die Mitverteidiger-Regel (alle gelben/roten Schiffe des Eigners) ist entfernt. `combatLocationRelations` lädt dafür `user` und `fleet`.
+- `AlertReactionService` bildet die alarmierte Partei über `attackingParty`; ein zerstörter Kandidat überspringt jetzt (`continue`) statt die ganze Reaktion abzubrechen (`break`). ThreatReaction existiert noch nicht; sc-AUD-09 soll dieselben Funktionen verwenden (Kriterium 1 daher noch offen).
+- Kills einer mitverteidigenden Station eines anderen Eigners werden weiterhin dem `defenderUserId` (Zieleigner) gutgeschrieben – Resolver-Vertrag unverändert.
+
+**Sofort geprüft:** `jest src/modules/combat src/modules/alert-reaction` 111/111 grün (neu: Führer vs. Mitglied, getarnte Flottenmitglieder und fremde alarmierte Schiffe nicht dabei, angedockte Station verteidigt, NPC-Station nicht). ESLint auf geänderten Dateien 0 Fehler. `nx typecheck backend` scheitert nur an fremden, nicht committeten sh-AUD-07b-Dateien (`colony-tick.spec.ts`, `minute-shipyard.spec.ts`).
+
+**Ausstehend:** PostgreSQL-Integration (`alert-reaction.int-spec.ts`, Kampf-Int-Specs), `nx typecheck backend` nach Abschluss von sh-AUD-07b, Review gegen STU, Kriterium 1 mit sc-AUD-09.
+
+Modell: Opus 5.5 direkt (Spielregel; kein Sol/Luna in dieser Sitzung verfügbar), keine Delegation.
+

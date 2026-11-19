@@ -8,6 +8,7 @@ import {
   type ResolvedStance,
 } from '../alliance/relationship-resolver.service';
 import { BattleResolverService } from '../combat/battle-resolver.service';
+import { attackingParty } from '../combat/battle-parties';
 import { CombatCause } from '../combat/combat-cause';
 import { MessageFolder } from '../messaging/message-folder';
 import { MessagingService } from '../messaging/messaging.service';
@@ -138,14 +139,12 @@ export class AlertReactionService implements MovementReaction, OnModuleInit {
     const reports: CombatReportDto[] = [];
     for (const candidate of shuffled(eligible)) {
       if (!incoming.length) break;
-      const attackers = foreign.filter(
-        (ship) =>
-          ship.userId === candidate.userId &&
-          ship.status !== SpacecraftStatus.DESTROYED &&
-          (ship.id === candidate.id ||
-            (candidate.fleetId != null && ship.fleetId === candidate.fleetId)),
+      if (candidate.status === SpacecraftStatus.DESTROYED) continue;
+      const attackers = attackingParty(
+        candidate,
+        candidate.fleetId == null ? null : fleetLeaders.get(candidate.fleetId),
+        foreign.filter((ship) => ship.status !== SpacecraftStatus.DESTROYED),
       );
-      if (!attackers.length) break;
       const defenders = incoming.filter((ship) => !isHiddenFromViewer(ship, candidate.userId));
       if (!defenders.length) continue;
 

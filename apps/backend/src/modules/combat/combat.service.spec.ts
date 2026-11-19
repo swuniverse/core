@@ -649,8 +649,7 @@ describe('CombatService attack', () => {
     expect(engine.resolveBattle).not.toHaveBeenCalled();
   });
 
-  it('forms attacker fleet and target fleet plus alerted defenders', async () => {
-    const { service, shipRepo, engine } = createService();
+  describe('party formation (STU AttackingBattleParty/AttackedBattleParty)', () => {
     const ship = (id: number, userId: number, overrides = {}) => ({
       id,
       userId,
@@ -659,51 +658,68 @@ describe('CombatService attack', () => {
       alertState: 'GREEN',
       operatingMode: 'NORMAL',
       fleetId: null,
+      dockedAtId: null,
+      user: { id: userId, isNpc: false },
       locationId: 42,
       location: { id: 42, kind: 'GALAXY_FIELD' },
       ...overrides,
     });
-    const attacker = ship(1, 1, { fleetId: 10 });
-    const defender = ship(3, 2, { fleetId: 20 });
-    const participants = [
-      attacker,
-      ship(2, 1, { fleetId: 10 }),
-      defender,
-      ship(4, 2, { fleetId: 20 }),
-      ship(5, 2, { alertState: 'YELLOW' }),
-      ship(6, 2),
-    ];
-    shipRepo.findOne
-      .mockResolvedValueOnce(attacker)
-      .mockResolvedValueOnce(defender);
-    shipRepo.find.mockResolvedValue(participants);
-    engine.resolveBattle = jest.fn(async (_attackers, _defenders) => ({
-      rounds: [],
-      winner: 'attacker',
-      destroyedShipIds: [],
-      attackerShipIds: [1, 2],
-      defenderShipIds: [3, 4, 5],
-    }));
 
-    await service.attack(1, 3, 1);
+    async function parties(attacker: any, target: any, nearby: any[]) {
+      const { service, shipRepo, engine } = createService();
+      shipRepo.findOne
+        .mockResolvedValueOnce(attacker)
+        .mockResolvedValueOnce(target);
+      shipRepo.find.mockResolvedValue([attacker, target, ...nearby]);
+      await service.attack(attacker.id, target.id, attacker.userId);
+      const ids = (party: any[]) =>
+        party.map(({ ship }: any) => ship.id).sort((a: number, b: number) => a - b);
+      const [attackers, defenders] = engine.resolveBattle.mock.calls[0];
+      return { attackers: ids(attackers), defenders: ids(defenders) };
+    }
 
-    expect(engine.resolveBattle).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({ ship: expect.objectContaining({ id: 1 }) }),
-        expect.objectContaining({ ship: expect.objectContaining({ id: 2 }) }),
-      ]),
-      expect.arrayContaining([
-        expect.objectContaining({ ship: expect.objectContaining({ id: 3 }) }),
-        expect.objectContaining({ ship: expect.objectContaining({ id: 4 }) }),
-        expect.objectContaining({ ship: expect.objectContaining({ id: 5 }) }),
-      ]),
-      'SHIP_FIGHT',
-    );
-    expect(
-      engine.resolveBattle.mock.calls[0][1].some(
-        ({ ship }: any) => ship.id === 6,
-      ),
-    ).toBe(false);
+    it('takes the whole fleet when the leader attacks', async () => {
+      const leader = ship(1, 1, { fleetId: 10, fleet: { id: 10, leaderId: 1 } });
+      const result = await parties(leader, ship(3, 2), [
+        ship(2, 1, { fleetId: 10 }),
+      ]);
+      expect(result.attackers).toEqual([1, 2]);
+    });
+
+    it('lets a plain fleet member attack alone', async () => {
+      const member = ship(2, 1, { fleetId: 10, fleet: { id: 10, leaderId: 1 } });
+      const result = await parties(member, ship(3, 2), [
+        ship(1, 1, { fleetId: 10 }),
+      ]);
+      expect(result.attackers).toEqual([2]);
+    });
+
+    it('defends with uncloaked fleet members only, not other alerted ships', async () => {
+      const result = await parties(ship(1, 1), ship(3, 2, { fleetId: 20 }), [
+        ship(4, 2, { fleetId: 20 }),
+        ship(5, 2, {
+          fleetId: 20,
+          runtimeSystems: { CLOAK: { active: true, integrity: 100, cooldown: 0 } },
+        }),
+        ship(6, 2, { alertState: 'RED' }),
+        ship(7, 2, { alertState: 'YELLOW' }),
+      ]);
+      expect(result.defenders).toEqual([3, 4]);
+    });
+
+    it('adds the station the target is docked at', async () => {
+      const result = await parties(ship(1, 1), ship(3, 2, { dockedAtId: 8 }), [
+        ship(8, 9, { kind: 'STATION' }),
+      ]);
+      expect(result.defenders).toEqual([3, 8]);
+    });
+
+    it('leaves NPC stations out of the defence', async () => {
+      const result = await parties(ship(1, 1), ship(3, 2, { dockedAtId: 8 }), [
+        ship(8, 9, { kind: 'STATION', user: { id: 9, isNpc: true } }),
+      ]);
+      expect(result.defenders).toEqual([3]);
+    });
   });
 
   it('uses matching canonical location IDs', async () => {

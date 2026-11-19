@@ -20,11 +20,11 @@ import {
   Spacecraft,
   SpacecraftStatus,
   SpacecraftOperatingMode,
-  AlertState,
 } from '../spacecraft/entities/spacecraft.entity';
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
 import { CombatResult } from './combat.engine';
 import { BattleResolverService } from './battle-resolver.service';
+import { attackedParty, attackingParty } from './battle-parties';
 import { SpacecraftCrewService } from '../spacecraft/spacecraft-crew.service';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyStats } from '../colony/entities/colony-stats.entity';
@@ -157,25 +157,9 @@ export class CombatService {
       !isRpgHidden(ship) &&
       ship.status === SpacecraftStatus.IDLE &&
       ship.operatingMode !== SpacecraftOperatingMode.STANDBY;
-    const attackers = nearby.filter(
-      (ship) =>
-        ship.userId === attacker.userId &&
-        operational(ship) &&
-        (ship.id === attacker.id ||
-          (attacker.fleetId != null && ship.fleetId === attacker.fleetId)),
-    );
-    const defenders = nearby.filter(
-      (ship) =>
-        ship.userId === defender.userId &&
-        operational(ship) &&
-        (ship.id === defender.id ||
-          (defender.fleetId != null && ship.fleetId === defender.fleetId) ||
-          [AlertState.YELLOW, AlertState.RED].includes(ship.alertState)),
-    );
-    if (!attackers.some((ship) => ship.id === attacker.id))
-      attackers.push(attacker);
-    if (!defenders.some((ship) => ship.id === defender.id))
-      defenders.push(defender);
+    const fight = nearby.filter(operational);
+    const attackers = attackingParty(attacker, attacker.fleet?.leaderId, fight);
+    const defenders = attackedParty(defender, fight);
 
     // The target becomes visible when the accepted attack starts, before the
     // engine runs. Update the party instance; the resolver persists survivors.
@@ -417,6 +401,8 @@ export class CombatService {
 
   private readonly combatLocationRelations = [
     'modules',
+    'user',
+    'fleet',
     'location',
     'location.galaxyField',
     'location.galaxyField.fieldType',

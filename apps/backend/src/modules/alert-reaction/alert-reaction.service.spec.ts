@@ -300,7 +300,7 @@ describe('AlertReactionService', () => {
 
     expect(battle).toHaveBeenCalledTimes(1);
     expect(battle.mock.calls[0][0]).toMatchObject({ initiatorShipId: 21 });
-    expect(battle.mock.calls[0][0].attackers.map((member) => member.id)).toEqual([20, 21, 22]);
+    expect(battle.mock.calls[0][0].attackers.map((member) => member.id).sort()).toEqual([20, 21, 22]);
   });
 
   it('marks destroyed moving ships so the flight stops them', async () => {
