@@ -268,7 +268,8 @@ export class SpacecraftService {
     private readonly stationRepairService: StationRepairService = {
       processTick: async () => undefined,
     } as unknown as StationRepairService,
-    private readonly stationShipyardService: StationShipyardService = {
+    // Unused since station builds finish in the minute runner (sh-AUD-07a); kept for the DI position.
+    _stationShipyardService: StationShipyardService = {
       processTick: async () => undefined,
     } as unknown as StationShipyardService,
     private readonly fieldTransitionExecutor: FieldTransitionExecutor = new FieldTransitionExecutor(),

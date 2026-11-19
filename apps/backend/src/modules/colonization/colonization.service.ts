@@ -39,6 +39,7 @@ import {
 } from '../spacecraft/entities/spacecraft.entity';
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
+import { CelestialClassDiscoveryService } from '../starmap/celestial-class-discovery.service';
 import {
   findArchetypeBySwuClassId,
   getColonizationProposals,

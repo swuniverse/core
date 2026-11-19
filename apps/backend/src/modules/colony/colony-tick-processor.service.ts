@@ -30,7 +30,6 @@ import {
   syncLegacyColonySnapshot,
 } from './colony-stats.service';
 import { ColonyStorageService } from './colony-storage.service';
-import { COLONY_BUILDING_ID_SETS } from './colony.constants';
 import {
   ColonyCrewTrainingQueue,
   ColonyCrewTrainingQueueStatus,
@@ -46,8 +45,6 @@ import type { ColonyTickResult } from './colony.service';
 
 @Injectable()
 export class ColonyTickProcessorService {
-  private readonly headquartersBuildingIds =
-    COLONY_BUILDING_ID_SETS.HEADQUARTERS;
   private randomInt = (min: number, max: number) =>
     Math.floor(Math.random() * (max - min + 1)) + min;
 
@@ -632,11 +629,6 @@ export class ColonyTickProcessorService {
     }
   }
 
-  private isHeadquartersField(field: ColonyField): boolean {
-    return (
-      !!field.buildingId && this.headquartersBuildingIds.has(field.buildingId)
-    );
-  }
 
   async growPopulation(colony: Colony): Promise<void> {
     const summary = this.colonyStatsService.calculateSummary(colony);

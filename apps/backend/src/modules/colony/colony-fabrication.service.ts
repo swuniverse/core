@@ -239,7 +239,7 @@ export class ColonyFabricationService {
           const result = await this.queueFabrication(
             colonyId,
             userId,
-            item.queueType,
+            item.queueType as ColonyFabricationQueueType,
             itemKey,
             amount,
             buildingFunctionId,

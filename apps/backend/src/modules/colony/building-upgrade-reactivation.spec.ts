@@ -223,7 +223,6 @@ function setup(producesMaintenance = true, sourceActive = true) {
     {} as never,
     {} as never,
     {} as never,
-    {} as never,
   );
   const upgrade = () =>
     construction.upgradeBuilding(1, 7, source.fieldIndex, 100101);

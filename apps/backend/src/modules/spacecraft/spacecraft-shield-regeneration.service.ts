@@ -126,7 +126,7 @@ export class SpacecraftShieldRegenerationService {
       system.current = ship.shields;
       await manager.update(Spacecraft, ship.id, {
         shields: ship.shields,
-        runtimeSystems: ship.runtimeSystems,
+        runtimeSystems: ship.runtimeSystems as Spacecraft['runtimeSystems'] & object,
       });
       return { userId: ship.userId, shipId: ship.id, gain };
     });

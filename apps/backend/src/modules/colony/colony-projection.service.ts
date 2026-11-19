@@ -34,7 +34,6 @@ import {
   calculateColonyGrowth,
   ColonyInternalSummary,
   getColonyChangeable,
-  getEffectiveCurrentPopulation,
   syncLegacyColonySnapshot,
 } from './colony-stats.service';
 import {
