@@ -312,6 +312,7 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
   exports: [
     StationShipyardService,
     SpacecraftAlertService,
+    StationRepairService,
     SpacecraftRepairService,
     RpgActionLockService,
     ShuttleService,

@@ -127,7 +127,12 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
   const shipBuildQueueRepo = {
     create: jest.fn((value) => value),
     find: jest.fn<Promise<any[]>, any[]>(async () => []),
-    findOne: jest.fn(),
+    // Locked shipyard steps re-read their job by id; default to the jobs `find` returned last.
+    findOne: jest.fn(async (options?: any) => {
+      const last = shipBuildQueueRepo.find.mock.results.at(-1);
+      const jobs: any[] = last ? await last.value : [];
+      return jobs.find((job) => job.id === options?.where?.id) ?? null;
+    }),
     count: jest.fn(async () => 0),
     save: jest.fn(async (value) => value),
     delete: jest.fn(async () => ({ affected: 1 })),
@@ -1474,7 +1479,6 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     colonyEventService as any,
     colonyDefenseService as any,
     fabricationService as any,
-    shipyardService as any,
   );
 
   const flightSignatures = {
@@ -8430,14 +8434,17 @@ describe('ship repair queues', () => {
 
   it('pauses a due repair step when required parts are unavailable', async () => {
     const {
-      service,
       shipRepo,
       shipClassRepo,
       spacecraftModuleRepo,
       shipBuildQueueRepo,
       storageRepo,
+      shipyardService,
+      colonyRepo,
     } = createColonyService();
     const colony = repairColony();
+    // The locked repair step reloads its colony.
+    colonyRepo.findOne.mockResolvedValue(colony);
     const ship = {
       id: 7,
       userId: 1,
@@ -8470,7 +8477,8 @@ describe('ship repair queues', () => {
     shipBuildQueueRepo.find.mockResolvedValue([job]);
     shipBuildQueueRepo.findOne.mockResolvedValue(job);
 
-    await service.processTick(colony as any);
+    // Shipyard repairs run in the minute runner (sh-AUD-07b).
+    await shipyardService.processShipBuildQueue(colony as any, true);
 
     expect(ship.hull).toBe(20);
     expect(job.status).toBe('PAUSED');
@@ -8541,7 +8549,6 @@ describe('ship repair queues', () => {
 
   it('repairs hull and systems one funded step per colony tick', async () => {
     const {
-      service,
       colonyRepo,
       shipRepo,
       shipClassRepo,
@@ -8550,6 +8557,7 @@ describe('ship repair queues', () => {
       spacecraftStatsService,
       storageRepo,
       messagingService,
+      shipyardService,
     } = createColonyService();
     const colony = repairColony();
     colonyRepo.findOne.mockResolvedValue(colony);
@@ -8608,7 +8616,8 @@ describe('ship repair queues', () => {
       },
     ]);
 
-    await service.processTick(colony as any);
+    // Shipyard repairs run in the minute runner (sh-AUD-07b).
+    await shipyardService.processShipBuildQueue(colony as any, true);
 
     expect(shipBuildQueueRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -8646,7 +8655,8 @@ describe('ship repair queues', () => {
         finishesAt: new Date(Date.now() - 1000),
       },
     ]);
-    await service.processTick(colony as any);
+    // Shipyard repairs run in the minute runner (sh-AUD-07b).
+    await shipyardService.processShipBuildQueue(colony as any, true);
 
     expect(ship.hull).toBe(250);
     expect(messagingService.sendSystem).toHaveBeenCalledWith(
@@ -9837,7 +9847,7 @@ describe('ship repair queue reactivation', () => {
   });
 
   it('automatically requeues paused repair jobs when a slot becomes free', async () => {
-    const { service, shipBuildQueueRepo, shipClassRepo } =
+    const { shipyardService, shipBuildQueueRepo, shipClassRepo } =
       createColonyService();
     const colony = {
       id: 1,
@@ -9870,7 +9880,8 @@ describe('ship repair queue reactivation', () => {
     shipBuildQueueRepo.find.mockImplementationOnce(async () => []);
     shipBuildQueueRepo.find.mockImplementationOnce(async () => [pausedJob]);
 
-    await service.processTick(colony as any);
+    // Shipyard repairs run in the minute runner (sh-AUD-07b).
+    await shipyardService.processShipBuildQueue(colony as any, true);
 
     expect(pausedJob.status).toBe('QUEUED');
     expect(pausedJob.stoppedAt).toBeNull();

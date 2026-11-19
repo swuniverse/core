@@ -1848,10 +1848,6 @@ export class ColonyService {
     return this.colonyShipyardService.processShipBuildQueue(colony);
   }
 
-  async processShipRepairQueue(colony: Colony): Promise<void> {
-    return this.colonyShipyardService.processShipBuildQueue(colony, true);
-  }
-
   async processTick(colony: Colony): Promise<ColonyTickResult> {
     return this.colonyTickProcessorService.processTick(colony);
   }

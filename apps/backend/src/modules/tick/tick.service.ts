@@ -15,6 +15,7 @@ import { MessagingService } from '../messaging/messaging.service';
 import { MessageFolder } from '../messaging/message-folder';
 import { TickFailureMailService } from './tick-failure-mail.service';
 import { ShipyardCompletionService } from './shipyard-completion.service';
+import { RepairCompletionService } from './repair-completion.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, LessThanOrEqual, Not, Repository } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
@@ -82,6 +83,7 @@ export class TickService {
     private readonly anomalyService?: AnomalyService,
     @Optional() private readonly failureMail?: TickFailureMailService,
     private readonly shipyardCompletions?: ShipyardCompletionService,
+    @Optional() private readonly repairCompletions?: RepairCompletionService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR, {
@@ -189,14 +191,8 @@ export class TickService {
             colony.isAbandoned
           )
             continue;
-          if (vacationUsers.has(colony.userId)) {
-            // Repairs remain here until sh-AUD-07b moves them to the minute runner.
-            await this.colonyService.processShipRepairQueue(colony);
-            this.gateway.emitToUser(colony.userId, WsEventType.COLONY_UPDATED, {
-              colonyId: colony.id,
-            });
-            continue;
-          }
+          // Shipyard jobs of vacationers finish in the minute runner (STU process tick).
+          if (vacationUsers.has(colony.userId)) continue;
           const colonyUserId = colony.userId;
           const tickResult = await this.colonyService.processTick(colony);
           researchByUser.set(
@@ -366,11 +362,12 @@ export class TickService {
     });
     const shipyardJobs =
       (await this.shipyardCompletions?.findDueJobs(now)) ?? [];
-    // Empty scheduled runs leave no history row, including shipyard-only work.
+    // Empty scheduled runs leave no history row, including shipyard- or repair-only work.
     if (
       activeBuilds.length === 0 &&
       shipyardJobs.length === 0 &&
-      !recordEmptyRun
+      !recordEmptyRun &&
+      !(await this.repairCompletions?.hasWork(now))
     )
       return;
 
@@ -413,6 +410,7 @@ export class TickService {
       }
 
       await this.shipyardCompletions?.completeJobs(shipyardJobs);
+      await this.repairCompletions?.run(now);
       await this.finishTick(tickState, GameTickStatus.COMPLETED);
     } catch (error) {
       await this.finishTick(

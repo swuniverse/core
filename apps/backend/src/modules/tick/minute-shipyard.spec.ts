@@ -2,7 +2,6 @@ jest.mock('../starmap/entities/space-location.entity', () => ({
   SpaceLocation: class SpaceLocation {},
 }));
 import { TickService } from './tick.service';
-import { ColonyTickProcessorService } from '../colony/colony-tick-processor.service';
 
 function fixture(jobs: unknown[] = []) {
   const tickState = { status: 'STARTED' };
@@ -106,20 +105,5 @@ describe('minute shipyard runner', () => {
         status: 'FAILED',
       }),
     );
-  });
-
-  it('the colony main tick delegates only repairs to the shipyard queue', async () => {
-    const processor = Object.create(
-      ColonyTickProcessorService.prototype,
-    ) as ColonyTickProcessorService;
-    const shipyard = { processShipBuildQueue: jest.fn(async () => undefined) };
-    const colony = { id: 1 };
-    Object.assign(processor, { colonyShipyardService: shipyard });
-    await (
-      processor as unknown as {
-        processShipRepairQueue(colony: unknown): Promise<void>;
-      }
-    ).processShipRepairQueue(colony);
-    expect(shipyard.processShipBuildQueue).toHaveBeenCalledWith(colony, true);
   });
 });

@@ -4989,9 +4989,6 @@ export class SpacecraftService {
     if (tickLocation) {
       await this.flightConsequencePipeline.onTick(ship, tickLocation);
     }
-    if (!options.skipRepair) {
-      await this.repairService.processTick(ship);
-    }
     const [modules, shipClass] = await Promise.all([
       this.moduleRepo.find({ where: { spacecraftId: ship.id } }),
       this.shipClassService.findById(ship.shipClassId),

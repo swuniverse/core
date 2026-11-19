@@ -1428,30 +1428,63 @@ export class ColonyShipyardService {
     );
   }
 
+  /** One repair step under the same lock order as BUILD/RETROFIT, so overlapping minute runs cannot step twice. */
   private async finishShipRepairQueue(
     job: ColonyShipBuildQueue,
   ): Promise<void> {
+    if (!job.colony) return;
+    const repaired = await this.withLockedShipyardJob(
+      job.colony,
+      job.id,
+      async (manager, source, locked) => {
+        if (
+          locked.mode !== ColonyShipBuildQueueMode.REPAIR ||
+          locked.status !== ColonyShipBuildQueueStatus.QUEUED ||
+          locked.finishesAt > new Date()
+        )
+          return null;
+        return this.applyShipRepairStep(manager, source, locked);
+      },
+    );
+    if (repaired) {
+      await this.messagingService.sendSystem(
+        repaired.userId,
+        'Schiffsreparatur abgeschlossen',
+        `Die Reparatur von ${repaired.name} wurde abgeschlossen.`,
+        `colony-ship-repair-completed:${job.id}`,
+        MessageFolder.SHIP,
+      );
+    }
+  }
+
+  /** Returns the ship when this step completed the repair. */
+  private async applyShipRepairStep(
+    manager: EntityManager,
+    colony: Colony,
+    job: ColonyShipBuildQueue,
+  ): Promise<Spacecraft | null> {
     if (!job.spacecraftId) {
       job.status = ColonyShipBuildQueueStatus.CANCELLED;
-      await this.shipBuildQueueRepo.save(job);
-      return;
+      await manager.save(ColonyShipBuildQueue, job);
+      return null;
     }
-    const ship = await this.shipRepo.findOne({
+    const ship = await manager.findOne(Spacecraft, {
       where: { id: job.spacecraftId, userId: job.userId },
+      lock: { mode: 'pessimistic_write' },
     });
     if (!ship) {
       job.status = ColonyShipBuildQueueStatus.CANCELLED;
-      await this.shipBuildQueueRepo.save(job);
-      return;
+      await manager.save(ColonyShipBuildQueue, job);
+      return null;
     }
     const [shipClass, modules] = await Promise.all([
-      this.shipClassRepo.findOneBy({ id: ship.shipClassId }),
-      this.spacecraftModuleRepo.find({ where: { spacecraftId: ship.id } }),
+      manager.findOne(ShipClassDef, { where: { id: ship.shipClassId } }),
+      manager.find(SpacecraftModule, { where: { spacecraftId: ship.id } }),
     ]);
-    if (!shipClass || !job.colony) return;
+    if (!shipClass) return null;
 
     const hasRepairStationBonus = this.hasActiveBuildingFunction(
-      job.colony,
+      colony,
       this.repairStationFunctionId,
     );
     const hullRepairAmount = hasRepairStationBonus ? 200 : 100;
@@ -1472,13 +1505,14 @@ export class ColonyShipyardService {
       },
     ].filter((cost) => cost.amount > 0);
     try {
-      await this.deductBuildCosts(job.colony, costs);
+      // Checks every cost before lowering any, so a shortage lowers nothing.
+      await this.deductBuildCosts(colony, costs, manager);
     } catch (error) {
       if (!(error instanceof BadRequestException)) throw error;
       job.status = ColonyShipBuildQueueStatus.PAUSED;
       job.stoppedAt = new Date();
-      await this.shipBuildQueueRepo.save(job);
-      return;
+      await manager.save(ColonyShipBuildQueue, job);
+      return null;
     }
 
     ship.hull = Math.min(ship.hullMax, ship.hull + hullRepairAmount);
@@ -1488,12 +1522,12 @@ export class ColonyShipyardService {
       module.cooldown = 0;
     }
     if (modulesToRepair.length > 0) {
-      await this.spacecraftModuleRepo.save(modulesToRepair);
+      await manager.save(SpacecraftModule, modulesToRepair);
     }
     this.spacecraftStatsService.applyStats(ship, shipClass, modules);
     ship.shields = Math.min(ship.shieldsMax, Math.max(ship.shields, 0));
     ship.energy = Math.min(ship.energyMax, Math.max(ship.energy, 0));
-    await this.shipRepo.save(ship);
+    await manager.save(Spacecraft, ship);
     const repairComplete = !this.isShipRepairNeeded(ship, modules);
     job.status = repairComplete
       ? ColonyShipBuildQueueStatus.COMPLETED
@@ -1501,16 +1535,8 @@ export class ColonyShipyardService {
     if (!repairComplete) {
       job.finishesAt = this.timing.dateAfterScaledMinutes(1);
     }
-    await this.shipBuildQueueRepo.save(job);
-    if (repairComplete) {
-      await this.messagingService.sendSystem(
-        ship.userId,
-        'Schiffsreparatur abgeschlossen',
-        `Die Reparatur von ${ship.name} wurde abgeschlossen.`,
-        `colony-ship-repair-completed:${job.id}`,
-        MessageFolder.SHIP,
-      );
-    }
+    await manager.save(ColonyShipBuildQueue, job);
+    return repairComplete ? ship : null;
   }
 
   private async finishShipRetrofitQueue(

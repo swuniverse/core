@@ -37,7 +37,7 @@ describe('vacation efficacy in the main tick', () => {
     ['49 hours', true, 49 * 60 * 60 * 1000, true],
     ['ended vacation', false, VACATION_DELAY_MS + 1, false],
     ['missing activation date', true, null, false],
-  ])('uses the shared delay for %s and keeps all ship/station repairs running', async (_label, flag, age, effective) => {
+  ])('uses the shared delay for %s and leaves shipyard repairs to the minute runner', async (_label, flag, age, effective) => {
     jest.useFakeTimers().setSystemTime(NOW);
     try {
       const f = fixture(Boolean(flag), age as number | null);
@@ -46,8 +46,8 @@ describe('vacation efficacy in the main tick', () => {
       expect(f.userRepo.find).toHaveBeenCalledWith(expect.objectContaining({ select: expect.arrayContaining(['vacationStartedAt']) }));
       expect(f.colonyService.processTick).toHaveBeenCalledTimes(effective ? 0 : 1);
       expect(f.crew.enforceGlobalCrewLimit).toHaveBeenCalledTimes(effective ? 0 : 1);
-      expect(f.colonyService.processShipRepairQueue).toHaveBeenCalledTimes(effective ? 1 : 0);
-      if (effective) expect(f.jobs.map((job) => job.status)).toEqual(['QUEUED', 'QUEUED', 'COMPLETED']);
+      // Repairs of vacationers keep running, but in the minute runner (sh-AUD-07b), not here.
+      expect(f.colonyService.processShipRepairQueue).not.toHaveBeenCalled();
       expect(f.spacecraftService.processTick).toHaveBeenCalledWith(f.ship);
       expect(f.spacecraftService.processTick).toHaveBeenCalledWith(f.station);
       expect(f.spacecraftService.processTick.mock.calls.every((args) => args.length === 1)).toBe(true);

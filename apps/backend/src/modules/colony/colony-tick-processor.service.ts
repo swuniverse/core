@@ -18,7 +18,6 @@ import { ColonyCrewService } from './colony-crew.service';
 import { ColonyEconomyService } from './colony-economy.service';
 import { ColonyDefenseService } from './colony-defense.service';
 import { ColonyFabricationService } from './colony-fabrication.service';
-import { ColonyShipyardService } from './colony-shipyard.service';
 import {
   ColonyStatsService,
   ColonyInternalSummary,
@@ -72,7 +71,6 @@ export class ColonyTickProcessorService {
     private readonly colonyEventService: ColonyEventService,
     private readonly colonyDefenseService: ColonyDefenseService,
     private readonly colonyFabricationService: ColonyFabricationService,
-    private readonly colonyShipyardService: ColonyShipyardService,
   ) {}
 
   async processCrewTrainingQueue(colony: Colony): Promise<void> {
@@ -159,10 +157,6 @@ export class ColonyTickProcessorService {
     return this.colonyFabricationService.processFabricationQueue(colony);
   }
 
-  private async processShipRepairQueue(colony: Colony): Promise<void> {
-    return this.colonyShipyardService.processShipBuildQueue(colony, true);
-  }
-
   private getMaxShields(colony: Colony): number {
     return this.colonyDefenseService.calculateMaxShieldsByFunctions(
       this.getActiveBuildingFunctionIds(colony),
@@ -199,7 +193,6 @@ export class ColonyTickProcessorService {
     await this.processFabricationQueue(colony);
     await this.processCrewTrainingQueue(colony);
     await this.enforceLocalCrewLimit(colony, events);
-    await this.processShipRepairQueue(colony);
     const summary = this.colonyStatsService.calculateSummary(colony);
     return {
       researchPoints: summary.researchPoints,

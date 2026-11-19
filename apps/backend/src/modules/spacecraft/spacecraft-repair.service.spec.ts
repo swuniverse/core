@@ -138,6 +138,24 @@ describe('SpacecraftRepairService', () => {
     expect(ctx.messaging.sendSystem).toHaveBeenCalledWith(7, 'Schiffsreparatur abgeschlossen', expect.stringContaining('35'));
   });
 
+  it('aborts a due repair without enough crew (STU RepairTaskJobs)', async () => {
+    const ctx = setup();
+    ctx.state.task = {
+      spacecraftId: 1,
+      targetType: RepairTargetType.MODULE,
+      moduleId: 4,
+      partsType: RepairPartsType.BOTH,
+      targetIntegrity: 35,
+      completesAt: new Date(0),
+    };
+    const before = ctx.state.module.integrity;
+    ctx.crewService.hasEnoughCrew.mockResolvedValue(false);
+    await ctx.service.processTick(ctx.state.ship as any);
+    expect(ctx.state.module.integrity).toBe(before);
+    expect(ctx.state.task).toBeNull();
+    expect(ctx.messaging.sendSystem).toHaveBeenCalledWith(7, 'Schiffsreparatur abgebrochen', expect.stringContaining('Crew'));
+  });
+
   it('cancels all moving fleet members, refunds them transactionally and notifies', async () => {
     const ctx = setup();
     const tasks = new Map([

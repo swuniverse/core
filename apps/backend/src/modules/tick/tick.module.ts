@@ -46,6 +46,9 @@ import { IdleUserMaintenanceService } from '../account-deletion/idle-user-mainte
 import { MailModule } from '../mail/mail.module';
 import { TickFailureMailService } from './tick-failure-mail.service';
 import { ShipyardCompletionService } from './shipyard-completion.service';
+import { RepairCompletionService } from './repair-completion.service';
+import { StationShipRepair } from '../spacecraft/entities/station-ship-repair.entity';
+import { SpacecraftRepairTask } from '../spacecraft/entities/spacecraft-repair-task.entity';
 import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue.entity';
 
 @Module({
@@ -59,6 +62,8 @@ import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue
       User,
       GameTickState,
       ColonyShipBuildQueue,
+      StationShipRepair,
+      SpacecraftRepairTask,
     ]),
     ColonyModule,
     SpacecraftModule,
@@ -86,6 +91,7 @@ import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue
     TickAdminService,
     TickFailureMailService,
     ShipyardCompletionService,
+    RepairCompletionService,
     MaintenanceService,
     TopFlightsRewardService,
     WreckDecayService,

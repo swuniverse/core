@@ -177,7 +177,8 @@ describe('StationRepairService tick', () => {
       if (entity.name === 'CargoItem') return ctx.cargo[options.where.commodityId] ?? null;
       return null;
     });
-    return ctx.service.processTick(100);
+    // The ship repair queue runs in the minute runner (sh-AUD-07b, STU FinishPassiveShipRepairJobs).
+    return ctx.service.processQueue(100);
   };
 
   it('repairs the due ship by one step, consumes one spare part and promotes the next job', async () => {
@@ -255,6 +256,17 @@ describe('StationRepairService passive self-repair', () => {
     await ctx.service.processTick(100);
     expect(ctx.station.hull).toBe(900);
     expect(ctx.cargo[10001].amount).toBe(5);
+  });
+
+  it('keeps self-repair in the main tick and the ship queue in the minute runner', async () => {
+    const ctx = setup({ station: { stationRole: 'SHIPYARD', hull: 900, passiveRepair: true }, workbees: 5 });
+    ctx.manager.findOne.mockImplementation(async (entity: { name: string }, options: { where: Row }) =>
+      entity.name === 'Spacecraft' ? ctx.station : (ctx.cargo[options.where.commodityId] ?? null),
+    );
+    await ctx.service.processQueue(100);
+    expect(ctx.station.hull).toBe(900);
+    await ctx.service.processTick(100);
+    expect(ctx.station.hull).toBe(1000);
   });
 
   it('honors an explicit repair skip option independently of vacation', async () => {

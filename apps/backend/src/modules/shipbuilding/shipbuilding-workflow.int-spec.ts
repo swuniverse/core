@@ -52,6 +52,9 @@ import {
 import { ShipbuildingCoreService } from '../spacecraft/shipbuilding-core.service';
 import { TickService } from '../tick/tick.service';
 import { ShipyardCompletionService } from '../tick/shipyard-completion.service';
+import { RepairCompletionService } from '../tick/repair-completion.service';
+import { StationShipRepair } from '../spacecraft/entities/station-ship-repair.entity';
+import { SpacecraftRepairTask } from '../spacecraft/entities/spacecraft-repair-task.entity';
 import { GameTickState, GameTickStatus, GameTickType } from '../tick/entities/game-tick-state.entity';
 import { MessagingService } from '../messaging/messaging.service';
 import { StationShipyardService } from '../spacecraft/station-shipyard.service';
@@ -1290,6 +1293,46 @@ describe('shipbuilding workflow (Nest + PostgreSQL)', () => {
     expect(runs.length).toBeGreaterThanOrEqual(1);
     expect(runs.every(run => run.tickType === GameTickType.BUILDING_COMPLETION && run.status === GameTickStatus.COMPLETED && run.startedAt && run.completedAt)).toBe(true);
     expect(gateway.emitToUser.mock.calls.filter(([, event]) => event === 'SPACECRAFT_EVENT')).toHaveLength(2);
+  });
+
+  it('minute repair: overlapping runs take exactly one colony shipyard repair step', async () => {
+    const colony = await createColony();
+    await database.getRepository(ColonyStorage).save([
+      { colonyId: colony.id, commodityId: 10001, amount: 5 },
+      { colonyId: colony.id, commodityId: 10002, amount: 5 },
+    ]);
+    const ship = await database.getRepository(Spacecraft).save({
+      name: 'Damaged', userId: user.id, shipClassId: hull.id, locationId: location.id,
+    });
+    // Three damaged modules: one step repairs two, so the job stays open and sends no message.
+    await database.getRepository(SpacecraftModule).save(
+      [1, 2, 3].map((n) => ({ spacecraftId: ship.id, moduleType: `M${n}`, category: 'SPECIAL', integrity: 50 })),
+    );
+    const job = await database.getRepository(ColonyShipBuildQueue).save({
+      colonyId: colony.id, userId: user.id, shipClassId: hull.id, mode: ColonyShipBuildQueueMode.REPAIR,
+      spacecraftId: ship.id, name: 'Reparatur: Damaged', buildPlanName: null, buildPlanId: null,
+      buildPlanSignature: null, moduleSelections: [], moduleTypes: [], moduleCommodityIds: [],
+      repairSnapshot: null, retrofitSnapshot: null, stoppedAt: null,
+      status: ColonyShipBuildQueueStatus.QUEUED, finishesAt: new Date(Date.now() - 1000),
+    });
+    const repairs = new RepairCompletionService(
+      database.getRepository(ColonyShipBuildQueue), database.getRepository(Colony),
+      database.getRepository(StationShipRepair), database.getRepository(SpacecraftRepairTask),
+      database.getRepository(Spacecraft), colonyShipyard,
+      { processQueue: jest.fn() } as never, { processTick: jest.fn() } as never,
+      { emitToUser: jest.fn() } as never,
+    );
+    expect(await repairs.hasWork(new Date())).toBe(true);
+    await Promise.all([repairs.run(new Date()), repairs.run(new Date())]);
+    const modules = await database.getRepository(SpacecraftModule).find({
+      where: { spacecraftId: ship.id }, order: { id: 'ASC' },
+    });
+    expect(modules.map((module) => module.integrity).sort()).toEqual([100, 100, 50]);
+    const stored = new Map(await storageAmounts(colony.id) as Array<[number, number]>);
+    expect([stored.get(10001), stored.get(10002)]).toEqual([4, 4]);
+    const after = await database.getRepository(ColonyShipBuildQueue).findOneByOrFail({ id: job.id });
+    expect(after.status).toBe(ColonyShipBuildQueueStatus.QUEUED);
+    expect(after.finishesAt.getTime()).toBeGreaterThan(Date.now());
   });
 
   it('minute shipyard: future jobs and empty runs leave queues and history unchanged', async () => {

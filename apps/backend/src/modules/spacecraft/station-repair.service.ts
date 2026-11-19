@@ -230,9 +230,18 @@ export class StationRepairService {
     });
   }
 
-  /** Advances the repair queue and self-repair of one station by a single step. */
+  /** Main tick: one self-repair step of the station (STU `StationPassiveRepairHandler`). */
   async processTick(stationId: number, options: { skipRepair?: boolean } = {}): Promise<void> {
     if (options.skipRepair) return;
+    await this.runStep(stationId, 'self');
+  }
+
+  /** Minute runner: the due step of the ship repair queue (STU `FinishPassiveShipRepairJobs`). */
+  processQueue(stationId: number): Promise<void> {
+    return this.runStep(stationId, 'queue');
+  }
+
+  private async runStep(stationId: number, part: 'self' | 'queue'): Promise<void> {
     const notices: Array<{ userId: number; subject: string; body: string; folder: MessageFolder }> = [];
     const experience: number[] = [];
     await this.dataSource.transaction(async (manager) => {
@@ -241,8 +250,11 @@ export class StationRepairService {
         lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
       });
       if (!station) return;
-      if (station.passiveRepair) await this.selfRepairStep(manager, station, notices, experience);
-      await this.queueStep(manager, station, notices, experience);
+      if (part === 'self') {
+        if (station.passiveRepair) await this.selfRepairStep(manager, station, notices, experience);
+      } else {
+        await this.queueStep(manager, station, notices, experience);
+      }
     });
     for (const notice of notices) {
       await this.messaging.sendSystem(notice.userId, notice.subject, notice.body, undefined, notice.folder);
