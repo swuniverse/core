@@ -219,7 +219,7 @@ describe('TradePage', () => {
     fireEvent.click(within(own).getByRole('button', { name: 'Umbenennen' }));
     fireEvent.change(within(own).getByRole('textbox', { name: 'Name' }), { target: { value: 'Neu' } });
     fireEvent.click(within(own).getByRole('button', { name: 'Speichern' }));
-    await waitFor(() => expect(apiMocks.patch).toHaveBeenCalledWith('/trade/posts/3', { name: 'Neu', description: '' }));
+    await waitFor(() => expect(apiMocks.patch).toHaveBeenCalledWith('/trade/posts/3', { name: 'Neu' }));
     expect((await within(own).findByRole('alert')).textContent).toBe('Name zu lang');
   });
 

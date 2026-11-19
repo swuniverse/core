@@ -1,6 +1,6 @@
 # Warenkontobox wie STU tradeAccounts.twig
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P1
 **Size:** M
 **Blocked by:** tmw-AUD-01a
@@ -39,14 +39,14 @@ Je Konto zeigt die Box:
 
 ## Akzeptanzkriterien
 
-- [ ] Die Box zeigt alle oben genannten Elemente aus den Daten von tmw-AUD-01a; keine zusätzlichen Abfragen je Konto außer beim Öffnen von Untermenüs.
-- [ ] Klick auf eine lagernde Ware öffnet „Angebot erstellen“ mit vorbelegtem Posten und Ware; an NPC-Posten zusätzlich „Transferieren“. An Spielerposten gibt es weder Transferknopf noch Kapazitätszeile (die Sofortkorrektur dafür liefert tmw-AUD-06a; die neue Box muss sie beibehalten).
-- [ ] Klick auf eine Ware in Angeboten zeigt die eigenen Angebote dieser Ware am Posten mit Zurückziehen.
-- [ ] Lagerraum wird rot bei `isOverStorage`, sonst grün; die Zahl ist nur der Bestand.
-- [ ] „Liste anzeigen“ öffnet die Lizenznehmerliste aus tmw-AUD-10 (bis dahin: Link nur für den Eigentümer aktiv).
-- [ ] „Schwarzes Brett“ öffnet die Shoutbox des Netzes; „Schiffe vor Ort“ listet eigene Schiffe am Posten.
-- [ ] Umbenennen eigener Posten aus der Box; Fehlertexte des Servers werden angezeigt.
-- [ ] Frontend-Tests: NPC- vs. Spielerposten (Transfer sichtbar/unsichtbar), Überfüllungsfarbe, Ware-Klick öffnet vorbelegten Angebotsdialog, Angebotsreserve-Klick, Lizenzanzahl und Gebührenlink (Eigentümer vs. Lizenznehmer).
+- [ ] Die Box zeigt alle oben genannten Elemente aus den Daten von tmw-AUD-01a; keine zusätzlichen Abfragen je Konto außer beim Öffnen von Untermenüs. – offen: Fraktions-/Netzicon an NPC-Posten fehlt (kein Asset-Helfer), alles andere vorhanden.
+- [x] Klick auf eine lagernde Ware öffnet „Angebot erstellen“ mit vorbelegtem Posten und Ware; an NPC-Posten zusätzlich „Transferieren“. An Spielerposten gibt es weder Transferknopf noch Kapazitätszeile (die Sofortkorrektur dafür liefert tmw-AUD-06a; die neue Box muss sie beibehalten).
+- [x] Klick auf eine Ware in Angeboten zeigt die eigenen Angebote dieser Ware am Posten mit Zurückziehen.
+- [x] Lagerraum wird rot bei `isOverStorage`, sonst grün; die Zahl ist nur der Bestand.
+- [x] „Liste anzeigen“ öffnet die Lizenznehmerliste aus tmw-AUD-10 (bis dahin: Link nur für den Eigentümer aktiv).
+- [x] „Schwarzes Brett“ öffnet die Shoutbox des Netzes; „Schiffe vor Ort“ listet eigene Schiffe am Posten.
+- [x] Umbenennen eigener Posten aus der Box; Fehlertexte des Servers werden angezeigt.
+- [x] Frontend-Tests: NPC- vs. Spielerposten (Transfer sichtbar/unsichtbar), Überfüllungsfarbe, Ware-Klick öffnet vorbelegten Angebotsdialog, Angebotsreserve-Klick, Lizenzanzahl und Gebührenlink (Eigentümer vs. Lizenznehmer).
 
 ## Herkunft
 
@@ -55,3 +55,10 @@ Je Konto zeigt die Box:
 - Der Transferknopf an Spielerposten wird vorab in tmw-AUD-06a ausgeblendet (kleine Korrektur in der heutigen `AccountsTab`); dieses Ticket übernimmt die Regel in die neue Box.
 
 ## Comments
+
+- 2026-11-19 – umgesetzt, Prüfung ausstehend. Umsetzung an Sonnet-Agent delegiert (Ticket als Spezifikation plus vier Entscheidungen: nur `AccountsTab` umstellen, DTO-Altfelder bleiben; Lizenzliste ohne neues Backend; Schiffe/Angebote aus vorhandenen Daten; kein Backend), Review durch Opus 5.5. Commits `d9e5cd7b` (Box) und „fix(trade): rename an account post by name only (tmw-AUD-01b)“.
+  - Neue Komponente `TradeAccountBox.tsx`; `NewOfferDialog` mit Vorbelegung (`initial`), `ShoutboxBox` exportiert. „Liste anzeigen“ (nur Eigentümer) und der Gebührenlink öffnen das bestehende `TradeLicensePanel`, dessen Eigentümerbereich die Lizenznehmer zeigt; eigene Liste folgt mit tmw-AUD-10.
+  - Review-Befund behoben: Umbenennen schickte die Beschreibung aus der Postenliste mit und hätte eine neuere Beschreibung überschreiben können; `PATCH` erhält jetzt nur `name` (`UpdateTradePostDto` erlaubt Einzelfelder).
+  - Checks: `vitest src/pages/trade.spec.tsx src/components/trade` 58/58, `tsc` Frontend app + spec sauber, ESLint ohne Befund.
+  - Offen: Netz-/Fraktionsicon (Kriterium 1); Browserprüfung der Box; gemeinsamer Build im Prüfpass.
+

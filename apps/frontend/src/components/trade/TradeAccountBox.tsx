@@ -39,14 +39,12 @@ type Panel = 'ships' | 'shoutbox' | 'license' | 'rename' | null;
 /** STU `tradeAccounts.twig`: one account box with its goods workflow. */
 export function TradeAccountBox({
   box,
-  description,
   ships,
   commodityName,
   onSelect,
   onChanged,
 }: {
   box: TradeAccountBoxDto;
-  description: string;
   ships: TradePostSpacecraftDto[];
   commodityName: (id: number) => string;
   onSelect: (postId: number) => void;
@@ -91,7 +89,7 @@ export function TradeAccountBox({
   const rename = async () => {
     setError(null);
     try {
-      await api.patch(`/trade/posts/${box.tradePostId}`, { name, description });
+      await api.patch(`/trade/posts/${box.tradePostId}`, { name });
       setNotice('Der Name des Handelspostens wurde geändert');
       setPanel(null);
       await onChanged();

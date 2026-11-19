@@ -172,7 +172,6 @@ export function TradePage() {
         <p className="text-swu-muted">Handelsdaten werden geladen...</p>
       ) : tab === 'accounts' ? (
         <AccountsTab
-          posts={posts}
           overview={overview}
           commodityName={commodityName}
           onSelect={(id) => select({ tab: 'posts', post: id })}
@@ -211,13 +210,11 @@ export function TradePage() {
 }
 
 function AccountsTab({
-  posts,
   overview,
   commodityName,
   onSelect,
   onChanged,
 }: {
-  posts: TradePostListItemDto[];
   overview: TradeOverviewDto;
   commodityName: (id: number) => string;
   onSelect: (postId: number) => void;
@@ -236,7 +233,6 @@ function AccountsTab({
         <TradeAccountBox
           key={box.tradePostId}
           box={box}
-          description={posts.find((post) => post.id === box.tradePostId)?.description ?? ''}
           ships={overview.spacecraft.filter((ship) => ship.tradePostId === box.tradePostId)}
           commodityName={commodityName}
           onSelect={onSelect}
