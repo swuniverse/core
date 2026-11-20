@@ -703,7 +703,7 @@ describe('spacecraft core detail controls', () => {
 
       expect(result.ships.map((target) => target.id)).toEqual([7]);
       expect(result.ships[0]).toMatchObject({ hasLogBook: true, rpgActive: true });
-      expect(result.fleets).toEqual([{ id: 3, name: 'Rotte', leadShipId: 7, username: 'Andere', isOwn: false, visibleShips: 1, defending: true, blocking: false, canJoin: false }]);
+      expect(result.fleets).toEqual([{ id: 3, name: 'Rotte', leadShipId: 7, username: 'Andere', isOwn: false, visibleShips: 1, defending: true, blocking: false, canJoin: false, canDockFleet: false }]);
       expect(result.cloakedShipsHint).toBe(true);
       expect(JSON.stringify(result)).not.toMatch(/Geheim|Phantom|Unsichtbar/);
 

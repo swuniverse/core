@@ -843,10 +843,21 @@ export interface SpacecraftNearbyTargetDto {
   };
 }
 
+/** One fleet ship in a ship-by-ship (un)docking run, as in STU's per-ship messages. */
+export interface SpacecraftDockShipResultDto {
+  shipId: number;
+  name: string;
+  /** `aborted`: missing EPS or full slots stopped the run at this ship. */
+  status: 'docked' | 'undocked' | 'skipped' | 'aborted';
+  reason: string | null;
+}
+
 export interface SpacecraftDockResultDto {
   message: string;
   /** Ships whose docking state changed. */
   shipIds: number[];
+  /** Fleet actions only: result per ship in fleet order. */
+  ships?: SpacecraftDockShipResultDto[];
 }
 
 export type DockingPrivilegeTargetType = 'USER' | 'ALLIANCE' | 'FACTION' | 'SHIP';
@@ -1038,6 +1049,8 @@ export interface SpacecraftNearbyFleetDto {
   defending: boolean;
   blocking: boolean;
   canJoin: boolean;
+  /** STU B_DOCK_FLEET: the viewing spacecraft is an own station and the fleet is own. */
+  canDockFleet: boolean;
 }
 
 export interface SpacecraftNearbyDto {

@@ -66,6 +66,7 @@ import { ShipClassDef } from '../../modules/spacecraft/entities/ship-class-def.e
 import { Colony } from '../../modules/colony/entities/colony.entity';
 import { ColonyField } from '../../modules/colony/entities/colony-field.entity';
 import { ColonyStorage } from '../../modules/colony/entities/colony-storage.entity';
+import { ColonyShipBuildQueue } from '../../modules/colony/entities/colony-ship-build-queue.entity';
 import { ColonyStats } from '../../modules/colony/entities/colony-stats.entity';
 import { ColonyChangeable } from '../../modules/colony/entities/colony-changeable.entity';
 import { ColonyCrewTrainingQueue } from '../../modules/colony/entities/colony-crew-training-queue.entity';
@@ -201,6 +202,7 @@ export const INTEGRATION_ENTITIES = [
   TradeShoutboxEntry,
   AdminShipBuildplan,
   ColonyShipBuildplan,
+  ColonyShipBuildQueue,
 ];
 
 export function createIntegrationDataSource(url: string): DataSource {

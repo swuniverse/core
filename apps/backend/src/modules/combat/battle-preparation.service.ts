@@ -4,16 +4,11 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
-import { DataSource, In, MoreThan, type EntityManager } from 'typeorm';
+import { DataSource, In, MoreThan } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
-import { ColonyStorage } from '../colony/entities/colony-storage.entity';
-import {
-  ColonyShipBuildQueue,
-  ColonyShipBuildQueueMode,
-  ColonyShipBuildQueueStatus,
-} from '../colony/entities/colony-ship-build-queue.entity';
+import { ColonyShipBuildQueueMode } from '../colony/entities/colony-ship-build-queue.entity';
 import { Anomaly } from '../anomaly/entities/anomaly.entity';
-import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
+import { cancelShipyardJobs } from '../spacecraft/shipyard-job-cancel';
 import {
   AlertState,
   Spacecraft,
@@ -110,7 +105,7 @@ export class BattlePreparationService {
           record(
             'Laufende Reparatur abgebrochen; eingesetzte Teile zurückerstattet',
           );
-        for (const mode of await this.cancelShipyardJobs(manager, ship.id))
+        for (const mode of await cancelShipyardJobs(manager, ship.id, true))
           record(
             mode === ColonyShipBuildQueueMode.RETROFIT
               ? 'Laufende Umrüstung abgebrochen; eingesetzte Module zurückerstattet'
@@ -186,66 +181,5 @@ export class BattlePreparationService {
     for (const { original, prepared } of outcome.changed)
       Object.assign(original, prepared);
     return outcome.log;
-  }
-
-  private async cancelShipyardJobs(
-    manager: EntityManager,
-    spacecraftId: number,
-  ): Promise<ColonyShipBuildQueueMode[]> {
-    const jobs = await manager.find(ColonyShipBuildQueue, {
-      where: {
-        spacecraftId,
-        mode: In([
-          ColonyShipBuildQueueMode.REPAIR,
-          ColonyShipBuildQueueMode.RETROFIT,
-        ]),
-        status: In([
-          ColonyShipBuildQueueStatus.QUEUED,
-          ColonyShipBuildQueueStatus.PAUSED,
-        ]),
-      },
-      order: { id: 'ASC' },
-      lock: { mode: 'pessimistic_write', onLocked: 'nowait' },
-    });
-    for (const job of jobs) {
-      if (job.mode === ColonyShipBuildQueueMode.RETROFIT) {
-        const refunds = new Map<number, number>();
-        for (const id of job.retrofitSnapshot?.consumedModuleCommodityIds ?? [])
-          refunds.set(id, (refunds.get(id) ?? 0) + 1);
-        for (const [commodityId, amount] of [...refunds].sort(
-          ([a], [b]) => a - b,
-        )) {
-          // Follow existing SWU cancellation refunds; never mint modules for completed jobs.
-          if (job.colonyId != null) {
-            let row = await manager.findOne(ColonyStorage, {
-              where: { colonyId: job.colonyId, commodityId },
-              lock: { mode: 'pessimistic_write', onLocked: 'nowait' },
-            });
-            row ??= manager.create(ColonyStorage, {
-              colonyId: job.colonyId,
-              commodityId,
-              amount: 0,
-            });
-            row.amount += amount;
-            await manager.save(ColonyStorage, row);
-          } else if (job.stationId != null) {
-            let row = await manager.findOne(CargoItem, {
-              where: { spacecraftId: job.stationId, commodityId },
-              lock: { mode: 'pessimistic_write', onLocked: 'nowait' },
-            });
-            row ??= manager.create(CargoItem, {
-              spacecraftId: job.stationId,
-              commodityId,
-              amount: 0,
-            });
-            row.amount += amount;
-            await manager.save(CargoItem, row);
-          }
-        }
-      }
-      job.status = ColonyShipBuildQueueStatus.CANCELLED;
-      await manager.save(ColonyShipBuildQueue, job);
-    }
-    return jobs.map((job) => job.mode);
   }
 }

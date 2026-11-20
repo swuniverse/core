@@ -1,5 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import type { SpacecraftDockResultDto } from '@swuniverse/shared';
+import type {
+  SpacecraftDockResultDto,
+  SpacecraftDockShipResultDto,
+} from '@swuniverse/shared';
 import { DataSource, EntityManager, In } from 'typeorm';
 import { DOCK_EPS_COST } from './docking.constants';
 import { Fleet } from './entities/fleet.entity';
@@ -19,6 +22,9 @@ import { SpacecraftCrewService } from './spacecraft-crew.service';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
 import { initializeSpacecraftRuntimeSystems } from './spacecraft-runtime-state.service';
 import { sameSpacecraftLocation } from './spacecraft-field';
+import { isCloaked } from './spacecraft-cloak';
+import { cancelShipyardJobs } from './shipyard-job-cancel';
+import { ColonyShipBuildQueueMode } from '../colony/entities/colony-ship-build-queue.entity';
 
 
 const SHIP_RELATIONS = {
@@ -37,9 +43,18 @@ type Outcome = {
   };
   /** System message to send after the commit. */
   notice?: { userId: number; subject: string; body: string };
+  /** Per-ship result of a fleet action. */
+  results?: SpacecraftDockShipResultDto[];
 };
 
-/** Docking of ships and fleets at stations; every action is atomic and runs in one transaction. */
+/** Fleet members with the leader first, as STU's fleet wrapper iterates them. */
+function fleetOrder(rows: Spacecraft[], fleet: Fleet): Spacecraft[] {
+  return rows
+    .filter((row) => row.fleetId === fleet.id)
+    .sort((a, b) => Number(b.id === fleet.leaderId) - Number(a.id === fleet.leaderId));
+}
+
+/** Docking of ships and fleets at stations; one transaction each, fleets dock ship by ship as in STU. */
 @Injectable()
 export class SpacecraftDockingService {
   constructor(
@@ -181,7 +196,7 @@ export class SpacecraftDockingService {
   ): Promise<SpacecraftDockResultDto> {
     const outcome = await this.dataSource.transaction(work);
     await this.repairService.notifyCancelled(outcome.cancelled, 'Das Andocken oder Abdocken');
-    if (outcome.foreignDocking) {
+    if (outcome.foreignDocking && outcome.foreignDocking.ships.length > 0) {
       await this.privileges.notifyForeignDocking(
         outcome.foreignDocking.station,
         outcome.foreignDocking.ships,
@@ -190,7 +205,11 @@ export class SpacecraftDockingService {
     if (outcome.notice) {
       await this.messaging.sendSystem(outcome.notice.userId, outcome.notice.subject, outcome.notice.body);
     }
-    return { message: outcome.message, shipIds: outcome.shipIds };
+    return {
+      message: outcome.message,
+      shipIds: outcome.shipIds,
+      ...(outcome.results ? { ships: outcome.results } : {}),
+    };
   }
 
   private async dockInTransaction(
@@ -199,7 +218,11 @@ export class SpacecraftDockingService {
     userId: number,
     stationId: number,
   ): Promise<Outcome> {
-    const [lead, station] = await this.lockPair(manager, shipId, stationId);
+    const fleet = await this.ledFleet(manager, shipId, userId);
+    const members = fleet ? await this.memberIds(manager, fleet.id) : [];
+    const rows = await this.lock(manager, [shipId, stationId, ...members]);
+    const lead = rows.find((row) => row.id === shipId);
+    const station = rows.find((row) => row.id === stationId);
     if (!lead || lead.userId !== userId) throw new NotFoundException('Schiff nicht gefunden');
     if (!station || station.kind !== SpacecraftKind.STATION) {
       throw new BadRequestException('Ziel ist keine Station');
@@ -207,103 +230,194 @@ export class SpacecraftDockingService {
     if (lead.kind !== SpacecraftKind.SHIP) {
       throw new BadRequestException('Nur Schiffe können andocken');
     }
-    const fleet = lead.fleetId
-      ? await manager.getRepository(Fleet).findOne({ where: { id: lead.fleetId, userId } })
-      : null;
-    const isFleetAction = fleet != null && fleet.leaderId === lead.id;
-    let ships: Spacecraft[] = [lead];
-    if (isFleetAction) {
-      const members = await manager.getRepository(Spacecraft).find({
-        where: { fleetId: fleet.id },
-        select: { id: true },
-      });
-      ships = await this.lock(
-        manager,
-        members.map((member) => member.id),
-      );
-    }
-
-    const stationSystems = initializeSpacecraftRuntimeSystems(station);
-    const pending: Spacecraft[] = [];
-    for (const ship of ships) {
-      const label = isFleetAction ? `${ship.name}: ` : '';
-      if (ship.dockedAtId === station.id) {
-        if (!isFleetAction) throw new BadRequestException('Das Schiff ist bereits angedockt');
-        continue;
-      }
-      if (ship.dockedAtId != null) {
-        throw new BadRequestException(`${label}Das Schiff ist bereits an einer anderen Station angedockt`);
-      }
-      if (ship.kind !== SpacecraftKind.SHIP || ship.userId !== userId) {
-        throw new BadRequestException(`${label}Nur eigene Schiffe können andocken`);
-      }
-      if (ship.status !== SpacecraftStatus.IDLE) {
-        throw new BadRequestException(`${label}Das Schiff ist nicht bereit zum Andocken`);
-      }
-      if (!sameSpacecraftLocation(ship, station)) {
-        throw new BadRequestException(`${label}Das Schiff befindet sich nicht am Feld der Station`);
-      }
-      const access = await this.privileges.decide(manager, station, ship);
-      if (!access.allowed) {
-        throw new BadRequestException(
-          `${label}${access.reason ?? 'Das Andocken wurde verweigert'}`,
-        );
-      }
-      const decision = decideNearbyInteraction(
-        'DOCK',
-        buildNearbyInteractionContext(
-          ship,
-          initializeSpacecraftRuntimeSystems(ship),
-          station,
-          stationSystems,
-        ),
-      );
-      if (!decision.allowed) {
-        throw new BadRequestException(
-          `${label}${decision.reason ?? 'Andocken nicht möglich'}`,
-        );
-      }
-      if (!(await this.crewService.hasEnoughCrew(ship))) {
-        throw new BadRequestException(`${label}Nicht genügend Crew vorhanden`);
-      }
-      if (ship.energy < DOCK_EPS_COST) {
-        throw new BadRequestException(`${label}Zum Andocken wird 1 Energie benötigt`);
-      }
-      pending.push(ship);
-    }
     if (station.status !== SpacecraftStatus.IDLE && station.status !== SpacecraftStatus.UNDER_SCRAPPING) {
       throw new BadRequestException('Die Station ist nicht bereit');
     }
-    const occupied = await manager
-      .getRepository(Spacecraft)
-      .countBy({ dockedAtId: station.id });
-    if (pending.length > Math.max(0, station.dockCapacity - occupied)) {
-      throw new BadRequestException('Zurzeit sind alle Dockplätze belegt');
+    if (fleet) {
+      const outcome = await this.dockShips(manager, fleetOrder(rows, fleet), station, userId, false);
+      return {
+        ...outcome,
+        message: `Flottenbefehl ausgeführt: Andocken an ${station.name}`,
+        foreignDocking: { station, ships: outcome.docked },
+      };
     }
 
-    for (const ship of pending) {
-      const systems = initializeSpacecraftRuntimeSystems(ship);
-      if (systems.SHIELDS) systems.SHIELDS = { ...systems.SHIELDS, active: false };
-      if (systems.WARPDRIVE) systems.WARPDRIVE = { ...systems.WARPDRIVE, active: false };
-      ship.runtimeSystems = systems;
-      ship.energy -= DOCK_EPS_COST;
-      ship.dockedAtId = station.id;
+    if (lead.dockedAtId === station.id) throw new BadRequestException('Das Schiff ist bereits angedockt');
+    const reason =
+      (lead.dockedAtId != null ? 'Das Schiff ist bereits an einer anderen Station angedockt' : null) ??
+      (await this.dockBlocker(manager, lead, station, userId, true)) ??
+      (!(await this.crewService.hasEnoughCrew(lead)) ? 'Nicht genügend Crew vorhanden' : null) ??
+      (lead.energy < DOCK_EPS_COST ? 'Zum Andocken wird 1 Energie benötigt' : null);
+    if (reason) throw new BadRequestException(reason);
+    const occupied = await manager.getRepository(Spacecraft).countBy({ dockedAtId: station.id });
+    if (occupied >= station.dockCapacity) {
+      throw new BadRequestException('Zurzeit sind alle Dockplätze belegt');
     }
-    if (pending.length > 0) await manager.save(pending);
+    this.attach(lead, station, lead);
+    await manager.save(lead);
     return {
-      message: isFleetAction
-        ? `Flottenbefehl ausgeführt: Andocken an ${station.name}`
-        : 'Andockvorgang abgeschlossen',
-      shipIds: pending.map((ship) => ship.id),
-      cancelled: await this.repairService.cancelTasks(
-        manager,
-        pending.map((ship) => ship.id),
-      ),
-      foreignDocking: {
-        station,
-        ships: pending,
-      },
+      message: 'Andockvorgang abgeschlossen',
+      shipIds: [lead.id],
+      cancelled: await this.repairService.cancelTasks(manager, [lead.id]),
+      foreignDocking: { station, ships: [lead] },
     };
+  }
+
+  /** STU `DockFleet`: the own station docks an own fleet on its field and pays the EPS. */
+  async dockFleetAtStation(
+    stationId: number,
+    userId: number,
+    fleetId: number,
+  ): Promise<SpacecraftDockResultDto> {
+    return this.run(async (manager) => {
+      const fleet = await manager.getRepository(Fleet).findOne({ where: { id: fleetId, userId } });
+      if (!fleet) throw new NotFoundException('Flotte nicht gefunden');
+      const rows = await this.lock(manager, [stationId, ...(await this.memberIds(manager, fleet.id))]);
+      const station = rows.find((row) => row.id === stationId);
+      if (!station || station.userId !== userId || station.kind !== SpacecraftKind.STATION) {
+        throw new NotFoundException('Station nicht gefunden');
+      }
+      const ships = fleetOrder(rows, fleet);
+      const leader = ships.find((ship) => ship.id === fleet.leaderId);
+      if (!leader || !sameSpacecraftLocation(leader, station)) {
+        throw new BadRequestException('Die Flotte befindet sich nicht am Feld der Station');
+      }
+      if (station.status !== SpacecraftStatus.IDLE && station.status !== SpacecraftStatus.UNDER_SCRAPPING) {
+        throw new BadRequestException('Die Station ist nicht bereit');
+      }
+      if (!(await this.crewService.hasEnoughCrew(station))) {
+        throw new BadRequestException('Nicht genügend Crew vorhanden');
+      }
+      if (initializeSpacecraftRuntimeSystems(station).SHIELDS?.active) {
+        throw new BadRequestException('Aktion nicht möglich. Die Station hat die Schilde aktiviert');
+      }
+      const outcome = await this.dockShips(manager, ships, station, userId, true);
+      if (outcome.docked.length > 0) await manager.save(station);
+      return {
+        ...outcome,
+        message: `Station aktiviert Andockleitsystem zur Flotte: ${fleet.name}`,
+      };
+    });
+  }
+
+  /**
+   * STU `fleetDock`/`DockFleet` loop: each ship docks or is skipped with a reason;
+   * missing EPS or full docking slots stop the loop and keep earlier ships docked.
+   */
+  private async dockShips(
+    manager: EntityManager,
+    ships: Spacecraft[],
+    station: Spacecraft,
+    userId: number,
+    stationPays: boolean,
+  ): Promise<Outcome & { docked: Spacecraft[] }> {
+    const results: SpacecraftDockShipResultDto[] = [];
+    const docked: Spacecraft[] = [];
+    const cancelled: Outcome['cancelled'] = [];
+    let free =
+      station.dockCapacity -
+      (await manager.getRepository(Spacecraft).countBy({ dockedAtId: station.id }));
+    for (const ship of ships) {
+      const report = (status: SpacecraftDockShipResultDto['status'], reason: string | null) =>
+        results.push({ shipId: ship.id, name: ship.name, status, reason });
+      if (free <= 0) {
+        report('aborted', 'Es sind alle Dockplätze belegt');
+        break;
+      }
+      if (ship.dockedAtId != null) {
+        report('skipped', 'Das Schiff ist bereits angedockt');
+        continue;
+      }
+      if (!stationPays && !(await this.crewService.hasEnoughCrew(ship))) {
+        report('skipped', 'Nicht genügend Crew vorhanden');
+        continue;
+      }
+      const payer = stationPays ? station : ship;
+      if (payer.energy < DOCK_EPS_COST) {
+        report('aborted', `${stationPays ? `${station.name}: ` : ''}Nicht genügend Energie vorhanden`);
+        break;
+      }
+      if (isCloaked(ship)) {
+        report('skipped', 'Das Schiff ist getarnt');
+        continue;
+      }
+      const blocker = await this.dockBlocker(manager, ship, station, userId, !stationPays);
+      if (blocker) {
+        report('skipped', blocker);
+        continue;
+      }
+      const notes = await this.cancelJobs(manager, ship, cancelled);
+      // The ship's own dock skips it after cancelling; the station's DockFleet docks it anyway.
+      if (notes && !stationPays) {
+        report('skipped', notes);
+        continue;
+      }
+      this.attach(ship, station, payer);
+      docked.push(ship);
+      free--;
+      report('docked', notes);
+    }
+    if (docked.length > 0) await manager.save(docked);
+    return { message: '', shipIds: docked.map((ship) => ship.id), cancelled, results, docked };
+  }
+
+  /** SWU rules beyond STU's loop checks; a fleet member failing one is skipped. */
+  private async dockBlocker(
+    manager: EntityManager,
+    ship: Spacecraft,
+    station: Spacecraft,
+    userId: number,
+    checkPrivileges: boolean,
+  ): Promise<string | null> {
+    if (ship.kind !== SpacecraftKind.SHIP || ship.userId !== userId) {
+      return 'Nur eigene Schiffe können andocken';
+    }
+    if (ship.status !== SpacecraftStatus.IDLE) return 'Das Schiff ist nicht bereit zum Andocken';
+    if (!sameSpacecraftLocation(ship, station)) {
+      return 'Das Schiff befindet sich nicht am Feld der Station';
+    }
+    if (checkPrivileges) {
+      const access = await this.privileges.decide(manager, station, ship);
+      if (!access.allowed) return access.reason ?? 'Das Andocken wurde verweigert';
+    }
+    const decision = decideNearbyInteraction(
+      'DOCK',
+      buildNearbyInteractionContext(
+        ship,
+        initializeSpacecraftRuntimeSystems(ship),
+        station,
+        initializeSpacecraftRuntimeSystems(station),
+      ),
+    );
+    return decision.allowed ? null : (decision.reason ?? 'Andocken nicht möglich');
+  }
+
+  /** STU cancelRepair/cancelRetrofit; returns the per-ship note, or null when nothing ran. */
+  private async cancelJobs(
+    manager: EntityManager,
+    ship: Spacecraft,
+    cancelled: Outcome['cancelled'],
+  ): Promise<string | null> {
+    const repairs = await this.repairService.cancelTasks(manager, [ship.id]);
+    cancelled.push(...repairs);
+    const jobs = await cancelShipyardJobs(manager, ship.id);
+    const notes = [
+      ...(repairs.length > 0 || jobs.includes(ColonyShipBuildQueueMode.REPAIR)
+        ? ['Die Reparatur wurde abgebrochen']
+        : []),
+      ...(jobs.includes(ColonyShipBuildQueueMode.RETROFIT) ? ['Die Umrüstung wurde abgebrochen'] : []),
+    ];
+    return notes.length > 0 ? notes.join('; ') : null;
+  }
+
+  /** Docked-state invariant: shields and hyperdrive drop, the payer spends the dock EPS. */
+  private attach(ship: Spacecraft, station: Spacecraft, payer: Spacecraft) {
+    const systems = initializeSpacecraftRuntimeSystems(ship);
+    if (systems.SHIELDS) systems.SHIELDS = { ...systems.SHIELDS, active: false };
+    if (systems.WARPDRIVE) systems.WARPDRIVE = { ...systems.WARPDRIVE, active: false };
+    ship.runtimeSystems = systems;
+    payer.energy -= DOCK_EPS_COST;
+    ship.dockedAtId = station.id;
   }
 
   private async undockInTransaction(
@@ -311,50 +425,90 @@ export class SpacecraftDockingService {
     shipId: number,
     userId: number,
   ): Promise<Outcome> {
-    const lead = (await this.lock(manager, [shipId]))[0];
+    const fleet = await this.ledFleet(manager, shipId, userId);
+    const rows = await this.lock(manager, [
+      shipId,
+      ...(fleet ? await this.memberIds(manager, fleet.id) : []),
+    ]);
+    const lead = rows.find((row) => row.id === shipId);
     if (!lead || lead.userId !== userId) throw new NotFoundException('Schiff nicht gefunden');
     if (lead.dockedAtId == null) throw new BadRequestException('Das Schiff ist nicht angedockt');
-    const fleet = lead.fleetId
-      ? await manager.getRepository(Fleet).findOne({ where: { id: lead.fleetId, userId } })
-      : null;
-    const isFleetAction = fleet != null && fleet.leaderId === lead.id;
-    let ships: Spacecraft[] = [lead];
-    if (isFleetAction) {
-      const members = await manager.getRepository(Spacecraft).find({
-        where: { fleetId: fleet.id },
-        select: { id: true },
-      });
-      ships = (await this.lock(manager, members.map((member) => member.id))).filter(
-        (ship) => ship.dockedAtId === lead.dockedAtId,
-      );
-    }
-    for (const ship of ships) {
-      const label = isFleetAction ? `${ship.name}: ` : '';
-      if (!(await this.crewService.hasEnoughCrew(ship))) {
-        throw new BadRequestException(`${label}Nicht genügend Crew vorhanden`);
-      }
-      if (ship.energy < DOCK_EPS_COST) {
-        throw new BadRequestException(`${label}Zum Abdocken wird 1 Energie benötigt`);
-      }
-    }
     const stationName =
       (await manager.getRepository(Spacecraft).findOneBy({ id: lead.dockedAtId }))?.name ??
       'der Station';
-    for (const ship of ships) {
+    if (!fleet) {
+      if (!(await this.crewService.hasEnoughCrew(lead))) {
+        throw new BadRequestException('Nicht genügend Crew vorhanden');
+      }
+      if (lead.energy < DOCK_EPS_COST) {
+        throw new BadRequestException('Zum Abdocken wird 1 Energie benötigt');
+      }
+      lead.energy -= DOCK_EPS_COST;
+      lead.dockedAtId = null;
+      await manager.save(lead);
+      return {
+        message: 'Abdockvorgang abgeschlossen',
+        shipIds: [lead.id],
+        cancelled: await this.repairService.cancelTasks(manager, [lead.id]),
+      };
+    }
+
+    // STU UndockShip fleet loop: per-ship skips, missing EPS stops the remaining ships.
+    const results: SpacecraftDockShipResultDto[] = [];
+    const cancelled: Outcome['cancelled'] = [];
+    const undocked: Spacecraft[] = [];
+    for (const ship of fleetOrder(rows, fleet)) {
+      const report = (status: SpacecraftDockShipResultDto['status'], reason: string | null) =>
+        results.push({ shipId: ship.id, name: ship.name, status, reason });
+      if (ship.dockedAtId == null) continue;
+      if (!(await this.crewService.hasEnoughCrew(ship))) {
+        report('skipped', 'Nicht genügend Crew vorhanden');
+        continue;
+      }
+      if (ship.energy < DOCK_EPS_COST) {
+        report('aborted', 'Nicht genügend Energie vorhanden');
+        break;
+      }
+      const notes = await this.cancelJobs(manager, ship, cancelled);
+      if (notes) {
+        report('skipped', notes);
+        continue;
+      }
       ship.energy -= DOCK_EPS_COST;
       ship.dockedAtId = null;
+      undocked.push(ship);
+      report('undocked', null);
     }
-    await manager.save(ships);
+    if (undocked.length > 0) await manager.save(undocked);
     return {
-      message: isFleetAction
-        ? `Flottenbefehl ausgeführt: Abdocken von ${stationName}`
-        : 'Abdockvorgang abgeschlossen',
-      shipIds: ships.map((ship) => ship.id),
-      cancelled: await this.repairService.cancelTasks(
-        manager,
-        ships.map((ship) => ship.id),
-      ),
+      message: `Flottenbefehl ausgeführt: Abdocken von ${stationName}`,
+      shipIds: undocked.map((ship) => ship.id),
+      cancelled,
+      results,
     };
+  }
+
+  /** The fleet the ship leads, or null; membership is re-read from the locked ship rows. */
+  private async ledFleet(
+    manager: EntityManager,
+    shipId: number,
+    userId: number,
+  ): Promise<Fleet | null> {
+    const hint = await manager.getRepository(Spacecraft).findOneBy({ id: shipId, userId });
+    if (hint?.fleetId == null) return null;
+    const fleet = await manager.getRepository(Fleet).findOne({
+      where: { id: hint.fleetId, userId },
+    });
+    return fleet?.leaderId === shipId ? fleet : null;
+  }
+
+  private async memberIds(manager: EntityManager, fleetId: number): Promise<number[]> {
+    return (
+      await manager.getRepository(Spacecraft).find({
+        where: { fleetId },
+        select: { id: true },
+      })
+    ).map((member) => member.id);
   }
 
   private async lockOwnedStation(
@@ -367,15 +521,6 @@ export class SpacecraftDockingService {
       throw new NotFoundException('Station nicht gefunden');
     }
     return station;
-  }
-
-  private async lockPair(
-    manager: EntityManager,
-    shipId: number,
-    stationId: number,
-  ): Promise<[Spacecraft | undefined, Spacecraft | undefined]> {
-    const rows = await this.lock(manager, [shipId, stationId]);
-    return [rows.find((row) => row.id === shipId), rows.find((row) => row.id === stationId)];
   }
 
   /** Locks rows in ascending id order so concurrent docking actions cannot deadlock. */

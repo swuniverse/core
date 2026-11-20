@@ -1,9 +1,9 @@
 # NBS-Liste gruppiert wie STU
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
-**Blocked by:** sc-AUD-11 (nur Restkriterium „Station dockt Flotte“)
+**Blocked by:** —
 
 ## Ziel
 
@@ -28,9 +28,9 @@ Die NBS-Liste in SWU ist flach: Eine einzige Gruppe „Einzelschiffe“ enthält
 - [x] Das NBS zeigt die Gruppen „Stationen“, je Flotte eine Kopfzeile (Name, Anzahl sichtbarer Schiffe, „Flotte beitreten“ wo erlaubt, verteidigte/blockierte Kolonie, auf-/zuklappen, PM an Eigner), „Einzelschiffe“ und „Trümmerfelder“ in STU-Reihenfolge.
 - [x] Hinweis „Es befinden sich getarnte Schiffe in diesem Sektor“ nach STU-Bedingung (Gravitationswellenscanner aktiv, kein laufender Scan, getarntes Schiff am Feld) – ohne getarnte Schiffe selbst preiszugeben.
 - [x] Je Zeile Logbuch-Icon, wenn das Ziel nicht-private Logbucheinträge hat (Anschluss an sc-AUD-13), und RPG-Icon bei aktivem RPG-Transponder (nur soweit sc-WP-SPEC-2 die Sichtbarkeit erlaubt; an dessen Code nichts ändern).
-- [ ] Eine eigene Station kann eine eigene Flotte am Feld aus der Flottenkopfzeile andocken; Regeln und Teilergebnis nach sc-AUD-11 (Station zahlt EPS).
+- [x] Eine eigene Station kann eine eigene Flotte am Feld aus der Flottenkopfzeile andocken; Regeln und Teilergebnis nach sc-AUD-11 (Station zahlt EPS).
 - [x] Unicode-Glyphen (⌁, ◎, ⚔, ⇪) durch die vorhandenen Icon-Assets bzw. konsistente Icons mit Tooltip ersetzen.
-- [ ] Backend-Tests für Gruppierung und Getarnt-Hinweis (kein Informationsleck); Frontend-Tests für Gruppen, Kopfzeile und Station-dockt-Flotte.
+- [x] Backend-Tests für Gruppierung und Getarnt-Hinweis (kein Informationsleck); Frontend-Tests für Gruppen, Kopfzeile und Station-dockt-Flotte.
 
 ## Herkunft
 
@@ -49,4 +49,6 @@ Die NBS-Liste in SWU ist flach: Eine einzige Gruppe „Einzelschiffe“ enthält
   - Ausstehend: gesammelter Verifikationslauf (u. a. `rpg-transponder.int-spec.ts`, das `getNearby` nutzt) und die Docking-Aktion nach sc-AUD-11.
 - 2026-11-20 – Prüflauf (Claude Opus 5.5): Diff gegen alle Kriterien geprüft. Belegt: DTO-Gruppen, Gruppen/Kopfzeile, Getarnt-Hinweis ohne Leck, Logbuch/RPG-Icons, Icons statt Glyphen. Neu: Integrationstest gegen PostgreSQL in `rpg-transponder.int-spec.ts` („groups the NBS …“: echte Abfragen für Logbuch und `ColonyOrbitAssignment`, Flottenzählung mit/ohne Tachyonscan, Hinweis ohne Namen/ID des getarnten Schiffs). Checks: `rpg-transponder.int-spec.ts` 14/14 (13 + neu), `npm run test` Backend 2681/2682 und Frontend 964/965, `nx build` shared/backend/frontend grün. Die beiden Fehlschläge betreffen nicht sc-AUD-06: `admin-users.spec.tsx` ist isoliert grün (Flake unter Last); `resource-collection.controller.spec.ts` erwartet seit `ef80ad05` (col-AUD-16a) die alte PermissionGuard-Meldung „Insufficient permissions“.
   - Nicht erledigt, Ticket bleibt offen: „Station dockt Flotte“ aus der Flottenkopfzeile samt Frontend-Test – wartet auf den Endpunkt aus sc-AUD-11. Status zurück auf `ready-for-agent`, blockiert durch sc-AUD-11.
+- 2026-11-20 – Restkriterium umgesetzt, Prüfung ausstehend (gemeinsamer Commit mit sc-AUD-11). `fleets[].canDockFleet` (eigene Station sieht eigene Flotte, STU `isStation and leadShip.isSelectable`); Kopfzeile bietet „(andocken)“ → `POST dock-fleet`, Teilergebnis je Schiff im NBS. Frontend-Tests „lets an own station dock an own fleet …“ und „offers no fleet dock without the station permission flag“; Backend-Tests für Station-dockt-Flotte in sc-AUD-11. Nebenbei behoben: veraltete Erwartung in `resource-collection.controller.spec.ts` (Guard-Meldung aus col-AUD-16a).
+  - Ausstehend: separater Prüflauf für den neuen Teil.
 

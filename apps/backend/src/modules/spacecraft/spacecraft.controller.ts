@@ -1693,6 +1693,16 @@ export class SpacecraftController {
     return this.dockingService.dock(id, req.user.sub, stationId);
   }
 
+  /** STU `B_DOCK_FLEET`: the station docks an own fleet on its field. */
+  @Post(':id/dock-fleet/:fleetId')
+  dockFleet(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('fleetId', ParseIntPipe) fleetId: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.dockingService.dockFleetAtStation(id, req.user.sub, fleetId);
+  }
+
   @Post(':id/undock')
   undock(
     @Param('id', ParseIntPipe) id: number,

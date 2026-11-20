@@ -1,6 +1,6 @@
 # Flottenandocken und -abdocken schiffsweise wie STU
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -32,13 +32,13 @@ Abdocken läuft ebenso schiffsweise mit 1 EPS.
 
 ## Akzeptanzkriterien
 
-- [ ] Flottenandocken durch den Leader läuft schiffsweise: Bereits angedockte überspringen; Tarnung, fehlende Crew, laufende Reparatur/Umrüstung (wird abgebrochen) überspringen das Schiff mit Grund; EPS-Mangel oder volle Dockplätze brechen ab, bereits angedockte bleiben angedockt.
-- [ ] Beim Andocken werden Schilde und Hyperantrieb des Schiffs abgeschaltet (wie bisher).
-- [ ] Neuer Endpunkt „Station dockt Flotte“ (eigene Station, eigene Flotte am Feld, Stationscrew ausreichend, Station ungeschildet): Station zahlt 1 EPS je Schiff, sonst gleiche Schleifenregeln.
-- [ ] Flottenabdocken schiffsweise mit 1 EPS je Schiff und Grund je Schiff.
-- [ ] `SpacecraftDockResultDto` liefert eine Liste `{ shipId, name, docked|skipped|aborted, reason }`; das UI zeigt sie.
-- [ ] Nebenläufigkeit: Sperren pro Schiff bzw. Flotte so, dass Teilergebnisse konsistent persistiert werden (PostgreSQL-Integrationstest).
-- [ ] Backend-Tests für jeden Grund und Abbruch, Station-dockt-Flotte mit Stations-EPS; Frontend-Test für die Teilergebnisanzeige.
+- [x] Flottenandocken durch den Leader läuft schiffsweise: Bereits angedockte überspringen; Tarnung, fehlende Crew, laufende Reparatur/Umrüstung (wird abgebrochen) überspringen das Schiff mit Grund; EPS-Mangel oder volle Dockplätze brechen ab, bereits angedockte bleiben angedockt.
+- [x] Beim Andocken werden Schilde und Hyperantrieb des Schiffs abgeschaltet (wie bisher).
+- [x] Neuer Endpunkt „Station dockt Flotte“ (eigene Station, eigene Flotte am Feld, Stationscrew ausreichend, Station ungeschildet): Station zahlt 1 EPS je Schiff, sonst gleiche Schleifenregeln.
+- [x] Flottenabdocken schiffsweise mit 1 EPS je Schiff und Grund je Schiff.
+- [x] `SpacecraftDockResultDto` liefert eine Liste `{ shipId, name, docked|skipped|aborted, reason }`; das UI zeigt sie.
+- [x] Nebenläufigkeit: Sperren pro Schiff bzw. Flotte so, dass Teilergebnisse konsistent persistiert werden (PostgreSQL-Integrationstest).
+- [x] Backend-Tests für jeden Grund und Abbruch, Station-dockt-Flotte mit Stations-EPS; Frontend-Test für die Teilergebnisanzeige.
 
 ## Herkunft
 
@@ -49,3 +49,14 @@ Abdocken läuft ebenso schiffsweise mit 1 EPS.
 
 - Der `map.md`-Eintrag wird vom umsetzenden Agenten bzw. Maintainer angepasst, nicht in diesem Ticket vorab.
 - 2026-11-20 – Anschluss aus sc-AUD-06: Die NBS-Flottenkopfzeile (`NearbySensorPanel`, `fleets[]` im Nearby-DTO) ist fertig; die Aktion „andocken“ für eine eigene Station dort nachrüsten, sobald der Endpunkt steht.
+- 2026-11-20 – umgesetzt, Prüfung ausstehend (Commit „feat(spacecraft): dock fleets ship by ship like STU (stu-parity sc-AUD-11, sc-AUD-06)“). Modell: Claude Opus 5.5 direkt (Sol/Luna nicht verfügbar; Transaktionen/Nebenläufigkeit, daher nicht delegiert).
+  - `SpacecraftDockingService`: Flottenandocken durch den Leader schiffsweise nach STU `fleetDock` (Leader zuerst; angedockt → übersprungen; Crew fehlt → übersprungen; Schiffs-EPS fehlt → Abbruch; getarnt → übersprungen; SWU-Regeln Feld/Status/Andockrechte/Stationsschilde → übersprungen mit Grund; Reparatur/Umrüstung wird abgebrochen und das Schiff übersprungen; volle Dockplätze → Abbruch). Einzelschiff-Andocken unverändert.
+  - Neuer Endpunkt `POST /spacecraft/:stationId/dock-fleet/:fleetId` nach STU `DockFleet`: eigene Station, eigene Flotte mit Leader am Feld, Stationscrew, Station ungeschildet; Station zahlt 1 EPS je Schiff (Abbruch bei Mangel); Reparatur/Umrüstung wird abgebrochen, das Schiff dockt trotzdem (wie STU).
+  - Flottenabdocken schiffsweise nach STU `UndockShip` (Crew → übersprungen, EPS → Abbruch, Reparatur/Umrüstung → abgebrochen und übersprungen).
+  - `SpacecraftDockResultDto.ships[]` mit `{ shipId, name, status: docked|undocked|skipped|aborted, reason }`; Anzeige über neue `DockResult`-Komponente in `DockingPanel` und `NearbySensorPanel`.
+  - Werft-Reparatur/Umrüstung-Abbruch aus `BattlePreparationService` in `shipyard-job-cancel.ts` herausgelöst (Kampf weiter mit NOWAIT, Docking blockierend).
+  - Sperren: alle beteiligten Schiffe inkl. Station in einer Abfrage aufsteigend nach ID (wie bisher im Service), Flottenmitgliedschaft aus den gesperrten Zeilen. Bewusst keine zusätzliche Flottenzeilen-Sperre: Sie würde gegenüber Schiff-zuerst-Schreibern ein Deadlock-Risiko einführen (siehe `fleet-lock.ts`).
+  - `map.md`-Entscheidung sc-WP-STAT-3a als ersetzt markiert.
+  - Checks: `spacecraft-docking.service.spec.ts` 37/37 (alle Gründe, Abbruch EPS/Dockplätze, Station-dockt-Flotte mit Stations-EPS, Abdocken schiffsweise); neuer PostgreSQL-Test `spacecraft-docking.int-spec.ts` 3/3, dreimal hintereinander (Teilpersistenz bei EPS-Abbruch, Stations-EPS, gleichzeitiges Flotten- und Einzelandocken überfüllt keine Dockplätze und Rückmeldung = DB); `ColonyShipBuildQueue` in die Integrations-DataSource aufgenommen. Frontend `DockingPanel.spec.tsx`/`NearbySensorPanel.spec.tsx` 29/29. `npm run test` komplett grün (Backend 2691, Frontend 968), `nx build` shared/backend/frontend grün, verwandte Integrationssuiten 23/23.
+  - Ausstehend: separater Prüflauf.
+

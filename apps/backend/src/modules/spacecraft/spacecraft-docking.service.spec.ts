@@ -17,7 +17,13 @@ jest.mock('./spacecraft-field', () => ({
   resolveSpacecraftLocation: () => ({ scope: 'SYSTEM' }),
 }));
 
+jest.mock('../colony/entities/colony-ship-build-queue.entity', () => ({
+  ColonyShipBuildQueueMode: { REPAIR: 'REPAIR', RETROFIT: 'RETROFIT' },
+}));
+jest.mock('./shipyard-job-cancel', () => ({ cancelShipyardJobs: jest.fn(async () => []) }));
+
 import { BadRequestException } from '@nestjs/common';
+import { cancelShipyardJobs } from './shipyard-job-cancel';
 import { Fleet } from './entities/fleet.entity';
 import { SpacecraftDockingService } from './spacecraft-docking.service';
 
@@ -76,9 +82,11 @@ function setup(
     save,
   };
   const dataSource = { transaction: jest.fn(async (work: any) => work(manager)) };
-  const crew = { hasEnoughCrew: jest.fn(async () => true) };
+  const crew = { hasEnoughCrew: jest.fn(async (_row: Row) => true) };
   const repair = {
-    cancelTasks: jest.fn(async () => []),
+    cancelTasks: jest.fn(
+      async (_manager: unknown, _ids: number[]): Promise<Array<{ userId: number; name: string }>> => [],
+    ),
     notifyCancelled: jest.fn(async () => undefined),
   };
   const privileges = {
@@ -106,6 +114,7 @@ jest.mock('typeorm', () => ({
 }));
 
 describe('SpacecraftDockingService', () => {
+  beforeEach(() => jest.mocked(cancelShipyardJobs).mockResolvedValue([]));
   it('allows a workbee to dock while station scrapping is paused', async () => {
     const a = ship(1);
     const { service } = setup([a, station({ status: 'UNDER_SCRAPPING', dockCapacity: 50 })]);
@@ -171,48 +180,120 @@ describe('SpacecraftDockingService', () => {
     await expect(service.dock(1, 1, 100)).rejects.toThrow('Crew');
   });
 
-  describe('fleet docking', () => {
+  describe('fleet docking (STU fleetDock, ship by ship)', () => {
     const fleet = { id: 5, leaderId: 1, name: 'Alpha' };
 
-    it('docks every member in one action', async () => {
-      const rows = [ship(1, { fleetId: 5 }), ship(2, { fleetId: 5 }), station()];
+    it('docks every member leader first and reports each ship', async () => {
+      const rows = [ship(2, { fleetId: 5 }), ship(1, { fleetId: 5 }), station()];
       const { service } = setup(rows, fleet);
       const result = await service.dock(1, 1, 100);
-      expect(result.shipIds.sort()).toEqual([1, 2]);
-      expect(rows[0].dockedAtId).toBe(100);
-      expect(rows[1].dockedAtId).toBe(100);
+      expect(result.message).toBe('Flottenbefehl ausgeführt: Andocken an Station');
+      expect(result.ships).toEqual([
+        { shipId: 1, name: 'Schiff 1', status: 'docked', reason: null },
+        { shipId: 2, name: 'Schiff 2', status: 'docked', reason: null },
+      ]);
+      expect(rows.map((row) => row.dockedAtId)).toEqual([100, 100, null]);
+      expect(rows[0].energy).toBe(4);
+      expect(rows[0].runtimeSystems.SHIELDS.active).toBe(false);
     });
 
-    it('is all or nothing when one member fails validation', async () => {
-      const rows = [ship(1, { fleetId: 5 }), ship(2, { fleetId: 5, energy: 0 }), station()];
-      const { service, save } = setup(rows, fleet);
-      await expect(service.dock(1, 1, 100)).rejects.toBeInstanceOf(BadRequestException);
-      expect(rows[0].dockedAtId).toBeNull();
-      expect(rows[0].energy).toBe(5);
-      expect(save).not.toHaveBeenCalled();
+    it.each([
+      ['already docked', { dockedAtId: 200 }, 'Das Schiff ist bereits angedockt'],
+      ['cloaked', { runtimeSystems: { CLOAK: { active: true } } }, 'Das Schiff ist getarnt'],
+      ['on another field', { locationId: 8 }, 'Das Schiff befindet sich nicht am Feld der Station'],
+    ])('skips a member that is %s and docks the rest', async (_case, overrides, reason) => {
+      const rows = [ship(1, { fleetId: 5 }), ship(2, { fleetId: 5, ...overrides }), ship(3, { fleetId: 5 }), station({ dockCapacity: 5 })];
+      const result = await setup(rows, fleet).service.dock(1, 1, 100);
+      expect(result.ships?.[1]).toEqual({ shipId: 2, name: 'Schiff 2', status: 'skipped', reason });
+      expect(result.shipIds).toEqual([1, 3]);
     });
 
-    it('rejects when the free slots do not fit the whole fleet', async () => {
+    it('skips a member without crew', async () => {
       const rows = [ship(1, { fleetId: 5 }), ship(2, { fleetId: 5 }), station()];
-      const { service } = setup(rows, fleet, 1);
-      await expect(service.dock(1, 1, 100)).rejects.toThrow('Dockplätze');
-      expect(rows[0].dockedAtId).toBeNull();
-    });
-
-    it('treats members already at this station as fulfilled and rejects another station', async () => {
-      const done = [ship(1, { fleetId: 5 }), ship(2, { fleetId: 5, dockedAtId: 100 }), station()];
-      const ok = setup(done, fleet, 1);
-      const result = await ok.service.dock(1, 1, 100);
+      const { service, crew } = setup(rows, fleet);
+      crew.hasEnoughCrew.mockImplementation(async (row: Row) => row.id !== 2);
+      const result = await service.dock(1, 1, 100);
+      expect(result.ships?.[1]).toMatchObject({ status: 'skipped', reason: 'Nicht genügend Crew vorhanden' });
       expect(result.shipIds).toEqual([1]);
-      const other = [ship(1, { fleetId: 5 }), ship(2, { fleetId: 5, dockedAtId: 200 }), station()];
-      await expect(setup(other, fleet).service.dock(1, 1, 100)).rejects.toThrow('anderen Station');
     });
 
-    it('cancels repairs only on success', async () => {
-      const rows = [ship(1, { fleetId: 5 }), station()];
+    it('cancels a repair or retrofit and skips that member', async () => {
+      const rows = [ship(1, { fleetId: 5 }), ship(2, { fleetId: 5 }), ship(3, { fleetId: 5 }), station({ dockCapacity: 5 })];
       const { service, repair } = setup(rows, fleet);
-      await service.dock(1, 1, 100);
-      expect(repair.cancelTasks).toHaveBeenCalledWith(expect.anything(), [1]);
+      repair.cancelTasks.mockImplementation(async (_m: unknown, ids: number[]) =>
+        ids[0] === 2 ? [{ userId: 1, name: 'Schiff 2' }] : [],
+      );
+      jest.mocked(cancelShipyardJobs).mockImplementation(async (_m, id) => (id === 3 ? ['RETROFIT' as any] : []));
+      const result = await service.dock(1, 1, 100);
+      expect(result.ships?.slice(1)).toEqual([
+        { shipId: 2, name: 'Schiff 2', status: 'skipped', reason: 'Die Reparatur wurde abgebrochen' },
+        { shipId: 3, name: 'Schiff 3', status: 'skipped', reason: 'Die Umrüstung wurde abgebrochen' },
+      ]);
+      expect(rows[1].dockedAtId).toBeNull();
+      expect(repair.notifyCancelled).toHaveBeenCalledWith([{ userId: 1, name: 'Schiff 2' }], expect.any(String));
+    });
+
+    it('stops at missing EPS and keeps the ships docked before', async () => {
+      const rows = [ship(1, { fleetId: 5 }), ship(2, { fleetId: 5, energy: 0 }), ship(3, { fleetId: 5 }), station({ dockCapacity: 5 })];
+      const { service, save } = setup(rows, fleet);
+      const result = await service.dock(1, 1, 100);
+      expect(result.ships).toEqual([
+        { shipId: 1, name: 'Schiff 1', status: 'docked', reason: null },
+        { shipId: 2, name: 'Schiff 2', status: 'aborted', reason: 'Nicht genügend Energie vorhanden' },
+      ]);
+      expect(rows.map((row) => row.dockedAtId)).toEqual([100, null, null, null]);
+      expect(save).toHaveBeenCalledWith([rows[0]]);
+    });
+
+    it('stops when the docking slots run out', async () => {
+      const rows = [ship(1, { fleetId: 5 }), ship(2, { fleetId: 5 }), station()];
+      const result = await setup(rows, fleet, 1).service.dock(1, 1, 100);
+      expect(result.ships?.[1]).toMatchObject({ status: 'aborted', reason: 'Es sind alle Dockplätze belegt' });
+      expect(result.shipIds).toEqual([1]);
+    });
+  });
+
+  describe('station docks a fleet (STU DockFleet)', () => {
+    const fleet = { id: 5, leaderId: 1, name: 'Alpha' };
+
+    it('docks the fleet for 1 station EPS per ship; repairs are cancelled but the ship still docks', async () => {
+      const rows = [ship(1, { fleetId: 5, energy: 0 }), ship(2, { fleetId: 5 }), station({ energy: 2 })];
+      const { service, repair, crew } = setup(rows, fleet);
+      repair.cancelTasks.mockImplementation(async (_m: unknown, ids: number[]) =>
+        ids[0] === 2 ? [{ userId: 1, name: 'Schiff 2' }] : [],
+      );
+      const result = await service.dockFleetAtStation(100, 1, 5);
+      expect(result.message).toBe('Station aktiviert Andockleitsystem zur Flotte: Alpha');
+      expect(result.ships).toEqual([
+        { shipId: 1, name: 'Schiff 1', status: 'docked', reason: null },
+        { shipId: 2, name: 'Schiff 2', status: 'docked', reason: 'Die Reparatur wurde abgebrochen' },
+      ]);
+      expect(rows[2].energy).toBe(0);
+      expect(rows[0].energy).toBe(0);
+      expect(rows[1].energy).toBe(5);
+      expect(crew.hasEnoughCrew).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops when the station runs out of EPS', async () => {
+      const rows = [ship(1, { fleetId: 5 }), ship(2, { fleetId: 5 }), station({ energy: 1 })];
+      const result = await setup(rows, fleet).service.dockFleetAtStation(100, 1, 5);
+      expect(result.ships?.[1]).toEqual({ shipId: 2, name: 'Schiff 2', status: 'aborted', reason: 'Station: Nicht genügend Energie vorhanden' });
+      expect(result.shipIds).toEqual([1]);
+    });
+
+    it.each([
+      ['a foreign station', [ship(1, { fleetId: 5 }), station({ userId: 2, energy: 5 })], 'Station nicht gefunden'],
+      ['a fleet on another field', [ship(1, { fleetId: 5, locationId: 8 }), station({ energy: 5 })], 'nicht am Feld'],
+      ['raised station shields', [ship(1, { fleetId: 5 }), station({ energy: 5, runtimeSystems: { SHIELDS: { active: true } } })], 'Schilde'],
+    ])('rejects %s', async (_case, rows, message) => {
+      await expect(setup(rows as Row[], fleet).service.dockFleetAtStation(100, 1, 5)).rejects.toThrow(message as string);
+    });
+
+    it('rejects without station crew or for a foreign fleet', async () => {
+      const first = setup([ship(1, { fleetId: 5 }), station({ energy: 5 })], fleet);
+      first.crew.hasEnoughCrew.mockResolvedValue(false);
+      await expect(first.service.dockFleetAtStation(100, 1, 5)).rejects.toThrow('Crew');
+      await expect(setup([ship(1, { fleetId: 5 }), station({ energy: 5 })], null).service.dockFleetAtStation(100, 1, 5)).rejects.toThrow('Flotte nicht gefunden');
     });
   });
 
@@ -232,24 +313,30 @@ describe('SpacecraftDockingService', () => {
       await expect(setup([ship(1), station()]).service.undock(1, 1)).rejects.toThrow('nicht angedockt');
     });
 
-    it('undocks the fleet together, all or nothing', async () => {
+    it('undocks the fleet ship by ship: skips without crew or with a cancelled repair, stops at missing EPS', async () => {
       const fleet = { id: 5, leaderId: 1, name: 'Alpha' };
       const rows = [
         ship(1, { fleetId: 5, dockedAtId: 100 }),
         ship(2, { fleetId: 5, dockedAtId: 100 }),
+        ship(3, { fleetId: 5, dockedAtId: 100 }),
+        ship(4, { fleetId: 5, dockedAtId: 100, energy: 0 }),
+        ship(5, { fleetId: 5, dockedAtId: 100 }),
         station(),
       ];
-      await setup(rows, fleet).service.undock(1, 1);
-      expect(rows[0].dockedAtId).toBeNull();
-      expect(rows[1].dockedAtId).toBeNull();
-      const failing = [
-        ship(1, { fleetId: 5, dockedAtId: 100 }),
-        ship(2, { fleetId: 5, dockedAtId: 100, energy: 0 }),
-        station(),
-      ];
-      await expect(setup(failing, fleet).service.undock(1, 1)).rejects.toThrow('Energie');
-      expect(failing[0].dockedAtId).toBe(100);
-      expect(failing[0].energy).toBe(5);
+      const { service, crew, repair } = setup(rows, fleet);
+      crew.hasEnoughCrew.mockImplementation(async (row: Row) => row.id !== 2);
+      repair.cancelTasks.mockImplementation(async (_m: unknown, ids: number[]) =>
+        ids[0] === 3 ? [{ userId: 1, name: 'Schiff 3' }] : [],
+      );
+      const result = await service.undock(1, 1);
+      expect(result.ships?.map((entry) => [entry.shipId, entry.status, entry.reason])).toEqual([
+        [1, 'undocked', null],
+        [2, 'skipped', 'Nicht genügend Crew vorhanden'],
+        [3, 'skipped', 'Die Reparatur wurde abgebrochen'],
+        [4, 'aborted', 'Nicht genügend Energie vorhanden'],
+      ]);
+      expect(rows.map((row) => row.dockedAtId)).toEqual([null, 100, 100, 100, 100, null]);
+      expect(rows[0].energy).toBe(4);
     });
 
     it('lets the station undock one or all ships without EPS cost', async () => {

@@ -671,4 +671,44 @@ describe('NearbySensorPanel', () => {
     expect(await screen.findByText('Es befinden sich getarnte Schiffe in diesem Sektor')).toBeTruthy();
     expect(screen.queryByText('Es befinden sich keine Schiffe in diesem Sektor.')).toBeNull();
   });
+
+  it('lets an own station dock an own fleet from its header and shows the per-ship result', async () => {
+    apiMocks.get.mockResolvedValue({
+      ...nearby,
+      fleets: [{ id: 7, name: 'Rotte', leadShipId: 3, username: 'Ich', isOwn: true, visibleShips: 1, defending: false, blocking: false, canJoin: false, canDockFleet: true }],
+      ships: [{ ...nearby.ships[0], isOwn: true, fleetId: 7 }],
+    });
+    apiMocks.post.mockResolvedValue({
+      message: 'Station aktiviert Andockleitsystem zur Flotte: Rotte',
+      shipIds: [],
+      ships: [{ shipId: 3, name: 'Ziel', status: 'aborted', reason: 'Station: Nicht genügend Energie vorhanden' }],
+    });
+    const onUpdate = vi.fn();
+    render(
+      <MemoryRouter>
+        <NearbySensorPanel shipId={2} locationKey="system:1:5:5" systems={{ SHORT_RANGE_SENSORS: { active: true } }} onUpdate={onUpdate} />
+      </MemoryRouter>,
+    );
+    fireEvent.click(await screen.findByTitle('Flotte Rotte andocken'));
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/dock-fleet/7', {}));
+    expect(await screen.findByText('Station aktiviert Andockleitsystem zur Flotte: Rotte')).toBeTruthy();
+    expect(screen.getByRole('list', { name: 'Ergebnis je Schiff' }).textContent).toContain('Ziel: abgebrochen – Station: Nicht genügend Energie vorhanden');
+    expect(onUpdate).toHaveBeenCalled();
+  });
+
+  it('offers no fleet dock without the station permission flag', async () => {
+    apiMocks.get.mockResolvedValue({
+      ...nearby,
+      fleets: [{ id: 7, name: 'Rotte', leadShipId: 3, username: 'Andere', isOwn: false, visibleShips: 1, defending: false, blocking: false, canJoin: false, canDockFleet: false }],
+      ships: [{ ...nearby.ships[0], fleetId: 7 }],
+    });
+    render(
+      <MemoryRouter>
+        <NearbySensorPanel shipId={2} locationKey="system:1:5:5" systems={{ SHORT_RANGE_SENSORS: { active: true } }} onUpdate={vi.fn()} />
+      </MemoryRouter>,
+    );
+    await screen.findByText('Rotte');
+    expect(screen.queryByTitle('Flotte Rotte andocken')).toBeNull();
+  });
 });
+

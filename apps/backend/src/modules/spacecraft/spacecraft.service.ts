@@ -4360,6 +4360,8 @@ export class SpacecraftService {
             lead.userId === ship.userId &&
             ship.kind === 'SHIP' &&
             ship.fleetId == null,
+          canDockFleet:
+            lead.userId === ship.userId && ship.kind === 'STATION',
         };
       });
     const dockableStationIds =

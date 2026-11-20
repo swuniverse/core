@@ -37,6 +37,24 @@ describe('DockingPanel', () => {
     expect(onChanged).toHaveBeenCalled();
   });
 
+  it('lists the per-ship result of a fleet undock', async () => {
+    apiMocks.post.mockResolvedValue({
+      message: 'Flottenbefehl ausgeführt: Abdocken von Hoth-Depot',
+      shipIds: [2],
+      ships: [
+        { shipId: 2, name: 'Falke', status: 'undocked', reason: null },
+        { shipId: 3, name: 'Adler', status: 'skipped', reason: 'Nicht genügend Crew vorhanden' },
+        { shipId: 4, name: 'Kondor', status: 'aborted', reason: 'Nicht genügend Energie vorhanden' },
+      ],
+    });
+    renderPanel({ kind: 'SHIP', dockedAtId: 9, dockedAtName: 'Hoth-Depot' });
+    fireEvent.click(screen.getByRole('button', { name: /Abdocken/ }));
+    const list = await screen.findByRole('list', { name: 'Ergebnis je Schiff' });
+    expect(list.textContent).toContain('Falke: abgedockt');
+    expect(list.textContent).toContain('Adler: übersprungen – Nicht genügend Crew vorhanden');
+    expect(list.textContent).toContain('Kondor: abgebrochen – Nicht genügend Energie vorhanden');
+  });
+
   it('lets a station undock one or all ships', async () => {
     apiMocks.post.mockResolvedValue({ message: 'ok', shipIds: [] });
     renderPanel({

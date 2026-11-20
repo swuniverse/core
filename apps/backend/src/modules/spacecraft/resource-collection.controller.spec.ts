@@ -20,7 +20,7 @@ describe('Mining field-type API protection', () => {
   it('requires map-editor permission for field-wide resource edits', () => {
     const guard = new PermissionGuard(new Reflector());
     expect(() => guard.canActivate(context({ sub: 1 }))).toThrow(
-      'Insufficient permissions',
+      'Aktion nicht möglich, Spieler ist nicht berechtigt',
     );
     expect(
       guard.canActivate(

@@ -20,6 +20,7 @@ import { EpsTransferDialog } from './EpsTransferDialog';
 import { TargetScanDialog } from './TargetScanDialog';
 import { QuickPmDialog } from '../messaging/QuickPmDialog';
 import { CombatReportDialog } from './CombatReportDialog';
+import { DockResult } from './DockResult';
 
 export function NearbySensorPanel({
   shipId,
@@ -56,6 +57,9 @@ export function NearbySensorPanel({
     null,
   );
   const [salvageMessage, setSalvageMessage] = useState<string | null>(null);
+  const [dockResult, setDockResult] = useState<SpacecraftDockResultDto | null>(
+    null,
+  );
   const [collapsedFleets, setCollapsedFleets] = useState<Set<number>>(
     () => new Set(),
   );
@@ -122,15 +126,17 @@ export function NearbySensorPanel({
     onUpdate();
   }
 
-  async function dock(target: SpacecraftNearbyTargetDto) {
+  async function dock(path: string) {
     setSalvageMessage(null);
+    setDockResult(null);
     setError(null);
     try {
-      const result = await api.post<SpacecraftDockResultDto>(
-        `/spacecraft/${shipId}/dock/${target.id}`,
-        {},
+      setDockResult(
+        await api.post<SpacecraftDockResultDto>(
+          `/spacecraft/${shipId}/${path}`,
+          {},
+        ),
       );
-      setSalvageMessage(result.message);
       await refreshNearby();
       await onUpdate();
     } catch (err: unknown) {
@@ -295,7 +301,7 @@ export function NearbySensorPanel({
         {target.actions.dock && (
           <button
             type="button"
-            onClick={() => void dock(target)}
+            onClick={() => void dock(`dock/${target.id}`)}
             title={`An ${target.name} andocken`}
             className="mr-1"
           >
@@ -660,6 +666,23 @@ export function NearbySensorPanel({
                           {collapsed ? 'aufklappen' : 'zuklappen'}
                         </button>
                         )
+                        {fleet.canDockFleet && (
+                          <>
+                            {' '}
+                            (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void dock(`dock-fleet/${fleet.id}`)
+                              }
+                              title={`Flotte ${fleet.name} andocken`}
+                              className="text-swu-muted hover:text-swu-accent"
+                            >
+                              andocken
+                            </button>
+                            )
+                          </>
+                        )}
                       </td>
                       <td className="border border-swu-border p-1">
                         {collapsed && (
@@ -772,6 +795,7 @@ export function NearbySensorPanel({
               ))}
             </tbody>
           </table>
+          {dockResult && <DockResult result={dockResult} />}
           {salvageMessage && (
             <p role="status" className="p-2 text-swu-muted">
               {salvageMessage}
