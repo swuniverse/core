@@ -2,7 +2,7 @@
 
 Stand 2026-11-20. Umfang: Grundgebäude, materialfinanzierte Frühforschung und FP-Stufe-I-Gebäude; Forschungszentrum II als Übergang eingeschlossen. Geländevarianten zusammengefasst.
 
-**36 Familien erstellt und angebunden (83 IDs); 5 Stufe-I-Familien offen, 1 Übergang offen.**
+**40 Familien erstellt und angebunden (91 IDs); 1 Stufe-I-Familie offen, 1 Übergang offen.**
 
 Die sieben Restserien werden einzeln direkt geprüft und committet; gemeinsame abschließende Browser-/Vollständigkeitsprüfung noch ausstehend.
 
@@ -46,15 +46,15 @@ Die sieben Restserien werden einzeln direkt geprüft und committet; gemeinsame a
 | Werftkomplex              | 85010100 | 85010100, 85010199           |
 | Jägerwerft                | 85110100 | 85110100, 85110199           |
 | Fregattenwerft            | 85120100 | 85120100, 85120199           |
+| Waffenmodulfertigung      | 81810100 | 81810100, 81810199           |
+| Schildmodulfertigung      | 81820100 | 81820100, 81820199           |
+| Antriebsmodulfertigung    | 81830100 | 81830100, 81830199           |
+| Protonentorpedo-Fabrik    | 81990100 | 81990100, 81990199           |
 
 ## Noch offen
 
 | Gebäude                    | Haupt-ID | Forschung |
 | -------------------------- | -------- | --------- |
-| Waffenmodulfertigung       | 81810100 | 281101    |
-| Schildmodulfertigung       | 81820100 | 282101    |
-| Antriebsmodulfertigung     | 81830100 | 283101    |
-| Protonentorpedo-Fabrik     | 81990100 | 288001    |
 | Aurodium-Presse            | 63170100 | 254701    |
 | Forschungszentrum Stufe II | 73010100 | 200201    |
 
