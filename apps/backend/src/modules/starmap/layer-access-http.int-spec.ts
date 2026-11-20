@@ -3,6 +3,7 @@ import { INestApplication, ValidationPipe, type DynamicModule } from '@nestjs/co
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { User } from '../auth/user.entity';
 import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource, type DataSourceOptions } from 'typeorm';
@@ -96,6 +97,8 @@ describe('Layer access through the authenticated production application (Postgre
   });
 
   async function request(path: string, role: 'player' | 'admin' | 'editor' = 'player') {
+    // JwtStrategy reads permissions from the database, not from the token.
+    await source.getRepository(User).update(userId, { permissions: role === 'editor' ? ['MAP_EDITOR'] : [] });
     return fetch(`${await app.getUrl()}/api/${path}`, {
       headers: { Authorization: `Bearer ${jwt.sign({
         sub: userId, username: 'layer-reader', faction: 'REBEL_ALLIANCE',

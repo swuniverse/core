@@ -12,6 +12,7 @@ import { createIntegrationDataSource, INTEGRATION_ENTITIES } from '../../testing
 import { AllianceService } from '../alliance/alliance.service';
 import { TypeOrmAllianceStore } from '../alliance/typeorm-alliance.store';
 import { User } from '../auth/user.entity';
+import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { UserSetting } from '../settings/entities/user-setting.entity';
 import { UserSettingsReader } from '../settings/user-settings-reader';
 import { RpgPlotMember } from '../rpg/rpg-plot-member.entity';
@@ -40,7 +41,7 @@ describe('profile friends (Postgres)', () => {
     const contacts = new ContactService(database.getRepository(Contact), users, {} as never);
     const count = { count: async () => 0 };
     const service = new DatabaseService(
-      users, count as never, count as never, count as never,
+      users, count as never, database.getRepository(Spacecraft), count as never,
       {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
       { findAll: async () => [] } as never, {} as never, {} as never, {} as never,
       alliance, {} as never, {} as never, {} as never, {} as never, {} as never,
