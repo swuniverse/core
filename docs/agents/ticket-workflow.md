@@ -55,9 +55,14 @@ changes and follow the issue tracker's claim/status conventions where applicable
 ### Separate implementation and verification (user decision, 2026-11-18)
 
 By default, each implementation pass includes a short diff review and the smallest
-relevant tests. Broad regression suites, full workspace builds, and browser checks
-are collected for a separate verification pass across multiple tickets. Avoid
-running full builds or broad suites after every ticket without a concrete reason.
+relevant tests. Broad regression suites and full workspace builds are collected
+for a separate verification pass across multiple tickets. Avoid running full
+builds or broad suites after every ticket without a concrete reason.
+
+Manual browser checks by the user are not required (user decision, 2026-11-20):
+do not list them as remaining checks and do not wait for them. The only
+remaining check after the immediate checks is the collected full verification
+run.
 
 Commit implemented work after the immediate checks. If required review or
 verification remains, keep `Status: claimed` and add a comment saying
@@ -70,7 +75,8 @@ Dependent tickets remain blocked until then.
 
 During the verification pass, review the actual diff against the acceptance
 criteria and run the outstanding checks. Pay particular attention to permissions,
-boundary conditions, and integration behavior; inspect rendered UI when relevant.
+boundary conditions, and integration behavior; cover UI behavior with automated
+tests instead of manual browser inspection.
 Passing tests alone do not establish completion. Do not repeat successful checks
 unless intervening changes or a concrete concern make their evidence stale.
 
