@@ -34,31 +34,9 @@ backend:
 frontend:
     npx nx serve frontend
 
-# Start infrastructure, backend, and frontend; Ctrl-C stops all three.
+# Start infrastructure, backend, and frontend in the process-compose UI.
 up:
-    #!/usr/bin/env bash
-    set -euo pipefail
-
-    pids=()
-
-    cleanup() {
-      trap - EXIT INT TERM
-      if ((${#pids[@]})); then
-        kill "${pids[@]}" 2>/dev/null || true
-        wait "${pids[@]}" 2>/dev/null || true
-      fi
-    }
-
-    trap cleanup EXIT INT TERM
-
-    docker compose -f docker-compose.dev.yml up &
-    pids+=("$!")
-    npx nx serve backend &
-    pids+=("$!")
-    npx nx serve frontend &
-    pids+=("$!")
-
-    wait -n "${pids[@]}"
+    process-compose --use-uds -f process-compose.yaml up
 
 # Install dependencies, start local infrastructure, and apply pending migrations.
 setup:

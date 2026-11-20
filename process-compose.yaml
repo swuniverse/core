@@ -1,0 +1,21 @@
+version: "0.5"
+
+processes:
+  infra:
+    command: just infra
+    readiness_probe:
+      exec:
+        command: docker compose -f docker-compose.dev.yml exec -T db pg_isready -U swuniverse && docker compose -f docker-compose.dev.yml exec -T redis redis-cli ping | grep -qx PONG
+      period_seconds: 2
+      timeout_seconds: 5
+      failure_threshold: 300
+  backend:
+    command: just backend
+    depends_on:
+      infra:
+        condition: process_healthy
+  frontend:
+    command: just frontend
+    depends_on:
+      infra:
+        condition: process_healthy

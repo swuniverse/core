@@ -34,6 +34,7 @@ Der Workspace deckt bereits die zentralen Spielsysteme und Verwaltungsoberfläch
 - Node.js 22+
 - Docker & Docker Compose
 - [just](https://github.com/casey/just)
+- [process-compose](https://f1bonacc1.github.io/process-compose/installation/) (z. B. `brew install f1bonacc1/tap/process-compose` auf macOS)
 - Git
 
 ### Repository klonen
@@ -59,7 +60,9 @@ just setup
 just up
 ```
 
-`just setup` installiert Abhängigkeiten, startet PostgreSQL und Redis im Hintergrund und führt ausstehende Migrationen aus. `just up` startet anschließend Infrastruktur, Backend und Frontend im Vordergrund. Mit Ctrl-C werden alle drei wieder beendet; die Daten bleiben im lokalen Volume erhalten.
+`just setup` installiert Abhängigkeiten, startet PostgreSQL und Redis im Hintergrund und führt ausstehende Migrationen aus. `just up` startet anschließend Infrastruktur, Backend und Frontend in der process-compose-Oberfläche. Dort lassen sich die Prozesse auswählen, ihre Logs getrennt ansehen und Prozesse neu starten. Mit Ctrl-C oder F10 wird die Umgebung beendet; die Daten bleiben im lokalen Volume erhalten. Backend und Frontend werden weiterhin über Nx gestartet.
+
+Backend und Frontend starten erst, wenn PostgreSQL und Redis bereit sind. Sind sie nach etwa zehn Minuten noch nicht bereit, markiert process-compose die Infrastruktur als fehlgeschlagen.
 
 - Frontend: <http://localhost:5173>
 - Backend API: <http://localhost:3001>

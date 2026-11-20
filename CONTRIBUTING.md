@@ -5,6 +5,7 @@
 - Node.js 22+
 - Docker & Docker Compose
 - [just](https://github.com/casey/just)
+- [process-compose](https://f1bonacc1.github.io/process-compose/installation/) (macOS: `brew install f1bonacc1/tap/process-compose`)
 - Git
 
 ## Getting Started
@@ -17,7 +18,9 @@ just setup
 just up
 ```
 
-`just setup` installiert Abhängigkeiten, startet PostgreSQL und Redis im Hintergrund und führt ausstehende Migrationen aus. `just up` startet Infrastruktur, Backend und Frontend im Vordergrund.
+`just setup` installiert Abhängigkeiten, startet PostgreSQL und Redis im Hintergrund und führt ausstehende Migrationen aus. `just up` startet Infrastruktur, Backend und Frontend in der process-compose-Oberfläche mit getrennten Logs. Ctrl-C oder F10 beendet die Umgebung.
+
+Backend und Frontend starten erst, wenn PostgreSQL und Redis bereit sind. Sind sie nach etwa zehn Minuten noch nicht bereit, markiert process-compose die Infrastruktur als fehlgeschlagen.
 
 Backend: `http://localhost:3001` | Frontend: `http://localhost:5173`
 
