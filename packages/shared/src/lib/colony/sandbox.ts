@@ -64,7 +64,6 @@ export interface ColonySandboxDto extends ColonySandboxSummaryDto {
 }
 
 export interface ColonySandboxListDto {
-  limit: number;
   sandboxes: ColonySandboxSummaryDto[];
 }
 

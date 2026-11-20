@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { ColoniesPage } from './colonies/ColoniesPage';
+import { useAuthStore } from '../stores/auth.store';
 import type {
   BuildingDef,
   Colony,
@@ -301,7 +302,17 @@ describe('ColoniesPage socket refresh', () => {
     });
   });
 
+  it('hides the sandbox switch without the COLONY_SANDBOX grant', async () => {
+    useAuthStore.setState({ user: { isAdmin: false, permissions: [] } as never });
+    colonyApiMocks.fetchColonies.mockResolvedValue([createColony(1, 'Alpha', 5, 10)]);
+    colonyApiMocks.fetchColonyDetail.mockResolvedValue(createColony(1, 'Alpha', 5, 10));
+    render(<MemoryRouter initialEntries={['/colonies?selected=1']}><Routes><Route path="/colonies" element={<ColoniesPage />} /></Routes></MemoryRouter>);
+    expect(await screen.findByLabelText('Koloniefelder')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Sandbox' })).toBeNull();
+  });
+
   it('switches from the live colony to the sandbox and back', async () => {
+    useAuthStore.setState({ user: { isAdmin: false, permissions: ['COLONY_SANDBOX'] } as never });
     colonyApiMocks.fetchColonies.mockResolvedValue([createColony(1, 'Alpha', 5, 10)]);
     colonyApiMocks.fetchColonyDetail.mockResolvedValue(createColony(1, 'Alpha', 5, 10));
     render(<MemoryRouter initialEntries={['/colonies?selected=1']}><Routes><Route path="/colonies" element={<ColoniesPage />} /></Routes></MemoryRouter>);

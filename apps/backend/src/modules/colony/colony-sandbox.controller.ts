@@ -29,6 +29,8 @@ import type {
   ColonySandboxNameDto,
 } from '@swuniverse/shared';
 import { RequiresGameAccess } from '../game-status/game-status.guard';
+import { PermissionGuard, RequirePermission } from '../auth/permission.guard';
+import { Permission } from '../auth/permissions';
 import { ColonySandboxService } from './colony-sandbox.service';
 import { ColonySandboxPlanningService } from './colony-sandbox-planning.service';
 
@@ -89,7 +91,8 @@ class SandboxActionDto {
 
 @Controller('colonies')
 @RequiresGameAccess()
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), PermissionGuard)
+@RequirePermission(Permission.COLONY_SANDBOX)
 export class ColonySandboxController {
   constructor(
     private readonly sandboxes: ColonySandboxService,

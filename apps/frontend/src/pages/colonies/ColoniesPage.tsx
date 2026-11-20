@@ -58,6 +58,7 @@ import {
   getEffectiveBuildingForField,
 } from './utils';
 import { useSocket } from '../../hooks/use-socket';
+import { useAuthStore } from '../../stores/auth.store';
 import { FIELD_TYPE_NAMES, TILE_TYPE_NAMES } from './constants';
 
 const errorMessage = (error: unknown) =>
@@ -945,6 +946,10 @@ export function ColonyDetail({
   );
   const [selectedField, setSelectedField] = useState<ColonyField | null>(null);
   const [mainView, setMainView] = useState<ColonyMainView>('information');
+  const user = useAuthStore((state) => state.user);
+  const sandboxGranted = Boolean(
+    user?.isAdmin || user?.permissions?.includes('COLONY_SANDBOX'),
+  );
   const [sandboxMode, setSandboxMode] = useState(false);
   const sandboxColonyId = useRef(colony.id);
   useEffect(() => {
@@ -1349,7 +1354,7 @@ export function ColonyDetail({
     );
   };
 
-  const modeSwitch = (
+  const modeSwitch = sandboxGranted && (
     <div role="group" aria-label="Kolonieansicht" className="flex gap-2 text-xs">
       <button
         className="rounded border border-swu-border px-2 py-1"
@@ -1367,7 +1372,7 @@ export function ColonyDetail({
       </button>
     </div>
   );
-  if (sandboxMode) {
+  if (sandboxGranted && sandboxMode) {
     return (
       <div className="space-y-2">
         <ColonyCommandBar colony={colony} onBack={onBack} />

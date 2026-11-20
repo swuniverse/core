@@ -29,7 +29,9 @@ export class PermissionGuard implements CanActivate {
       user?.permissions?.includes(p),
     );
     if (!hasPermission) {
-      throw new ForbiddenException('Insufficient permissions');
+      throw new ForbiddenException(
+        'Aktion nicht möglich, Spieler ist nicht berechtigt',
+      );
     }
     return true;
   }

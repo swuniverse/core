@@ -142,7 +142,6 @@ export function ColonySandboxPanel({
       setDetail(result);
       setSkipped(result.skipped ?? []);
     });
-  const atLimit = list == null || list.sandboxes.length >= list.limit;
 
   return (
     <section
@@ -163,7 +162,7 @@ export function ColonySandboxPanel({
         className="flex flex-wrap items-end gap-2"
         onSubmit={(event) => {
           event.preventDefault();
-          if (atLimit || busy || !newName.trim()) return;
+          if (list == null || busy || !newName.trim()) return;
           void act(async () => {
             const result = await api.post<ColonySandboxDto>(
               `/colonies/${colonyId}/sandboxes`,
@@ -186,16 +185,11 @@ export function ColonySandboxPanel({
         </label>
         <button
           className="rounded border border-swu-border px-2 py-1 disabled:opacity-40"
-          disabled={atLimit || busy || !newName.trim()}
+          disabled={list == null || busy || !newName.trim()}
           type="submit"
         >
           Sandbox erstellen
         </button>
-        {list && (
-          <span className="text-swu-muted">
-            {list.sandboxes.length} / {list.limit} Sandboxen
-          </span>
-        )}
       </form>
       {list == null ? (
         <p>Laden...</p>

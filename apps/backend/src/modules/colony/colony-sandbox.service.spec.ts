@@ -5,14 +5,13 @@ jest.mock('./entities/colony-field.entity', () => ({
 jest.mock('./entities/colony-stats.entity', () => ({
   ColonyStats: class ColonyStats {},
 }));
-jest.mock('../auth/user.entity', () => ({ User: class User {} }));
 jest.mock('./entities/colony-sandbox.entity', () => ({
   ColonySandbox: class ColonySandbox {},
 }));
 
 import { ColonySandboxService } from './colony-sandbox.service';
 
-function setup(limit?: number) {
+function setup() {
   const fields = [
     {
       id: 1,
@@ -87,12 +86,10 @@ function setup(limit?: number) {
     }),
   };
   const dataSource = { transaction: jest.fn(async (work) => work(manager)) };
-  const config = { get: jest.fn(() => limit) };
   const unlocks = { hasTechByName: jest.fn().mockResolvedValue(true) };
   const service = new ColonySandboxService(
     repository as never,
     dataSource as never,
-    config as never,
     unlocks as never,
     { calculateSummary: () => ({ housingBonus: 0 }) } as never,
   );
@@ -144,29 +141,13 @@ describe('ColonySandboxService', () => {
     ).toBe(7);
   });
 
-  it('serializes quota checks on the player and rejects the fourth sandbox before saving', async () => {
+  it('has no per-player sandbox limit', async () => {
     const { service, manager } = setup();
-    manager.count.mockResolvedValue(3);
-    await expect(service.create(1, 4, 'Entwurf')).rejects.toThrow(/3/);
-    expect(manager.findOne).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        where: { id: 1 },
-        lock: { mode: 'pessimistic_write' },
-      }),
-    );
-    expect(manager.count).toHaveBeenCalledWith(expect.anything(), {
-      where: { userId: 1 },
-    });
-    expect(manager.save).not.toHaveBeenCalled();
-  });
-
-  it('uses the configured per-player limit', async () => {
-    const { service, manager } = setup(5);
-    manager.count.mockResolvedValue(3);
+    manager.count.mockResolvedValue(10);
     await expect(service.create(1, 4, 'Entwurf')).resolves.toMatchObject({
       id: 10,
     });
+    expect(manager.count).not.toHaveBeenCalled();
   });
 
   it('rejects missing or foreign source colonies', async () => {
@@ -203,7 +184,7 @@ describe('ColonySandboxService', () => {
     expect(repository.find).toHaveBeenCalledWith(
       expect.objectContaining({ where: { userId: 1 } }),
     );
-    expect(result.limit).toBe(3);
+    expect(result).not.toHaveProperty('limit');
     expect(result.sandboxes[0]).not.toHaveProperty('snapshot');
   });
 

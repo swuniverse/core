@@ -4,7 +4,7 @@ import { api } from '../services/api';
 import { formatDateTime } from '../lib/format';
 import { AccountDeletionMark, type Faction } from '@swuniverse/shared';
 
-const AVAILABLE_PERMISSIONS = ['MAP_EDITOR'] as const;
+const AVAILABLE_PERMISSIONS = ['MAP_EDITOR', 'COLONY_SANDBOX'] as const;
 
 interface UserEntry {
   id: number;
@@ -101,7 +101,7 @@ export function AdminUsersPage() {
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-xs">
           <thead><tr className="bg-black/40 text-center font-bold text-swu-primary">
-            {['ID', 'Spieler', 'Fraktion', 'Registriert', 'Letzte Aktivität', 'Status', 'MAP_EDITOR', 'Aktion'].map((label) => <th key={label} className="border border-swu-border px-1.5 py-1">{label}</th>)}
+            {['ID', 'Spieler', 'Fraktion', 'Registriert', 'Letzte Aktivität', 'Status', ...AVAILABLE_PERMISSIONS, 'Aktion'].map((label) => <th key={label} className="border border-swu-border px-1.5 py-1">{label}</th>)}
           </tr></thead>
           <tbody>{visibleUsers.map((user) => (
             <tr key={user.id} className="hover:bg-white/5">
@@ -113,7 +113,7 @@ export function AdminUsersPage() {
               <td className="border border-swu-border px-1.5 py-1">{formatDateTime(user.createdAt)}</td>
               <td className="border border-swu-border px-1.5 py-1">{user.lastActiveAt ? formatDateTime(user.lastActiveAt) : '—'}</td>
               <td className="border border-swu-border px-1.5 py-1">{user.isAdmin ? 'Admin' : user.isNpc ? 'NPC' : user.lock ? `Gesperrt (${user.lock.remainingTicks}): ${user.lock.reason}` : user.blocked ? 'Blockiert, zur Löschung freigegeben' : user.vacationMode ? 'Urlaub' : user.deletionMark === AccountDeletionMark.Forbidden ? 'Löschverbot' : user.deletionMark ? `Löschmarke ${user.deletionMark}` : 'Aktiv'}</td>
-              <td className="border border-swu-border px-1.5 py-1 text-center">{AVAILABLE_PERMISSIONS.map((permission) => <input key={permission} type="checkbox" checked={user.isAdmin || user.permissions.includes(permission)} disabled={user.isAdmin} onChange={() => void togglePermission(user, permission)} />)}</td>
+              {AVAILABLE_PERMISSIONS.map((permission) => <td key={permission} className="border border-swu-border px-1.5 py-1 text-center"><input type="checkbox" aria-label={`${permission} für ${user.username}`} checked={user.isAdmin || user.permissions.includes(permission)} disabled={user.isAdmin} onChange={() => void togglePermission(user, permission)} /></td>)}
               <td className="border border-swu-border px-1.5 py-1 text-center">{!user.isAdmin && <div className="flex justify-center gap-2">{user.lock ? <button type="button" onClick={() => void unlock(user)}>Entsperren</button> : <button type="button" onClick={() => { setLockUser(user); setTicks('1'); setReason(''); }}>Sperren</button>}<label className="flex items-center gap-1"><input type="checkbox" checked={user.deletionMark === AccountDeletionMark.Forbidden} onChange={() => void toggleDeletionForbidden(user)} />Löschverbot</label>{!user.blocked && <button type="button" className="border border-red-500 px-1 text-red-400" onClick={() => setBlockUser(user)}>Blockieren</button>}<button type="button" onClick={() => setDeleteUser(user)}>Sofort löschen</button></div>}</td>
             </tr>
           ))}</tbody>

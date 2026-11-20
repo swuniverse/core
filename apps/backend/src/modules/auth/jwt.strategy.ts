@@ -29,7 +29,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       username: payload.username,
       faction: payload.faction,
       isAdmin: Boolean(payload.isAdmin),
-      permissions: payload.permissions ?? [],
+      // From the database so a revoked grant applies before the token expires.
+      permissions: user.permissions ?? [],
     };
   }
 }

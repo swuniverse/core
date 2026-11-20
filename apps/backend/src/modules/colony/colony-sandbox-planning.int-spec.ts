@@ -147,7 +147,6 @@ describe('sandbox planning HTTP (PostgreSQL)', () => {
     const sandboxes = new ColonySandboxService(
       source.getRepository(ColonySandbox),
       source,
-      { get: () => 3 } as never,
       unlocks as never,
       stats,
     );
@@ -182,7 +181,7 @@ describe('sandbox planning HTTP (PostgreSQL)', () => {
           const req = context.switchToHttp().getRequest();
           const id = Number(req.headers['x-test-user']);
           if (!id) throw new UnauthorizedException();
-          req.user = { sub: id };
+          req.user = { sub: id, permissions: ['COLONY_SANDBOX'] };
           return true;
         },
       })

@@ -52,6 +52,15 @@ describe('AdminUsersPage', () => {
     );
   });
 
+  it('grants and revokes the colony sandbox feature', async () => {
+    render(<AdminUsersPage />);
+    await screen.findByText('NPC');
+    fireEvent.click(screen.getByLabelText('COLONY_SANDBOX für Hutten-Kartell'));
+    await waitFor(() => expect(apiMocks.patch).toHaveBeenCalledWith('/auth/admin/users/9/permissions', { permissions: ['COLONY_SANDBOX'] }));
+    fireEvent.click(screen.getByLabelText('COLONY_SANDBOX für Hutten-Kartell'));
+    await waitFor(() => expect(apiMocks.patch).toHaveBeenLastCalledWith('/auth/admin/users/9/permissions', { permissions: [] }));
+  });
+
   it('confirms and immediately deletes an account', async () => {
     render(<AdminUsersPage />);
     await screen.findByText('NPC');

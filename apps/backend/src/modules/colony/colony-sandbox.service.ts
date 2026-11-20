@@ -3,7 +3,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import type {
@@ -12,7 +11,6 @@ import type {
   ColonySandboxListDto,
   ColonySandboxSummaryDto,
 } from '@swuniverse/shared';
-import { User } from '../auth/user.entity';
 import { UnlockResolverService } from '../research/unlock-resolver.service';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
@@ -26,17 +24,9 @@ export class ColonySandboxService {
     @InjectRepository(ColonySandbox)
     private readonly sandboxes: Repository<ColonySandbox>,
     private readonly dataSource: DataSource,
-    private readonly config: ConfigService,
     private readonly unlocks: UnlockResolverService,
     private readonly statsCalculator: ColonyStatsService,
   ) {}
-
-  private limit(): number {
-    const value = this.config.get('COLONY_SANDBOX_LIMIT');
-    if (value == null || value === '') return 3;
-    const configured = Number(value);
-    return Number.isSafeInteger(configured) && configured >= 0 ? configured : 3;
-  }
 
   private name(value: string): string {
     const name = typeof value === 'string' ? value.trim() : '';
@@ -63,7 +53,6 @@ export class ColonySandboxService {
       order: { id: 'DESC' },
     });
     return {
-      limit: this.limit(),
       sandboxes: sandboxes.map((sandbox) => this.summary(sandbox)),
     };
   }
@@ -125,12 +114,6 @@ export class ColonySandboxService {
   ): Promise<ColonySandboxDto> {
     const name = this.name(value);
     const sandbox = await this.dataSource.transaction(async (manager) => {
-      // All creations for one owner share this lock, even across colonies.
-      const user = await manager.findOne(User, {
-        where: { id: userId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!user) throw new NotFoundException('Spieler nicht gefunden.');
       const colony = await manager.findOne(Colony, {
         where: { id: colonyId, userId, isAbandoned: false },
         lock: { mode: 'pessimistic_read' },
@@ -139,14 +122,6 @@ export class ColonySandboxService {
       const context = await manager.findOne(Colony, {
         where: { id: colonyId }, relations: ['celestialObject', 'changeable'],
       }) ?? colony;
-      const limit = this.limit();
-      if (
-        (await manager.count(ColonySandbox, { where: { userId } })) >= limit
-      ) {
-        throw new BadRequestException(
-          `Maximal ${limit} Sandboxen je Spieler erlaubt.`,
-        );
-      }
       const fields = await manager.find(ColonyField, {
         where: { colonyId },
         order: { fieldIndex: 'ASC' },

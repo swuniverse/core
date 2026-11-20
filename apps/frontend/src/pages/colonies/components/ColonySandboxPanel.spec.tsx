@@ -55,7 +55,7 @@ describe('ColonySandboxPanel', () => {
     mocks.get.mockImplementation((url: string) =>
       Promise.resolve(
         url === '/colonies/sandboxes'
-          ? { limit: 3, sandboxes: [sandbox] }
+          ? { sandboxes: [sandbox] }
           : url.endsWith('/options')
             ? { buildingIds: [7], upgrades: [], terraformingIds: [] }
             : sandbox,
@@ -108,7 +108,7 @@ describe('ColonySandboxPanel', () => {
     mocks.get.mockImplementation((url: string) =>
       Promise.resolve(
         url === '/colonies/sandboxes'
-          ? { limit: 3, sandboxes: [empty] }
+          ? { sandboxes: [empty] }
           : url.endsWith('/options')
             ? { buildingIds: [7], upgrades: [], terraformingIds: [] }
             : empty,
@@ -154,7 +154,7 @@ describe('ColonySandboxPanel', () => {
     mocks.get.mockImplementation((url: string) =>
       Promise.resolve(
         url === '/colonies/sandboxes'
-          ? { limit: 3, sandboxes: [sandbox] }
+          ? { sandboxes: [sandbox] }
           : url.endsWith('/options')
             ? {
                 buildingIds: [],
@@ -213,7 +213,7 @@ describe('ColonySandboxPanel', () => {
     mocks.get.mockImplementation((url: string) =>
       Promise.resolve(
         url === '/colonies/sandboxes'
-          ? { limit: 3, sandboxes: [empty] }
+          ? { sandboxes: [empty] }
           : url.endsWith('/options')
             ? { buildingIds: [], upgrades: [], terraformingIds: ['land'] }
             : empty,
@@ -289,12 +289,15 @@ describe('ColonySandboxPanel', () => {
     confirm.mockRestore();
   });
 
-  it('disables creation at the configured limit and displays API errors', async () => {
-    mocks.get.mockResolvedValue({ limit: 1, sandboxes: [sandbox] });
+  it('has no sandbox limit', async () => {
+    mocks.get.mockResolvedValue({
+      sandboxes: [1, 2, 3, 4].map((id) => ({ ...sandbox, id, name: `Plan ${id}` })),
+    });
     render(
       <ColonySandboxPanel colonyId={1} buildingMap={buildingMap as never} />,
     );
-    expect(await screen.findByText('1 / 1 Sandboxen')).toBeTruthy();
+    await screen.findByRole('button', { name: /Plan 4/ });
+    expect(screen.queryByText(/ \/ .* Sandboxen/)).toBeNull();
     fireEvent.change(screen.getByLabelText('Neue Sandbox'), {
       target: { value: 'Extra' },
     });
@@ -304,12 +307,12 @@ describe('ColonySandboxPanel', () => {
           name: 'Sandbox erstellen',
         }) as HTMLButtonElement
       ).disabled,
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('shows a failed creation without changing the colony or clearing the chosen name', async () => {
     mocks.post.mockRejectedValue(
-      new Error('Maximal 3 Sandboxen je Spieler erlaubt.'),
+      new Error('Aktion nicht möglich, Spieler ist nicht berechtigt'),
     );
     render(
       <ColonySandboxPanel colonyId={1} buildingMap={buildingMap as never} />,
@@ -321,7 +324,7 @@ describe('ColonySandboxPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sandbox erstellen' }));
     expect(await screen.findByRole('alert')).toHaveProperty(
       'textContent',
-      'Maximal 3 Sandboxen je Spieler erlaubt.',
+      'Aktion nicht möglich, Spieler ist nicht berechtigt',
     );
     expect(
       (screen.getByLabelText('Neue Sandbox') as HTMLInputElement).value,

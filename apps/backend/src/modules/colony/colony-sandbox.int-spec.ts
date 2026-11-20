@@ -1,5 +1,4 @@
 import 'reflect-metadata';
-import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { ColonySandboxService } from './colony-sandbox.service';
 import { ColonySandbox } from './entities/colony-sandbox.entity';
@@ -26,7 +25,6 @@ describe('Colony sandboxes (PostgreSQL)', () => {
     service = new ColonySandboxService(
       source.getRepository(ColonySandbox),
       source,
-      { get: () => 3 } as unknown as ConfigService,
       { hasTechByName: async () => true } as never,
       { calculateSummary: () => ({ housingBonus: 0 }) } as never,
     );
@@ -101,7 +99,7 @@ describe('Colony sandboxes (PostgreSQL)', () => {
     ).toMatchObject({ buildingId: 7, isActive: false });
   });
 
-  it('enforces the quota across concurrent requests and across different source colonies', async () => {
+  it('has no per-player limit across concurrent requests and different source colonies', async () => {
     const secondId = (
       await source
         .getRepository(Colony)
@@ -118,13 +116,10 @@ describe('Colony sandboxes (PostgreSQL)', () => {
     );
     expect(
       results.filter((result) => result.status === 'fulfilled'),
-    ).toHaveLength(3);
-    expect(
-      results.filter((result) => result.status === 'rejected'),
-    ).toHaveLength(2);
+    ).toHaveLength(5);
     expect(
       await source.getRepository(ColonySandbox).countBy({ userId: ownerId }),
-    ).toBe(3);
+    ).toBe(5);
   });
 
   it('protects owner access, supports rename/delete and cascades on account deletion', async () => {

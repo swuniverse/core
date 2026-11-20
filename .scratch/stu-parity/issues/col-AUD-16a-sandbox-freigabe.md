@@ -1,6 +1,6 @@
 # Kolonie-Sandbox nur per Freigabe wie STU (Feature-Freigabe `COLONY_SANDBOX`)
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -30,14 +30,14 @@ Der PO hat am 2026-11-17 entschieden: Freigabe wie STU, aber im Admin pflegbar s
 
 ## Akzeptanzkriterien
 
-- [ ] Es gibt eine allgemeine Feature-Freigabe je Spieler (z. B. Tabelle `user_feature_grant` mit `userId`, `feature`, `grantedAt`, `grantedBy`, Enum mit erstem Wert `COLONY_SANDBOX`). Admins haben jede Freigabe implizit (wie STU).
-- [ ] Admins können die Freigabe in der Admin-Spielerverwaltung je Spieler setzen und entziehen. Die Endpunkte verlangen Adminrechte.
-- [ ] Ein wiederverwendbarer Guard bzw. Decorator (z. B. `@RequiresFeature('COLONY_SANDBOX')`) schützt alle Sandbox-Endpunkte (Liste, Anlegen, Lesen, Umbenennen, Löschen, Planen, Vorschau). Ohne Freigabe antwortet er mit 403 und der deutschen Meldung „Aktion nicht möglich, Spieler ist nicht berechtigt“.
-- [ ] Das Limit `COLONY_SANDBOX_LIMIT` entfällt samt Prüfung, Konfiguration und `limit` im DTO.
-- [ ] Das Frontend erfährt die Freigaben des Spielers (z. B. über das Profil-/Me-DTO). Ohne Freigabe sind der Umschalter „Kolonie/Sandbox“ und alle Sandbox-Einstiege ausgeblendet.
-- [ ] Kein Bestandsschutz nötig: Es gibt noch keine produktiven Sandboxen. Vorhandene Entwicklungs-/Testdaten dürfen verworfen werden; keine Migrations- oder Sichtbarkeitslogik für Altbestand.
-- [ ] Backend-Tests: ohne Freigabe 403 an jedem Sandbox-Endpunkt, mit Freigabe ok, Admin ohne Eintrag ok, kein Limit mehr (mehr als 3 Sandboxen möglich), Admin-Endpunkt Freigabe setzen/entziehen.
-- [ ] Frontend-Tests: Umschalter nur mit Freigabe (`ColonySandboxPanel.spec.tsx` bzw. `colonies.spec.tsx`), Admin-Seite setzt Freigabe (`admin-users.spec.tsx`).
+- [x] Es gibt eine allgemeine Feature-Freigabe je Spieler (z. B. Tabelle `user_feature_grant` mit `userId`, `feature`, `grantedAt`, `grantedBy`, Enum mit erstem Wert `COLONY_SANDBOX`). Admins haben jede Freigabe implizit (wie STU).
+- [x] Admins können die Freigabe in der Admin-Spielerverwaltung je Spieler setzen und entziehen. Die Endpunkte verlangen Adminrechte.
+- [x] Ein wiederverwendbarer Guard bzw. Decorator (z. B. `@RequiresFeature('COLONY_SANDBOX')`) schützt alle Sandbox-Endpunkte (Liste, Anlegen, Lesen, Umbenennen, Löschen, Planen, Vorschau). Ohne Freigabe antwortet er mit 403 und der deutschen Meldung „Aktion nicht möglich, Spieler ist nicht berechtigt“.
+- [x] Das Limit `COLONY_SANDBOX_LIMIT` entfällt samt Prüfung, Konfiguration und `limit` im DTO.
+- [x] Das Frontend erfährt die Freigaben des Spielers (z. B. über das Profil-/Me-DTO). Ohne Freigabe sind der Umschalter „Kolonie/Sandbox“ und alle Sandbox-Einstiege ausgeblendet.
+- [x] Kein Bestandsschutz nötig: Es gibt noch keine produktiven Sandboxen. Vorhandene Entwicklungs-/Testdaten dürfen verworfen werden; keine Migrations- oder Sichtbarkeitslogik für Altbestand.
+- [x] Backend-Tests: ohne Freigabe 403 an jedem Sandbox-Endpunkt, mit Freigabe ok, Admin ohne Eintrag ok, kein Limit mehr (mehr als 3 Sandboxen möglich), Admin-Endpunkt Freigabe setzen/entziehen.
+- [x] Frontend-Tests: Umschalter nur mit Freigabe (`ColonySandboxPanel.spec.tsx` bzw. `colonies.spec.tsx`), Admin-Seite setzt Freigabe (`admin-users.spec.tsx`).
 
 ## Herkunft
 
@@ -50,3 +50,11 @@ Der PO hat am 2026-11-17 entschieden: Freigabe wie STU, aber im Admin pflegbar s
 - 2026-11-17: Aus dem Audit angelegt. Bindung an die Quellkolonie in col-AUD-16b.
 
 - 2026-11-17 Product Owner: Es gibt noch keine Sandboxen im Betrieb; Altbestand kann verworfen werden.
+
+- 2026-11-20 umgesetzt, Prüfung ausstehend (Commit „feat(colony): gate colony sandbox behind COLONY_SANDBOX grant (stu-parity col-AUD-16a)“). Umsetzung mit Claude Opus 5.5 direkt (Sol/Luna in dieser Session nicht verfügbar; Ticket ist ohnehin Autorisierung → Sol-Route).
+  - Statt neuer Tabelle `user_feature_grant` das vorhandene Spieler-Rechtesystem genutzt: `Permission.COLONY_SANDBOX` in `User.permissions`, Admin-Endpunkt `PATCH /auth/admin/users/:id/permissions` (AdminGuard, nimmt jetzt nur bekannte Rechte an), `PermissionGuard` (Admins implizit) mit STU-Meldung „Aktion nicht möglich, Spieler ist nicht berechtigt“ auf dem ganzen `ColonySandboxController`. `JwtStrategy` liest Rechte aus der DB, damit ein Entzug sofort greift. `grantedAt`/`grantedBy` werden damit nicht gespeichert.
+  - Limit `COLONY_SANDBOX_LIMIT` samt Quota-Lock, Config (`.env.example`, docker-compose) und `ColonySandboxListDto.limit` entfernt; Panel zeigt keinen Zähler mehr.
+  - Frontend: Umschalter Kolonie/Sandbox nur mit Admin oder `COLONY_SANDBOX` (aus Profil/`user.permissions`); Admin-Spielerverwaltung hat je Recht eine Spalte mit Checkbox.
+  - Checks gelaufen: Backend-Unit `colony-sandbox*` + `auth/*` (18 Suites, 100 Tests), Integration `colony-sandbox*` (10 Tests), Frontend `colonies.spec`, `admin-users.spec`, `ColonySandboxPanel.spec` (26 Tests), `nx typecheck lint` für backend/frontend/shared grün.
+  - Ausstehend: Verifikationsdurchlauf (Diff-Review, Browsercheck Umschalter/Admin-Seite mit/ohne Freigabe).
+

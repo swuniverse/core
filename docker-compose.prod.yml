@@ -35,7 +35,6 @@ services:
     environment:
       TZ: ${GAME_TIMEZONE:-Europe/Berlin}
       GAME_TIMEZONE: ${GAME_TIMEZONE:-Europe/Berlin}
-      COLONY_SANDBOX_LIMIT: ${COLONY_SANDBOX_LIMIT:-3}
       NODE_ENV: production
       DATABASE_URL: postgresql://swuniverse:${DB_PASSWORD}@db:5432/swuniverse
       REDIS_URL: redis://redis:6379

@@ -39,6 +39,7 @@ import {
 } from './account-access-check';
 import { UserSettingsReader } from '../settings/user-settings-reader';
 import { UserLock } from './user-lock.entity';
+import { Permission } from './permissions';
 import { EmailBlocklistService } from '../settings/email-blocklist.service';
 import { PlayerDeletionService } from '../account-deletion/player-deletion.service';
 
@@ -459,7 +460,14 @@ export class AuthService {
   }
 
   async updatePermissions(userId: number, permissions: string[]) {
-    await this.userRepo.update(userId, { permissions });
+    const known: string[] = Object.values(Permission);
+    if (
+      !Array.isArray(permissions) ||
+      permissions.some((permission) => !known.includes(permission))
+    ) {
+      throw new BadRequestException('Unbekannte Berechtigung');
+    }
+    await this.userRepo.update(userId, { permissions: [...new Set(permissions)] });
   }
 
   async lockUser(
