@@ -1,6 +1,6 @@
 # Kolonie-Sandbox nur per Freigabe wie STU (Feature-Freigabe `COLONY_SANDBOX`)
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -57,4 +57,4 @@ Der PO hat am 2026-11-17 entschieden: Freigabe wie STU, aber im Admin pflegbar s
   - Frontend: Umschalter Kolonie/Sandbox nur mit Admin oder `COLONY_SANDBOX` (aus Profil/`user.permissions`); Admin-Spielerverwaltung hat je Recht eine Spalte mit Checkbox.
   - Checks gelaufen: Backend-Unit `colony-sandbox*` + `auth/*` (18 Suites, 100 Tests), Integration `colony-sandbox*` (10 Tests), Frontend `colonies.spec`, `admin-users.spec`, `ColonySandboxPanel.spec` (26 Tests), `nx typecheck lint` für backend/frontend/shared grün.
   - Ausstehend: Verifikationsdurchlauf (Diff-Review, Browsercheck Umschalter/Admin-Seite mit/ohne Freigabe).
-
+- 2026-11-20 Verifikation: Diff-Review ohne Befund (alle Sandbox-Einstiege laufen über den Umschalter; Profil wird per `/auth/me` aufgefrischt). Browsercheck Umschalter/Admin-Seite vom PO bestätigt. Kein Gesamt-Build/Gesamtlauf in diesem Durchlauf. → resolved.
