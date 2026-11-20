@@ -1,6 +1,6 @@
 # Beamen zwischen Station und angedocktem Schiff ohne EPS und im Ionensturm
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -39,3 +39,4 @@ SWU verlangt beim Beamen zwischen Station und angedocktem Schiff immer Transfere
 
 - `transfer.service.ts` wurde zuletzt parallel für SPEC-3/4 geändert; vor Beginn `git status` prüfen und auf dem aktuellen Stand aufsetzen.
 - 2026-11-20 umgesetzt, Prüfung ausstehend (Commit `feat(spacecraft): free dock beaming and ion storm beam block (stu-parity sc-AUD-15)`). `transfer.service.ts`: `isDockTransfer` (ein Schiff an das andere angedockt) → Warentransfer 0 EPS, Antwort `{ message: "<n> <Ware> (Energieverbrauch: <eps>)" }`; `shipTransferBlockReason` lehnt Schiff↔Schiff-Transfers (Waren, Crew, Torpedos, Quote) bei Ionensturm am Zielort ab („Beamen nicht möglich während eines Ionensturms“), außer im Dock. Torpedos kosten in SWU ohnehin kein EPS. Kolonie-Transfers nicht angepasst: Ionenstürme liegen nur auf Galaxiefeldern, Kolonie-Orbits im System. Frontend: `DockingPanel` je angedocktem Schiff Beam-Buttons (an/von) → `TransferDialog`; Dialog zeigt die Transfermeldung. Checks: `transfer.service.spec.ts` (36 grün), `DockingPanel.spec.tsx` + `TransferDialog.spec.tsx` (7 grün), `nx typecheck lint` backend+frontend grün. Ausstehend: gesammelter Verifikationslauf (Diff-Review gegen AK, Backend-/Frontend-Suiten). Modell: Claude Opus 5.5 direkt (Sol/Luna in dieser Session nicht verfügbar).
+- 2026-11-20 – **resolved nach Verifikation.** Review ok. Gesammelter Verifikationslauf 2026-11-20 (Claude Opus 5.5, Sol nicht verfügbar): Diff-Review gegen die Akzeptanzkriterien; `npm run lint` 0 Fehler, `npm run typecheck` grün, `npm run test` grün (Backend 2700/2700, Frontend 972/972), PostgreSQL-Integrationssuite inkl. aller Migrationen 1058/1062 – die 4 Fehler lagen in zwei veralteten Test-Fixtures (`profile-friends.int-spec.ts`: `shipRepo`-Mock ohne `manager` seit sc-AUD-13; `layer-access-http.int-spec.ts`: `MAP_EDITOR` nur im JWT, seit col-AUD-16a liest `JwtStrategy` Rechte aus der DB), korrigiert und erneut 54/54 grün. Browserprüfungen entfallen laut Nutzerentscheid vom 2026-11-20.

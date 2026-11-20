@@ -1,6 +1,6 @@
 # Traktorstrahl: lösen, Ziel beim Ziehenden, gehaltenes Schiff andocken
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -45,3 +45,4 @@ Ein aktivierter Traktorstrahl lässt sich in SWU nicht wieder lösen: `DELETE :i
   - Geprüft: `nx typecheck` backend/frontend/shared grün; Backend-Unit `spacecraft` 762/763 (rot nur das unabhängige `resource-collection.controller.spec`), neu: Andocken Erfolg, Ablehnungen (kein gehaltenes Schiff, EPS, Dockplatz, Mehrschiff-Flotte, nicht Grün, Crew, fremde Station), Einschiff-Flotte erlaubt, Lösen durch Fremden abgelehnt; Frontend `pages/spacecraft*` + `components/spacecraft` 254/254, neu: Box beim Ziehenden + Lösen, Station andocken mit Fehlermeldung; ESLint 0 Fehler.
   - Ausstehend: PostgreSQL-Integration (Sperren/Speichern von Station+Ziel, Nest-DI von `MessagingService` im `SpacecraftDockingService`), Browserprüfung (Traktor aktivieren, Box beim Ziehenden, Lösen, Station dockt gehaltenes Schiff).
   - Modell: Opus 5.5 direkt (gleichzeitige Schreibvorgänge/Spielregel), keine Delegation.
+- 2026-11-20 – **resolved nach Verifikation.** Review ok; Nest-DI und Sperren über die Integrationssuite abgedeckt. Gesammelter Verifikationslauf 2026-11-20 (Claude Opus 5.5, Sol nicht verfügbar): Diff-Review gegen die Akzeptanzkriterien; `npm run lint` 0 Fehler, `npm run typecheck` grün, `npm run test` grün (Backend 2700/2700, Frontend 972/972), PostgreSQL-Integrationssuite inkl. aller Migrationen 1058/1062 – die 4 Fehler lagen in zwei veralteten Test-Fixtures (`profile-friends.int-spec.ts`: `shipRepo`-Mock ohne `manager` seit sc-AUD-13; `layer-access-http.int-spec.ts`: `MAP_EDITOR` nur im JWT, seit col-AUD-16a liest `JwtStrategy` Rechte aus der DB), korrigiert und erneut 54/54 grün. Browserprüfungen entfallen laut Nutzerentscheid vom 2026-11-20.

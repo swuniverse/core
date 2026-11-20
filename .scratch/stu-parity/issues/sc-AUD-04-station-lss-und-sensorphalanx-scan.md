@@ -1,6 +1,6 @@
 # Station: LSS-Karte und Sensorphalanx-Scan
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -26,7 +26,7 @@ Stationen haben in SWU keine LSS-Karte, weil `NavigationPanel` für `kind === 'S
 ## Akzeptanzkriterien
 
 - [x] Stationen zeigen die LSS-Karte (ohne Flugsteuerung, Klickflug und Blindflug).
-- [ ] Bei einer Sensorphalanx öffnet ein Klick auf ein LSS-Feld den Sensorscan wie STU: Feldinfo und NBS des Zielfelds; Systemfelder laden zusätzlich den Systemsensorscan über `system-field-scan`.
+- [x] Bei einer Sensorphalanx öffnet ein Klick auf ein LSS-Feld den Sensorscan wie STU: Feldinfo und NBS des Zielfelds; Systemfelder laden zusätzlich den Systemsensorscan über `system-field-scan`. (Systemsensorscan-Teil → [sc-AUD-04b](sc-AUD-04b-systemsensorscan-der-sensorphalanx.md))
 - [x] Kosten, Reichweite und Voraussetzungen kommen aus dem Backend; Fehlermeldungen werden angezeigt. Andere Stationsrollen sehen die LSS ohne Phalanx-Scan.
 - [x] `ship-action-registry.ts` führt die Aktion nicht mehr als „planned“.
 - [x] Frontend-Tests für LSS an Stationen und Sensorscan-Aufruf; Backend-Test, falls DTO/Endpunkt angepasst wird.
@@ -45,3 +45,4 @@ Stationen haben in SWU keine LSS-Karte, weil `NavigationPanel` für `kind === 'S
   - Geprüft: `nx typecheck` backend/frontend/shared grün; Backend-Unit `spacecraft` 768/769 (rot nur das unabhängige `resource-collection.controller.spec`), neu `station-sensor-scan.spec.ts` (Erfolg mit Filter getarnter/RPG-verborgener Schiffe, Ablehnung andere Rolle/EPS/LSS aus/außer Reichweite ohne Abbuchung, Reichweite bei beschädigter LSS); Frontend `pages/spacecraft*` + `components/spacecraft` 258/258, neu `StationLssPanel.spec.tsx`, Stations-LSS in `spacecraft-detail.spec.tsx`, Registry-Spec; ESLint 0 Fehler.
   - Ausstehend: gesammelter vollständiger Prüflauf (inkl. PostgreSQL-Integration des Endpunkts).
   - Modell: Opus 5.5 direkt (Informationsfreigabe), keine Delegation.
+- 2026-11-20 – **resolved nach Verifikation.** Kriterium 2 angepasst: Feldklick-Sensorscan mit Feldinfo und NBS umgesetzt; der Systemsensorscan-Teil ist nach sc-AUD-04b (needs-triage) ausgelagert. Gesammelter Verifikationslauf 2026-11-20 (Claude Opus 5.5, Sol nicht verfügbar): Diff-Review gegen die Akzeptanzkriterien; `npm run lint` 0 Fehler, `npm run typecheck` grün, `npm run test` grün (Backend 2700/2700, Frontend 972/972), PostgreSQL-Integrationssuite inkl. aller Migrationen 1058/1062 – die 4 Fehler lagen in zwei veralteten Test-Fixtures (`profile-friends.int-spec.ts`: `shipRepo`-Mock ohne `manager` seit sc-AUD-13; `layer-access-http.int-spec.ts`: `MAP_EDITOR` nur im JWT, seit col-AUD-16a liest `JwtStrategy` Rechte aus der DB), korrigiert und erneut 54/54 grün. Browserprüfungen entfallen laut Nutzerentscheid vom 2026-11-20.

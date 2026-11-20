@@ -29,6 +29,7 @@ In SWU sind Traktor und Entern gegen alarmierte Schiffe risikolos: `spacecraft-t
 - [ ] Vor Traktor-Aktivierung und Entern läuft eine ThreatReaction: Steht das Ziel nicht auf Grün, gehört einem anderen Spieler und ist kein Freund, feuert seine Partei (Bildung wie `createAttackingBattleParty` des Ziels) einen Einweg-Kampf auf den Verursacher; Ziel-Eigner erhält eine PM mit Ursache und Kampfverlauf.
 - [ ] Reihenfolge wie STU: Erst nach der Reaktion wird beim Traktor auf aktive Schilde geprüft; wird der Verursacher zerstört oder handlungsunfähig, bricht die Aktion ab.
 - [ ] Der NPC-Ausschluss beim Traktor entfällt (STU prüft kein NPC); Urlaubsschutz und übrige STU-Prüfungen bleiben.
+- [ ] Die ThreatReaction bildet ihre Parteien über `attackingParty`/`attackedParty` aus `combat/battle-parties.ts` (übernommen aus sc-AUD-07b, Kriterium 1).
 - [ ] Die Antwort an den Client enthält den Kampfbericht bzw. -hinweis; das UI zeigt ihn an.
 - [ ] Backend-Tests: alarmiertes Ziel feuert vor Traktor und vor Entern, grünes Ziel und Freund feuern nicht, Verursacher zerstört bricht ab, NPC-Ziel kann erfasst werden.
 

@@ -1,6 +1,6 @@
 # Demontage wie STU: Werftgebäude auch deaktiviert, Fracht wird vernichtet
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -37,7 +37,7 @@ STU verlangt nur ein vorhandenes Werftgebäude mit passender Rumpffunktion. Auch
 - [x] Vor der Bestätigung zeigt der Dialog deutlich, z. B. als Warnbox: „Die Fracht des Schiffs (n Einheiten) geht bei der Demontage verloren.“, mit Liste der Waren. Hat das Schiff keine Fracht, fehlt die Warnung.
 - [x] Backend-Tests: Demontage an deaktivierter Werft erlaubt, ohne passende Werftfunktion abgelehnt, Fracht nicht im Kolonielager, Schiff entfernt.
 - [x] Frontend-Test `PanelShipyard.spec.tsx`: Warnung bei Fracht, keine Warnung ohne Fracht, Zugang bei deaktivierter Werft.
-- [ ] Die `map.md`-Entscheidung col-A6 b1 wird vom PO ersetzt. Dieses Ticket ändert `map.md` nicht; der Umsetzer trägt die Ergebnisnotiz wie üblich ein.
+- [x] Die `map.md`-Entscheidung col-A6 b1 wird vom PO ersetzt. Dieses Ticket ändert `map.md` nicht; der Umsetzer trägt die Ergebnisnotiz wie üblich ein.
 
 ## Herkunft
 
@@ -54,4 +54,4 @@ STU verlangt nur ein vorhandenes Werftgebäude mit passender Rumpffunktion. Auch
   - Geprüft: `nx typecheck` backend/frontend/shared grün; Backend-Unit `colony` 422/422 inkl. angepasster Demontagetests (Fracht nicht im Lager, deaktivierte Werft erlaubt, ohne passende Werftfunktion abgelehnt, Vorschau `lostCargo`); Frontend `colonies` 142/142 plus `colony-navigation.spec.ts` (Warnung mit/ohne Fracht, Zugang bei deaktivierter Werft); PostgreSQL `colony-orbit-order-http` grün; ESLint 0 Fehler.
   - Ausstehend: Browserprüfung (Werft deaktivieren, Demontage mit beladenem Schiff); `map.md`-Ergebnisnotiz beim Abschluss (ersetzt col-A6 b1).
   - Modell: Opus 5.5 direkt, keine Delegation.
-
+- 2026-11-20 – **resolved nach Verifikation.** Review ok; Ergebnisnotiz in `map.md` eingetragen (col-A6 b1 ersetzt). Gesammelter Verifikationslauf 2026-11-20 (Claude Opus 5.5, Sol nicht verfügbar): Diff-Review gegen die Akzeptanzkriterien; `npm run lint` 0 Fehler, `npm run typecheck` grün, `npm run test` grün (Backend 2700/2700, Frontend 972/972), PostgreSQL-Integrationssuite inkl. aller Migrationen 1058/1062 – die 4 Fehler lagen in zwei veralteten Test-Fixtures (`profile-friends.int-spec.ts`: `shipRepo`-Mock ohne `manager` seit sc-AUD-13; `layer-access-http.int-spec.ts`: `MAP_EDITOR` nur im JWT, seit col-AUD-16a liest `JwtStrategy` Rechte aus der DB), korrigiert und erneut 54/54 grün. Browserprüfungen entfallen laut Nutzerentscheid vom 2026-11-20.

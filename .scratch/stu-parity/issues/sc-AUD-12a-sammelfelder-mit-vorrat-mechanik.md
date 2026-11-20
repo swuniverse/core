@@ -1,6 +1,6 @@
 # Sammelfelder mit Vorrat wie STU – Mechanik
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -53,4 +53,4 @@ In SWU erschöpfen Sammelfelder nicht: Der Ressourcen-Kollektor liefert je Tick 
   - Panel zeigt „Vorrat x/max“ je Ware statt „n je Tick“.
   - Checks: `nx typecheck backend`/`frontend` grün; Jest `resource-collection.spec`, `maintenance.service.spec` (36) grün; Vitest `ResourceCollectionPanel.spec` (4) grün; PostgreSQL `resource-collection|resource-conversion|maintenance` (59, inkl. Nebenläufigkeitstest) grün; ESLint ohne Fehler.
   - Ausstehend: gesammelte vollständige Verifikation (`npm run lint && npm run typecheck && npm run test`, alle Integrationstests).
-
+- 2026-11-20 – **resolved nach Verifikation.** Review ok; Nebenläufigkeitstest mehrerer Sammler in der Integrationssuite grün. Gesammelter Verifikationslauf 2026-11-20 (Claude Opus 5.5, Sol nicht verfügbar): Diff-Review gegen die Akzeptanzkriterien; `npm run lint` 0 Fehler, `npm run typecheck` grün, `npm run test` grün (Backend 2700/2700, Frontend 972/972), PostgreSQL-Integrationssuite inkl. aller Migrationen 1058/1062 – die 4 Fehler lagen in zwei veralteten Test-Fixtures (`profile-friends.int-spec.ts`: `shipRepo`-Mock ohne `manager` seit sc-AUD-13; `layer-access-http.int-spec.ts`: `MAP_EDITOR` nur im JWT, seit col-AUD-16a liest `JwtStrategy` Rechte aus der DB), korrigiert und erneut 54/54 grün. Browserprüfungen entfallen laut Nutzerentscheid vom 2026-11-20.

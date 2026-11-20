@@ -1,6 +1,6 @@
 # Werft-, Stations- und Eigenreparatur minütlich abschließen wie STU-Process-Tick
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** sh-AUD-07a
@@ -39,7 +39,7 @@ Dieses Ticket verlegt diese drei Reparaturpfade in den minütlichen Lauf aus sh-
 - [x] Urlaub: wie in sh-AUD-05 festgelegt (wirksamer Urlaub über `isVacationEffective`; Process-Pfade wie STU).
 - [x] Meldungen und Crew-Erfahrung (`REPAIR_COMPLETED`) wie bisher, genau einmal je Schritt.
 - [x] Nebenläufigkeit: Sperre je Station/Auftrag, kein doppelter Reparaturschritt bei überlappenden Läufen.
-- [ ] Angezeigte Fertigstellungszeiten (Werft, Station, Schiffsdetail, Maindesk) stimmen auf ≤ 1 min.
+- [x] Angezeigte Fertigstellungszeiten (Werft, Station, Schiffsdetail, Maindesk) stimmen auf ≤ 1 min.
 - [x] Backend-Tests: Kolonie-Werftreparatur, Stationsreparatur und Eigenreparatur werden ohne Haupttick fertig; Pausieren/Reaktivieren; Abbruch der Eigenreparatur bei zu wenig Crew; kein Doppelschritt bei zwei parallelen Läufen (PostgreSQL-Integrationstest).
 
 ## Herkunft
@@ -66,4 +66,4 @@ Commit: `fix(tick): finish repairs in the minute runner like STU (sh-AUD-07b)`. 
 **Ausstehend:** Kriterium „angezeigte Fertigstellungszeiten ≤ 1 min“ im Browser (Werft, Station, Schiffsdetail, Maindesk); voller Regressionslauf im Sammelpass; PostgreSQL-Doppelschritt-Test für Station/Bord-Reparatur (nur durch bestehende Sperren abgedeckt).
 
 Modell: Opus 5.5 direkt, keine Delegation.
-
+- 2026-11-20 – **resolved nach Verifikation.** Kriterium 6 belegt: Die Anzeigen nutzen die gespeicherten Zeitstempel (`completesAt`/`finishesAt`), der Minutenlauf (`EVERY_MINUTE`) arbeitet alle Einträge mit Zeitstempel ≤ jetzt ab; Abweichung daher ≤ 1 min. Gesammelter Verifikationslauf 2026-11-20 (Claude Opus 5.5, Sol nicht verfügbar): Diff-Review gegen die Akzeptanzkriterien; `npm run lint` 0 Fehler, `npm run typecheck` grün, `npm run test` grün (Backend 2700/2700, Frontend 972/972), PostgreSQL-Integrationssuite inkl. aller Migrationen 1058/1062 – die 4 Fehler lagen in zwei veralteten Test-Fixtures (`profile-friends.int-spec.ts`: `shipRepo`-Mock ohne `manager` seit sc-AUD-13; `layer-access-http.int-spec.ts`: `MAP_EDITOR` nur im JWT, seit col-AUD-16a liest `JwtStrategy` Rechte aus der DB), korrigiert und erneut 54/54 grün. Browserprüfungen entfallen laut Nutzerentscheid vom 2026-11-20.

@@ -51,6 +51,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 
 ## Entscheidungen
 
+- 2026-11-20 – **12 Tickets resolved nach gesammeltem Verifikationslauf** (col-AUD-11a, col-AUD-14, col-AUD-16b, sc-AUD-01, sc-AUD-03, sc-AUD-04, sc-AUD-05a, sc-AUD-07b, sc-AUD-12a, sc-AUD-13, sc-AUD-15, sh-AUD-07b): Lint, Typecheck, Unit (Backend 2700, Frontend 972) und PostgreSQL-Integrationssuite grün, nachdem zwei veraltete Fixtures (Folgen von sc-AUD-13 und col-AUD-16a) korrigiert wurden. Kriterienanpassungen: sc-AUD-07b ThreatReaction-Teil → sc-AUD-09; sc-AUD-04 Systemsensorscan → sc-AUD-04b (needs-triage). col-AUD-14 ersetzt col-A6 b1 (Werftpflicht/Fracht). sc-AUD-15: Dock-Transfer Station↔angedocktes Schiff ohne EPS und als einziger Transfer im Ionensturm erlaubt.
 - 2026-11-20 – **sc-AUD-06 und sc-AUD-11 resolved**: NBS gruppiert wie STU mit Flottenkopfzeilen und Getarnt-Hinweis ohne Leck; Flottenandocken/-abdocken schiffsweise mit Teilergebnis je Schiff, „Station dockt Flotte“ mit Stations-EPS. Prüflauf fand und schloss eine RPG-Sichtbarkeitslücke bei Flottenmitgliedern. Siehe [sc-AUD-06](issues/sc-AUD-06-nbs-liste-gruppiert-wie-stu.md), [sc-AUD-11](issues/sc-AUD-11-flottenandocken-schiffsweise.md).
 - 2026-11-20 – **sc-AUD-05a umgesetzt, Prüfung ausstehend**: `PATCH fleets/:fleetId/systems/:systemKey` schaltet NBS, Schilde, Strahlenwaffen, Torpedobank, Tarnung und Hyperantrieb schiffsweise über das bestehende `toggleSystem` mit Teilergebnis je Schiff. Crewlimit 100 (Summe Bauplan-Crew `crewRequired`) bei Beitritt und Erstellung; Flottenliste liefert `crewSum`/`crewLimit`. Bestandsflotten über dem Limit löst eine einmalige Migration auf (STU `CorruptFleetDeletion`). Status `claimed` – siehe [Ticket](issues/sc-AUD-05a-flottenweit-systeme-schalten-und-crewlimit.md).
 
@@ -195,7 +196,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - 2026-10-21 – tmw-T13 – Option 1a, 2b: Handelsabkommen = kostenlose Lizenz am Spielerposten des Partners; tradeModifier entfernt
 - 2026-10-21 – tmw-T3 – Option a: Kontotransfer per Feld-Kopräsenz, kein Docking
 - 2026-10-21 – tmw-T7b – Option a: Basishandel mit Doonium, Transparistahl, Durastahl-Legierung zu STU-Startwerten in beiden Netzen
-- 2026-10-21 – col-A6 – Option b1: Demontage mit STU-Rückgabe (Module, Reaktorladung, Torpedos); Werftpflicht bleibt als SWU-Regel
+- 2026-10-21 – col-A6 – Option b1: Demontage mit STU-Rückgabe (Module, Reaktorladung, Torpedos); ~~Werftpflicht bleibt als SWU-Regel~~ (ersetzt durch col-AUD-14: Werftgebäude auch deaktiviert genügt, Fracht geht verloren)
 - 2026-10-21 – col-A8 – Option a: STU-Komponentensatz 1:1; `Ersatzteil` wird zum **Instandhaltungsset**, `Systemkomponente` zur **Schiffssystem-Baugruppe**; Commodity-IDs 10001/10002 und STU-Kosten bleiben erhalten
 - 2026-10-21 – col-A9 – Option b: Jägerwerft baut Rümpfe ins Lager, Start über Hangar
 - 2026-10-21 – col-E2 – Option a: Ruinenmodell der Kolonieabgabe bleibt; ADR, kein Umbau
@@ -487,7 +488,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - tmw-D2 – RPG-Schreiber- und Aurodium-Ranglisten mit erweiterbaren Besitzquellen sowie STU-Highscore-Gliederung umgesetzt – siehe Feature-Commit
 - tmw-K1b1 – Gemeinsamer Feldtransition-Executor verarbeitet System- und Galaxierouten mit EPS und allen Bewegungsfolgen je tatsächlich betretenem Feld – siehe Feature-Commit
 
-- col-A6 – Demontage recycelt Module nach Integrität, vollständige Reaktorladungen und geladene Torpedos innerhalb der Lagergrenze; Werftpflicht, Fracht und Crew bleiben erhalten, Vorschau zeigt Rückgaben – siehe `issues/col-A6-demontage-nach-stu-regel.md`
+- col-A6 – Demontage recycelt Module nach Integrität, vollständige Reaktorladungen und geladene Torpedos innerhalb der Lagergrenze; Werftpflicht, Fracht und Crew bleiben erhalten, Vorschau zeigt Rückgaben – siehe `issues/col-A6-demontage-nach-stu-regel.md` (Werftpflicht und Fracht seit col-AUD-14 wie STU)
 
 - col-F3 – Top-10-Rangliste der besten Arbeitgeber aus zufriedenen Arbeitern aller Kolonien mit eigener Position und Verlinkung im Datenbank-Hub umgesetzt – siehe `issues/col-F3-rangliste-zufriedene-arbeiter.md`
 

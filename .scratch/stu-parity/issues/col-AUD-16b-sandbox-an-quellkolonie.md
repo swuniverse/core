@@ -1,6 +1,6 @@
 # Kolonie-Sandbox an Quellkolonie gebunden und mit ihr gelöscht
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** col-AUD-16a
@@ -50,4 +50,4 @@ In STU hängt eine Sandbox fest an ihrer Quellkolonie (`colony_id NOT NULL`). Wi
   - Checks: Backend-Unit `colony-sandbox*`, `colony-abandon*`, `colony-tick` (293 Tests), Integration `colony-sandbox*` (11 Tests, inkl. Migration hin/zurück, Bereinigung 3 von 4, Kaskade), Frontend `ColonySandbox*` (11 Tests), `nx typecheck lint` backend/frontend/shared grün.
   - Aufgabe als Ruine nur per Unit-Test (Löschaufruf mit `sourceColonyId`) abgedeckt, da der Integrations-DataSource die Queue-Entities nicht lädt.
   - Ausstehend: Verifikation (Diff-Review, Browsercheck Sandbox-Vorschau, Migration gegen Dev-DB).
-
+- 2026-11-20 – **resolved nach Verifikation.** Review: Migration löscht Sandboxen ohne eigene, nicht aufgegebene Quellkolonie, danach NOT NULL + ON DELETE CASCADE; Migration läuft in der Integrationssuite auf frischer DB. Gegen die Dev-DB nicht ausgeführt (verändert lokale Daten). Gesammelter Verifikationslauf 2026-11-20 (Claude Opus 5.5, Sol nicht verfügbar): Diff-Review gegen die Akzeptanzkriterien; `npm run lint` 0 Fehler, `npm run typecheck` grün, `npm run test` grün (Backend 2700/2700, Frontend 972/972), PostgreSQL-Integrationssuite inkl. aller Migrationen 1058/1062 – die 4 Fehler lagen in zwei veralteten Test-Fixtures (`profile-friends.int-spec.ts`: `shipRepo`-Mock ohne `manager` seit sc-AUD-13; `layer-access-http.int-spec.ts`: `MAP_EDITOR` nur im JWT, seit col-AUD-16a liest `JwtStrategy` Rechte aus der DB), korrigiert und erneut 54/54 grün. Browserprüfungen entfallen laut Nutzerentscheid vom 2026-11-20.

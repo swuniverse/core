@@ -1,6 +1,6 @@
 # Bojen im UI: auslegen, aufnehmen, anzeigen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -32,7 +32,7 @@ Bojen sind im Backend vollständig vorhanden (sc-WP-SENS-1), für Spieler aber u
 - [x] Bojen am Feld erscheinen im Feldkontext und im Sektor-Scan als Tabelle (Eigner, Text, Datum) mit „Boje aufbringen“ (1 EPS) für jedes Schiff am Feld.
 - [x] Bojen lassen sich analysieren (Text/Eigner wie `analysebuoy.twig`), ohne das Feld verlassen zu müssen.
 - [x] Unter der Schiffsliste steht wie STU eine Bojenliste der eigenen Bojen mit Position.
-- [ ] Nach Setzen/Aufnehmen aktualisieren sich Feldkontext, Sektor-Scan, Lager und EPS ohne Reload.
+- [x] Nach Setzen/Aufnehmen aktualisieren sich Feldkontext, Sektor-Scan, Lager und EPS ohne Reload.
 - [x] Frontend-Tests (Vitest/Testing Library) für Setzen, Anzeige im Sektor-Scan, Aufnehmen und Bojenliste; Backend-Test, falls für die Bojenliste ein neuer Endpunkt nötig ist.
 
 ## Herkunft
@@ -49,3 +49,4 @@ Bojen sind im Backend vollständig vorhanden (sc-WP-SENS-1), für Spieler aber u
   - Geprüft: `nx typecheck` backend/frontend/shared grün; Backend-Unit `spacecraft` 753/754 (rot nur `resource-collection.controller.spec` – Meldungstext des PermissionGuard, unabhängig) inkl. neuem `spacecraft-buoy-list.spec.ts`; Frontend `components/spacecraft` + `pages/spacecraft*` 252/252 inkl. neuer Tests (Setzen, Fehlergrund, Sektor-Scan + Aufbringen, Analyse, Bojenliste); ESLint 0 Fehler.
   - Ausstehend: Browserprüfung (Setzen mit Sondenboje im Lager, Anzeige/Aufbringen im Sektor-Scan, EPS/Lager-Aktualisierung, Bojenliste); PostgreSQL-Check von `GET /spacecraft/buoys` (Relationen `location.systemField.starSystem`).
   - Modell: Opus 5.5 direkt (ticket-coder/Luna in dieser Sitzung nicht verfügbar), keine Delegation.
+- 2026-11-20 – **resolved nach Verifikation.** Kriterium 5 belegt: `reloadBuoys` aktualisiert Feldkontext und offenen Sektor-Scan, `onUpdate` lädt EPS/Lager; Tests in `FieldContextPanel.spec.tsx`. `GET /spacecraft/buoys` über die Integrationssuite (App-Start) abgedeckt. Gesammelter Verifikationslauf 2026-11-20 (Claude Opus 5.5, Sol nicht verfügbar): Diff-Review gegen die Akzeptanzkriterien; `npm run lint` 0 Fehler, `npm run typecheck` grün, `npm run test` grün (Backend 2700/2700, Frontend 972/972), PostgreSQL-Integrationssuite inkl. aller Migrationen 1058/1062 – die 4 Fehler lagen in zwei veralteten Test-Fixtures (`profile-friends.int-spec.ts`: `shipRepo`-Mock ohne `manager` seit sc-AUD-13; `layer-access-http.int-spec.ts`: `MAP_EDITOR` nur im JWT, seit col-AUD-16a liest `JwtStrategy` Rechte aus der DB), korrigiert und erneut 54/54 grün. Browserprüfungen entfallen laut Nutzerentscheid vom 2026-11-20.
