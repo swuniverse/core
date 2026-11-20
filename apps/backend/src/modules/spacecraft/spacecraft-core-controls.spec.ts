@@ -669,5 +669,51 @@ describe('spacecraft core detail controls', () => {
 
       expect(result.ships.map((target) => target.id)).toEqual([7, 9]);
     });
+
+    it('groups fleets from visible ships and hints at cloaks without revealing them', async () => {
+      const { service, ship } = createService();
+      const location = { id: 100, kind: 'GALAXY_FIELD', galaxyField: { layerId: 1, cx: 1, cy: 1 }, systemField: null };
+      const fleet = { id: 3, name: 'Rotte', leaderId: 7, sort: 0 };
+      const targets = [
+        { id: 7, userId: 5, user: { username: 'Andere' }, fleetId: 3, fleet, kind: 'SHIP', status: 'IDLE', locationId: 100, location, runtimeSystems: {}, rpgPlotId: 4 },
+        { id: 8, userId: 5, name: 'Geheim', fleetId: 3, fleet, kind: 'SHIP', status: 'IDLE', locationId: 100, location, runtimeSystems: { CLOAK: { active: true } } },
+        { id: 9, userId: 5, name: 'Phantom', fleetId: 6, fleet: { id: 6, name: 'Unsichtbar', leaderId: 9 }, kind: 'SHIP', status: 'IDLE', locationId: 100, location, runtimeSystems: { CLOAK: { active: true } } },
+      ];
+      const query: any = { getMany: jest.fn(async () => targets) };
+      for (const method of ['leftJoinAndSelect', 'where', 'andWhere', 'leftJoin']) query[method] = jest.fn(() => query);
+      Object.assign(ship, { locationId: 100, location, fleetId: null, kind: 'SHIP', runtimeSystems: {
+        SHORT_RANGE_SENSORS: { active: true, cooldown: 0, integrity: 100 },
+        TACHYON_SCANNER: { active: true, cooldown: 0, integrity: 100 },
+      } });
+      (service as any).shipRepo.createQueryBuilder = jest.fn(() => query);
+      (service as any).dataSource = {
+        getRepository: jest.fn((entity: { name: string }) => ({
+          createQueryBuilder: () => ({ ...query, getMany: async () => [] }),
+          find: jest.fn(async () =>
+            entity.name === 'ShipLogEntry' ? [{ spacecraftId: 7 }]
+            : entity.name === 'ColonyOrbitAssignment' ? [{ fleetId: 3, mode: 'DEFEND' }]
+            : []),
+        })),
+      };
+      (service as any).escapePodService = { listNearby: jest.fn(async () => []) };
+      jest.spyOn(service, 'findOne').mockResolvedValue(ship as any);
+      (service as any).spacecraftRuntimeStateService.initialize.mockImplementation((value: any) => value.runtimeSystems);
+
+      const result = await service.getNearby(2, 1);
+
+      expect(result.ships.map((target) => target.id)).toEqual([7]);
+      expect(result.ships[0]).toMatchObject({ hasLogBook: true, rpgActive: true });
+      expect(result.fleets).toEqual([{ id: 3, name: 'Rotte', leadShipId: 7, username: 'Andere', isOwn: false, visibleShips: 1, defending: true, blocking: false, canJoin: false }]);
+      expect(result.cloakedShipsHint).toBe(true);
+      expect(JSON.stringify(result)).not.toMatch(/Geheim|Phantom|Unsichtbar/);
+
+      (ship.runtimeSystems as any).TACHYON_SCANNER = { active: true, cooldown: 0, integrity: 100, lastScanAt: Date.now(), lastScanLocationId: 100 } as any;
+      const scanning = await service.getNearby(2, 1);
+      expect(scanning.cloakedShipsHint).toBe(false);
+      expect(scanning.fleets?.find((entry) => entry.id === 3)?.visibleShips).toBe(2);
+
+      (ship.runtimeSystems as any).TACHYON_SCANNER = { active: false, cooldown: 0, integrity: 100 } as any;
+      expect((await service.getNearby(2, 1)).cloakedShipsHint).toBe(false);
+    });
   });
 });

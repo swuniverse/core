@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { NearbySensorPanel } from './NearbySensorPanel';
 
@@ -368,9 +368,10 @@ describe('NearbySensorPanel', () => {
     expect(screen.getByText(/Turbolaser.*12 Schaden/)).toBeTruthy();
   });
 
-  it('joins a nearby own fleet leader', async () => {
+  it('joins a nearby own fleet from its header', async () => {
     apiMocks.get.mockResolvedValue({
       ...nearby,
+      fleets: [{ id: 7, name: 'Rotte', leadShipId: 3, username: 'Ich', isOwn: true, visibleShips: 1, defending: false, blocking: false, canJoin: true }],
       ships: [
         {
           ...nearby.ships[0],
@@ -621,5 +622,53 @@ describe('NearbySensorPanel', () => {
     );
     expect(await screen.findByText('Andockvorgang abgeschlossen')).toBeTruthy();
     expect(onUpdate).toHaveBeenCalled();
+  });
+
+  it('groups stations, fleets, single ships and wrecks in STU order', async () => {
+    const base = nearby.ships[0];
+    apiMocks.get.mockResolvedValue({
+      ...nearby,
+      fleets: [{ id: 7, name: 'Schwarze Rotte', leadShipId: 4, username: 'Andere', isOwn: false, visibleShips: 2, defending: true, blocking: false, canJoin: false }],
+      ships: [
+        { ...base, id: 5, name: 'Einzel', hasLogBook: true, rpgActive: true },
+        { ...base, id: 3, name: 'Flügel', fleetId: 7 },
+        { ...base, id: 4, name: 'Führer', fleetId: 7, isFleetLeader: true },
+        { ...base, id: 9, name: 'Depot', kind: 'STATION' },
+      ],
+      wrecks: [{ id: 1, hull: 5, cargo: [], modules: [] }],
+    });
+    render(
+      <MemoryRouter>
+        <NearbySensorPanel shipId={2} locationKey="system:1:5:5" systems={{ SHORT_RANGE_SENSORS: { active: true } }} onUpdate={vi.fn()} />
+      </MemoryRouter>,
+    );
+    await screen.findByText('Schwarze Rotte');
+    const rows = screen.getAllByRole('row').map((row) => row.textContent ?? '');
+    const at = (text: string) => rows.findIndex((row) => row.includes(text));
+    expect(at('Stationen')).toBeLessThan(at('Depot'));
+    expect(at('Depot')).toBeLessThan(at('Schwarze Rotte'));
+    expect(rows[at('Schwarze Rotte')]).toContain('2 Schiffe');
+    expect(at('Schwarze Rotte')).toBeLessThan(at('Führer'));
+    expect(at('Führer')).toBeLessThan(at('Flügel'));
+    expect(at('Flügel')).toBeLessThan(at('Einzelschiffe'));
+    expect(at('Einzelschiffe')).toBeLessThan(at('Einzel') + 1);
+    expect(at('Einzel')).toBeLessThan(at('Trümmerfelder'));
+    expect(screen.getByTitle('verteidigt die Kolonie')).toBeTruthy();
+    expect(screen.queryByTitle('Flotte beitreten')).toBeNull();
+    expect(screen.getByTitle('Logbuch verfügbar')).toBeTruthy();
+    expect(screen.getByTitle('RPG-Modul aktiv')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'zuklappen' }));
+    expect(screen.queryByText('Führer')).toBeNull();
+    expect(within(screen.getByTestId('nbs-fleet-7')).getByTitle('Nachricht an Andere verfassen')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'aufklappen' }));
+    expect(screen.getByText('Führer')).toBeTruthy();
+  });
+
+  it('hints at cloaked ships instead of the empty-sector message', async () => {
+    apiMocks.get.mockResolvedValue({ ...nearby, ships: [], cloakedShipsHint: true });
+    render(<NearbySensorPanel shipId={2} locationKey="galaxy:1:5:5" systems={{ SHORT_RANGE_SENSORS: { active: true } }} onUpdate={vi.fn()} />);
+    expect(await screen.findByText('Es befinden sich getarnte Schiffe in diesem Sektor')).toBeTruthy();
+    expect(screen.queryByText('Es befinden sich keine Schiffe in diesem Sektor.')).toBeNull();
   });
 });

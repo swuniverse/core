@@ -51,6 +51,11 @@ import {
 import { isSpacecraftDestroyed } from './spacecraft-status.util';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
+import { ShipLogEntry } from './entities/ship-log-entry.entity';
+import {
+  ColonyOrbitAssignment,
+  ColonyOrbitAssignmentMode,
+} from '../colony/entities/colony-orbit-assignment.entity';
 import { SpacecraftTakeover } from './entities/spacecraft-takeover.entity';
 import { Buoy, toBuoyDto } from './entities/buoy.entity';
 import { CargoItem } from './entities/cargo-item.entity';
@@ -71,6 +76,7 @@ import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import {
   CLOAK_ACTIVATION_EPS,
   CLOAK_EXCLUSIVE_SYSTEMS,
+  isCloaked,
   isHiddenFromViewer,
   mayUseCloak,
 } from './spacecraft-cloak';
@@ -4291,6 +4297,71 @@ export class SpacecraftService {
       }),
     ]);
     const visibleShips = ships.filter(target => !isRpgHidden(target));
+    const listed = visibleShips.filter(
+      (target) =>
+        target.id !== ship.id &&
+        (!isHiddenFromViewer(target, userId) ||
+          canDetectCloakedTarget(ship, target)),
+    );
+    const listedIds = listed.map((target) => target.id);
+    const fleetIds = [
+      ...new Set(listed.flatMap((target) => target.fleetId ?? [])),
+    ];
+    const [logEntries, orbitAssignments] = await Promise.all([
+      listedIds.length
+        ? this.dataSource.getRepository(ShipLogEntry).find({
+            select: { spacecraftId: true },
+            where: { spacecraftId: In(listedIds) },
+          })
+        : [],
+      fleetIds.length
+        ? this.dataSource
+            .getRepository(ColonyOrbitAssignment)
+            .find({ where: { fleetId: In(fleetIds) } })
+        : [],
+    ]);
+    // STU hasLogBook: non-private entries; all entries count until sc-AUD-13 adds the private flag.
+    const shipsWithLogBook = new Set(
+      logEntries.map((entry) => entry.spacecraftId),
+    );
+    // STU CLOAK_NBS: tachyon scanner on, no running scan, a foreign visible-scene cloak on the field.
+    const cloakedShipsHint =
+      systems.TACHYON_SCANNER?.active === true &&
+      tachyonScanExpiresAt(ship) === null &&
+      visibleShips.some(
+        (target) => target.userId !== ship.userId && isCloaked(target),
+      );
+    const fleetOf = (fleetId: number) =>
+      listed.find((target) => target.fleetId === fleetId)?.fleet;
+    // STU FleetNfsIterator order: sort DESC, id DESC.
+    const fleets = fleetIds
+      .sort(
+        (a, b) => (fleetOf(b)?.sort ?? 0) - (fleetOf(a)?.sort ?? 0) || b - a,
+      )
+      .map((fleetId) => {
+        const members = listed.filter((target) => target.fleetId === fleetId);
+        const fleet = fleetOf(fleetId);
+        const lead =
+          members.find((target) => target.id === fleet?.leaderId) ??
+          members[0];
+        const mode = orbitAssignments.find(
+          (entry) => entry.fleetId === fleetId,
+        )?.mode;
+        return {
+          id: fleetId,
+          name: fleet?.name ?? '',
+          leadShipId: lead.id,
+          username: lead.user?.username ?? null,
+          isOwn: lead.userId === ship.userId,
+          visibleShips: members.length,
+          defending: mode === ColonyOrbitAssignmentMode.DEFEND,
+          blocking: mode === ColonyOrbitAssignmentMode.BLOCKADE,
+          canJoin:
+            lead.userId === ship.userId &&
+            ship.kind === 'SHIP' &&
+            ship.fleetId == null,
+        };
+      });
     const dockableStationIds =
       await this.dockingPrivilegeService.allowedStationIds(
         ship,
@@ -4300,11 +4371,9 @@ export class SpacecraftService {
       actionsAvailable: !hyperdriveActive,
       tachyonScanExpiresAt: tachyonScanExpiresAt(ship),
       hyperdriveActive,
-      ships: visibleShips
-        .filter(
-          (target) =>
-            target.id !== ship.id && (!isHiddenFromViewer(target, userId) || canDetectCloakedTarget(ship, target)),
-        )
+      cloakedShipsHint,
+      fleets,
+      ships: listed
         .map((target) => {
           const targetSystems =
             this.spacecraftRuntimeStateService.initialize(target);
@@ -4345,6 +4414,8 @@ export class SpacecraftService {
               target.status === SpacecraftStatus.IDLE &&
               targetHyperdriveActive,
             kind: target.kind,
+            hasLogBook: shipsWithLogBook.has(target.id),
+            rpgActive: target.rpgPlotId != null,
             tractored: ships.some(
               (candidate) => candidate.tractoredShipId === target.id,
             ),

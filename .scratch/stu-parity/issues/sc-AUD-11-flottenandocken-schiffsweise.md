@@ -48,3 +48,4 @@ Abdocken läuft ebenso schiffsweise mit 1 EPS.
 ## Comments
 
 - Der `map.md`-Eintrag wird vom umsetzenden Agenten bzw. Maintainer angepasst, nicht in diesem Ticket vorab.
+- 2026-11-20 – Anschluss aus sc-AUD-06: Die NBS-Flottenkopfzeile (`NearbySensorPanel`, `fleets[]` im Nearby-DTO) ist fertig; die Aktion „andocken“ für eine eigene Station dort nachrüsten, sobald der Endpunkt steht.

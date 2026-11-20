@@ -821,6 +821,10 @@ export interface SpacecraftNearbyTargetDto {
   fleetId?: number | null;
   isFleetLeader?: boolean;
   kind?: 'SHIP' | 'STATION';
+  /** STU hasLogBook: the target has readable logbook entries. */
+  hasLogBook?: boolean;
+  /** STU getRPGModuleState: an RPG transponder is assigned. */
+  rpgActive?: boolean;
   /** The ship is held by a tractor beam (and cannot fly on its own). */
   tractored?: boolean;
   takeover?: SpacecraftTakeoverDto | null;
@@ -1023,8 +1027,25 @@ export interface SpacecraftNearbyEscapePodDto {
   canSalvage?: boolean;
 }
 
+/** Fleet header of the grouped NBS (STU FleetNfsItem); counts only visible ships. */
+export interface SpacecraftNearbyFleetDto {
+  id: number;
+  name: string;
+  leadShipId: number;
+  username: string | null;
+  isOwn: boolean;
+  visibleShips: number;
+  defending: boolean;
+  blocking: boolean;
+  canJoin: boolean;
+}
+
 export interface SpacecraftNearbyDto {
   tachyonScanExpiresAt?: number | null;
+  /** STU CLOAK_NBS: foreign cloaked ships are present but not revealed. */
+  cloakedShipsHint?: boolean;
+  /** STU order: sort DESC, id DESC. Ships reference these via `fleetId`. */
+  fleets?: SpacecraftNearbyFleetDto[];
   actionsAvailable: boolean;
   hyperdriveActive: boolean;
   ships: SpacecraftNearbyTargetDto[];

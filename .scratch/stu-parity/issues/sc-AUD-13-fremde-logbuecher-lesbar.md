@@ -40,3 +40,4 @@ Fremde Logbücher sind in SWU nirgends lesbar. `listLogs` verlangt ein eigenes S
 - PO-Linie „wie STU“ vom 2026-11-17; bisher kein Ticket.
 
 ## Comments
+- 2026-11-20 – Anschluss aus sc-AUD-06: `SpacecraftService.getNearby` setzt `hasLogBook` heute aus allen `ShipLogEntry`-Zeilen. Beim Einführen von „privat“/gelöscht dort filtern.
