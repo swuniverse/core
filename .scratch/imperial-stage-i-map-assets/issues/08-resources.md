@@ -1,6 +1,6 @@
 # Rohstoffgewinnung: imperiale Gebäudeassets
 
-Status: open
+Status: claimed
 Label: ready-for-agent
 Type: task
 
@@ -19,12 +19,14 @@ Parent besitzt Rastergrafiken, Export, Manifest, Dokumentation und scoped Commit
 
 ## Akzeptanzkriterien
 
-- [ ] Transparente 256px-RGBA-PNGs, 512px-Master und Quelle/Prompt erhalten.
-- [ ] IDs, Namen, Forschung und Vorschaufelder gegen game-data geprüft.
-- [ ] Quelle und 40-/68px-Geländemontagen visuell geprüft.
-- [ ] Lokaler scoped Assetcommit und Format-/Whitespaceprüfung.
+- [x] Transparente 256px-RGBA-PNGs, 512px-Master und Quelle/Prompt erhalten.
+- [x] IDs, Namen, Forschung und Vorschaufelder gegen game-data geprüft.
+- [x] Quelle und 40-/68px-Geländemontagen visuell geprüft.
+- [x] Lokaler scoped Assetcommit und Format-/Whitespaceprüfung.
 - [ ] Gemeinsame Zuordnungs-/Resolver-/HTTP-/Browserprüfung und Abschluss dokumentiert.
 
 ## Comments
 
 - Parent im verfügbaren Sitzungsmodell; Wechsel auf GPT-6.1 Sol nicht möglich. Begrenzte Code-Anbindung über ticket-coder GPT-6 Luna high, ein Coding Agent zur Zeit.
+
+- Umgesetzt, Prüfung ausstehend: Quelle, Master, Export und Daten-/Alpha-/Geländeprüfung für 4 Familien / 8 IDs bestanden; Parent hat Quelle und 40-/68px geprüft. Scoped Assetcommit mit eindeutigem Betreff "feat(assets): add Imperial resources map buildings". Gemeinsame Runtime-/Resolver-/HTTP-/Browserprüfung durch Ticket 12 bleibt offen.

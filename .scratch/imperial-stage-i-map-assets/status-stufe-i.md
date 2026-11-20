@@ -2,7 +2,7 @@
 
 Freigegebener imperialer Stil: graue Panzerflächen, schwarze Technik, rote Akzente, hohe Draufsicht und breite Grundstücke.
 
-27 / 42 Familien produziert (65 / 94 IDs); Runtime-/Abschlussprüfung noch ausstehend.
+31 / 42 Familien produziert (73 / 94 IDs); Runtime-/Abschlussprüfung noch ausstehend.
 
 | Serie                                                                                                               | Familien | IDs | Status      |
 | ------------------------------------------------------------------------------------------------------------------- | -------- | --- | ----------- |
@@ -13,7 +13,7 @@ Freigegebener imperialer Stil: graue Panzerflächen, schwarze Technik, rote Akze
 | [Zivile Versorgung und Verwaltung](../../assets/generated/swu-imperial-stage-i-v1/civic/README.md)                  | 4        | 8   | implemented |
 | [Kuppeln, Kryozucht und Forschung](../../assets/generated/swu-imperial-stage-i-v1/settlement/README.md)             | 4        | 10  | implemented |
 | [Erneuerbare Energie](../../assets/generated/swu-imperial-stage-i-v1/energy/README.md)                              | 4        | 10  | implemented |
-| [Rohstoffgewinnung](../../assets/generated/swu-imperial-stage-i-v1/resources/README.md)                             | 4        | 8   | pending     |
+| [Rohstoffgewinnung](../../assets/generated/swu-imperial-stage-i-v1/resources/README.md)                             | 4        | 8   | implemented |
 | [Orbitale Energie und Werften](../../assets/generated/swu-imperial-stage-i-v1/orbital/README.md)                    | 4        | 8   | pending     |
 | [Module und Torpedos](../../assets/generated/swu-imperial-stage-i-v1/modules/README.md)                             | 4        | 8   | pending     |
 | [Außenposten, Aurodium und Forschungsübergang](../../assets/generated/swu-imperial-stage-i-v1/transition/README.md) | 3        | 5   | pending     |
