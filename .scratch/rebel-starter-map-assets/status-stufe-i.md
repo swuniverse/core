@@ -2,7 +2,7 @@
 
 Stand 2026-11-20. Umfang: Grundgebäude, materialfinanzierte Frühforschung und FP-Stufe-I-Gebäude; Forschungszentrum II als Übergang eingeschlossen. Geländevarianten zusammengefasst.
 
-**32 Familien erstellt und angebunden (75 IDs); 9 Stufe-I-Familien offen, 1 Übergang offen.**
+**36 Familien erstellt und angebunden (83 IDs); 5 Stufe-I-Familien offen, 1 Übergang offen.**
 
 Die sieben Restserien werden einzeln direkt geprüft und committet; gemeinsame abschließende Browser-/Vollständigkeitsprüfung noch ausstehend.
 
@@ -42,15 +42,15 @@ Die sieben Restserien werden einzeln direkt geprüft und committet; gemeinsame a
 | Kyber-Kristallmine        | 61210100 | 61210100, 61210121, 61210199 |
 | Hypermaterie-Pumpe        | 61040100 | 61040100, 61040199           |
 | Aurodium-Mine             | 61170100 | 61170100                     |
+| Orbital-Solarkollektor    | 31910100 | 31910100, 31910199           |
+| Werftkomplex              | 85010100 | 85010100, 85010199           |
+| Jägerwerft                | 85110100 | 85110100, 85110199           |
+| Fregattenwerft            | 85120100 | 85120100, 85120199           |
 
 ## Noch offen
 
 | Gebäude                    | Haupt-ID | Forschung |
 | -------------------------- | -------- | --------- |
-| Orbital-Solarkollektor     | 31910100 | 271401    |
-| Werftkomplex               | 85010100 | 275001    |
-| Jägerwerft                 | 85110100 | 275101    |
-| Fregattenwerft             | 85120100 | 275201    |
 | Waffenmodulfertigung       | 81810100 | 281101    |
 | Schildmodulfertigung       | 81820100 | 282101    |
 | Antriebsmodulfertigung     | 81830100 | 283101    |
