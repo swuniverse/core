@@ -324,7 +324,8 @@ export class ColonyConstructionService {
       throw new BadRequestException('Unknown building type');
     }
 
-    if (!this.isBuildingAllowedOnField(buildingDef, field)) {
+    // Upgrade-Ziele haben oft keine allowedFieldTypes; das Quellgebaeude steht bereits auf dem Feld.
+    if (!options.upgrade && !this.isBuildingAllowedOnField(buildingDef, field)) {
       throw new BadRequestException(
         'Building cannot be placed on this terrain',
       );

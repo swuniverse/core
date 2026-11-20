@@ -2943,8 +2943,13 @@ describe('colony tick calculations', () => {
   });
 
   it('upgrades a building into a new build job and preserves activation preference', async () => {
-    const { service, colonyRepo, storageRepo, fieldRepo } =
+    const { service, colonyRepo, storageRepo, fieldRepo, gameData } =
       createColonyService();
+    // Echte Upgrade-Ziele (z.B. Forschungszentrum II) sind nicht direkt baubar.
+    const getBuilding = gameData.getBuilding.getMockImplementation()!;
+    gameData.getBuilding.mockImplementation((id: number) =>
+      id === 101 ? { ...getBuilding(101), allowedFieldTypes: [] } : getBuilding(id),
+    );
     const field = {
       id: 1,
       fieldIndex: 5,
