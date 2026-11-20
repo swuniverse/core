@@ -2,7 +2,7 @@
 
 Stand 2026-11-20. Umfang: Grundgebäude, materialfinanzierte Frühforschung und FP-Stufe-I-Gebäude; Forschungszentrum II als Übergang eingeschlossen. Geländevarianten zusammengefasst.
 
-**24 Familien erstellt und angebunden (57 IDs); 17 Stufe-I-Familien offen, 1 Übergang offen.**
+**28 Familien erstellt und angebunden (67 IDs); 13 Stufe-I-Familien offen, 1 Übergang offen.**
 
 Die sieben Restserien werden einzeln direkt geprüft und committet; gemeinsame abschließende Browser-/Vollständigkeitsprüfung noch ausstehend.
 
@@ -34,15 +34,15 @@ Die sieben Restserien werden einzeln direkt geprüft und committet; gemeinsame a
 | Versorgungskuppel         | 12020100 | 12020100, 12020199           |
 | Habitatkuppel             | 12010100 | 12010100, 12010104, 12010199 |
 | Kryo-Zuchtanlage          | 21120100 | 21120100, 21120102, 21120199 |
+| Solarspiegel              | 33010100 | 33010100, 33010131, 33010199 |
+| Solarfokus                | 33020100 | 33020100, 33020199           |
+| Strömungsanker            | 33030100 | 33030100, 33030199           |
+| Strömungsturbinen         | 33040100 | 33040100, 33040132, 33040199 |
 
 ## Noch offen
 
 | Gebäude                    | Haupt-ID | Forschung |
 | -------------------------- | -------- | --------- |
-| Solarspiegel               | 33010100 | 231301    |
-| Solarfokus                 | 33020100 | 231201    |
-| Strömungsanker             | 33030100 | 231001    |
-| Strömungsturbinen          | 33040100 | 231101    |
 | Partikel-Beschleuniger     | 62010100 | 253101    |
 | Kyber-Kristallmine         | 61210100 | 251101    |
 | Hypermaterie-Pumpe         | 61040100 | 800301    |
