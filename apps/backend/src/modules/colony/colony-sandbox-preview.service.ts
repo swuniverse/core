@@ -62,30 +62,25 @@ export class ColonySandboxPreviewService {
         baseHousing,
       );
       const planMetrics = this.metrics(context, planSummary);
-      const colony =
-        sandbox.sourceColonyId == null
-          ? null
-          : await manager.getRepository(Colony).findOne({
-              where: { id: sandbox.sourceColonyId, userId, isAbandoned: false },
-              relations: ['fields', 'changeable', 'stats', 'celestialObject'],
-            });
-      const liveSummary = colony ? this.stats.calculateSummary(colony) : null;
-      const liveMetrics =
-        colony && liveSummary ? this.metrics(colony, liveSummary) : null;
-      const difference = liveMetrics ? { ...planMetrics } : null;
-      if (difference && liveMetrics)
-        for (const key of Object.keys(planMetrics) as Array<
-          keyof ColonySandboxMetricsDto
-        >)
-          difference[key] = planMetrics[key] - liveMetrics[key];
-      const production = (summary: ColonyInternalSummary | null) =>
-        new Map(
-          summary ? [...summary.productionDelta, ...summary.depositDelta] : [],
-        );
+      // The sandbox is deleted together with its source colony (col-AUD-16b).
+      const colony = await manager.getRepository(Colony).findOne({
+        where: { id: sandbox.sourceColonyId, userId, isAbandoned: false },
+        relations: ['fields', 'changeable', 'stats', 'celestialObject'],
+      });
+      if (!colony) throw new NotFoundException('Sandbox nicht gefunden.');
+      const liveSummary = this.stats.calculateSummary(colony);
+      const liveMetrics = this.metrics(colony, liveSummary);
+      const difference = { ...planMetrics };
+      for (const key of Object.keys(planMetrics) as Array<
+        keyof ColonySandboxMetricsDto
+      >)
+        difference[key] = planMetrics[key] - liveMetrics[key];
+      const production = (summary: ColonyInternalSummary) =>
+        new Map([...summary.productionDelta, ...summary.depositDelta]);
       const planProduction = production(planSummary);
       const liveProduction = production(liveSummary);
       return {
-        sourceColonyName: colony?.name ?? null,
+        sourceColonyName: colony.name,
         sandbox: planMetrics,
         colony: liveMetrics,
         difference,
@@ -96,9 +91,7 @@ export class ColonySandboxPreviewService {
           .map((commodityId) => {
             const commodity = this.gameData.getCommodity(commodityId);
             const amount = planProduction.get(commodityId) ?? 0;
-            const live = liveSummary
-              ? (liveProduction.get(commodityId) ?? 0)
-              : null;
+            const live = liveProduction.get(commodityId) ?? 0;
             return {
               commodityId,
               name: commodity?.name ?? `Ware #${commodityId}`,
@@ -109,7 +102,7 @@ export class ColonySandboxPreviewService {
                   : 'WARE',
               sandbox: amount,
               colony: live,
-              difference: live == null ? null : amount - live,
+              difference: amount - live,
             };
           }),
       };

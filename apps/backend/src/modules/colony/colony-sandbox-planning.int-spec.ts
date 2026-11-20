@@ -350,7 +350,7 @@ describe('sandbox planning HTTP (PostgreSQL)', () => {
       ).buildingId,
     ).toBeNull();
   });
-  it('previews the copied balance, refreshes after building, and hides a transferred source', async () => {
+  it('previews the copied balance, refreshes after building, and refuses a foreign source', async () => {
     const path = `/colonies/sandboxes/${sandboxId}/preview`;
     const initial = await http('GET', path, ownerId, undefined, 200);
     expect(initial.body.sandbox).toEqual(initial.body.colony);
@@ -380,11 +380,8 @@ describe('sandbox planning HTTP (PostgreSQL)', () => {
     await source
       .getRepository(Colony)
       .update({ id: colonyId }, { userId: otherId });
-    const transferred = await http('GET', path, ownerId, undefined, 200);
-    expect(transferred.body.colony).toBeNull();
-    expect(transferred.body.sourceColonyName).toBeNull();
-    expect(transferred.body.difference).toBeNull();
-    expect(transferred.body.sandbox.energyBalance).toBe(20);
+    // Never left behind in practice: giving up the colony deletes the sandbox.
+    await http('GET', path, ownerId, undefined, 404);
   });
 
   it('captures housing without double counting existing buildings and updates every planning metric after demolition', async () => {

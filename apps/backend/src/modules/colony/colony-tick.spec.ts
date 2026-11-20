@@ -1633,10 +1633,12 @@ describe('colony give up', () => {
       'ColonyCrewTrainingQueue',
       'ColonyShipBuildQueue',
       'ColonyOrbitAssignment',
+      'ColonySandbox',
       'CrewAssignment',
       'Crew',
     ]);
     expect(removed.slice(0, 4).every(([, criteria]) => (criteria as { colonyId: number }).colonyId === 1)).toBe(true);
+    expect(removed[4][1]).toEqual({ sourceColonyId: 1 });
     expect(tx.find).toHaveBeenCalledWith(expect.anything(), { where: { colonyId: 1, userId: 1 } });
     expect(tx.save).toHaveBeenCalledWith([
       expect.objectContaining({

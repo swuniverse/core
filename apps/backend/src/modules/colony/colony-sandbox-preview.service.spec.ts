@@ -237,26 +237,13 @@ describe('sandbox production preview', () => {
     expect(f.sandbox.snapshot.baseHousing).toBeUndefined();
   });
 
-  it('does not disclose a transferred or abandoned source and still previews an orphan copy', async () => {
+  it('does not disclose a foreign or abandoned source', async () => {
     const f = setup();
     f.colony.userId = 2;
-    const transferred = await f.service.preview(1, 8);
-    expect(transferred.colony).toBeNull();
-    expect(transferred.sourceColonyName).toBeNull();
-    expect(transferred.difference).toBeNull();
-    expect(
-      transferred.production.every(
-        (entry) => entry.colony === null && entry.difference === null,
-      ),
-    ).toBe(true);
-    f.sandbox.sourceColonyId = null;
-    f.colonyRepo.findOne.mockClear();
-    expect((await f.service.preview(1, 8)).sandbox.housing).toBe(90);
-    expect(f.colonyRepo.findOne).not.toHaveBeenCalled();
-    f.sandbox.sourceColonyId = 4;
+    await expect(f.service.preview(1, 8)).rejects.toThrow('Sandbox nicht gefunden');
     f.colony.userId = 1;
     f.colony.isAbandoned = true;
-    expect((await f.service.preview(1, 8)).colony).toBeNull();
+    await expect(f.service.preview(1, 8)).rejects.toThrow('Sandbox nicht gefunden');
   });
 
   it('rejects foreign sandbox owners before loading the source', async () => {

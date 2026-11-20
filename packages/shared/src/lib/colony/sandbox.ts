@@ -54,7 +54,7 @@ export interface ColonySandboxSnapshotDto {
 export interface ColonySandboxSummaryDto {
   id: number;
   name: string;
-  sourceColonyId: number | null;
+  sourceColonyId: number;
   sourceColonyName: string;
   createdAt: string;
 }
@@ -113,17 +113,17 @@ export interface ColonySandboxMetricsDto {
 }
 
 export interface ColonySandboxPreviewDto {
-  sourceColonyName: string | null;
+  sourceColonyName: string;
   sandbox: ColonySandboxMetricsDto;
-  colony: ColonySandboxMetricsDto | null;
+  colony: ColonySandboxMetricsDto;
   /** Sandbox minus current colony; percentages are differences in percentage points. */
-  difference: ColonySandboxMetricsDto | null;
+  difference: ColonySandboxMetricsDto;
   production: Array<{
     commodityId: number;
     name: string;
     kind: 'WARE' | 'EFFECT' | 'DEPOSIT';
     sandbox: number;
-    colony: number | null;
-    difference: number | null;
+    colony: number;
+    difference: number;
   }>;
 }

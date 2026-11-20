@@ -24,12 +24,13 @@ export class ColonySandbox {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column({ type: 'int', nullable: true })
-  sourceColonyId: number | null;
+  @Index()
+  @Column({ type: 'int' })
+  sourceColonyId: number;
 
-  @ManyToOne(() => Colony, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => Colony, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'sourceColonyId' })
-  sourceColony: Colony | null;
+  sourceColony: Colony;
 
   @Column({ length: 100 })
   name: string;

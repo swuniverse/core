@@ -80,16 +80,9 @@ export function ColonySandboxPreview({
         <p role="status">Vorschau wird geladen...</p>
       ) : (
         <>
-          {preview.sourceColonyName ? (
-            <p className="text-swu-muted">
-              Quellkolonie: {preview.sourceColonyName}
-            </p>
-          ) : (
-            <p className="text-swu-muted">
-              Quellkolonie für den Vergleich nicht verfügbar. Die Sandbox kann
-              weiter geplant werden.
-            </p>
-          )}
+          <p className="text-swu-muted">
+            Quellkolonie: {preview.sourceColonyName}
+          </p>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <caption className="sr-only">
@@ -121,18 +114,16 @@ export function ColonySandboxPreview({
                       {label}
                     </th>
                     <td className={cell}>
-                      {preview.colony
-                        ? `${formatNumber(preview.colony[key])}${unit ? ` ${unit}` : ''}`
-                        : '—'}
+                      {formatNumber(preview.colony[key])}
+                      {unit && ` ${unit}`}
                     </td>
                     <td className={cell}>
                       {formatNumber(preview.sandbox[key])}
                       {unit && ` ${unit}`}
                     </td>
                     <td className={cell}>
-                      {preview.difference
-                        ? `${formatDelta(preview.difference[key])}${unit === '%' ? ' PP' : ''}`
-                        : '—'}
+                      {formatDelta(preview.difference[key])}
+                      {unit === '%' && ' PP'}
                     </td>
                   </tr>
                 ))}
@@ -159,15 +150,11 @@ export function ColonySandboxPreview({
                         {entry.name}
                       </th>
                       <td className={cell}>
-                        {entry.colony == null
-                          ? '—'
-                          : formatNumber(entry.colony)}
+                        {formatNumber(entry.colony)}
                       </td>
                       <td className={cell}>{formatNumber(entry.sandbox)}</td>
                       <td className={cell}>
-                        {entry.difference == null
-                          ? '—'
-                          : formatDelta(entry.difference)}
+                        {formatDelta(entry.difference)}
                       </td>
                     </tr>
                   ));

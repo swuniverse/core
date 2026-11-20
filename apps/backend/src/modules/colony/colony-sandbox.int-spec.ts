@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { ColonySandboxService } from './colony-sandbox.service';
 import { ColonySandbox } from './entities/colony-sandbox.entity';
@@ -6,6 +7,8 @@ import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import { User } from '../auth/user.entity';
 import { AddColonySandboxes20261116100000 } from '../../database/migrations/20261116100000-add-colony-sandboxes';
+import { BindColonySandboxesToSourceColony1795168800000 } from '../../database/migrations/20261120100000-bind-colony-sandboxes-to-source-colony';
+import { purgeColonies } from './colony-purge';
 import {
   connectIntegrationDatabase,
   createUser,
@@ -151,24 +154,51 @@ describe('Colony sandboxes (PostgreSQL)', () => {
     expect(await source.getRepository(ColonySandbox).count()).toBe(0);
   });
 
-  it('supports reversing and reapplying the sandbox schema migration', async () => {
-    const migration = new AddColonySandboxes20261116100000();
+  it('supports reversing and reapplying the sandbox schema migrations', async () => {
     const runner = source.createQueryRunner();
     try {
-      await migration.down(runner);
+      await new BindColonySandboxesToSourceColony1795168800000().down(runner);
+      await new AddColonySandboxes20261116100000().down(runner);
       expect((await runner.query("SELECT to_regclass('public.colony_sandboxes') AS table_name"))[0].table_name).toBeNull();
-      await migration.up(runner);
+      await new AddColonySandboxes20261116100000().up(runner);
+      await new BindColonySandboxesToSourceColony1795168800000().up(runner);
       expect(await source.getRepository(ColonySandbox).count()).toBe(0);
     } finally {
       await runner.release();
     }
   });
 
-  it('keeps the snapshot when the source colony is deleted', async () => {
-    const sandbox = await service.create(ownerId, colonyId, 'Plan');
-    await source.getRepository(Colony).delete(colonyId);
-    const result = await service.get(ownerId, sandbox.id);
-    expect(result.sourceColonyId).toBeNull();
-    expect(result.snapshot.fields).toHaveLength(3);
+  it('deletes sandboxes without their own active source colony in the binding migration', async () => {
+    const kept = await service.create(ownerId, colonyId, 'Kept');
+    const foreign = await service.create(ownerId, colonyId, 'Foreign');
+    const ruin = await service.create(ownerId, colonyId, 'Ruin');
+    const orphan = await service.create(ownerId, colonyId, 'Orphan');
+    const otherColonyId = (
+      await source.getRepository(Colony).save({ userId: otherId, name: 'Hoth', colonyClassId: 1 })
+    ).id;
+    const ruinColonyId = (
+      await source.getRepository(Colony).save({ userId: ownerId, name: 'Ruine', colonyClassId: 1, isAbandoned: true })
+    ).id;
+    const runner = source.createQueryRunner();
+    try {
+      const migration = new BindColonySandboxesToSourceColony1795168800000();
+      await migration.down(runner);
+      await source.getRepository(ColonySandbox).update(foreign.id, { sourceColonyId: otherColonyId });
+      await source.getRepository(ColonySandbox).update(ruin.id, { sourceColonyId: ruinColonyId });
+      await runner.query('UPDATE "colony_sandboxes" SET "sourceColonyId" = NULL WHERE "id" = $1', [orphan.id]);
+      const log = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+      await migration.up(runner);
+      expect(log).toHaveBeenCalledWith('3 Sandboxen ohne eigene Quellkolonie gelöscht');
+      log.mockRestore();
+    } finally {
+      await runner.release();
+    }
+    expect((await source.getRepository(ColonySandbox).find()).map((sandbox) => sandbox.id)).toEqual([kept.id]);
+  });
+
+  it('deletes the sandboxes together with their source colony', async () => {
+    await service.create(ownerId, colonyId, 'Plan');
+    await purgeColonies(source.manager, [colonyId]);
+    expect(await source.getRepository(ColonySandbox).count()).toBe(0);
   });
 });

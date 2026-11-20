@@ -116,29 +116,12 @@ describe('sandbox preview', () => {
     );
     await waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(4));
   });
-  it('keeps the planning balance when the source is unavailable and displays loading errors', async () => {
-    mocks.get.mockResolvedValue({
-      ...preview,
-      colony: null,
-      difference: null,
-      sourceColonyName: null,
-      production: preview.production.map((row) => ({
-        ...row,
-        colony: null,
-        difference: null,
-      })),
-    });
+  it('displays loading errors', async () => {
+    mocks.get.mockResolvedValue(preview);
     const { rerender } = render(
       <ColonySandboxPreview sandboxId={8} revision={{}} />,
     );
-    expect(
-      await screen.findByText(/Quellkolonie.*nicht verfügbar/),
-    ).toBeTruthy();
-    expect(
-      within(screen.getByRole('row', { name: /Energiebilanz/ })).getByText(
-        '-2',
-      ),
-    ).toBeTruthy();
+    expect(await screen.findByText(/Quellkolonie: /)).toBeTruthy();
     mocks.get.mockRejectedValue(new Error('Vorschau fehlgeschlagen'));
     rerender(<ColonySandboxPreview sandboxId={8} revision={{}} />);
     expect(await screen.findByRole('alert')).toHaveProperty(

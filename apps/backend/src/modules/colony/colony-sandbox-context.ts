@@ -10,7 +10,7 @@ export function colonySandboxContext(
   const snapshot = sandbox.snapshot;
   const colony = {
     ...snapshot,
-    id: sandbox.sourceColonyId ?? -sandbox.id,
+    id: sandbox.sourceColonyId,
     userId: sandbox.userId,
     name: sandbox.name,
     celestialObject: snapshot.celestialObject ?? null,

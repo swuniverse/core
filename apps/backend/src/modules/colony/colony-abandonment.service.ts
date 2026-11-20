@@ -19,6 +19,7 @@ import { ColonyStats } from './entities/colony-stats.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { CrewAssignment } from './entities/crew-assignment.entity';
 import { Crew } from './entities/crew.entity';
+import { ColonySandbox } from './entities/colony-sandbox.entity';
 import { Colony } from './entities/colony.entity';
 import { ColonyField } from './entities/colony-field.entity';
 import {
@@ -98,7 +99,8 @@ export class ColonyAbandonmentService {
   /**
    * The shared part of giving up a colony (col-E2, ADR-0007), also used by the
    * account deletion (sh-AP-05d) inside its transaction: queues end without
-   * refund, orbit orders and blockade end, the colony's crew goes, and the
+   * refund, orbit orders and blockade end, the colony's crew and sandboxes go
+   * (purged colonies drop sandboxes by foreign key), and the
    * colony stays as a resettleable ruin with buildings and storage. Former
    * STU planets and moons are purged and converted instead. Callers check the
    * starter-colony lock and confirmation themselves.
@@ -123,6 +125,8 @@ export class ColonyAbandonmentService {
     await manager.delete(ColonyCrewTrainingQueue, { colonyId: colony.id });
     await manager.delete(ColonyShipBuildQueue, { colonyId: colony.id });
     await manager.delete(ColonyOrbitAssignment, { colonyId: colony.id });
+    // STU ColonyResetter: planning copies go with the colony (col-AUD-16b).
+    await manager.delete(ColonySandbox, { sourceColonyId: colony.id });
     if (asteroid) await manager.delete(ColonyStorage, { colonyId: colony.id });
 
     const crewAssignments = await manager.find(CrewAssignment, {
