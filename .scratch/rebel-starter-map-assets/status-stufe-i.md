@@ -4,7 +4,7 @@ Stand 2026-11-20. Umfang: Grundgebäude, materialfinanzierte Frühforschung und 
 
 **42 Familien erstellt und angebunden (94 IDs); 0 Stufe-I-Familien offen, 0 Übergang offen.**
 
-Die sieben Restserien werden einzeln direkt geprüft und committet; gemeinsame abschließende Browser-/Vollständigkeitsprüfung noch ausstehend.
+Abschlussprüfung vollständig bestanden.
 
 ## Erstellt und angebunden
 
