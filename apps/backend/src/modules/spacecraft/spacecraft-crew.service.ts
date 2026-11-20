@@ -8,6 +8,7 @@ import { In, Repository } from 'typeorm';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { Crew, CrewType } from '../colony/entities/crew.entity';
 import { Spacecraft } from './entities/spacecraft.entity';
+import { User } from '../auth/user.entity';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import type { SpacecraftModule } from './entities/spacecraft-module.entity';
@@ -118,6 +119,34 @@ export class SpacecraftCrewService {
         .filter((assignment) => assignment.slot == null)
         .map(member),
     };
+  }
+
+  /** STU `ShowScan::getCrewPositions`: a scanned spacecraft's crew, read-only, with owners. */
+  async getScanCrew(ship: Spacecraft) {
+    const [assignments, targets] = await Promise.all([
+      this.crewAssignmentRepo.find({
+        where: { spacecraftId: ship.id },
+        relations: ['crew'],
+        order: { crewId: 'ASC' },
+      }),
+      this.getPositionTargets(ship),
+    ]);
+    const owners = await this.shipRepo.manager.findBy(User, {
+      id: In([...new Set(assignments.map((assignment) => assignment.userId))]),
+    });
+    const ownerName = new Map(owners.map((owner) => [owner.id, owner.username]));
+    return SpacecraftCrewService.positionOrder.map((slot) => ({
+      slot,
+      target: slot === CrewType.CREWMAN ? null : (targets[slot] ?? 0),
+      crew: assignments
+        .filter((assignment) => assignment.slot === slot)
+        .map((assignment) => ({
+          id: assignment.crewId,
+          name: assignment.crew.name,
+          rankLabel: crewRankDefinition(assignment.crew.rank ?? CrewRank.CADET).label,
+          ownerName: ownerName.get(assignment.userId) ?? null,
+        })),
+    }));
   }
 
   async assignSlot(

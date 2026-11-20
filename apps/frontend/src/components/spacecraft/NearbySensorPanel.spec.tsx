@@ -444,6 +444,8 @@ describe('NearbySensorPanel', () => {
       alertState: 'GREEN',
       modules: [],
       runtimeSystems: { SHIELDS: { active: true, cooldown: 0, integrity: 90 } },
+      logbook: [],
+      crewPositions: [],
     });
     render(
       <NearbySensorPanel

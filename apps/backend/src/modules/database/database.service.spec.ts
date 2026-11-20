@@ -29,7 +29,16 @@ function createService() {
     createQueryBuilder: jest.fn(),
     find: jest.fn().mockResolvedValue([]),
   };
-  const shipRepo = { count: jest.fn() };
+  const logbookQuery: Record<string, jest.Mock> = {
+    getRawAndEntities: jest.fn().mockResolvedValue({ entities: [], raw: [] }),
+  };
+  for (const method of ['createQueryBuilder', 'innerJoinAndSelect', 'leftJoinAndSelect', 'where', 'orderBy', 'addOrderBy', 'innerJoin', 'addSelect', 'andWhere']) {
+    logbookQuery[method] = jest.fn(() => logbookQuery);
+  }
+  const shipRepo = {
+    count: jest.fn(),
+    manager: { getRepository: jest.fn(() => logbookQuery) },
+  };
   const researchRepo = { count: jest.fn(), createQueryBuilder: jest.fn() };
   const factionService = { findAll: jest.fn() };
   const gameData = { getAllCommodities: jest.fn() };
@@ -404,6 +413,7 @@ describe('DatabaseService settlers', () => {
       awards: [],
       rpgBehavior: 0,
       plots: [],
+      logbooks: [],
     });
     expect(JSON.stringify(result)).not.toContain('passwordHash');
     expect(JSON.stringify(result)).not.toContain('refreshToken');

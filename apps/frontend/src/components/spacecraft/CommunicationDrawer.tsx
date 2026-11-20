@@ -28,6 +28,7 @@ export function CommunicationDrawer({
   );
   const [text, setText] = useState('');
   const [editingLogId, setEditingLogId] = useState<number | null>(null);
+  const [isPrivate, setIsPrivate] = useState(false);
   const [pending, setPending] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -68,14 +69,16 @@ export function CommunicationDrawer({
         if (editingLogId) {
           await api.patch(
             `/spacecraft/${shipId}/communications/logs/${editingLogId}`,
-            { body: text },
+            { body: text, isPrivate },
           );
         } else {
           await api.post(`/spacecraft/${shipId}/communications/logs`, {
             body: text,
+            isPrivate,
           });
         }
         setEditingLogId(null);
+        setIsPrivate(false);
         setFeedback('Logbucheintrag gespeichert');
       } else {
         await api.post(`/spacecraft/${shipId}/communications/distress`, {
@@ -100,6 +103,7 @@ export function CommunicationDrawer({
   ) => {
     setEditingLogId(entry.id);
     setText(entry.body);
+    setIsPrivate(entry.isPrivate);
     setFeedback(null);
   };
 
@@ -111,6 +115,7 @@ export function CommunicationDrawer({
       if (editingLogId === entryId) {
         setEditingLogId(null);
         setText('');
+        setIsPrivate(false);
       }
       await refresh();
       setFeedback('Logbucheintrag gelöscht');
@@ -181,6 +186,11 @@ export function CommunicationDrawer({
               <div className="flex items-center border-b border-swu-border/60">
                 <time className="flex-1 px-2 py-1 text-center font-bold text-swu-primary">
                   {formatGameDateTime(entry.createdAt)}
+                  {entry.isPrivate && (
+                    <span className="ml-1 font-normal text-swu-muted">
+                      (privat)
+                    </span>
+                  )}
                 </time>
                 <button
                   type="button"
@@ -254,6 +264,16 @@ export function CommunicationDrawer({
               className="mt-1 min-h-20 w-full rounded border border-swu-border bg-swu-bg p-2 text-swu-primary"
             />
           </label>
+          {tab === 'log' && (
+            <label className="flex items-center gap-1 text-[11px] text-swu-muted">
+              <input
+                type="checkbox"
+                checked={isPrivate}
+                onChange={(event) => setIsPrivate(event.target.checked)}
+              />
+              Privat (nicht in Scans und fremden Profilen sichtbar)
+            </label>
+          )}
           {tab === 'distress' && (
             <p id="distress-length" className="text-[11px] text-swu-muted">
               {text.length}/250 Zeichen

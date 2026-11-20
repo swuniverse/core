@@ -53,6 +53,7 @@ describe('CommunicationDrawer', () => {
             {
               id: 3,
               body: 'Erster Eintrag',
+              isPrivate: false,
               createdAt: '2026-09-10T11:23:00Z',
             },
           ],
@@ -70,11 +71,12 @@ describe('CommunicationDrawer', () => {
     fireEvent.change(screen.getByLabelText('Logbucheintrag'), {
       target: { value: 'Korrigiert' },
     });
+    fireEvent.click(screen.getByRole('checkbox', { name: /Privat/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Änderung speichern' }));
     await waitFor(() =>
       expect(apiMocks.patch).toHaveBeenCalledWith(
         '/spacecraft/7/communications/logs/3',
-        { body: 'Korrigiert' },
+        { body: 'Korrigiert', isPrivate: true },
       ),
     );
     fireEvent.click(

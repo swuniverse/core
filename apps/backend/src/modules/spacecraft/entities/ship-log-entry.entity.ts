@@ -29,6 +29,14 @@ export class ShipLogEntry {
   @Column({ type: 'text' })
   body: string;
 
+  /** STU `is_private`: hidden from scans and foreign profiles. */
+  @Column({ default: false })
+  isPrivate: boolean;
+
+  /** STU `edited`: text edits only; entries edited after a scan stay hidden. */
+  @Column({ type: 'timestamp', nullable: true })
+  editedAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

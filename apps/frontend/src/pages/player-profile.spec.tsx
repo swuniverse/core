@@ -207,6 +207,52 @@ describe('PlayerProfilePage', () => {
     ).toBeNull();
   });
 
+  it('groups scanned ship logbooks per spacecraft and expands them', async () => {
+    apiMocks.get.mockResolvedValue({
+      id: 1,
+      username: 'vader',
+      displayName: 'Vader',
+      avatar: null,
+      description: null,
+      faction: 'IMPERIUM',
+      factionName: 'Imperium',
+      prestige: 0,
+      colonies: 0,
+      ships: 0,
+      completedResearch: 0,
+      onboardingCompleted: true,
+      isAdmin: false,
+      createdAt: '2026-08-04T00:00:00.000Z',
+      alliance: null,
+      onVacation: false,
+      logbooks: [
+        {
+          spacecraftId: 9,
+          name: 'Executor',
+          shipClassName: 'Supersternzerstörer',
+          scannedAt: '2026-11-20T12:30:00.000Z',
+          entries: [
+            {
+              id: 1,
+              body: 'Kurs auf Hoth',
+              createdAt: '2026-11-20T12:00:00.000Z',
+              editedAt: '2026-11-20T12:10:00.000Z',
+            },
+          ],
+        },
+      ],
+    });
+
+    renderProfile('/players/1');
+
+    await screen.findByRole('heading', { name: 'Schiffslogbücher' });
+    const group = screen.getByText(/Executor \(Supersternzerstörer\)/);
+    expect(group.textContent).toMatch(/1 Einträge · gescannt/);
+    fireEvent.click(group);
+    expect(screen.getByText('Kurs auf Hoth')).toBeTruthy();
+    expect(screen.getByText(/^Bearbeitet:/)).toBeTruthy();
+  });
+
   it('renders friends as linked avatars with their names as titles', async () => {
     apiMocks.get.mockResolvedValue({
       id: 1,

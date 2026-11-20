@@ -298,6 +298,12 @@ class CommunicationTextDto {
   body: string;
 }
 
+class LogEntryDto extends CommunicationTextDto {
+  @IsOptional()
+  @IsBoolean()
+  isPrivate?: boolean;
+}
+
 class DistressDto {
   @IsString()
   message: string;
@@ -1519,9 +1525,14 @@ export class SpacecraftController {
   createCommunicationLog(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
-    @Body() dto: CommunicationTextDto,
+    @Body() dto: LogEntryDto,
   ) {
-    return this.communicationService.createLog(id, req.user.sub, dto.body);
+    return this.communicationService.createLog(
+      id,
+      req.user.sub,
+      dto.body,
+      dto.isPrivate,
+    );
   }
 
   @Patch(':id/communications/logs/:entryId')
@@ -1529,13 +1540,14 @@ export class SpacecraftController {
     @Param('id', ParseIntPipe) id: number,
     @Param('entryId', ParseIntPipe) entryId: number,
     @Request() req: { user: { sub: number } },
-    @Body() dto: CommunicationTextDto,
+    @Body() dto: LogEntryDto,
   ) {
     return this.communicationService.updateLog(
       id,
       entryId,
       req.user.sub,
       dto.body,
+      dto.isPrivate,
     );
   }
 

@@ -52,6 +52,7 @@ import { isSpacecraftDestroyed } from './spacecraft-status.util';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
 import { ShipLogEntry } from './entities/ship-log-entry.entity';
+import { scanLogbook } from './ship-logbook';
 import {
   ColonyOrbitAssignment,
   ColonyOrbitAssignmentMode,
@@ -3917,6 +3918,10 @@ export class SpacecraftService {
             sourceSpacecraftId: ship.id,
             targetSpacecraftId: target.id,
           });
+    const [logbook, crewPositions] = await Promise.all([
+      scanLogbook(this.dataSource.manager, userId, target.id, new Date()),
+      this.spacecraftCrewService.getScanCrew(target),
+    ]);
     return {
       id: target.id,
       name: target.name,
@@ -3941,6 +3946,8 @@ export class SpacecraftService {
       })),
       runtimeSystems: this.spacecraftRuntimeStateService.initialize(target),
       discovery,
+      logbook,
+      crewPositions,
     };
   }
 
@@ -4311,7 +4318,7 @@ export class SpacecraftService {
       listedIds.length
         ? this.dataSource.getRepository(ShipLogEntry).find({
             select: { spacecraftId: true },
-            where: { spacecraftId: In(listedIds) },
+            where: { spacecraftId: In(listedIds), isPrivate: false },
           })
         : [],
       fleetIds.length
@@ -4320,7 +4327,7 @@ export class SpacecraftService {
             .find({ where: { fleetId: In(fleetIds) } })
         : [],
     ]);
-    // STU hasLogBook: non-private entries; all entries count until sc-AUD-13 adds the private flag.
+    // STU hasVisibleLogbook: non-private entries.
     const shipsWithLogBook = new Set(
       logEntries.map((entry) => entry.spacecraftId),
     );

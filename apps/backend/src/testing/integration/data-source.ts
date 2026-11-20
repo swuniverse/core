@@ -60,6 +60,7 @@ import { Fleet } from '../../modules/spacecraft/entities/fleet.entity';
 import { SpacecraftTakeover } from '../../modules/spacecraft/entities/spacecraft-takeover.entity';
 import { FlightSignature } from '../../modules/spacecraft/entities/flight-signature.entity';
 import { ShipLogEntry } from '../../modules/spacecraft/entities/ship-log-entry.entity';
+import { ShipLogScan } from '../../modules/spacecraft/entities/ship-log-scan.entity';
 import { SpacecraftRepairTask } from '../../modules/spacecraft/entities/spacecraft-repair-task.entity';
 import { StationShipRepair } from '../../modules/spacecraft/entities/station-ship-repair.entity';
 import { ShipClassDef } from '../../modules/spacecraft/entities/ship-class-def.entity';
@@ -160,6 +161,7 @@ export const INTEGRATION_ENTITIES = [
   SpacecraftTakeover,
   FlightSignature,
   ShipLogEntry,
+  ShipLogScan,
   SpacecraftRepairTask,
   StationShipRepair,
   EscapePod,

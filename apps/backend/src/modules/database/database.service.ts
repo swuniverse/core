@@ -7,6 +7,7 @@ import { tradeNetworkName } from '../trade/trade-network';
 import { ExplorationState } from '../starmap/entities/exploration-state.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { FLIGHT_SIGNATURE_RETENTION_MS } from '../spacecraft/flight-signature.service';
+import { profileLogbooks } from '../spacecraft/ship-logbook';
 import { FlightSignature } from '../spacecraft/entities/flight-signature.entity';
 import { isVacationEffective, type ProfileFriendDto } from '@swuniverse/shared';
 import { User } from '../auth/user.entity';
@@ -345,7 +346,7 @@ export class DatabaseService {
       factions.map((faction) => [faction.id, faction]),
     );
 
-    const [entry, alliance, awards, colonyScans, friends, settings, plots] = await Promise.all([
+    const [entry, alliance, awards, colonyScans, friends, settings, plots, logbooks] = await Promise.all([
       this.toSettlerEntry(user, factionById),
       this.allianceService.getRef(user.id),
       this.userAwardRepo.find({
@@ -362,6 +363,7 @@ export class DatabaseService {
       this.getProfileFriends(user.id),
       this.settingsReader.getSettings(user.id),
       this.getSettlerPlots(user.id),
+      profileLogbooks(this.shipRepo.manager, user.id, viewerId),
     ]);
     const scansWithSystemContext =
       colonyScans === undefined
@@ -371,6 +373,7 @@ export class DatabaseService {
       ...entry,
       rpgBehavior: Number(settings.rpg_behavior ?? RpgBehavior.NOT_SET),
       plots,
+      logbooks,
       alliance,
       friends,
       awards: awards.map(({ award, count }) => ({

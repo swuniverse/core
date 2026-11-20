@@ -802,6 +802,31 @@ export interface SpacecraftTargetScanDto {
     prestigeAwarded: number;
     name: string;
   };
+  /** STU `getBySpacecraftIdUntil`: non-private entries up to the scan. */
+  logbook: SpacecraftLogbookEntryDto[];
+  /** STU `scancrew`: read-only crew by position. */
+  crewPositions: Array<{
+    slot: SpacecraftCrewPosition;
+    target: number | null;
+    crew: Array<{ id: number; name: string; rankLabel: string; ownerName: string | null }>;
+  }>;
+}
+
+export interface SpacecraftLogbookEntryDto {
+  id: number;
+  body: string;
+  createdAt: string;
+  editedAt: string | null;
+}
+
+/** STU `getGroupedLogbooksForProfile`: one group per spacecraft. */
+export interface ProfileLogbookDto {
+  spacecraftId: number;
+  name: string;
+  shipClassName: string | null;
+  /** Null on the own profile; otherwise the visitor's scan time. */
+  scannedAt: string | null;
+  entries: SpacecraftLogbookEntryDto[];
 }
 
 export interface SpacecraftNearbyTargetDto {
@@ -1102,6 +1127,8 @@ export interface SpacecraftCommunicationLogDto {
   spacecraftId: number;
   authorId: number;
   body: string;
+  isPrivate: boolean;
+  editedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

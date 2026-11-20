@@ -218,6 +218,8 @@ export class SpacecraftCommunicationService {
         spacecraftId: source.id,
         authorId: userId,
         body: `[DIRECT:${target.id}] ${text}`,
+        // A message to one player must not show up in other players' scans.
+        isPrivate: true,
       }),
     );
     // The PM is already delivered; an XP failure must not invite a resend.
@@ -293,7 +295,12 @@ export class SpacecraftCommunicationService {
     return { data, total, page, limit };
   }
 
-  async createLog(shipId: number, userId: number, body: string) {
+  async createLog(
+    shipId: number,
+    userId: number,
+    body: string,
+    isPrivate = false,
+  ) {
     await this.requireShip(shipId, userId);
     const text = body.trim();
     if (!text || text.length > 5000) {
@@ -306,6 +313,7 @@ export class SpacecraftCommunicationService {
         spacecraftId: shipId,
         authorId: userId,
         body: text,
+        isPrivate,
       }),
     );
   }
@@ -315,6 +323,7 @@ export class SpacecraftCommunicationService {
     entryId: number,
     userId: number,
     body: string,
+    isPrivate?: boolean,
   ) {
     await this.requireShip(shipId, userId);
     const entry = await this.logRepo.findOne({
@@ -327,7 +336,11 @@ export class SpacecraftCommunicationService {
         'Log entry must contain 1 to 5000 characters',
       );
     }
-    entry.body = text;
+    if (text !== entry.body) {
+      entry.body = text;
+      entry.editedAt = new Date();
+    }
+    if (isPrivate !== undefined) entry.isPrivate = isPrivate;
     return this.logRepo.save(entry);
   }
 

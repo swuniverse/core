@@ -14,6 +14,7 @@ import {
   type ContactDto,
   type IgnoreListEntryDto,
   type ProfileFriendDto,
+  type ProfileLogbookDto,
   RpgBehavior,
 } from '@swuniverse/shared';
 import { ApiError, api } from '../services/api';
@@ -24,6 +25,7 @@ import {
   ColonySurfaceDialog,
   type ColonyScanProjection,
 } from '../components/database/ColonyScans';
+import { LogbookEntries } from '../components/spacecraft/LogbookEntries';
 
 
 interface PlayerProfile {
@@ -48,6 +50,7 @@ interface PlayerProfile {
   onVacation: boolean;
   rpgBehavior?: RpgBehavior;
   plots?: { id: number; title: string; endedAt: string | null }[];
+  logbooks?: ProfileLogbookDto[];
 }
 
 const RPG_BEHAVIOR_TEXT: Partial<Record<RpgBehavior, string>> = {
@@ -419,6 +422,38 @@ export function PlayerProfilePage() {
           label="Status"
           value={player.onboardingCompleted ? 'aktiv' : 'im Aufbau'}
         />
+      </section>
+
+      <section className="rounded-lg border border-swu-border bg-swu-surface p-4">
+        <h2 className="mb-3 text-sm font-bold text-swu-primary">
+          Schiffslogbücher
+        </h2>
+        {(player.logbooks ?? []).length === 0 ? (
+          <p className="text-center text-sm text-swu-muted">Keine</p>
+        ) : (
+          <div className="flex flex-col gap-2 text-xs">
+            {(player.logbooks ?? []).map((logbook) => (
+              <details
+                key={logbook.spacecraftId}
+                className="border border-swu-border"
+              >
+                <summary className="cursor-pointer px-2 py-1 text-swu-primary">
+                  {logbook.name}
+                  {logbook.shipClassName && ` (${logbook.shipClassName})`}
+                  <span className="text-swu-muted">
+                    {' '}
+                    · {logbook.entries.length} Einträge
+                    {logbook.scannedAt &&
+                      ` · gescannt ${dateFormatter.format(new Date(logbook.scannedAt))}`}
+                  </span>
+                </summary>
+                <div className="p-2">
+                  <LogbookEntries entries={logbook.entries} />
+                </div>
+              </details>
+            ))}
+          </div>
+        )}
       </section>
 
       {player.colonyScans && (

@@ -1,6 +1,6 @@
 # Fremde Logbücher lesbar: Zielscan und Spielerprofil
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -28,11 +28,11 @@ Fremde Logbücher sind in SWU nirgends lesbar. `listLogs` verlangt ein eigenes S
 
 ## Akzeptanzkriterien
 
-- [ ] Logbucheinträge haben ein Flag „privat“ (Migration, Default false), das im `CommunicationDrawer` gesetzt werden kann.
-- [ ] Der Zielscan liefert die nicht privaten, nicht gelöschten Logbucheinträge des Ziels bis zum Scanzeitpunkt und speichert den Scan (Scanner, Ziel, Zeitpunkt), wenn Einträge vorhanden sind.
-- [ ] `TargetScanDialog` hat die Reiter Details, Logbuch und Crew (Crew schreibgeschützt nach Posten wie STU, soweit Matrixsensoren/Scanbedingungen es erlauben) sowie den Hinweis „Logbuch verfügbar“ (Anschluss NBS-Icon sc-AUD-06).
-- [ ] Das Spielerprofil zeigt einen Block „Schiffslogbücher“, gruppiert je Spacecraft (Name, Rumpf), aufklappbar: eigenes Profil alle eigenen Einträge, fremdes Profil nur gescannte, nicht private Einträge bis zum jeweiligen Scanzeitpunkt.
-- [ ] Backend-Tests für Sichtbarkeit (privat, gelöscht, nach Scanzeitpunkt bearbeitet, fremder Besucher ohne Scan); Frontend-Tests für Scan-Reiter und Profilblock.
+- [x] Logbucheinträge haben ein Flag „privat“ (Migration, Default false), das im `CommunicationDrawer` gesetzt werden kann.
+- [x] Der Zielscan liefert die nicht privaten, nicht gelöschten Logbucheinträge des Ziels bis zum Scanzeitpunkt und speichert den Scan (Scanner, Ziel, Zeitpunkt), wenn Einträge vorhanden sind.
+- [x] `TargetScanDialog` hat die Reiter Details, Logbuch und Crew (Crew schreibgeschützt nach Posten wie STU, soweit Matrixsensoren/Scanbedingungen es erlauben) sowie den Hinweis „Logbuch verfügbar“ (Anschluss NBS-Icon sc-AUD-06).
+- [x] Das Spielerprofil zeigt einen Block „Schiffslogbücher“, gruppiert je Spacecraft (Name, Rumpf), aufklappbar: eigenes Profil alle eigenen Einträge, fremdes Profil nur gescannte, nicht private Einträge bis zum jeweiligen Scanzeitpunkt.
+- [x] Backend-Tests für Sichtbarkeit (privat, gelöscht, nach Scanzeitpunkt bearbeitet, fremder Besucher ohne Scan); Frontend-Tests für Scan-Reiter und Profilblock.
 
 ## Herkunft
 
@@ -41,3 +41,10 @@ Fremde Logbücher sind in SWU nirgends lesbar. `listLogs` verlangt ein eigenes S
 
 ## Comments
 - 2026-11-20 – Anschluss aus sc-AUD-06: `SpacecraftService.getNearby` setzt `hasLogBook` heute aus allen `ShipLogEntry`-Zeilen. Beim Einführen von „privat“/gelöscht dort filtern.
+- 2026-11-20 – umgesetzt, Prüfung ausstehend (Commit „feat(spacecraft): foreign logbooks in target scan and player profile (stu-parity sc-AUD-13)“). Modell: Claude Opus 5.5 direkt; Sol/Luna in dieser Session nicht verfügbar, keine Delegation.
+  - Migration `20261120140000-add-ship-log-privacy-and-scans`: `ship_log_entries.isPrivate` (Default false), `editedAt` (STU `edited`, nur Textänderung; Backfill aus `updatedAt`), Tabelle `ship_log_scans` (Scanner, Ziel, Zeitpunkt; Upsert wie STU `saveScan`). Bestehende `[DIRECT:…]`-Einträge (Nahbereichsnachrichten an einen Spieler) werden privat, neue ebenso – sonst wären PMs an Dritte über Scans lesbar.
+  - `ship-logbook.ts`: `scanLogbook` (nicht privat, `createdAt`/`editedAt` ≤ Scan, Scan nur bei Einträgen gespeichert) und `profileLogbooks` (eigenes Profil alle eigenen Einträge, fremd nur gescannte bis Scanzeitpunkt). „Gelöscht“: SWU löscht hart, gelöschte Einträge existieren nicht mehr.
+  - Zielscan liefert `logbook` und `crewPositions` (`SpacecraftCrewService.getScanCrew`, nach Posten mit Rang und Eigner, ohne Skills wie STU). NBS-`hasLogBook` zählt nur nicht private Einträge (Anschluss sc-AUD-06).
+  - Frontend: `CommunicationDrawer` Checkbox „Privat“, `TargetScanDialog` Reiter Details/Logbuch/Crew + „Logbuch verfügbar“, Profilblock „Schiffslogbücher“ (aufklappbar je Schiff, Name + Rumpf, Scanzeit).
+  - Checks: `nx run backend:test-integration -- --testPathPatterns ship-logbook` (3/3, PostgreSQL inkl. Migration); Jest database/spacecraft-communication/scan (152/152); Vitest TargetScanDialog, CommunicationDrawer, NearbySensorPanel, player-profile* (52/52); `nx run-many -t typecheck lint -p frontend backend` grün.
+  - Ausstehend: gesammelter Verifikationslauf (volle Backend-/Frontend-Suiten, volle Integrationssuite).

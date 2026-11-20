@@ -19,6 +19,9 @@ jest.mock('../research/entities/research.entity', () => ({
 jest.mock('../starmap/entities/system-type-discovery.entity', () => ({
   SystemTypeDiscovery: class SystemTypeDiscovery {},
 }));
+jest.mock('../spacecraft/ship-logbook', () => ({
+  profileLogbooks: jest.fn().mockResolvedValue([]),
+}));
 jest.mock('../spacecraft/entities/ship-class-discovery.entity', () => ({
   ShipClassDiscovery: class ShipClassDiscovery {},
 }));
