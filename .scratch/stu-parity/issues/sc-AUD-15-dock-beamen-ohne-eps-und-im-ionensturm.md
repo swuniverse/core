@@ -1,6 +1,6 @@
 # Beamen zwischen Station und angedocktem Schiff ohne EPS und im Ionensturm
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -25,10 +25,10 @@ SWU verlangt beim Beamen zwischen Station und angedocktem Schiff immer Transfere
 
 ## Akzeptanzkriterien
 
-- [ ] Transfer von Waren (und Torpedos, soweit STU dort ebenfalls den Dock-Fall kennt) zwischen Station und einem an ihr angedockten Schiff in beide Richtungen kostet 0 EPS; die Meldung nennt „Energieverbrauch: 0“.
-- [ ] Im Ionensturm sind Transfers blockiert, außer Dock-Transfers zwischen Station und an ihr angedocktem Schiff.
-- [ ] Der Dock-Kasten der Station bietet je angedocktem Schiff „Beamen“, das den `TransferDialog` mit diesem Ziel öffnet.
-- [ ] Backend-Tests für EPS 0 im Dock, EPS > 0 ohne Dock, Ionensturm mit/ohne Dock; Frontend-Test für den Einstieg im Dock-Kasten.
+- [x] Transfer von Waren (und Torpedos, soweit STU dort ebenfalls den Dock-Fall kennt) zwischen Station und einem an ihr angedockten Schiff in beide Richtungen kostet 0 EPS; die Meldung nennt „Energieverbrauch: 0“.
+- [x] Im Ionensturm sind Transfers blockiert, außer Dock-Transfers zwischen Station und an ihr angedocktem Schiff.
+- [x] Der Dock-Kasten der Station bietet je angedocktem Schiff „Beamen“, das den `TransferDialog` mit diesem Ziel öffnet.
+- [x] Backend-Tests für EPS 0 im Dock, EPS > 0 ohne Dock, Ionensturm mit/ohne Dock; Frontend-Test für den Einstieg im Dock-Kasten.
 
 ## Herkunft
 
@@ -38,3 +38,4 @@ SWU verlangt beim Beamen zwischen Station und angedocktem Schiff immer Transfere
 ## Comments
 
 - `transfer.service.ts` wurde zuletzt parallel für SPEC-3/4 geändert; vor Beginn `git status` prüfen und auf dem aktuellen Stand aufsetzen.
+- 2026-11-20 umgesetzt, Prüfung ausstehend (Commit `feat(spacecraft): free dock beaming and ion storm beam block (stu-parity sc-AUD-15)`). `transfer.service.ts`: `isDockTransfer` (ein Schiff an das andere angedockt) → Warentransfer 0 EPS, Antwort `{ message: "<n> <Ware> (Energieverbrauch: <eps>)" }`; `shipTransferBlockReason` lehnt Schiff↔Schiff-Transfers (Waren, Crew, Torpedos, Quote) bei Ionensturm am Zielort ab („Beamen nicht möglich während eines Ionensturms“), außer im Dock. Torpedos kosten in SWU ohnehin kein EPS. Kolonie-Transfers nicht angepasst: Ionenstürme liegen nur auf Galaxiefeldern, Kolonie-Orbits im System. Frontend: `DockingPanel` je angedocktem Schiff Beam-Buttons (an/von) → `TransferDialog`; Dialog zeigt die Transfermeldung. Checks: `transfer.service.spec.ts` (36 grün), `DockingPanel.spec.tsx` + `TransferDialog.spec.tsx` (7 grün), `nx typecheck lint` backend+frontend grün. Ausstehend: gesammelter Verifikationslauf (Diff-Review gegen AK, Backend-/Frontend-Suiten). Modell: Claude Opus 5.5 direkt (Sol/Luna in dieser Session nicht verfügbar).

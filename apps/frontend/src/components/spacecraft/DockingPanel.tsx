@@ -6,6 +6,7 @@ import type {
 } from '@swuniverse/shared';
 import { api } from '../../services/api';
 import { DockResult } from './DockResult';
+import { TransferDialog } from './TransferDialog';
 
 type DockingPanelProps = {
   ship: SpacecraftDetailDto;
@@ -17,6 +18,10 @@ export function DockingPanel({ ship, onChanged }: DockingPanelProps) {
   const [result, setResult] = useState<SpacecraftDockResultDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [transfer, setTransfer] = useState<{
+    target: { id: number; name: string };
+    direction: 'TO_TARGET' | 'FROM_TARGET';
+  } | null>(null);
 
   async function run(path: string) {
     setBusy(true);
@@ -94,6 +99,32 @@ export function DockingPanel({ ship, onChanged }: DockingPanelProps) {
                   >
                     {`${entry.name} abdocken`}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setTransfer({ target: entry, direction: 'TO_TARGET' })
+                    }
+                    title={`Fracht an ${entry.name} beamen`}
+                  >
+                    <img
+                      src="/assets/buttons/b_down1.png"
+                      alt={`Fracht an ${entry.name} beamen`}
+                      className="inline size-4"
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setTransfer({ target: entry, direction: 'FROM_TARGET' })
+                    }
+                    title={`Fracht von ${entry.name} beamen`}
+                  >
+                    <img
+                      src="/assets/buttons/b_up1.png"
+                      alt={`Fracht von ${entry.name} beamen`}
+                      className="inline size-4"
+                    />
+                  </button>
                 </span>
               </li>
             ))}
@@ -121,6 +152,16 @@ export function DockingPanel({ ship, onChanged }: DockingPanelProps) {
             Abdocken (1 Energie)
           </button>
         </div>
+      )}
+      {transfer && (
+        <TransferDialog
+          shipId={ship.id}
+          targetShipId={transfer.target.id}
+          targetName={transfer.target.name}
+          direction={transfer.direction}
+          onClose={() => setTransfer(null)}
+          onTransfer={() => void onChanged()}
+        />
       )}
     </section>
   );

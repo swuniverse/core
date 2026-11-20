@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import type { SpacecraftDetailDto } from '@swuniverse/shared';
 import { DockingPanel } from './DockingPanel';
 
-const apiMocks = vi.hoisted(() => ({ post: vi.fn() }));
+const apiMocks = vi.hoisted(() => ({ post: vi.fn(), get: vi.fn() }));
 vi.mock('../../services/api', () => ({ api: apiMocks }));
 
 const base = { id: 2, name: 'Falke' } as SpacecraftDetailDto;
@@ -72,6 +72,24 @@ describe('DockingPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Alle abdocken' }));
     await waitFor(() =>
       expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/docked/undock-all', {}),
+    );
+  });
+
+  it('opens the beam dialog for a docked ship from the station', async () => {
+    apiMocks.get.mockResolvedValue({ sourceCargo: [], targetCargo: [] });
+    renderPanel({
+      kind: 'STATION',
+      dockCapacity: 2,
+      dockedShips: [
+        { id: 5, name: 'Adler', shipClassId: 1, shipClassName: 'Korvette', hull: 5, hullMax: 10 },
+      ],
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Fracht an Adler beamen' }));
+    expect(await screen.findByRole('dialog', { name: 'Fracht an Adler übergeben' })).toBeTruthy();
+    await waitFor(() =>
+      expect(apiMocks.get).toHaveBeenCalledWith(
+        '/spacecraft/2/cargo/ship-transfer-quote?targetShipId=5&direction=TO_TARGET',
+      ),
     );
   });
 

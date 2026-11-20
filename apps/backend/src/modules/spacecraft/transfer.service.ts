@@ -1,6 +1,7 @@
 import { InteractionContextService } from './interaction-context.service';
 import { checkInteraction, InteractionRule } from './interaction-policy';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
+import { AnomalyQueryService } from '../anomaly/anomaly-query.service';
 import type {
   SpacecraftCargoDisposeRequestDto,
   SpacecraftCargoDisposeResultDto,
@@ -36,6 +37,11 @@ import type { SpacecraftRuntimeSystems } from './spacecraft-runtime-state.servic
 
 type ShipTransferDirection = 'TO_TARGET' | 'FROM_TARGET';
 
+/** STU `isDockTransfer`: one ship is docked at the other (a station). */
+function isDockTransfer(a: Spacecraft, b: Spacecraft): boolean {
+  return a.dockedAtId === b.id || b.dockedAtId === a.id;
+}
+
 /** Supplying a foreign ship whose shields are up; only friends may do this. */
 function isProtectedProvisioning(
   sourceShip: Spacecraft,
@@ -65,6 +71,7 @@ export class TransferService {
     private readonly gameData: GameDataService,
     private readonly relationshipResolver: RelationshipResolverService,
     private readonly interactionContext: InteractionContextService,
+    @Optional() private readonly anomalyQuery?: AnomalyQueryService,
   ) {}
 
   async getUplinkOverview(id: number, userId: number) {
@@ -444,8 +451,8 @@ export class TransferService {
     commodityId: number,
     amount: number,
     direction: ShipTransferDirection,
-  ): Promise<void> {
-    await this.dataSource.transaction(async (manager) => {
+  ): Promise<{ message: string }> {
+    return this.dataSource.transaction(async (manager) => {
       const ships = await manager.getRepository(Spacecraft).find({
         where: [{ id: shipId, userId }, { id: targetShipId }],
         relations: { location: { galaxyField: true, systemField: true } },
@@ -460,8 +467,10 @@ export class TransferService {
       const from = direction === 'TO_TARGET' ? sourceShip : targetShip;
       const to = direction === 'TO_TARGET' ? targetShip : sourceShip;
       this.assertCommodityBeamable(commodityId, from.userId, to.userId);
-      if (direction === 'TO_TARGET')
-        this.contextService.chargeEnergy(sourceShip, amount);
+      const energy =
+        direction === 'TO_TARGET' && !isDockTransfer(sourceShip, targetShip)
+          ? this.contextService.chargeEnergy(sourceShip, amount)
+          : 0;
       const cargoRepo = manager.getRepository(CargoItem);
       const item = await cargoRepo.findOne({
         where: { spacecraftId: from.id, commodityId },
@@ -489,6 +498,9 @@ export class TransferService {
       sourceShip.cargoUsed = await this.getCargoUsed(sourceShip.id, cargoRepo);
       targetShip.cargoUsed = await this.getCargoUsed(targetShip.id, cargoRepo);
       await manager.save([sourceShip, targetShip]);
+      const name =
+        this.gameData.getCommodity(commodityId)?.name ?? `Ware #${commodityId}`;
+      return { message: `${amount} ${name} (Energieverbrauch: ${energy})` };
     });
   }
 
@@ -774,6 +786,13 @@ export class TransferService {
       (systems(targetShip).SHIELDS?.active && !provisionsProtectedTarget)
     )
       return 'Schilde müssen deaktiviert sein';
+    if (
+      !isDockTransfer(sourceShip, targetShip) &&
+      (await this.anomalyQuery?.findAtLocation(targetShip.locationId))?.some(
+        (anomaly) => anomaly.type === 'ION_STORM',
+      )
+    )
+      return 'Beamen nicht möglich während eines Ionensturms';
     return null;
   }
 

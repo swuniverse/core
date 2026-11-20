@@ -60,12 +60,14 @@ function cargoTransfer(
   status: 'FRIEND' | 'ENEMY' | 'NEUTRAL',
   resolver?: RelationshipResolverService,
   targetShieldsActive = false,
+  { docked = false, ionStorm = false } = {},
 ) {
   const sourceShip = {
     id: 1,
     userId: 10,
     status: 'IDLE',
     runtimeSystems: {},
+    dockedAtId: docked ? 2 : null,
     energy: 10,
     cargoUsed: 2,
     cargoMax: 10,
@@ -115,9 +117,10 @@ function cargoTransfer(
   const dataSource = {
     transaction: jest.fn(async (work) => work(manager)),
   };
+  const chargeEnergy = jest.fn().mockReturnValue(1);
   const service = new TransferService(
     {} as never,
-    { chargeEnergy: jest.fn() } as never,
+    { chargeEnergy } as never,
     dataSource as never,
     {} as never,
     {} as never,
@@ -131,9 +134,14 @@ function cargoTransfer(
       resolve: jest.fn().mockResolvedValue(relationship(status)),
     }) as never,
     { load: jest.fn().mockResolvedValue({ targetOnVacation: false }) } as never,
+    {
+      findAtLocation: jest
+        .fn()
+        .mockResolvedValue(ionStorm ? [{ type: 'ION_STORM' }] : []),
+    } as never,
   );
 
-  return { service, targetCargo };
+  return { service, targetCargo, chargeEnergy };
 }
 
 describe('TransferService ship transfers', () => {
@@ -279,6 +287,45 @@ describe('TransferService ship transfers', () => {
       expect(quote.torpedoTransferAvailable).toBe(expectedAvailable);
     },
   );
+  it('beams between a station and its docked ship without energy', async () => {
+    const { service, targetCargo, chargeEnergy } = cargoTransfer(
+      'FRIEND',
+      undefined,
+      false,
+      { docked: true },
+    );
+
+    const result = await service.transferShipCargo(1, 10, 2, 3, 1, 'TO_TARGET');
+
+    expect(chargeEnergy).not.toHaveBeenCalled();
+    expect(targetCargo.amount).toBe(1);
+    expect(result.message).toContain('(Energieverbrauch: 0)');
+  });
+
+  it('charges energy for a transfer between undocked ships', async () => {
+    const { service, chargeEnergy } = cargoTransfer('FRIEND');
+
+    const result = await service.transferShipCargo(1, 10, 2, 3, 1, 'TO_TARGET');
+
+    expect(chargeEnergy).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), 1);
+    expect(result.message).toContain('(Energieverbrauch: 1)');
+  });
+
+  it('blocks beaming in an ion storm unless docked', async () => {
+    const stormy = cargoTransfer('FRIEND', undefined, false, { ionStorm: true });
+    await expect(
+      stormy.service.transferShipCargo(1, 10, 2, 3, 1, 'TO_TARGET'),
+    ).rejects.toThrow('Beamen nicht möglich während eines Ionensturms');
+    expect(stormy.targetCargo.amount).toBe(0);
+
+    const docked = cargoTransfer('FRIEND', undefined, false, {
+      ionStorm: true,
+      docked: true,
+    });
+    await docked.service.transferShipCargo(1, 10, 2, 3, 1, 'TO_TARGET');
+    expect(docked.targetCargo.amount).toBe(1);
+  });
+
   it('rejects non-beamable cargo', async () => {
     const { service, targetCargo } = cargoTransfer('FRIEND');
     jest.spyOn((service as any).gameData, 'getCommodity').mockReturnValue({
@@ -724,7 +771,7 @@ describe('TransferService friendship is decided by the target owner (STU)', () =
 
     const transfer = service.transferShipCargo(1, 10, 2, 3, 1, 'TO_TARGET');
     if (allowed) {
-      await expect(transfer).resolves.toBeUndefined();
+      await expect(transfer).resolves.toBeDefined();
       expect(targetCargo.amount).toBe(1);
     } else {
       await expect(transfer).rejects.toThrow('Transfer nur zwischen Freunden erlaubt');

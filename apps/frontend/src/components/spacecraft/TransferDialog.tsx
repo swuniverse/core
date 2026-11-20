@@ -65,6 +65,7 @@ export function TransferDialog({
   const [crewAmount, setCrewAmount] = useState(1);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (isShipTransfer) {
@@ -188,8 +189,9 @@ export function TransferDialog({
     if (amount < 1) return;
     setPending(true);
     setError(null);
+    setNotice(null);
     try {
-      await api.post(
+      const result = await api.post<{ message?: string } | undefined>(
         isShipTransfer
           ? `/spacecraft/${shipId}/cargo/ship-transfer`
           : `/spacecraft/${shipId}/cargo/${direction === 'TO_SHIP' ? 'load' : 'unload'}`,
@@ -197,6 +199,7 @@ export function TransferDialog({
           ? { targetShipId, commodityId, amount, direction }
           : { colonyId, commodityId, amount, initiator },
       );
+      setNotice(result?.message ?? null);
       await refresh();
       onTransfer();
     } catch (err: unknown) {
@@ -462,6 +465,11 @@ export function TransferDialog({
               ))
             )}
           </div>
+        )}
+        {notice && (
+          <p role="status" className="border-t border-swu-border p-2 text-xs">
+            {notice}
+          </p>
         )}
         {error && (
           <p
