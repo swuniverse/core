@@ -46,6 +46,12 @@ import { SystemField } from '../starmap/entities/system-field.entity';
 import { Colony } from '../colony/entities/colony.entity';
 import { ColonyChangeable } from '../colony/entities/colony-changeable.entity';
 import { ColonyOrbitService } from '../colony/colony-orbit.service';
+import {
+  ColonyOrbitAssignment,
+  ColonyOrbitAssignmentMode,
+} from '../colony/entities/colony-orbit-assignment.entity';
+import { Fleet } from './entities/fleet.entity';
+import { ShipLogEntry } from './entities/ship-log-entry.entity';
 import { RpgActionLockService } from './rpg-action-lock.service';
 import { ShipDistressSignal } from './entities/ship-distress-signal.entity';
 import { SpacecraftCommunicationService } from './spacecraft-communication.service';
@@ -724,4 +730,77 @@ describe('RPG transponder (production HTTP/PostgreSQL)', () => {
       expect.arrayContaining([expect.objectContaining({ count: 1 })]),
     );
   });
+
+  it('groups the NBS by fleet with logbook, RPG and colony-defence flags and hints at cloaks without listing them', async () => {
+    await scenes().assign(scene.id, admin, plot.id);
+    const fleet = await db.manager.save(Fleet, {
+      name: 'Scene fleet',
+      userId: admin,
+      leaderId: scene.id,
+    });
+    const cloaked = await db.manager.save(Spacecraft, {
+      userId: admin,
+      name: 'Cloaked wingman',
+      shipClassId: scene.shipClassId,
+      locationId: locations[0].id,
+      fleetId: fleet.id,
+      runtimeSystems: { CLOAK: { active: true, integrity: 100 } },
+    });
+    await db.manager.update(Spacecraft, scene.id, { fleetId: fleet.id });
+    await db.manager.save(ShipLogEntry, {
+      spacecraftId: scene.id,
+      authorId: admin,
+      body: 'Log',
+    });
+    const system = await db.manager.save(StarSystem, {
+      name: 'Defended system',
+      layerId: (await db.manager.findOneByOrFail(GalaxyField, {
+        id: locations[0].galaxyFieldId!,
+      })).layerId,
+      cx: 1,
+      cy: 1,
+      systemTypeId: 1,
+    });
+    const orbit = await db.manager.save(SystemField, {
+      starSystemId: system.id,
+      sx: 1,
+      sy: 1,
+      fieldTypeId: 1,
+    });
+    const colony = await db.manager.save(Colony, {
+      name: 'Defended colony',
+      userId: admin,
+      starSystemId: system.id,
+      systemFieldId: orbit.id,
+      colonyClassId: 1,
+      posX: 1,
+      posY: 1,
+    });
+    await db.manager.save(ColonyOrbitAssignment, {
+      colonyId: colony.id,
+      spacecraftId: scene.id,
+      fleetId: fleet.id,
+      mode: ColonyOrbitAssignmentMode.DEFEND,
+    });
+    const service = app.get(SpacecraftService);
+
+    const scanning = await service.getNearby(observer.id, viewer);
+    expect(scanning.cloakedShipsHint).toBe(false);
+    expect(scanning.fleets).toEqual([
+      expect.objectContaining({ id: fleet.id, leadShipId: scene.id, visibleShips: 2, defending: true, blocking: false, isOwn: false, canJoin: false }),
+    ]);
+    expect(scanning.ships.find((ship) => ship.id === scene.id)).toMatchObject({ hasLogBook: true, rpgActive: true });
+    expect(scanning.ships.find((ship) => ship.id === cloaked.id)).toMatchObject({ hasLogBook: false, rpgActive: false });
+
+    const observerSystems = (await db.manager.findOneByOrFail(Spacecraft, { id: observer.id })).runtimeSystems as any;
+    await db.manager.update(Spacecraft, observer.id, {
+      runtimeSystems: { ...observerSystems, TACHYON_SCANNER: { active: true, integrity: 100 } },
+    });
+    const idle = await service.getNearby(observer.id, viewer);
+    expect(idle.cloakedShipsHint).toBe(true);
+    expect(idle.fleets?.[0]?.visibleShips).toBe(1);
+    expect(JSON.stringify(idle)).not.toContain('Cloaked wingman');
+    expect(idle.ships.map((ship) => ship.id)).not.toContain(cloaked.id);
+  });
 });
+
