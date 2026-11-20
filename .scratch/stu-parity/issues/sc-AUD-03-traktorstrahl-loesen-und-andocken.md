@@ -1,6 +1,6 @@
 # Traktorstrahl: lösen, Ziel beim Ziehenden, gehaltenes Schiff andocken
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -25,11 +25,11 @@ Ein aktivierter Traktorstrahl lässt sich in SWU nicht wieder lösen: `DELETE :i
 
 ## Akzeptanzkriterien
 
-- [ ] Detail-DTO liefert beim Ziehenden das gehaltene Ziel (`tractor.holding: { id, name }`).
-- [ ] Die Traktor-Box zeigt beim Ziehenden das gehaltene Schiff und „deaktivieren“ (ruft `DELETE :id/tractor`); beim Opfer bleibt „Entkommen“.
-- [ ] Neuer Endpunkt „gehaltenes Schiff andocken“ für Stationen mit STU-Prüfungen (Stationscrew, 1 EPS, freier Dockplatz, Ziel nicht in Mehrschiff-Flotte, Ziel auf Grün); danach ist das Ziel angedockt, der Traktor aus und der Eigner erhält eine PM.
-- [ ] Knopf „Gehaltenes Schiff andocken“ in der Traktor-Box einer Station, Fehlermeldungen je Grund.
-- [ ] Backend-Tests für Lösen und Andocken inkl. Ablehnungsgründe; Frontend-Tests für Box beim Ziehenden, Lösen und Andocken.
+- [x] Detail-DTO liefert beim Ziehenden das gehaltene Ziel (`tractor.holding: { id, name }`).
+- [x] Die Traktor-Box zeigt beim Ziehenden das gehaltene Schiff und „deaktivieren“ (ruft `DELETE :id/tractor`); beim Opfer bleibt „Entkommen“.
+- [x] Neuer Endpunkt „gehaltenes Schiff andocken“ für Stationen mit STU-Prüfungen (Stationscrew, 1 EPS, freier Dockplatz, Ziel nicht in Mehrschiff-Flotte, Ziel auf Grün); danach ist das Ziel angedockt, der Traktor aus und der Eigner erhält eine PM.
+- [x] Knopf „Gehaltenes Schiff andocken“ in der Traktor-Box einer Station, Fehlermeldungen je Grund.
+- [x] Backend-Tests für Lösen und Andocken inkl. Ablehnungsgründe; Frontend-Tests für Box beim Ziehenden, Lösen und Andocken.
 
 ## Herkunft
 
@@ -37,3 +37,11 @@ Ein aktivierter Traktorstrahl lässt sich in SWU nicht wieder lösen: `DELETE :i
 - Resolved-Ticket mit nicht erfüllter Akzeptanz: [sc-WP-TRACT-1a](sc-WP-TRACT-1a-traktorstrahl-kern-eigene-schiffe.md) (Kriterium „Deaktivieren jederzeit“ im UI nicht erreichbar).
 
 ## Comments
+
+- 2026-11-20 – umgesetzt, Prüfung ausstehend. Commit: `feat(spacecraft): release tractor beam and dock the held ship (stu-parity sc-AUD-03)`.
+  - Backend: Detail-DTO `tractor.holding: { id, name } | null` beim Ziehenden. Neu `POST /spacecraft/:id/tractor/dock` → `SpacecraftDockingService.dockTractored` nach STU `DockTractoredShip`: nur eigene Station, Station hält ein Schiff, Stationscrew, 1 EPS der Station, freier Dockplatz, Ziel nicht in Flotte mit mehr als einem Schiff, Ziel auf Alarm Grün; danach Ziel angedockt, Traktor aus (`tractoredShipId` null, `TRACTOR_BEAM.active` false), Reparaturaufträge des Ziels wie beim normalen Andocken abgebrochen, Systemnachricht „Die X wurde an der Station Y angedockt“ an den Zieleigner nach dem Commit. Sperren: Station und Ziel in aufsteigender ID-Reihenfolge (wie übrige Docking-Aktionen), Traktorbindung nach dem Sperren erneut geprüft.
+  - Abweichung: Schilde/Warp des Ziels werden wie beim regulären SWU-Andocken abgeschaltet (STU tut das hier nicht; SWU-Invariante für angedockte Schiffe).
+  - Frontend (`spacecraft-detail.tsx`): Traktor-Box beim Ziehenden mit „Traktorstrahl: hält X“, „deaktivieren“ (`DELETE :id/tractor`) und an Stationen „Gehaltenes Schiff andocken“; Server-Fehlertext bzw. Erfolgsmeldung als Status, danach Schiff/Lager neu geladen. Opferbox mit „Entkommen“ unverändert.
+  - Geprüft: `nx typecheck` backend/frontend/shared grün; Backend-Unit `spacecraft` 762/763 (rot nur das unabhängige `resource-collection.controller.spec`), neu: Andocken Erfolg, Ablehnungen (kein gehaltenes Schiff, EPS, Dockplatz, Mehrschiff-Flotte, nicht Grün, Crew, fremde Station), Einschiff-Flotte erlaubt, Lösen durch Fremden abgelehnt; Frontend `pages/spacecraft*` + `components/spacecraft` 254/254, neu: Box beim Ziehenden + Lösen, Station andocken mit Fehlermeldung; ESLint 0 Fehler.
+  - Ausstehend: PostgreSQL-Integration (Sperren/Speichern von Station+Ziel, Nest-DI von `MessagingService` im `SpacecraftDockingService`), Browserprüfung (Traktor aktivieren, Box beim Ziehenden, Lösen, Station dockt gehaltenes Schiff).
+  - Modell: Opus 5.5 direkt (gleichzeitige Schreibvorgänge/Spielregel), keine Delegation.

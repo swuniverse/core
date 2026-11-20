@@ -559,6 +559,8 @@ export interface SpacecraftDetailDto {
   runtimeSystems: SpacecraftRuntimeSystemsDto;
   tractor?: {
     heldBy: { id: number; name: string } | null;
+    /** The ship this spacecraft holds with its own tractor beam. */
+    holding: { id: number; name: string } | null;
     canEscape: boolean;
   };
   location: SpaceLocationDto;

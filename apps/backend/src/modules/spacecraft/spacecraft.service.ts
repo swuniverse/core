@@ -524,9 +524,10 @@ export class SpacecraftService {
     const dockedAt = ship.dockedAtId
       ? await this.shipRepo.findOneBy({ id: ship.dockedAtId })
       : null;
-    const tractoringShip = await this.shipRepo.findOneBy({
-      tractoredShipId: ship.id,
-    });
+    const [tractoringShip, holdingShip] = await Promise.all([
+      this.shipRepo.findOneBy({ tractoredShipId: ship.id }),
+      ship.tractoredShipId ? this.shipRepo.findOneBy({ id: ship.tractoredShipId }) : null,
+    ]);
     return {
       ...ship,
       dockedAtId: ship.dockedAtId ?? null,
@@ -557,6 +558,7 @@ export class SpacecraftService {
         heldBy: tractoringShip
           ? { id: tractoringShip.id, name: tractoringShip.name }
           : null,
+        holding: holdingShip ? { id: holdingShip.id, name: holdingShip.name } : null,
         canEscape:
           tractoringShip != null &&
           ship.energy >= 20 &&

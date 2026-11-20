@@ -4,6 +4,7 @@ import { DataSource, EntityManager, In } from 'typeorm';
 import { DOCK_EPS_COST } from './docking.constants';
 import { Fleet } from './entities/fleet.entity';
 import {
+  AlertState,
   Spacecraft,
   SpacecraftKind,
   SpacecraftStatus,
@@ -13,6 +14,7 @@ import {
   decideNearbyInteraction,
 } from './nearby-interaction';
 import { DockingPrivilegeService } from './docking-privilege.service';
+import { MessagingService } from '../messaging/messaging.service';
 import { SpacecraftCrewService } from './spacecraft-crew.service';
 import { SpacecraftRepairService } from './spacecraft-repair.service';
 import { initializeSpacecraftRuntimeSystems } from './spacecraft-runtime-state.service';
@@ -33,6 +35,8 @@ type Outcome = {
     station: Pick<Spacecraft, 'id' | 'userId' | 'name' | 'dockPmAutoRead'>;
     ships: Array<Pick<Spacecraft, 'id' | 'userId' | 'name'>>;
   };
+  /** System message to send after the commit. */
+  notice?: { userId: number; subject: string; body: string };
 };
 
 /** Docking of ships and fleets at stations; every action is atomic and runs in one transaction. */
@@ -43,6 +47,7 @@ export class SpacecraftDockingService {
     private readonly crewService: SpacecraftCrewService,
     private readonly repairService: SpacecraftRepairService,
     private readonly privileges: DockingPrivilegeService,
+    private readonly messaging: MessagingService,
   ) {}
 
   /** Docks the ship, or its whole fleet when the ship leads one. */
@@ -105,6 +110,72 @@ export class SpacecraftDockingService {
     });
   }
 
+  /** STU `DockTractoredShip`: the station docks the ship held by its tractor beam and releases the beam. */
+  async dockTractored(stationId: number, userId: number): Promise<SpacecraftDockResultDto> {
+    return this.run(async (manager) => {
+      const targetId = (
+        await manager.getRepository(Spacecraft).findOneBy({ id: stationId })
+      )?.tractoredShipId;
+      const rows = await this.lock(manager, targetId ? [stationId, targetId] : [stationId]);
+      const station = rows.find((row) => row.id === stationId);
+      if (!station || station.userId !== userId || station.kind !== SpacecraftKind.STATION) {
+        throw new NotFoundException('Station nicht gefunden');
+      }
+      const target = rows.find((row) => row.id === station.tractoredShipId);
+      if (!target) throw new BadRequestException('Die Station hält kein Schiff im Traktorstrahl');
+      if (!(await this.crewService.hasEnoughCrew(station))) {
+        throw new BadRequestException('Nicht genügend Crew vorhanden');
+      }
+      if (station.energy < DOCK_EPS_COST) {
+        throw new BadRequestException('Zum Andocken wird 1 Energie benötigt');
+      }
+      const occupied = await manager
+        .getRepository(Spacecraft)
+        .countBy({ dockedAtId: station.id });
+      if (occupied >= station.dockCapacity) {
+        throw new BadRequestException('Zurzeit sind alle Dockplätze belegt');
+      }
+      if (target.fleetId != null) {
+        const members = await manager.getRepository(Spacecraft).find({
+          where: { fleetId: target.fleetId },
+          select: { id: true },
+        });
+        if (members.length > 1) {
+          throw new BadRequestException('Aktion nicht möglich. Das Ziel befindet sich in einer Flotte.');
+        }
+      }
+      if (target.alertState !== AlertState.GREEN) {
+        throw new BadRequestException('Aktion nicht möglich. Das Ziel ist nicht auf Alarm Grün.');
+      }
+
+      const stationSystems = initializeSpacecraftRuntimeSystems(station);
+      if (stationSystems.TRACTOR_BEAM) {
+        stationSystems.TRACTOR_BEAM = { ...stationSystems.TRACTOR_BEAM, active: false };
+      }
+      station.runtimeSystems = stationSystems;
+      station.energy -= DOCK_EPS_COST;
+      station.tractoredShipId = null;
+      station.tractoredShip = null;
+      // Same docked-state invariant as a regular dock.
+      const targetSystems = initializeSpacecraftRuntimeSystems(target);
+      if (targetSystems.SHIELDS) targetSystems.SHIELDS = { ...targetSystems.SHIELDS, active: false };
+      if (targetSystems.WARPDRIVE) targetSystems.WARPDRIVE = { ...targetSystems.WARPDRIVE, active: false };
+      target.runtimeSystems = targetSystems;
+      target.dockedAtId = station.id;
+      await manager.save([station, target]);
+      return {
+        message: 'Andockvorgang abgeschlossen',
+        shipIds: [target.id],
+        cancelled: await this.repairService.cancelTasks(manager, [target.id]),
+        notice: {
+          userId: target.userId,
+          subject: 'Traktorstrahl',
+          body: `Die ${target.name} wurde an der Station ${station.name} angedockt`,
+        },
+      };
+    });
+  }
+
   private async run(
     work: (manager: EntityManager) => Promise<Outcome>,
   ): Promise<SpacecraftDockResultDto> {
@@ -115,6 +186,9 @@ export class SpacecraftDockingService {
         outcome.foreignDocking.station,
         outcome.foreignDocking.ships,
       );
+    }
+    if (outcome.notice) {
+      await this.messaging.sendSystem(outcome.notice.userId, outcome.notice.subject, outcome.notice.body);
     }
     return { message: outcome.message, shipIds: outcome.shipIds };
   }

@@ -72,6 +72,15 @@ export function SpacecraftDetailPage() {
     setShipRefreshVersion((version) => version + 1);
   }, [fetchShip]);
 
+  const runTractorAction = async (action: () => Promise<{ message: string }>) => {
+    try {
+      setTractorMessage((await action()).message);
+    } catch (err: unknown) {
+      setTractorMessage(err instanceof Error ? err.message : 'Aktion fehlgeschlagen');
+    }
+    await refreshShipAndStorage();
+  };
+
   const locationKey = ship
     ? ship.location.scope === 'SYSTEM'
       ? `system:${ship.location.systemId}:${ship.location.x}:${ship.location.y}`
@@ -188,6 +197,38 @@ export function SpacecraftDetailPage() {
             className="border border-swu-accent px-2 py-1 disabled:opacity-50"
           >
             Entkommen
+          </button>
+        </section>
+      )}
+      {ship.tractor?.holding && (
+        <section aria-label="Traktorstrahl" className="mb-2 flex flex-wrap items-center gap-3 border border-swu-accent bg-swu-surface p-2 text-xs">
+          <span className="flex-1">
+            Traktorstrahl: hält {ship.tractor.holding.name}
+          </span>
+          {ship.kind === 'STATION' && (
+            <button
+              type="button"
+              onClick={() =>
+                void runTractorAction(() =>
+                  api.post<{ message: string }>(`/spacecraft/${ship.id}/tractor/dock`, {}),
+                )
+              }
+              className="border border-swu-accent px-2 py-1"
+            >
+              Gehaltenes Schiff andocken
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() =>
+              void runTractorAction(async () => {
+                await api.delete(`/spacecraft/${ship.id}/tractor`);
+                return { message: 'Traktorstrahl deaktiviert' };
+              })
+            }
+            className="border border-swu-accent px-2 py-1"
+          >
+            deaktivieren
           </button>
         </section>
       )}

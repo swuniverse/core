@@ -197,4 +197,12 @@ describe('SpacecraftTractorService', () => {
     expect(source.tractoredShipId).toBeNull();
     expect(source.runtimeSystems.TRACTOR_BEAM.active).toBe(false);
   });
+
+  it('does not let another player release the beam', async () => {
+    const { service, source, target } = setup();
+    source.tractoredShipId = target.id;
+
+    await expect(service.deactivate(source.id, source.userId + 1)).rejects.toThrow('Spacecraft not found');
+    expect(source.tractoredShipId).toBe(target.id);
+  });
 });

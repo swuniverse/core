@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { WsEventType } from '@swuniverse/shared';
 import { SpacecraftDetailPage } from './spacecraft-detail';
@@ -8,6 +8,7 @@ const apiMocks = vi.hoisted(() => ({
   post: vi.fn(),
   put: vi.fn(),
   patch: vi.fn(),
+  delete: vi.fn(),
 }));
 const socketHandlers = vi.hoisted(
   () => new Map<string, (payload: unknown) => void>(),
@@ -193,6 +194,58 @@ describe('SpacecraftDetailPage', () => {
       expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/tractor/escape', {}),
     );
     expect(await screen.findByText('Der Fluchtversuch ist gelungen')).toBeTruthy();
+  });
+
+  describe('tractor box of the holding spacecraft', () => {
+    const renderHolder = (holder: object) => {
+      apiMocks.get.mockImplementation((path: string) => {
+        if (path === '/spacecraft/2') return Promise.resolve(holder);
+        if (path === '/spacecraft/2/local-map') return Promise.resolve(map);
+        if (path === '/spacecraft/2/field-context') {
+          return Promise.resolve({ coordinates: { x: 5, y: 5 }, information: {}, colony: null, actions: {} });
+        }
+        if (path === '/spacecraft/2/torpedoes') return Promise.resolve(null);
+        if (['/spacecraft/2/modules', '/spacecraft/2/cargo', '/colonies'].includes(path)) return Promise.resolve([]);
+        return Promise.reject(new Error(`unexpected ${path}`));
+      });
+      render(
+        <MemoryRouter initialEntries={['/spacecraft/2']}>
+          <Routes>
+            <Route path="/spacecraft/:id" element={<SpacecraftDetailPage />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+    };
+    const holding = { heldBy: null, holding: { id: 5, name: 'Beute' }, canEscape: false };
+
+    it('shows the held ship and releases the beam', async () => {
+      apiMocks.delete.mockResolvedValue({});
+      renderHolder({ ...ship, tractor: holding });
+
+      const box = await screen.findByRole('region', { name: 'Traktorstrahl' });
+      expect(within(box).getByText('Traktorstrahl: hält Beute')).toBeTruthy();
+      expect(within(box).queryByRole('button', { name: 'Entkommen' })).toBeNull();
+      expect(within(box).queryByRole('button', { name: 'Gehaltenes Schiff andocken' })).toBeNull();
+      fireEvent.click(within(box).getByRole('button', { name: 'deaktivieren' }));
+
+      await waitFor(() => expect(apiMocks.delete).toHaveBeenCalledWith('/spacecraft/2/tractor'));
+      expect(await screen.findByText('Traktorstrahl deaktiviert')).toBeTruthy();
+    });
+
+    it('lets a station dock the held ship and shows rejection reasons', async () => {
+      apiMocks.post
+        .mockRejectedValueOnce(new Error('Aktion nicht möglich. Das Ziel ist nicht auf Alarm Grün.'))
+        .mockResolvedValueOnce({ message: 'Andockvorgang abgeschlossen', shipIds: [5] });
+      renderHolder({ ...ship, kind: 'STATION', stationRole: 'SENSOR', dockCapacity: 2, dockedShips: [], tractor: holding });
+
+      const dock = await screen.findByRole('button', { name: 'Gehaltenes Schiff andocken' });
+      fireEvent.click(dock);
+      expect(await screen.findByText('Aktion nicht möglich. Das Ziel ist nicht auf Alarm Grün.')).toBeTruthy();
+      fireEvent.click(dock);
+
+      await waitFor(() => expect(apiMocks.post).toHaveBeenLastCalledWith('/spacecraft/2/tractor/dock', {}));
+      expect(await screen.findByText('Andockvorgang abgeschlossen')).toBeTruthy();
+    });
   });
 
   it('keeps the primary desktop regions in three columns and auxiliary panels below', async () => {

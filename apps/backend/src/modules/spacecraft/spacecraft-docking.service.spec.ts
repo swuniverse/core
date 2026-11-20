@@ -1,6 +1,7 @@
 jest.mock('./entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
   SpacecraftKind: { SHIP: 'SHIP', STATION: 'STATION' },
+  AlertState: { GREEN: 'GREEN', YELLOW: 'YELLOW', RED: 'RED' },
   SpacecraftStatus: { IDLE: 'IDLE', IN_FLIGHT: 'IN_FLIGHT', DESTROYED: 'DESTROYED', UNDER_SCRAPPING: 'UNDER_SCRAPPING' },
 }));
 jest.mock('./entities/fleet.entity', () => ({ Fleet: class Fleet {} }));
@@ -88,13 +89,15 @@ function setup(
     ),
     notifyForeignDocking: jest.fn(async () => undefined),
   };
+  const messaging = { sendSystem: jest.fn(async () => undefined) };
   const service = new SpacecraftDockingService(
     dataSource as any,
     crew as any,
     repair as any,
     privileges as any,
+    messaging as any,
   );
-  return { service, save, crew, repair, spacecraftRepo, dataSource, privileges };
+  return { service, save, crew, repair, spacecraftRepo, dataSource, privileges, messaging };
 }
 
 jest.mock('typeorm', () => ({
@@ -270,6 +273,62 @@ describe('SpacecraftDockingService', () => {
       await expect(setup([ship(1), station({ userId: 2 })]).service.undockAll(100, 1)).rejects.toThrow(
         'Station nicht gefunden',
       );
+    });
+  });
+
+  describe('docking the tractored ship (STU DockTractoredShip)', () => {
+    const held = (overrides: Row = {}) =>
+      ship(1, { userId: 2, name: 'Beute', alertState: 'GREEN', ...overrides });
+    const holder = (overrides: Row = {}) =>
+      station({
+        energy: 3,
+        tractoredShipId: 1,
+        runtimeSystems: { TRACTOR_BEAM: { active: true, integrity: 100 } },
+        ...overrides,
+      });
+
+    it('docks the held ship for 1 station EPS, releases the beam and informs the owner', async () => {
+      const target = held();
+      const st = holder();
+      const { service, messaging } = setup([target, st]);
+
+      const result = await service.dockTractored(100, 1);
+
+      expect(result).toEqual({ message: 'Andockvorgang abgeschlossen', shipIds: [1] });
+      expect(target.dockedAtId).toBe(100);
+      expect(target.runtimeSystems.SHIELDS.active).toBe(false);
+      expect(st.energy).toBe(2);
+      expect(st.tractoredShipId).toBeNull();
+      expect(st.runtimeSystems.TRACTOR_BEAM.active).toBe(false);
+      expect(messaging.sendSystem).toHaveBeenCalledWith(2, 'Traktorstrahl', 'Die Beute wurde an der Station Station angedockt');
+    });
+
+    it.each([
+      ['no held ship', [held(), holder({ tractoredShipId: null })], 0, 'Die Station hält kein Schiff im Traktorstrahl'],
+      ['no EPS', [held(), holder({ energy: 0 })], 0, 'Zum Andocken wird 1 Energie benötigt'],
+      ['no free slot', [held(), holder()], 2, 'Zurzeit sind alle Dockplätze belegt'],
+      ['multi-ship fleet', [held({ fleetId: 5 }), ship(2, { fleetId: 5 }), holder()], 0, 'Aktion nicht möglich. Das Ziel befindet sich in einer Flotte.'],
+      ['not on green', [held({ alertState: 'YELLOW' }), holder()], 0, 'Aktion nicht möglich. Das Ziel ist nicht auf Alarm Grün.'],
+    ])('rejects %s', async (_case, rows, occupied, message) => {
+      const { service, messaging } = setup(rows as Row[], null, occupied as number);
+      await expect(service.dockTractored(100, 1)).rejects.toThrow(message as string);
+      expect(rows[0].dockedAtId).toBeNull();
+      expect(messaging.sendSystem).not.toHaveBeenCalled();
+    });
+
+    it('allows a held ship that leads a single-ship fleet', async () => {
+      const target = held({ fleetId: 5 });
+      const { service } = setup([target, holder()]);
+      await service.dockTractored(100, 1);
+      expect(target.dockedAtId).toBe(100);
+    });
+
+    it('rejects without station crew and for foreign stations', async () => {
+      const first = setup([held(), holder()]);
+      first.crew.hasEnoughCrew.mockResolvedValue(false);
+      await expect(first.service.dockTractored(100, 1)).rejects.toThrow('Nicht genügend Crew vorhanden');
+      const second = setup([held(), holder({ userId: 3 })]);
+      await expect(second.service.dockTractored(100, 1)).rejects.toThrow('Station nicht gefunden');
     });
   });
 });

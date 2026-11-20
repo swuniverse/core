@@ -1796,6 +1796,14 @@ export class SpacecraftController {
     return this.dockingService.undockAll(id, req.user.sub);
   }
 
+  @Post(':id/tractor/dock')
+  dockTractoredShip(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+  ) {
+    return this.dockingService.dockTractored(id, req.user.sub);
+  }
+
   @Post(':id/docked/:targetId/undock')
   undockStationShip(
     @Param('id', ParseIntPipe) id: number,
