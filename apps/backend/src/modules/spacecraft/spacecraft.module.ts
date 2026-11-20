@@ -8,6 +8,7 @@ import { ShuttleController } from './shuttle.controller';
 import { ResourceConversionService } from './resource-conversion.service';
 import { ResourceConversionController } from './resource-conversion.controller';
 import { ResourceCollectionService } from './resource-collection.service';
+import { LocationMiningRegenerationService } from './location-mining-regeneration.service';
 import { ResourceCollectionController, FieldMiningController } from './resource-collection.controller';
 import { NavicomputerJumpService } from './navicomputer-jump.service';
 import { NavicomputerJumpController } from './navicomputer-jump.controller';
@@ -214,6 +215,7 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     WormholePassageService,
     NavicomputerJumpService,
     ResourceCollectionService,
+    LocationMiningRegenerationService,
     ResourceConversionService,
     ShuttleService,
     LastCombatReportService,
@@ -310,6 +312,7 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     },
   ],
   exports: [
+    LocationMiningRegenerationService,
     StationShipyardService,
     SpacecraftAlertService,
     StationRepairService,

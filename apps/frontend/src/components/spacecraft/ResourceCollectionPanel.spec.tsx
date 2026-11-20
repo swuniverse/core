@@ -12,8 +12,20 @@ const data = {
   state: 'IDLE',
   selectedCommodityId: null,
   options: [
-    { commodityId: 3, name: 'Tibanna-Gas', rate: 100 },
-    { commodityId: 9, name: 'Phrik-Erz', rate: 60 },
+    {
+      commodityId: 3,
+      name: 'Tibanna-Gas',
+      rate: 100,
+      stock: 10000,
+      maxStock: 10000,
+    },
+    {
+      commodityId: 9,
+      name: 'Phrik-Erz',
+      rate: 60,
+      stock: 340,
+      maxStock: 10000,
+    },
   ],
   freeCargo: 150,
   activationEps: 15,
@@ -45,7 +57,7 @@ it('chooses a field resource through ship control, starts and stops collection',
       onUpdate={update}
     />,
   );
-  await screen.findByRole('option', { name: 'Phrik-Erz · 60 je Tick' });
+  await screen.findByRole('option', { name: 'Phrik-Erz · Vorrat 340/10000' });
   fireEvent.change(screen.getByLabelText('Ressource'), {
     target: { value: '9' },
   });

@@ -1,6 +1,6 @@
 # Sammelfelder mit Vorrat wie STU – Mechanik
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -30,12 +30,12 @@ In SWU erschöpfen Sammelfelder nicht: Der Ressourcen-Kollektor liefert je Tick 
 
 ## Akzeptanzkriterien
 
-- [ ] Neue Entity/Tabelle für Ortsvorräte (Ort, Ware, `actualAmount`, `maxAmount`, `depletedAt`), angelegt beim ersten Sammeln bzw. per Migration für Felder mit Sammelressourcen; Startwert `maxAmount` aus einem vorläufigen Default je Feldtyp/Ware (Kalibrierung in sc-AUD-12b).
-- [ ] Sammeln je Tick: Zufall 95–105, mit fraktionsgebundenem Kollektormodul 190–220 (Zuordnung im Ticket festlegen), begrenzt durch Vorrat und freien Lagerraum; Vorrat wird abgezogen. Die bisherige feste Feldtyp-Rate entfällt als Sammelmenge (Feldtyp bestimmt nur, welche Waren vorkommen).
-- [ ] Bei Erschöpfung: `depletedAt` gesetzt, Meldung wie STU an den Eigner, Sammeln endet; späteres Sammeln mit Vorrat > 0 löscht `depletedAt`.
-- [ ] Maintenance-Handler regeneriert Einträge, die seit ≥ 20 Tagen erschöpft sind: aus 0 auf `max(1, ceil(5 % max))`, sonst `ceil(×1,15)`, gekappt auf max (dann `depletedAt = null`).
-- [ ] `ResourceCollectionPanel` zeigt den Vorrat je Ware am Feld.
-- [ ] Backend-Tests (Abzug, Kappung Lager/Vorrat, Meldung, Regeneration, Fraktionsmodul), PostgreSQL-Integrationstest für Nebenläufigkeit mehrerer Sammler am selben Feld; Frontend-Test für die Vorratsanzeige.
+- [x] Neue Entity/Tabelle für Ortsvorräte (Ort, Ware, `actualAmount`, `maxAmount`, `depletedAt`), angelegt beim ersten Sammeln bzw. per Migration für Felder mit Sammelressourcen; Startwert `maxAmount` aus einem vorläufigen Default je Feldtyp/Ware (Kalibrierung in sc-AUD-12b).
+- [x] Sammeln je Tick: Zufall 95–105, mit fraktionsgebundenem Kollektormodul 190–220 (Zuordnung im Ticket festlegen), begrenzt durch Vorrat und freien Lagerraum; Vorrat wird abgezogen. Die bisherige feste Feldtyp-Rate entfällt als Sammelmenge (Feldtyp bestimmt nur, welche Waren vorkommen).
+- [x] Bei Erschöpfung: `depletedAt` gesetzt, Meldung wie STU an den Eigner, Sammeln endet; späteres Sammeln mit Vorrat > 0 löscht `depletedAt`.
+- [x] Maintenance-Handler regeneriert Einträge, die seit ≥ 20 Tagen erschöpft sind: aus 0 auf `max(1, ceil(5 % max))`, sonst `ceil(×1,15)`, gekappt auf max (dann `depletedAt = null`).
+- [x] `ResourceCollectionPanel` zeigt den Vorrat je Ware am Feld.
+- [x] Backend-Tests (Abzug, Kappung Lager/Vorrat, Meldung, Regeneration, Fraktionsmodul), PostgreSQL-Integrationstest für Nebenläufigkeit mehrerer Sammler am selben Feld; Frontend-Test für die Vorratsanzeige.
 
 ## Herkunft
 
@@ -43,3 +43,14 @@ In SWU erschöpfen Sammelfelder nicht: Der Ressourcen-Kollektor liefert je Tick 
 - PO-Entscheidung vom 2026-11-17 (Abschnitt I). Ändert die `map.md`-Entscheidung sc-WP-RES-1 („je 100 Einheiten/Tick“, unbegrenzt); betrifft [sc-WP-RES-1](sc-WP-RES-1-ressourcen-sammeln-mining.md).
 
 ## Comments
+
+- 2026-11-20 – **umgesetzt, Prüfung ausstehend** (Commit `feat(spacecraft): finite collection field stock like STU (stu-parity sc-AUD-12a)`, Opus direkt, keine Delegation wegen Nebenläufigkeit/Migration).
+  - Tabelle `location_mining` (Migration `20261120160000-add-location-mining.ts`, Entity `LocationMining`), Zeile je Ort/Ware wird beim ersten Sammel-Tick per `INSERT … ON CONFLICT DO NOTHING` angelegt und mit `FOR UPDATE` gesperrt; parallele Sammler am selben Feld serialisieren darauf.
+  - Vorläufiger Vorrat `DEFAULT_FIELD_STOCK = 10 000` für alle Feldtypen/Waren (`resource-collection-state.ts`, `shortcut:`-Kommentar); Kalibrierung in sc-AUD-12b. Die Feldtyp-`rate` bleibt im Karteneditor erhalten, bestimmt aber keine Menge mehr.
+  - **Entscheidung Fraktionsmodul:** Ein Kollektormodul ist fraktionsgebunden, wenn seine Moduldefinition in den Spieldaten `secret.faction` trägt. Derzeit hat kein SWU-Modul das, also sammeln alle 95–105.
+  - Erschöpfung: `depletedAt` gesetzt, Meldung „Es sind keine <Ware> bei den Koordinaten x|y vorhanden! Sammeln beendet.“, Sammeln stoppt; Start auf erschöpftem Vorrat wird mit derselben Meldung abgelehnt. Grenzfall: Wartung regeneriert ab genau 20 Tagen (Ticket „≥ 20“, STU nutzt strikt `<`).
+  - Wartung `LocationMiningRegenerationService` (ein atomares `UPDATE`, im `TickModule` registriert).
+  - Panel zeigt „Vorrat x/max“ je Ware statt „n je Tick“.
+  - Checks: `nx typecheck backend`/`frontend` grün; Jest `resource-collection.spec`, `maintenance.service.spec` (36) grün; Vitest `ResourceCollectionPanel.spec` (4) grün; PostgreSQL `resource-collection|resource-conversion|maintenance` (59, inkl. Nebenläufigkeitstest) grün; ESLint ohne Fehler.
+  - Ausstehend: gesammelte vollständige Verifikation (`npm run lint && npm run typecheck && npm run test`, alle Integrationstests).
+

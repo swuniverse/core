@@ -90,6 +90,7 @@ import { ColonyScan } from './modules/spacecraft/entities/colony-scan.entity';
 import { SpacecraftScanResult } from './modules/spacecraft/entities/spacecraft-scan-result.entity';
 import { ShipLogEntry } from './modules/spacecraft/entities/ship-log-entry.entity';
 import { ShipLogScan } from './modules/spacecraft/entities/ship-log-scan.entity';
+import { LocationMining } from './modules/spacecraft/entities/location-mining.entity';
 import { ShipDistressSignal } from './modules/spacecraft/entities/ship-distress-signal.entity';
 import { Fleet } from './modules/spacecraft/entities/fleet.entity';
 import { ShipClassDef } from './modules/spacecraft/entities/ship-class-def.entity';
@@ -248,6 +249,7 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
           SpacecraftScanResult,
           ShipLogEntry,
           ShipLogScan,
+          LocationMining,
           ShipDistressSignal,
           Fleet,
           ShipClassDef,

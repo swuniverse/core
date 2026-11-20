@@ -49,6 +49,7 @@ describe('Resource conversion (PostgreSQL)', () => {
       name: `Ware ${id}`,
       isBeamable: true,
     }),
+    getAllModules: () => [],
     getAllBuildings: () =>
       RESOURCE_CONVERSIONS.map((row) => ({
         researchId: 77,
@@ -223,6 +224,8 @@ describe('Resource conversion (PostgreSQL)', () => {
       gameData,
       messaging as unknown as MessagingService,
     );
+    // 95 + floor(0.5 * 11) = 100 collected units.
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
     await collection.select(ship.id, ship.userId, 63);
     await service.select(ship.id, ship.userId, 63);
     await collection.processTick(ship.id);

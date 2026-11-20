@@ -69,3 +69,18 @@ export function stopCollection(ship: Spacecraft): boolean {
   collector.active = false;
   return true;
 }
+
+/** shortcut: one provisional stock for every field type and commodity; calibrated per field in sc-AUD-12b. */
+export const DEFAULT_FIELD_STOCK = 10_000;
+
+/** STU `BussardCollectorHandler`: 95–105 per tick, 190–220 with a faction module, capped by stock and free cargo. */
+export function collectAmount(
+  factionModule: boolean,
+  stock: number,
+  freeCargo: number,
+  random = Math.random,
+): number {
+  const [min, max] = factionModule ? [190, 220] : [95, 105];
+  const roll = min + Math.floor(random() * (max - min + 1));
+  return Math.max(0, Math.min(roll, stock, freeCargo));
+}

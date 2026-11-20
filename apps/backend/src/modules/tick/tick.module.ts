@@ -49,6 +49,7 @@ import { ShipyardCompletionService } from './shipyard-completion.service';
 import { RepairCompletionService } from './repair-completion.service';
 import { StationShipRepair } from '../spacecraft/entities/station-ship-repair.entity';
 import { SpacecraftRepairTask } from '../spacecraft/entities/spacecraft-repair-task.entity';
+import { LocationMiningRegenerationService } from '../spacecraft/location-mining-regeneration.service';
 import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue.entity';
 
 @Module({
@@ -110,7 +111,8 @@ import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue
         tradeOffers: TradeOfferMaintenanceService,
         tradeLottery: TradeLotteryService,
         idleUsers: IdleUserMaintenanceService,
-      ) => [topFlightsReward, profileVisitors, layerMapCycle, tradeLicenses, tradeOffers, tradeLottery, idleUsers],
+        locationMining: LocationMiningRegenerationService,
+      ) => [topFlightsReward, profileVisitors, layerMapCycle, tradeLicenses, tradeOffers, tradeLottery, idleUsers, locationMining],
       inject: [
         TopFlightsRewardService,
         ProfileVisitorService,
@@ -119,6 +121,7 @@ import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue
         TradeOfferMaintenanceService,
         TradeLotteryService,
         IdleUserMaintenanceService,
+        LocationMiningRegenerationService,
       ],
     },
   ],

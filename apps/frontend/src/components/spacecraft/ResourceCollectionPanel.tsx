@@ -86,7 +86,7 @@ export function ResourceCollectionPanel({
             >
               {data.options.map((option) => (
                 <option key={option.commodityId} value={option.commodityId}>
-                  {option.name} · {option.rate} je Tick
+                  {option.name} · Vorrat {option.stock}/{option.maxStock}
                 </option>
               ))}
             </select>
@@ -115,8 +115,8 @@ export function ResourceCollectionPanel({
             <p className="mt-1 text-swu-muted">{data.blockReason}</p>
           )}
           <p className="mt-1 text-swu-muted">
-            Förderung im Tick bis das Lager voll ist. Bewegung beendet das
-            Sammeln.
+            Förderung im Tick bis das Lager voll oder der Feldvorrat erschöpft
+            ist. Bewegung beendet das Sammeln.
           </p>
         </>
       )}

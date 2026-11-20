@@ -1299,7 +1299,10 @@ export interface FieldMiningResourceDto {
 export interface ResourceCollectionDto {
   state: 'IDLE' | 'GATHER_RESOURCES';
   selectedCommodityId: number | null;
-  options: Array<FieldMiningResourceDto & { name: string }>;
+  /** `stock`/`maxStock`: remaining and full field supply (STU `LocationMining`). */
+  options: Array<
+    FieldMiningResourceDto & { name: string; stock: number; maxStock: number }
+  >;
   freeCargo: number;
   activationEps: number;
   epsPerTick: number;

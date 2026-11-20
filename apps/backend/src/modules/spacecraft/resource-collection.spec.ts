@@ -1,4 +1,5 @@
 import {
+  collectAmount,
   collectionBlockReason,
   stopCollection,
 } from './resource-collection-state';
@@ -92,5 +93,20 @@ describe('Resource collection rules', () => {
         .RESOURCE_COLLECTOR.resourceCommodityId,
     ).toBeUndefined();
     expect(stopCollection(target)).toBe(false);
+  });
+});
+describe('collectAmount', () => {
+  it.each([
+    [false, 0, 95],
+    [false, 0.999, 105],
+    [true, 0, 190],
+    [true, 0.999, 220],
+  ])('faction %s rolls within STU bounds', (faction, roll, expected) => {
+    expect(collectAmount(faction, 10_000, 10_000, () => roll)).toBe(expected);
+  });
+  it('caps by stock and free cargo and never goes negative', () => {
+    expect(collectAmount(false, 40, 1_000, () => 0.5)).toBe(40);
+    expect(collectAmount(false, 1_000, 30, () => 0.5)).toBe(30);
+    expect(collectAmount(false, 0, -5, () => 0.5)).toBe(0);
   });
 });

@@ -30,6 +30,8 @@ import { FieldTransitionExecutor } from './field-transition-executor';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { FieldMiningRequest } from './resource-collection.controller';
+import { LocationMining } from './entities/location-mining.entity';
+import { LocationMiningRegenerationService } from './location-mining-regeneration.service';
 
 // Real migrations, ship/module/cargo locks and persisted resource selection.
 describe('Resource collection (PostgreSQL)', () => {
@@ -59,8 +61,9 @@ describe('Resource collection (PostgreSQL)', () => {
   const gameData = {
     getCommodity: (id: number) => commodities.find((row) => row.id === id),
     getAllCommodities: () => commodities,
-    getAllModules: () => [],
+    getAllModules: () => moduleDefinitions,
   } as unknown as GameDataService;
+  let moduleDefinitions: unknown[] = [];
   beforeAll(async () => {
     db = await connectIntegrationDatabase();
   });
@@ -71,6 +74,9 @@ describe('Resource collection (PostgreSQL)', () => {
     jest.restoreAllMocks();
     jest.clearAllMocks();
     messaging.sendSystem.mockImplementation(sendImplementation);
+    moduleDefinitions = [];
+    // 95 + floor(0.5 * 11) = 100 units per tick without a faction module.
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
     await resetDatabase(db);
     const owner = await createUser(db);
     const shipClass = await db.getRepository(ShipClassDef).save({
@@ -112,7 +118,9 @@ describe('Resource collection (PostgreSQL)', () => {
       epsMax: 100,
       cargoMax: 150,
       // Short-range sensors start OFF like STU (sc-AUD-02); collecting needs them.
-      runtimeSystems: { SHORT_RANGE_SENSORS: { active: true, integrity: 100, cooldown: 0 } },
+      runtimeSystems: {
+        SHORT_RANGE_SENSORS: { active: true, integrity: 100, cooldown: 0 },
+      },
     });
     await db.getRepository(SpacecraftModule).save([
       {
@@ -294,15 +302,13 @@ describe('Resource collection (PostgreSQL)', () => {
     ).toBeNull();
   });
   it('leaves mining active after a rejected flight and cancels through the normal galaxy-flight pipeline after a committed step', async () => {
-    await db
-      .getRepository(SpacecraftModule)
-      .save({
-        spacecraftId: ship.id,
-        category: 'HYPERDRIVE',
-        moduleType: 'Hyperantrieb',
-        integrity: 100,
-        isActive: false,
-      });
+    await db.getRepository(SpacecraftModule).save({
+      spacecraftId: ship.id,
+      category: 'HYPERDRIVE',
+      moduleType: 'Hyperantrieb',
+      integrity: 100,
+      isActive: false,
+    });
     await service.select(ship.id, ship.userId, 3);
     const navigation = Object.assign(
       Object.create(SpacecraftService.prototype),
@@ -312,18 +318,16 @@ describe('Resource collection (PostgreSQL)', () => {
         moduleRepo: db.getRepository(SpacecraftModule),
         galaxyFieldRepo: db.getRepository(GalaxyField),
         findOne: (id: number, userId: number) =>
-          db
-            .getRepository(Spacecraft)
-            .findOneOrFail({
-              where: { id, userId },
-              relations: [
-                'modules',
-                'fleet',
-                'fleet.members',
-                'location',
-                'location.galaxyField',
-              ],
-            }),
+          db.getRepository(Spacecraft).findOneOrFail({
+            where: { id, userId },
+            relations: [
+              'modules',
+              'fleet',
+              'fleet.members',
+              'location',
+              'location.galaxyField',
+            ],
+          }),
         spacecraftRuntimeStateService: new SpacecraftRuntimeStateService(),
         spacecraftCrewService: { hasEnoughCrew: async () => true },
         shipClassService: {
@@ -456,5 +460,167 @@ describe('Resource collection (PostgreSQL)', () => {
         }),
       ),
     ).not.toHaveLength(0);
+  });
+  async function stock(commodityId = 3) {
+    return db
+      .getRepository(LocationMining)
+      .findOneByOrFail({ locationId: ship.locationId, commodityId });
+  }
+  it('creates the field stock on first collection, deducts it and shows it per commodity', async () => {
+    const before = await service.get(ship.id, ship.userId);
+    expect(before.options.map((option) => option.stock)).toEqual([
+      10_000, 10_000,
+    ]);
+    await service.select(ship.id, ship.userId, 3);
+    await service.processTick(ship.id);
+    expect(await stock()).toMatchObject({
+      actualAmount: 9_900,
+      maxAmount: 10_000,
+      depletedAt: null,
+    });
+    expect(
+      (await service.get(ship.id, ship.userId)).options.find(
+        (option) => option.commodityId === 3,
+      ),
+    ).toMatchObject({ stock: 9_900, maxStock: 10_000 });
+  });
+  it('gathers 190–220 with a faction collector module', async () => {
+    moduleDefinitions = [
+      { name: 'Ressourcen-Kollektor', secret: { faction: 'GALACTIC_EMPIRE' } },
+    ];
+    await db.getRepository(Spacecraft).update(ship.id, { cargoMax: 500 });
+    await service.select(ship.id, ship.userId, 3);
+    await service.processTick(ship.id);
+    // 190 + floor(0.5 * 31)
+    expect((await snapshot()).cargo[0].amount).toBe(205);
+    expect((await stock()).actualAmount).toBe(9_795);
+  });
+  it('caps by stock, marks depletion, notifies like STU, stops and refuses until regrown', async () => {
+    await db.getRepository(LocationMining).save({
+      locationId: ship.locationId,
+      commodityId: 3,
+      actualAmount: 60,
+      maxAmount: 10_000,
+      depletedAt: null,
+    });
+    await service.select(ship.id, ship.userId, 3);
+    await service.processTick(ship.id);
+    expect((await snapshot()).cargo[0].amount).toBe(60);
+    const depleted = await stock();
+    expect(depleted.actualAmount).toBe(0);
+    expect(depleted.depletedAt).toBeInstanceOf(Date);
+    expect(delivered).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'Es sind keine Tibanna-Gas bei den Koordinaten 1|1 vorhanden!',
+      ),
+    );
+    expect((await service.get(ship.id, ship.userId)).state).toBe('IDLE');
+    await expect(service.select(ship.id, ship.userId, 3)).rejects.toThrow(
+      'Es sind keine Tibanna-Gas',
+    );
+    await db
+      .getRepository(LocationMining)
+      .update(depleted.id, { actualAmount: 500 });
+    await service.select(ship.id, ship.userId, 3);
+    await service.processTick(ship.id);
+    // 60 already in cargo leaves 90 of 150 free.
+    expect(await stock()).toMatchObject({
+      actualAmount: 410,
+      depletedAt: null,
+    });
+  });
+  it('regenerates fields depleted for at least 20 days and clears depletion at max', async () => {
+    const now = new Date('2026-11-20T03:00:00Z');
+    const days = (count: number) =>
+      new Date(now.getTime() - count * 24 * 60 * 60 * 1000);
+    const repo = db.getRepository(LocationMining);
+    const rows = await repo.save([
+      {
+        locationId: ship.locationId,
+        commodityId: 3,
+        actualAmount: 0,
+        maxAmount: 10_000,
+        depletedAt: days(21),
+      },
+      {
+        locationId: ship.locationId,
+        commodityId: 9,
+        actualAmount: 100,
+        maxAmount: 10_000,
+        depletedAt: days(20),
+      },
+      {
+        locationId: otherLocation.id,
+        commodityId: 3,
+        actualAmount: 9_000,
+        maxAmount: 10_000,
+        depletedAt: days(30),
+      },
+      {
+        locationId: otherLocation.id,
+        commodityId: 9,
+        actualAmount: 0,
+        maxAmount: 10,
+        depletedAt: days(19),
+      },
+      {
+        locationId: otherLocation.id,
+        commodityId: 10,
+        actualAmount: 0,
+        maxAmount: 10,
+        depletedAt: days(25),
+      },
+    ]);
+    await new LocationMiningRegenerationService(db).run(now);
+    const after = await repo.find({ order: { id: 'ASC' } });
+    expect(after.map((row) => row.actualAmount)).toEqual([
+      500, 115, 10_000, 0, 1,
+    ]);
+    expect(after.map((row) => row.depletedAt != null)).toEqual([
+      true,
+      true,
+      false,
+      true,
+      true,
+    ]);
+    expect(after[0].depletedAt).toEqual(rows[0].depletedAt);
+  });
+  it('serializes concurrent collectors on one field without overdrawing the stock', async () => {
+    await db.getRepository(LocationMining).save({
+      locationId: ship.locationId,
+      commodityId: 3,
+      actualAmount: 150,
+      maxAmount: 10_000,
+      depletedAt: null,
+    });
+    const { id: _id, ...copy } = ship;
+    const other = await db
+      .getRepository(Spacecraft)
+      .save({ ...copy, name: 'Second prospector' });
+    const modules = await db
+      .getRepository(SpacecraftModule)
+      .findBy({ spacecraftId: ship.id });
+    await db.getRepository(SpacecraftModule).save(
+      modules.map(({ id: _moduleId, ...module }) => ({
+        ...module,
+        spacecraftId: other.id,
+      })),
+    );
+    await service.select(ship.id, ship.userId, 3);
+    await service.select(other.id, other.userId, 3);
+    await Promise.all([
+      service.processTick(ship.id),
+      service.processTick(other.id),
+    ]);
+    const cargo = await db
+      .getRepository(CargoItem)
+      .find({ where: { commodityId: 3 } });
+    expect(cargo.reduce((sum, row) => sum + row.amount, 0)).toBe(150);
+    expect((await stock()).actualAmount).toBe(0);
+    expect(
+      delivered.mock.calls.filter(([text]) =>
+        String(text).includes('Es sind keine'),
+      ),
+    ).toHaveLength(1);
   });
 });

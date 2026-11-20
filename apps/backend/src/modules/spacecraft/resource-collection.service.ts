@@ -8,7 +8,7 @@ import type {
   FieldMiningResourceDto,
   ResourceCollectionDto,
 } from '@swuniverse/shared';
-import { DataSource, EntityManager, QueryFailedError } from 'typeorm';
+import { DataSource, EntityManager, In, QueryFailedError } from 'typeorm';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import {
@@ -20,15 +20,22 @@ import { GalaxyFieldType } from '../starmap/entities/galaxy-field-type.entity';
 import { Spacecraft } from './entities/spacecraft.entity';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import { CargoItem } from './entities/cargo-item.entity';
+import { LocationMining } from './entities/location-mining.entity';
+import { resolveSpaceLocation } from './spacecraft-field';
 import type {
   FlightConsequence,
   FlightConsequenceField,
 } from './flight-consequence-pipeline';
-import { initializeSpacecraftRuntimeSystems } from './spacecraft-runtime-state.service';
 import {
+  getRuntimeSystemsForModule,
+  initializeSpacecraftRuntimeSystems,
+} from './spacecraft-runtime-state.service';
+import {
+  collectAmount,
   collectionBlockReason,
   COLLECTOR_ACTIVATION_EPS,
   COLLECTOR_EPS_PER_TICK,
+  DEFAULT_FIELD_STOCK,
   stopCollection,
 } from './resource-collection-state';
 
@@ -80,6 +87,11 @@ export class ResourceCollectionService implements FlightConsequence {
           throw new BadRequestException(
             'Diese Ressource ist am aktuellen Feld nicht abbaubar',
           );
+        const stock = (
+          await this.stocks(transaction.manager, ship.locationId, [commodityId])
+        ).get(commodityId);
+        if (stock?.actualAmount === 0)
+          throw new BadRequestException(this.depletedText(ship, commodityId));
         const cargo = await this.cargo(transaction.manager, ship, true);
         if (cargo.used >= ship.cargoMax)
           throw new BadRequestException('Lager ist voll');
@@ -142,10 +154,21 @@ export class ResourceCollectionService implements FlightConsequence {
         return;
       }
       const { rows, used } = await this.cargo(transaction.manager, ship, true);
-      const amount = Math.min(
-        resource!.rate,
-        Math.max(0, ship.cargoMax - used),
+      const stock = await this.lockStock(
+        transaction.manager,
+        ship.locationId,
+        selection,
       );
+      const before = stock.actualAmount;
+      const amount = collectAmount(
+        this.hasFactionCollector(ship),
+        before,
+        ship.cargoMax - used,
+      );
+      stock.actualAmount -= amount;
+      if (amount > 0) stock.depletedAt = null;
+      if (before > 0 && stock.actualAmount === 0) stock.depletedAt = new Date();
+      await transaction.manager.save(stock);
       if (amount > 0) {
         let row = rows.find((item) => item.commodityId === selection);
         if (!row)
@@ -158,6 +181,14 @@ export class ResourceCollectionService implements FlightConsequence {
         await transaction.manager.save(row);
       }
       ship.cargoUsed = used + amount;
+      if (stock.actualAmount === 0) {
+        stopCollection(ship);
+        await this.notify(
+          ship,
+          `${this.depletedText(ship, selection)} Sammeln beendet.`,
+          transaction,
+        );
+      }
       if (ship.cargoUsed >= ship.cargoMax) {
         stopCollection(ship);
         await this.notify(
@@ -324,10 +355,21 @@ export class ResourceCollectionService implements FlightConsequence {
   ): Promise<ResourceCollectionDto> {
     const collector = (ship.runtimeSystems as SpacecraftRuntimeSystemsDto)
       ?.RESOURCE_COLLECTOR;
-    const options = (await this.resources(manager, ship)).map((resource) => ({
-      ...resource,
-      name: this.gameData.getCommodity(resource.commodityId)!.name,
-    }));
+    const resources = await this.resources(manager, ship);
+    const stocks = await this.stocks(
+      manager,
+      ship.locationId,
+      resources.map((resource) => resource.commodityId),
+    );
+    const options = resources.map((resource) => {
+      const stock = stocks.get(resource.commodityId);
+      return {
+        ...resource,
+        name: this.gameData.getCommodity(resource.commodityId)!.name,
+        stock: stock?.actualAmount ?? DEFAULT_FIELD_STOCK,
+        maxStock: stock?.maxAmount ?? DEFAULT_FIELD_STOCK,
+      };
+    });
     const freeCargo = Math.max(
       0,
       ship.cargoMax - (await this.cargo(manager, ship)).used,
@@ -350,6 +392,63 @@ export class ResourceCollectionService implements FlightConsequence {
             : 'Lager ist voll'
           : 'Keine abbaubaren Ressourcen am Feld'),
     };
+  }
+
+  private async stocks(
+    manager: EntityManager,
+    locationId: number,
+    commodityIds: number[],
+  ): Promise<Map<number, LocationMining>> {
+    const rows = commodityIds.length
+      ? await manager.findBy(LocationMining, {
+          locationId,
+          commodityId: In(commodityIds),
+        })
+      : [];
+    return new Map(rows.map((row) => [row.commodityId, row]));
+  }
+
+  /** Created on first collection; concurrent collectors at one field serialize on this row. */
+  private async lockStock(
+    manager: EntityManager,
+    locationId: number,
+    commodityId: number,
+  ): Promise<LocationMining> {
+    await manager
+      .createQueryBuilder()
+      .insert()
+      .into(LocationMining)
+      .values({
+        locationId,
+        commodityId,
+        actualAmount: DEFAULT_FIELD_STOCK,
+        maxAmount: DEFAULT_FIELD_STOCK,
+        depletedAt: null,
+      })
+      .orIgnore()
+      .execute();
+    return manager.findOneOrFail(LocationMining, {
+      where: { locationId, commodityId },
+      lock: { mode: 'pessimistic_write' },
+    });
+  }
+
+  /** STU: a collector module with a faction gathers twice as much; SWU marks it via `secret.faction`. */
+  private hasFactionCollector(ship: Spacecraft): boolean {
+    return ship.modules.some(
+      (module) =>
+        module.integrity > 0 &&
+        getRuntimeSystemsForModule(module).includes('RESOURCE_COLLECTOR') &&
+        this.gameData
+          .getAllModules()
+          .find((definition) => definition.name === module.moduleType)?.secret
+          ?.faction != null,
+    );
+  }
+
+  private depletedText(ship: Spacecraft, commodityId: number): string {
+    const location = resolveSpaceLocation(ship.location);
+    return `Es sind keine ${this.gameData.getCommodity(commodityId)?.name ?? 'Ressourcen'} bei den Koordinaten ${location?.x ?? '?'}|${location?.y ?? '?'} vorhanden!`;
   }
 
   private notify(
