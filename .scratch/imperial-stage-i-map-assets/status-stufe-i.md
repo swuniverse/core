@@ -2,13 +2,13 @@
 
 Freigegebener imperialer Stil: graue Panzerflächen, schwarze Technik, rote Akzente, hohe Draufsicht und breite Grundstücke.
 
-7 / 42 Familien produziert (17 / 94 IDs); Runtime-/Abschlussprüfung noch ausstehend.
+11 / 42 Familien produziert (28 / 94 IDs); Runtime-/Abschlussprüfung noch ausstehend.
 
 | Serie                                                                                                               | Familien | IDs | Status      |
 | ------------------------------------------------------------------------------------------------------------------- | -------- | --- | ----------- |
 | [Freigegebene Grundgebäude](../../assets/generated/swu-imperial-stage-i-v1/approved/README.md)                      | 3        | 7   | implemented |
 | [Grundversorgung und Gas](../../assets/generated/swu-imperial-stage-i-v1/starter/README.md)                         | 4        | 10  | implemented |
-| [Frühe Produktionsketten](../../assets/generated/swu-imperial-stage-i-v1/production/README.md)                      | 4        | 11  | pending     |
+| [Frühe Produktionsketten](../../assets/generated/swu-imperial-stage-i-v1/production/README.md)                      | 4        | 11  | implemented |
 | [Metalle, Treibstoff und Raumfahrt](../../assets/generated/swu-imperial-stage-i-v1/industry/README.md)              | 4        | 9   | pending     |
 | [Zivile Versorgung und Verwaltung](../../assets/generated/swu-imperial-stage-i-v1/civic/README.md)                  | 4        | 8   | pending     |
 | [Kuppeln, Kryozucht und Forschung](../../assets/generated/swu-imperial-stage-i-v1/settlement/README.md)             | 4        | 10  | pending     |
