@@ -1,6 +1,6 @@
 # NBS-Liste gruppiert wie STU
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -37,6 +37,10 @@ Die NBS-Liste in SWU ist flach: Eine einzige Gruppe „Einzelschiffe“ enthält
 - Audit 2026-11-17: [README.md](../audit-2026-11-17/README.md) Abschnitt C („Schiffsliste / NBS“); [spacecraft.md](../audit-2026-11-17/spacecraft.md) große Abweichung 6, Seitenabgleich „NBS“.
 - Andocken der Flotte durch die Station hängt an PO-Entscheidung K2 vom 2026-11-17 (schiffsweise, siehe sc-AUD-11).
 
+## Answer
+
+NBS gruppiert wie STU: Stationen, je Flotte Kopfzeile (Anzahl sichtbarer Schiffe, beitreten, verteidigt/blockiert, auf-/zuklappen, Eigner+PM, „andocken“ für eigene Station → sc-AUD-11-Endpunkt mit Teilergebnis), Einzelschiffe, Rettungskapseln, Trümmerfelder. Getarnt-Hinweis nach STU `showCloakedShipInfo` ohne Leck (getarnte Schiffe zählen nicht in Flotten, keine Namen/IDs). Logbuch-Icon (alle Einträge, bis sc-AUD-13 das Privat-Flag einführt) und RPG-Icon (`rpgPlotId`). Glyphen durch STU-Icons ersetzt (`trak1`, `mark`, `crew`, `b_up1`; neu im Assets-Submodul `log`, `rpg1`, `block1`).
+
 ## Comments
 
 - Abhängigkeit: Die Aktion „Station dockt Flotte“ nutzt den Endpunkt aus sc-AUD-11. Ist sc-AUD-11 noch offen, Kopfzeile und Gruppen zuerst umsetzen und die Aktion danach ergänzen.
@@ -51,4 +55,4 @@ Die NBS-Liste in SWU ist flach: Eine einzige Gruppe „Einzelschiffe“ enthält
   - Nicht erledigt, Ticket bleibt offen: „Station dockt Flotte“ aus der Flottenkopfzeile samt Frontend-Test – wartet auf den Endpunkt aus sc-AUD-11. Status zurück auf `ready-for-agent`, blockiert durch sc-AUD-11.
 - 2026-11-20 – Restkriterium umgesetzt, Prüfung ausstehend (gemeinsamer Commit mit sc-AUD-11). `fleets[].canDockFleet` (eigene Station sieht eigene Flotte, STU `isStation and leadShip.isSelectable`); Kopfzeile bietet „(andocken)“ → `POST dock-fleet`, Teilergebnis je Schiff im NBS. Frontend-Tests „lets an own station dock an own fleet …“ und „offers no fleet dock without the station permission flag“; Backend-Tests für Station-dockt-Flotte in sc-AUD-11. Nebenbei behoben: veraltete Erwartung in `resource-collection.controller.spec.ts` (Guard-Meldung aus col-AUD-16a).
   - Ausstehend: separater Prüflauf für den neuen Teil.
-
+- 2026-11-20 – Prüflauf bestanden (Claude Opus 5.5; Sol/Luna nicht verfügbar). Diff gegen alle Kriterien geprüft, Fokus Rechte, Grenzfälle, Integration. Gemeinsam mit sc-AUD-11 geprüft. Gefunden und behoben: Der RPG-Interceptor sperrt nur IDs aus der URL; verborgene RPG-Szenenschiffe in einer Flotte wären über Flottenandocken/„Station dockt Flotte“ mitbewegt worden. `fleetOrder` lässt sie jetzt still aus (keine Nennung im Ergebnis), Unit-Test „leaves hidden RPG scene members out …“. Nachlauf nach dem Fix: `spacecraft-docking.service.spec.ts` 38/38, `spacecraft-docking.int-spec.ts` 3/3, `nx typecheck backend` grün. Die übrigen Checks aus der Umsetzung (komplette Unit-Suiten, Build, verwandte PostgreSQL-Suiten) blieben gültig, da sich nur dieser Filter geändert hat.

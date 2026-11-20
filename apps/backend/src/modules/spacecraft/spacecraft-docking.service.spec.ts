@@ -274,6 +274,14 @@ describe('SpacecraftDockingService', () => {
       expect(crew.hasEnoughCrew).toHaveBeenCalledTimes(1);
     });
 
+    it('leaves hidden RPG scene members out of the run and the result', async () => {
+      const rows = [ship(1, { fleetId: 5 }), ship(2, { fleetId: 5, rpgHidden: true, name: 'Szene' }), station({ energy: 5 })];
+      const result = await setup(rows, fleet).service.dockFleetAtStation(100, 1, 5);
+      expect(result.shipIds).toEqual([1]);
+      expect(rows[1].dockedAtId).toBeNull();
+      expect(JSON.stringify(result)).not.toContain('Szene');
+    });
+
     it('stops when the station runs out of EPS', async () => {
       const rows = [ship(1, { fleetId: 5 }), ship(2, { fleetId: 5 }), station({ energy: 1 })];
       const result = await setup(rows, fleet).service.dockFleetAtStation(100, 1, 5);

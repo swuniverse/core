@@ -23,6 +23,7 @@ import { SpacecraftRepairService } from './spacecraft-repair.service';
 import { initializeSpacecraftRuntimeSystems } from './spacecraft-runtime-state.service';
 import { sameSpacecraftLocation } from './spacecraft-field';
 import { isCloaked } from './spacecraft-cloak';
+import { isRpgHidden } from './rpg-visibility';
 import { cancelShipyardJobs } from './shipyard-job-cancel';
 import { ColonyShipBuildQueueMode } from '../colony/entities/colony-ship-build-queue.entity';
 
@@ -47,10 +48,13 @@ type Outcome = {
   results?: SpacecraftDockShipResultDto[];
 };
 
-/** Fleet members with the leader first, as STU's fleet wrapper iterates them. */
+/**
+ * Fleet members with the leader first, as STU's fleet wrapper iterates them.
+ * Hidden RPG scene ships are left out silently: the HTTP guard only covers the URL ids.
+ */
 function fleetOrder(rows: Spacecraft[], fleet: Fleet): Spacecraft[] {
   return rows
-    .filter((row) => row.fleetId === fleet.id)
+    .filter((row) => row.fleetId === fleet.id && !isRpgHidden(row))
     .sort((a, b) => Number(b.id === fleet.leaderId) - Number(a.id === fleet.leaderId));
 }
 
