@@ -71,6 +71,7 @@ import {
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { Colony } from './entities/colony.entity';
 import { resolveColonyLocation } from './colony-location';
+import { SYSTEM_TYPE_BY_ID } from '../starmap/starmap-system-types';
 import {
   COLONY_BUILDING_ID_SETS,
   COLONY_FUNCTION_ID_SETS,
@@ -368,6 +369,12 @@ export class ColonyProjectionService {
       location,
       locationLabel:
         colony.celestialObject?.name || colony.starSystem?.name || 'Unknown',
+      ...(colony.starSystem && {
+        starSystem: Object.assign(colony.starSystem, {
+          systemTypeName:
+            SYSTEM_TYPE_BY_ID[colony.starSystem.systemTypeId]?.name ?? null,
+        }),
+      }),
       fields: (colony.fields ?? []).map((field) => {
         const locked =
           field.layer === 'UNDERGROUND' && undergroundVisibility !== 'visible';

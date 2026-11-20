@@ -1168,11 +1168,15 @@ describe('ColonyDetail', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Baumenü' }));
-    expect(screen.getByTitle(mineBuilding.name)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Versorgung 0' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Produktion 0' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Forschung 1' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Spezial 0' })).toBeTruthy();
+    expect(
+      screen.getByTitle(new RegExp(`^${mineBuilding.name}`)),
+    ).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Soziales 1' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Industrie 0' })).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: 'Infrastruktur 0' }),
+    ).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Energie 0' })).toBeTruthy();
   });
 
   it('uses detail inventory names when storage definitions are missing', () => {

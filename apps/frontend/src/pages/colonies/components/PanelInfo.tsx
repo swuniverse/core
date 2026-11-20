@@ -55,69 +55,10 @@ export function PanelInfo({
     detail?.productionDeltas.filter(
       (delta) => !storageIds.has(delta.commodityId),
     ) ?? [];
+  const deposits = detail?.deposits ?? [];
 
   return (
     <div className="space-y-2">
-      {ecosystem && (
-        <section className={`${sectionClass} flex items-center gap-3`}>
-          {colony.celestialObject?.classId && (
-            <PlanetImg
-              classId={colony.celestialObject.classId}
-              name={colony.celestialObject.name}
-              objectType={colony.celestialObject.objectType}
-              shielded={isColonyShielded(colony)}
-              className="h-16 w-16 shrink-0 object-contain"
-              emojiClassName="text-5xl"
-            />
-          )}
-          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm">
-            <span className="text-swu-muted">Ökosystem</span>
-            <span className="text-swu-primary">
-              {ecosystem.primaryBiome ?? 'Unbekannt'}
-              {ecosystem.secondaryBiome ? ` / ${ecosystem.secondaryBiome}` : ''}
-            </span>
-            {ecosystem.temperatureRangeK && (
-              <>
-                <span className="text-swu-muted">Temperatur</span>
-                <span className="text-swu-primary">
-                  {Math.round(ecosystem.temperatureRangeK[0])} –{' '}
-                  {Math.round(ecosystem.temperatureRangeK[1])} K
-                </span>
-              </>
-            )}
-            <span className="text-swu-muted">Tagesdauer</span>
-            <span className="text-swu-primary">
-              {ecosystem.tidalLocked
-                ? 'Gebundene Rotation (ewiger Tag / ewige Nacht)'
-                : `${ecosystem.dayNightSwitchMinutes ?? '?'} Stunden`}
-            </span>
-            {ecosystem.tidalLocked && ecosystem.terminatorShiftHours != null && (
-              <>
-                <span className="text-swu-muted">Terminator</span>
-                <span className="text-swu-primary">
-                  pendelt alle {ecosystem.terminatorShiftHours} Stunden
-                </span>
-              </>
-            )}
-            {ecosystem.settlement && (
-              <>
-                <span className="text-swu-muted">Bedingungen</span>
-                <span>
-                  <SettlementBadge settlement={ecosystem.settlement} />
-                </span>
-              </>
-            )}
-            {ecosystem.solarOutputTJ != null && (
-              <>
-                <span className="text-swu-muted">Solareintrag</span>
-                <span className="text-swu-accent">
-                  {ecosystem.solarOutputTJ.toLocaleString('de-DE')} TJ
-                </span>
-              </>
-            )}
-          </div>
-        </section>
-      )}
       <section className={sectionClass}>
         <h3 className={headingClass}>Schiffe im Orbit</h3>
         <PanelOrbit
@@ -131,7 +72,7 @@ export function PanelInfo({
         />
       </section>
 
-      <div className="grid gap-2 lg:grid-cols-[minmax(0,0.8fr)_minmax(240px,1.4fr)_minmax(0,0.8fr)]">
+      <div className="grid gap-2 lg:grid-cols-[minmax(0,1.2fr)_auto_minmax(0,1fr)]">
         <section className={sectionClass}>
           <h3 className={headingClass}>Planet</h3>
           <button
@@ -150,8 +91,8 @@ export function PanelInfo({
                     name={colony.celestialObject.name}
                     objectType={colony.celestialObject.objectType}
                     shielded={isColonyShielded(colony)}
-                    className="h-10 w-10 object-contain"
-                    emojiClassName="text-3xl"
+                    className="h-16 w-16 shrink-0 object-contain"
+                    emojiClassName="text-5xl"
                   />
                 )}
                 <div className="text-sm">
@@ -165,6 +106,54 @@ export function PanelInfo({
                   )}
                 </div>
               </div>
+              {ecosystem && (
+              <div className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-sm">
+                <span className="text-swu-muted">Ökosystem</span>
+                <span className="text-swu-primary">
+                  {ecosystem.primaryBiome ?? 'Unbekannt'}
+                  {ecosystem.secondaryBiome ? ` / ${ecosystem.secondaryBiome}` : ''}
+                </span>
+                {ecosystem.temperatureRangeK && (
+                  <>
+                    <span className="text-swu-muted">Temperatur</span>
+                    <span className="text-swu-primary">
+                      {Math.round(ecosystem.temperatureRangeK[0])} –{' '}
+                      {Math.round(ecosystem.temperatureRangeK[1])} K
+                    </span>
+                  </>
+                )}
+                <span className="text-swu-muted">Tagesdauer</span>
+                <span className="text-swu-primary">
+                  {ecosystem.tidalLocked
+                    ? 'Gebundene Rotation (ewiger Tag / ewige Nacht)'
+                    : `${ecosystem.dayNightSwitchMinutes ?? '?'} Stunden`}
+                </span>
+                {ecosystem.tidalLocked && ecosystem.terminatorShiftHours != null && (
+                  <>
+                    <span className="text-swu-muted">Terminator</span>
+                    <span className="text-swu-primary">
+                      pendelt alle {ecosystem.terminatorShiftHours} Stunden
+                    </span>
+                  </>
+                )}
+                {ecosystem.settlement && (
+                  <>
+                    <span className="text-swu-muted">Bedingungen</span>
+                    <span>
+                      <SettlementBadge settlement={ecosystem.settlement} />
+                    </span>
+                  </>
+                )}
+                {ecosystem.solarOutputTJ != null && (
+                  <>
+                    <span className="text-swu-muted">Solareintrag</span>
+                    <span className="text-swu-accent">
+                      {ecosystem.solarOutputTJ.toLocaleString('de-DE')} TJ
+                    </span>
+                  </>
+                )}
+              </div>
+              )}
               {colony.celestialObject.description && (
                 <BbCodeText
                   text={colony.celestialObject.description}
@@ -193,15 +182,20 @@ export function PanelInfo({
                 <div className="text-sm text-swu-primary">
                   {colony.starSystem.name}
                 </div>
-                <div className="text-[10px] text-swu-muted">
-                  {colony.starSystem.systemTypeName}
-                </div>
                 {colony.starSystem.cx != null &&
                   colony.starSystem.cy != null && (
                     <div className="font-mono text-[10px] text-swu-muted">
                       Sektor {colony.starSystem.cx}|{colony.starSystem.cy}
                     </div>
                   )}
+                {colony.starSystem.systemTypeName && (
+                  <div className="mt-2 text-sm">
+                    <span className="text-swu-muted">Typ: </span>
+                    <span className="text-swu-primary">
+                      {colony.starSystem.systemTypeName}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -262,15 +256,23 @@ export function PanelInfo({
         </div>
       )}
 
-      {detail?.deposits && detail.deposits.length > 0 && (
+      {(effects.length > 0 || deposits.length > 0) && (
         <section className={sectionClass}>
-          <h3 className={headingClass}>
-            {colony.celestialObject?.objectType === 3
-              ? 'Asteroidenlagerstätten · accountgebunden'
-              : 'Vorkommen'}
-          </h3>
+          <h3 className={headingClass}>Effekte</h3>
           <div className="grid grid-cols-1 gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
-            {detail.deposits.map((deposit) => (
+            {effects.map((effect) => (
+              <div key={effect.commodityId} className="flex justify-between">
+                <span className="text-swu-muted">{effect.name}</span>
+                <span
+                  className={
+                    effect.amount >= 0 ? 'text-green-400' : 'text-red-400'
+                  }
+                >
+                  {formatSignedAmount(effect.amount)}
+                </span>
+              </div>
+            ))}
+            {deposits.map((deposit) => (
               <div
                 key={deposit.commodityId}
                 className="flex justify-between gap-2"
@@ -297,26 +299,11 @@ export function PanelInfo({
               </div>
             ))}
           </div>
-        </section>
-      )}
-
-      {effects.length > 0 && (
-        <section className={sectionClass}>
-          <h3 className={headingClass}>Effekte</h3>
-          <div className="grid grid-cols-1 gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
-            {effects.map((effect) => (
-              <div key={effect.commodityId} className="flex justify-between">
-                <span className="text-swu-muted">{effect.name}</span>
-                <span
-                  className={
-                    effect.amount >= 0 ? 'text-green-400' : 'text-red-400'
-                  }
-                >
-                  {formatSignedAmount(effect.amount)}
-                </span>
-              </div>
-            ))}
-          </div>
+          {deposits.length > 0 && colony.celestialObject?.objectType === 3 && (
+            <p className="mt-1.5 text-[10px] text-swu-muted">
+              Asteroidenlagerstätten · accountgebunden
+            </p>
+          )}
         </section>
       )}
     </div>
@@ -359,7 +346,7 @@ function SystemScan({
 
   return (
     <section className={sectionClass}>
-      <h3 className={headingClass}>Sektor-Scan</h3>
+      <h3 className={headingClass}>Umgebungsscan</h3>
       {error ? (
         <p className="text-xs text-red-400">{error}</p>
       ) : environmentScan ? (
@@ -414,7 +401,7 @@ function SystemScan({
           <SectorSignatures scan={environmentScan} />
         </div>
       ) : (
-        <p className="text-xs text-swu-muted">Sektor-Scan nicht verfügbar</p>
+        <p className="text-xs text-swu-muted">Umgebungsscan nicht verfügbar</p>
       )}
     </section>
   );

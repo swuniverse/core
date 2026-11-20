@@ -302,6 +302,13 @@ export class ColonySeedService {
       relations: ['starSystem'],
     });
     const classId = object?.classId ?? 0;
+    const systemField = object
+      ? await this.systemFieldRepo.findOneBy({
+          starSystemId: object.systemId,
+          sx: object.posX,
+          sy: object.posY,
+        })
+      : null;
     // Monde haben niemals einen Untergrund.
     const isMoon = object?.objectType === CelestialObjectType.MOON;
     const founded = foundSwuColony(
@@ -330,6 +337,7 @@ export class ColonySeedService {
       name: options.name ?? FOLLOW_UP_COLONY_NAME,
       userId: options.userId,
       starSystemId: object?.systemId || null,
+      systemFieldId: systemField?.id ?? null,
       celestialObjectId: object?.id || null,
       posX: object?.posX || 10,
       posY: object?.posY || 10,

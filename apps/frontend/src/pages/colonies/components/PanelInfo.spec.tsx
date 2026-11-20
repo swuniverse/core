@@ -217,7 +217,7 @@ describe('PanelInfo', () => {
     expect(
       screen.getByRole('button', { name: 'Orbitalmanagement' }),
     ).toBeTruthy();
-    expect(screen.getByText('Sektor-Scan')).toBeTruthy();
+    expect(screen.getByText('Umgebungsscan')).toBeTruthy();
     expect(screen.getByText('CR90-Korvette')).toBeTruthy();
     expect(screen.getByText('Tantive')).toBeTruthy();
     expect(screen.getByText('Ungetarnt: 2')).toBeTruthy();
@@ -229,7 +229,7 @@ describe('PanelInfo', () => {
     const sectionHeadings = [
       'Schiffe im Orbit',
       'Planet',
-      'Sektor-Scan',
+      'Umgebungsscan',
       'Sternensystem',
       'Bevölkerung',
       'Effekte',
@@ -242,13 +242,13 @@ describe('PanelInfo', () => {
       ).toBeTruthy();
     }
     const scan = screen.getByRole('heading', {
-      name: 'Sektor-Scan',
+      name: 'Umgebungsscan',
     }).parentElement;
     expect(scan).toBeTruthy();
     const informationRow = (planetSection as HTMLElement).parentElement;
     expect(
       informationRow?.classList.contains(
-        'lg:grid-cols-[minmax(0,0.8fr)_minmax(240px,1.4fr)_minmax(0,0.8fr)]',
+        'lg:grid-cols-[minmax(0,1.2fr)_auto_minmax(0,1fr)]',
       ),
     ).toBe(true);
     expect(informationRow?.children).toHaveLength(3);
@@ -256,6 +256,9 @@ describe('PanelInfo', () => {
     expect(informationRow?.children[1]).toBe(scan);
     expect(informationRow?.children[2]).toBe(
       screen.getByRole('heading', { name: 'Sternensystem' }).closest('section'),
+    );
+    expect(informationRow?.children[2].textContent).toContain(
+      'Typ: Gelber Stern',
     );
     expect(within(scan as HTMLElement).getAllByText('1')).toHaveLength(2);
     expect(within(scan as HTMLElement).getAllByText('3')).toHaveLength(2);
@@ -308,7 +311,7 @@ describe('PanelInfo', () => {
     expect(screen.getByText('Bevölkerung')).toBeTruthy();
     expect(screen.getByText('Effekte')).toBeTruthy();
     expect(screen.queryByText('Ereignisse')).toBeNull();
-    const scan = screen.getByText('Sektor-Scan').closest('section');
+    const scan = screen.getByText('Umgebungsscan').closest('section');
     expect(scan).toBeTruthy();
     expect(screen.getByText('Umgebungsscan nicht verfügbar')).toBeTruthy();
     expect(scan?.textContent).toContain('Umgebungsscan nicht verfügbar');
@@ -462,16 +465,17 @@ describe('PanelInfo', () => {
     ).toBeTruthy();
     expect(screen.getByText('Feld 7: Abwehranlage')).toBeTruthy();
     expect(screen.getByText(/vollständig erschöpft/)).toBeTruthy();
-    expect(
-      screen.getByRole('heading', {
-        name: 'Asteroidenlagerstätten · accountgebunden',
-      }),
-    ).toBeTruthy();
-    expect(screen.getByText('Kristall')).toBeTruthy();
-    expect(screen.getByText('-2')).toBeTruthy();
     const effects = screen.getByRole('heading', {
       name: 'Effekte',
     }).parentElement;
     expect(effects?.textContent).toContain('Ausbildungsgrad+2');
+    expect(within(effects as HTMLElement).getByText('Kristall')).toBeTruthy();
+    expect(within(effects as HTMLElement).getByText('-2')).toBeTruthy();
+    expect(
+      within(effects as HTMLElement).getByText(
+        'Asteroidenlagerstätten · accountgebunden',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Vorkommen' })).toBeNull();
   });
 });

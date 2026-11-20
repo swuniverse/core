@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 
 import type { BuildingDef } from '../types';
 import { PanelBuild } from './PanelBuild';
@@ -25,10 +25,10 @@ function building(
 }
 
 describe('PanelBuild', () => {
-  it('uses the approved semantic categories with stable counts and filtering', () => {
+  it('shows the four STU columns side by side, sorted by name', () => {
     const buildings = [
-      building(11, 4),
-      building(12, 4),
+      building(12, 4, { name: 'Solarzellen' }),
+      building(11, 4, { name: 'Gezeitenkraftwerk' }),
       building(21, 2),
       building(31, 1),
       building(41, 3),
@@ -48,25 +48,44 @@ describe('PanelBuild', () => {
     );
 
     expect(
-      screen
+      screen.getAllByRole('heading').map((heading) => heading.textContent),
+    ).toEqual(['Soziales 1', 'Industrie 1', 'Infrastruktur 1', 'Energie 2']);
+    const energy = screen.getByRole('heading', { name: 'Energie 2' })
+      .parentElement as HTMLElement;
+    expect(
+      within(energy)
         .getAllByRole('button')
-        .slice(0, 5)
         .map((button) => button.textContent),
-    ).toEqual([
-      'Alle 5',
-      'Versorgung 2',
-      'Produktion 1',
-      'Forschung 1',
-      'Spezial 1',
-    ]);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Produktion 1' }));
-    expect(screen.getByRole('button', { name: 'Alle 5' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Gebäude 21' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Gebäude 11' })).toBeNull();
+    ).toEqual(['Gezeitenkraftwerk', 'Solarzellen']);
 
     fireEvent.click(screen.getByRole('button', { name: 'Gebäude 21' }));
     expect(onSelectBuilding).toHaveBeenCalledWith(buildings[2]);
+  });
+
+  it('marks unaffordable buildings and explains the missing costs', () => {
+    render(
+      <PanelBuild
+        buildingDefs={[
+          building(51, 2, {
+            resourceCosts: [{ commodityId: 3, amount: 40 }],
+          }),
+        ]}
+        fields={[]}
+        storage={[]}
+        energy={100}
+        commodityMap={{}}
+        selectedBuilding={null}
+        onSelectBuilding={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole('button', { name: 'Gebäude 51' });
+    expect(button.getAttribute('title')).toBe(
+      'Gebäude 51 – Fehlt 40 Ware #3',
+    );
+    expect(within(button).getByText('Gebäude 51').className).toContain(
+      'text-red-400',
+    );
   });
 
   it('combines field and commodity filters and resets each one', () => {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { buildingImage } from '../../../lib/assets';
 import type {
   BuildingDef,
@@ -7,11 +7,10 @@ import type {
   CommodityDef,
 } from '../types';
 import { BMCOL_LABELS } from '../constants';
-import { canAfford, formatSignedAmount } from '../utils';
+import { canAfford } from '../utils';
 
-const BUILDING_COLUMNS = [4, 2, 1, 3] as const;
-
-type CategoryKey = 'all' | (typeof BUILDING_COLUMNS)[number];
+// STU build menu column order: Soziales, Industrie, Infrastruktur, Energie.
+const BUILDING_COLUMNS = [1, 2, 3, 4] as const;
 
 type PanelBuildProps = {
   sandboxMode?: boolean;
@@ -27,43 +26,6 @@ type PanelBuildProps = {
   onClearCommodityFilter?: () => void;
   onSelectBuilding: (building: BuildingDef) => void;
 };
-
-function getPrimaryEffect(
-  building: BuildingDef,
-  commodityMap: Record<number, CommodityDef>,
-): { label: string; tone: string } | null {
-  const energy = building.epsProc || 0;
-  if (energy !== 0) {
-    return {
-      label: `⚡ ${formatSignedAmount(energy)}/Tick`,
-      tone: energy > 0 ? 'text-green-400' : 'text-red-400',
-    };
-  }
-  if ((building.bevPro || 0) > 0) {
-    return { label: `🏠 +${building.bevPro}`, tone: 'text-green-400' };
-  }
-  if ((building.bevUse || 0) > 0) {
-    return { label: `👤 -${building.bevUse}`, tone: 'text-red-400' };
-  }
-  if (building.bonuses.storage !== 0) {
-    return {
-      label: `📦 ${formatSignedAmount(building.bonuses.storage)}`,
-      tone: building.bonuses.storage > 0 ? 'text-green-400' : 'text-red-400',
-    };
-  }
-  const production = building.production.find((entry) => entry.amount !== 0);
-  if (production) {
-    const name =
-      commodityMap[production.commodityId]?.nameShort ||
-      commodityMap[production.commodityId]?.name ||
-      `Ware #${production.commodityId}`;
-    return {
-      label: `${name} ${formatSignedAmount(production.amount)}/Tick`,
-      tone: production.amount > 0 ? 'text-green-400' : 'text-red-400',
-    };
-  }
-  return null;
-}
 
 function getMissingCostLabel(
   building: BuildingDef,
@@ -112,8 +74,6 @@ export function PanelBuild({
   onClearCommodityFilter,
   onSelectBuilding,
 }: PanelBuildProps) {
-  const [activeCategory, setActiveCategory] = useState<CategoryKey>('all');
-
   const buildingsByColumn = useMemo(() => {
     const cols: Record<number, BuildingDef[]> = {};
     for (const building of buildingDefs) {
@@ -141,28 +101,10 @@ export function PanelBuild({
       cols[col].push(building);
     }
     for (const col of Object.keys(cols)) {
-      cols[Number(col)].sort((a, b) => {
-        const aAffordable = (sandboxMode || canAfford(a, storage, energy)) ? 0 : 1;
-        const bAffordable = (sandboxMode || canAfford(b, storage, energy)) ? 0 : 1;
-        if (aAffordable !== bAffordable) return aAffordable - bAffordable;
-        return a.name.localeCompare(b.name, 'de');
-      });
+      cols[Number(col)].sort((a, b) => a.name.localeCompare(b.name, 'de'));
     }
     return cols;
-  }, [buildingDefs, commodityFilterId, energy, fieldFilter, storage, sandboxMode]);
-
-  const visibleBuildings = useMemo(() => {
-    if (activeCategory === 'all') {
-      return BUILDING_COLUMNS.flatMap(
-        (column) => buildingsByColumn[column] || [],
-      );
-    }
-    return buildingsByColumn[activeCategory] || [];
-  }, [activeCategory, buildingsByColumn]);
-  const totalBuildingCount = BUILDING_COLUMNS.reduce(
-    (total, column) => total + (buildingsByColumn[column]?.length ?? 0),
-    0,
-  );
+  }, [buildingDefs, commodityFilterId, fieldFilter]);
 
   return (
     <section className="border border-swu-border bg-swu-surface p-2">
@@ -211,115 +153,86 @@ export function PanelBuild({
         </div>
       )}
 
-      <div className="mb-2 flex flex-wrap gap-1">
-        <button
-          onClick={() => setActiveCategory('all')}
-          className={`rounded border px-2 py-1 text-[10px] transition-colors ${
-            activeCategory === 'all'
-              ? 'border-swu-accent bg-swu-accent/10 text-swu-accent'
-              : 'border-swu-border/60 text-swu-muted hover:text-swu-primary'
-          }`}
-        >
-          Alle {totalBuildingCount}
-        </button>
+      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
         {BUILDING_COLUMNS.map((column) => {
-          const count = buildingsByColumn[column]?.length ?? 0;
+          const buildings = buildingsByColumn[column] ?? [];
           return (
-            <button
-              key={column}
-              onClick={() => setActiveCategory(column)}
-              className={`rounded border px-2 py-1 text-[10px] transition-colors ${
-                activeCategory === column
-                  ? 'border-swu-accent bg-swu-accent/10 text-swu-accent'
-                  : 'border-swu-border/60 text-swu-muted hover:text-swu-primary'
-              }`}
-            >
-              {BMCOL_LABELS[column]} {count}
-            </button>
+            <div key={column} className="min-w-0">
+              <h3 className="mb-1 text-center text-sm text-swu-primary">
+                {BMCOL_LABELS[column]}{' '}
+                <span className="text-[10px] text-swu-muted">
+                  {buildings.length}
+                </span>
+              </h3>
+              <div className="h-[32rem] overflow-y-auto border border-swu-border/50 p-1">
+                {buildings.length === 0 ? (
+                  <p className="p-2 text-center text-xs text-swu-muted">
+                    Keine Gebäude verfügbar.
+                  </p>
+                ) : (
+                  buildings.map((building) => {
+                    const affordable =
+                      sandboxMode || canAfford(building, storage, energy);
+                    const isSelected = selectedBuilding?.id === building.id;
+                    const alreadyBuilt =
+                      building.isUnique &&
+                      fields.some(
+                        (field) =>
+                          field.buildingId === building.id && !field.isBuilding,
+                      );
+                    const hint = alreadyBuilt
+                      ? 'Einzigartig gebaut'
+                      : affordable
+                        ? null
+                        : (getMissingCostLabel(
+                            building,
+                            storage,
+                            commodityMap,
+                            energy,
+                          ) ?? 'Nicht baubar');
+
+                    return (
+                      <button
+                        key={building.id}
+                        type="button"
+                        onClick={() => onSelectBuilding(building)}
+                        disabled={alreadyBuilt}
+                        title={hint ? `${building.name} – ${hint}` : building.name}
+                        aria-label={building.name}
+                        className={`flex w-full flex-col items-center border px-1 py-1.5 text-center transition-colors ${
+                          isSelected
+                            ? 'border-swu-accent bg-swu-accent/10'
+                            : alreadyBuilt
+                              ? 'cursor-not-allowed border-transparent opacity-40'
+                              : 'border-transparent hover:border-swu-accent/60'
+                        }`}
+                      >
+                        <img
+                          src={buildingImage(building.id)}
+                          alt=""
+                          className={`h-16 w-16 object-contain ${
+                            affordable || alreadyBuilt ? '' : 'opacity-50'
+                          }`}
+                          loading="lazy"
+                        />
+                        <span
+                          className={`mt-0.5 line-clamp-2 text-xs ${
+                            affordable || alreadyBuilt
+                              ? 'text-swu-primary'
+                              : 'text-red-400'
+                          }`}
+                        >
+                          {building.name}
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
           );
         })}
       </div>
-
-      {visibleBuildings.length === 0 ? (
-        <div className="rounded border border-swu-border/40 bg-swu-bg/30 px-3 py-2 text-xs text-swu-muted">
-          Keine Gebäude verfügbar.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-          {visibleBuildings.map((building) => {
-            const affordable = sandboxMode || canAfford(building, storage, energy);
-            const isSelected = selectedBuilding?.id === building.id;
-            const alreadyBuilt =
-              building.isUnique &&
-              fields.some(
-                (field) =>
-                  field.buildingId === building.id && !field.isBuilding,
-              );
-            const effect = getPrimaryEffect(building, commodityMap);
-            const missingLabel = getMissingCostLabel(
-              building,
-              storage,
-              commodityMap,
-              energy,
-            );
-
-            return (
-              <button
-                key={building.id}
-                onClick={() => onSelectBuilding(building)}
-                disabled={alreadyBuilt}
-                title={building.name}
-                aria-label={building.name}
-                className={`border p-2 text-left transition-colors ${
-                  isSelected
-                    ? 'border-swu-accent bg-swu-accent/10'
-                    : alreadyBuilt
-                      ? 'border-swu-border/40 bg-swu-bg/20 opacity-45 cursor-not-allowed'
-                      : affordable
-                        ? 'border-swu-border/60 bg-swu-bg/30 hover:border-swu-accent/60 hover:bg-swu-primary/5'
-                        : 'border-red-500/30 bg-red-950/10 opacity-75 hover:border-red-400/50'
-                }`}
-              >
-                <div className="flex gap-3">
-                  <img
-                    src={buildingImage(building.id)}
-                    alt=""
-                    className="h-10 w-10 shrink-0 object-contain"
-                    loading="lazy"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="line-clamp-2 text-sm font-bold text-swu-primary">
-                      {building.name}
-                    </div>
-                    {effect && (
-                      <div
-                        className={`mt-1 truncate text-xs font-mono ${effect.tone}`}
-                      >
-                        {effect.label}
-                      </div>
-                    )}
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {alreadyBuilt ? (
-                        <span className="rounded border border-swu-border/50 px-1.5 py-0.5 text-[10px] text-swu-muted">
-                          Einzigartig gebaut
-                        </span>
-                      ) : affordable ? (
-                        <span className="rounded border border-green-400/30 bg-green-900/20 px-1.5 py-0.5 text-[10px] text-green-400">
-                          {sandboxMode ? 'Kostenlos bauen' : 'Baubar'}
-                        </span>
-                      ) : (
-                        <span className="rounded border border-red-400/30 bg-red-900/20 px-1.5 py-0.5 text-[10px] text-red-400">
-                          {missingLabel ?? 'Nicht baubar'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      )}
     </section>
   );
 }
