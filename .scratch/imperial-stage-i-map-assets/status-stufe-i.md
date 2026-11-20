@@ -2,7 +2,7 @@
 
 Freigegebener imperialer Stil: graue Panzerflächen, schwarze Technik, rote Akzente, hohe Draufsicht und breite Grundstücke.
 
-15 / 42 Familien produziert (37 / 94 IDs); Runtime-/Abschlussprüfung noch ausstehend.
+19 / 42 Familien produziert (45 / 94 IDs); Runtime-/Abschlussprüfung noch ausstehend.
 
 | Serie                                                                                                               | Familien | IDs | Status      |
 | ------------------------------------------------------------------------------------------------------------------- | -------- | --- | ----------- |
@@ -10,7 +10,7 @@ Freigegebener imperialer Stil: graue Panzerflächen, schwarze Technik, rote Akze
 | [Grundversorgung und Gas](../../assets/generated/swu-imperial-stage-i-v1/starter/README.md)                         | 4        | 10  | implemented |
 | [Frühe Produktionsketten](../../assets/generated/swu-imperial-stage-i-v1/production/README.md)                      | 4        | 11  | implemented |
 | [Metalle, Treibstoff und Raumfahrt](../../assets/generated/swu-imperial-stage-i-v1/industry/README.md)              | 4        | 9   | implemented |
-| [Zivile Versorgung und Verwaltung](../../assets/generated/swu-imperial-stage-i-v1/civic/README.md)                  | 4        | 8   | pending     |
+| [Zivile Versorgung und Verwaltung](../../assets/generated/swu-imperial-stage-i-v1/civic/README.md)                  | 4        | 8   | implemented |
 | [Kuppeln, Kryozucht und Forschung](../../assets/generated/swu-imperial-stage-i-v1/settlement/README.md)             | 4        | 10  | pending     |
 | [Erneuerbare Energie](../../assets/generated/swu-imperial-stage-i-v1/energy/README.md)                              | 4        | 10  | pending     |
 | [Rohstoffgewinnung](../../assets/generated/swu-imperial-stage-i-v1/resources/README.md)                             | 4        | 8   | pending     |
