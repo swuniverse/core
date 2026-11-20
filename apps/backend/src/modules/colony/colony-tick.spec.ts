@@ -6960,10 +6960,10 @@ describe('foreign orbit ships (STU OrbitShipWrappersRetriever)', () => {
       hull: 80, hullMax: 100, crew: 4, fleetId: 9, fleet: { id: 9, name: 'Rot' },
       user: { id: 2, username: 'Rivale' }, runtimeSystems: {}, ...overrides,
     });
-    shipRepo.find.mockImplementation(async (options: any) =>
+    shipRepo.find.mockImplementation((async (options: any) =>
       typeof options?.where?.userId === 'number'
         ? []
-        : [foreign(8), foreign(9, { runtimeSystems: { CLOAK: { active: true } } })],
+        : [foreign(8), foreign(9, { runtimeSystems: { CLOAK: { active: true } } })]) as never,
     );
     spacecraftModuleRepo.find.mockResolvedValue([]);
     Object.assign(shipClassRepo, {
