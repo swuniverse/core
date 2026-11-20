@@ -1,6 +1,6 @@
 # Flottenkontrolle Backend: Systeme flottenweit schalten, 100 Crew je Flotte
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -25,11 +25,11 @@ SWU kann Systeme nur je Schiff schalten (`PATCH :id/systems/:systemKey`); in gro
 
 ## Akzeptanzkriterien
 
-- [ ] Neuer Endpunkt `PATCH fleets/:fleetId/systems/:systemKey` (nur Führungsschiff-Eigner) schaltet NBS, Schilde, Strahlenwaffen, Torpedobank, Tarnung und Hyperantrieb für alle Mitglieder schiffsweise wie STU: jedes Schiff einzeln mit eigenen Kosten/Prüfungen, Teilergebnis mit Meldung je Schiff, keine Gesamtablehnung.
-- [ ] `joinFleet` (und Flottenerstellung) lehnt ab, wenn die Bauplan-Crewsumme der Flotte 100 übersteigen würde, mit STU-Meldung „maximal 100 Crew pro Flotte“.
-- [ ] Bestandsflotten über dem Limit: Umgang festlegen (STU löscht korrupte Flotten in Maintenance) und umsetzen.
-- [ ] Flotten-DTO liefert Crewsumme und Limit für die Anzeige (sc-AUD-05b, sc-AUD-16).
-- [ ] Backend-Tests: Teilergebnis bei EPS-Mangel einzelner Schiffe, Rechteprüfung, Crewlimit beim Beitritt.
+- [x] Neuer Endpunkt `PATCH fleets/:fleetId/systems/:systemKey` (nur Führungsschiff-Eigner) schaltet NBS, Schilde, Strahlenwaffen, Torpedobank, Tarnung und Hyperantrieb für alle Mitglieder schiffsweise wie STU: jedes Schiff einzeln mit eigenen Kosten/Prüfungen, Teilergebnis mit Meldung je Schiff, keine Gesamtablehnung.
+- [x] `joinFleet` (und Flottenerstellung) lehnt ab, wenn die Bauplan-Crewsumme der Flotte 100 übersteigen würde, mit STU-Meldung „maximal 100 Crew pro Flotte“.
+- [x] Bestandsflotten über dem Limit: Umgang festlegen (STU löscht korrupte Flotten in Maintenance) und umsetzen.
+- [x] Flotten-DTO liefert Crewsumme und Limit für die Anzeige (sc-AUD-05b, sc-AUD-16).
+- [x] Backend-Tests: Teilergebnis bei EPS-Mangel einzelner Schiffe, Rechteprüfung, Crewlimit beim Beitritt.
 
 ## Herkunft
 
@@ -37,3 +37,12 @@ SWU kann Systeme nur je Schiff schalten (`PATCH :id/systems/:systemKey`); in gro
 - PO-Linie 2026-11-17 „wie STU“ (README G–N). Kein bisheriges Ticket deckt das ab.
 
 ## Comments
+
+- 2026-11-20 – umgesetzt, Prüfung ausstehend (Commit `feat(spacecraft): fleet-wide system toggle and fleet crew limit (stu-parity sc-AUD-05a)`).
+  - Endpunkt `PATCH fleets/:fleetId/systems/:systemKey` (`SpacecraftService.toggleFleetSystem`): nur eigene Flotte (`requireFleet`), Systeme aus `FLEET_SWITCHABLE_SYSTEM_KEYS`; ruft je Mitglied `toggleSystem` auf, damit Kosten/Prüfungen/Meldungen identisch zum Einzelschalten sind. Antwort `FleetSystemToggleResultDto` mit `applied`/`failed` je Schiff.
+  - Crewlimit `CREW_PER_FLEET = 100` (shared) über Summe `crewRequired` in `joinFleet` und `createFleet`, Meldung „<Schiff>: Es sind maximal 100 Crew pro Flotte möglich“.
+  - Bestandsflotten: Migration `20261120120000-dissolve-fleets-over-crew-limit` löst Nicht-NPC-Flotten über 100 Crew auf (Orbitaufträge kaskadieren, Mitglieder `fleetId = NULL`). Keine laufende Maintenance nötig, da `crewRequired` nach Bau fix ist und Beitritt jetzt geprüft wird.
+  - `getUserFleets` liefert `crewSum`/`crewLimit`.
+  - Checks: `spacecraft-fleet.service.spec.ts` grün (neue Tests: Teilergebnis bei EPS-Mangel, Rechte/Systemfilter, Crewlimit Beitritt 40/41, Erstellung 101, Crewsumme), Typecheck backend+shared grün, ESLint ohne Fehler. Backend-Suite: 2680/2681, einziger Fehlschlag `resource-collection.controller.spec.ts` (PermissionGuard) vorbestehend, nicht berührt.
+  - Ausstehend (gesammelter Prüfpass): Abschlussreview, Migration gegen lokale PostgreSQL, Integrationstest Flottenschalten mit echtem `toggleSystem`, Build.
+  - Modell: Claude Opus 5.5 direkt (Sol/Luna in dieser Session nicht verfügbar).

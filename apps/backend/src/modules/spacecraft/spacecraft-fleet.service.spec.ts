@@ -632,6 +632,72 @@ describe('SpacecraftService fleet management', () => {
     expect(service.setAlertState).toHaveBeenCalledTimes(2);
   });
 
+  it('switches a fleet system ship by ship and reports EPS shortfalls', async () => {
+    const { service, shipRepo, fleetRepo } = createService();
+    const leader = ship({ id: 2, fleetId: 7 });
+    const wing = ship({ id: 3, fleetId: 7, name: 'Kestrel' });
+    fleetRepo.findOne.mockResolvedValue({ id: 7, userId: 5, leaderId: 2 });
+    shipRepo.find.mockResolvedValue([leader, wing]);
+    jest
+      .spyOn(service, 'toggleSystem')
+      .mockResolvedValueOnce({ systems: {} })
+      .mockRejectedValueOnce(new Error('Nicht genug EPS'));
+
+    await expect(service.toggleFleetSystem(5, 7, 'CLOAK', true)).resolves.toEqual({
+      systemKey: 'CLOAK',
+      active: true,
+      applied: [{ shipId: 2, shipName: 'Falke' }],
+      failed: [{ shipId: 3, shipName: 'Kestrel', reason: 'Nicht genug EPS' }],
+    });
+    expect(service.toggleSystem).toHaveBeenNthCalledWith(1, 2, 5, 'CLOAK', true);
+    expect(service.toggleSystem).toHaveBeenNthCalledWith(2, 3, 5, 'CLOAK', true);
+  });
+
+  it('denies fleet system commands for foreign fleets and other systems', async () => {
+    const { service, fleetRepo } = createService();
+    fleetRepo.findOne.mockResolvedValue(null);
+    const toggle = jest.spyOn(service, 'toggleSystem');
+
+    await expect(service.toggleFleetSystem(6, 7, 'SHIELDS', true)).rejects.toThrow(
+      'Flotte nicht gefunden',
+    );
+    await expect(
+      service.toggleFleetSystem(5, 7, 'TRACTOR_BEAM' as never, true),
+    ).rejects.toThrow('nicht flottenweit');
+    expect(toggle).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [40, true],
+    [41, false],
+  ])('limits a fleet to 100 buildplan crew on join (joiner %i)', async (crew, ok) => {
+    const { service, shipRepo, fleetRepo } = createService();
+    fleetRepo.findOne.mockResolvedValue({ id: 7, userId: 5, leaderId: 3 });
+    const joiner = ship({ crewRequired: crew });
+    const leader = ship({ id: 3, fleetId: 7, crewRequired: 60 });
+    shipRepo.findOne.mockImplementation(({ where }) =>
+      Promise.resolve(where.id === 3 ? leader : joiner),
+    );
+    shipRepo.find.mockResolvedValue([leader, joiner]);
+
+    const join = service.joinFleet(5, 7, 2);
+    if (ok) await expect(join).resolves.toBeDefined();
+    else
+      await expect(join).rejects.toThrow(
+        'Falke: Es sind maximal 100 Crew pro Flotte möglich',
+      );
+  });
+
+  it('does not create a fleet for a ship above the crew limit', async () => {
+    const { service, shipRepo, fleetRepo } = createService();
+    shipRepo.findOne.mockResolvedValue(ship({ crewRequired: 101 }));
+
+    await expect(service.createFleet(5, 'Aurek', 2)).rejects.toThrow(
+      'maximal 100 Crew pro Flotte',
+    );
+    expect(fleetRepo.save).not.toHaveBeenCalled();
+  });
+
   it('renames, transfers leadership, dissolves, and denies foreign access', async () => {
     const { service, shipRepo, fleetRepo } = createService();
     const fleet = { id: 7, userId: 5, leaderId: 2, name: 'Alt' };
@@ -723,8 +789,12 @@ describe('SpacecraftService fleet list preferences', () => {
 
   it('loads fleets with the persisted sort order and deterministic ties', async () => {
     const { service, fleetRepo } = createService();
-    fleetRepo.find.mockResolvedValue([]);
-    await service.getUserFleets(5);
+    fleetRepo.find.mockResolvedValue([
+      { id: 7, members: [ship({ crewRequired: 30 }), ship({ crewRequired: 12 })] },
+    ]);
+    await expect(service.getUserFleets(5)).resolves.toEqual([
+      expect.objectContaining({ id: 7, crewSum: 42, crewLimit: 100 }),
+    ]);
     expect(fleetRepo.find).toHaveBeenCalledWith({
       where: { userId: 5 },
       relations: ['members'],

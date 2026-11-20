@@ -895,6 +895,30 @@ export interface SpacecraftWormholePassageResultDto {
   locationId: number;
 }
 
+/** STU `GameEnum::CREW_PER_FLEET`: summed buildplan crew of all members. */
+export const CREW_PER_FLEET = 100;
+
+/** Systems the fleet leader can switch for every member (STU `isfleet`). */
+export const FLEET_SWITCHABLE_SYSTEM_KEYS = [
+  'SHORT_RANGE_SENSORS',
+  'SHIELDS',
+  'WEAPONS',
+  'TORPEDO_BANK',
+  'CLOAK',
+  'WARPDRIVE',
+] as const satisfies readonly SpacecraftRuntimeSystemKey[];
+
+export type FleetSwitchableSystemKey =
+  (typeof FLEET_SWITCHABLE_SYSTEM_KEYS)[number];
+
+/** Per-ship outcome of a fleet system command; one ship never blocks another. */
+export interface FleetSystemToggleResultDto {
+  systemKey: FleetSwitchableSystemKey;
+  active: boolean;
+  applied: Array<{ shipId: number; shipName: string }>;
+  failed: Array<{ shipId: number; shipName: string; reason: string }>;
+}
+
 /** Fleet-wide colony orbit order (STU defend/block colony). */
 export type SpacecraftOrbitOrderMode = 'DEFEND' | 'BLOCKADE';
 

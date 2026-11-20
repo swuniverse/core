@@ -108,6 +108,10 @@ import {
   getStuCelestialClass,
   SWU_PLANET_CLASS_NAME,
   isVacationEffective,
+  CREW_PER_FLEET,
+  FLEET_SWITCHABLE_SYSTEM_KEYS,
+  type FleetSwitchableSystemKey,
+  type FleetSystemToggleResultDto,
 } from '@swuniverse/shared';
 import { Colony } from '../colony/entities/colony.entity';
 import {
@@ -184,6 +188,10 @@ import { applyLssSensorEffects } from './lss-sensor-effects';
 
 /** STU `PlanAstroMapping::REGION_MAP_PERCENTAGE`. */
 const REGION_MEASUREMENT_PERCENTAGE = 25;
+
+/** STU `Fleet::getCrewSum`: buildplan crew, not the crew currently aboard. */
+const fleetCrewSum = (ships: Spacecraft[]) =>
+  ships.reduce((sum, ship) => sum + Math.max(0, ship.crewRequired ?? 0), 0);
 
 /** Ship after a field-by-field flight and how the flight ended. */
 export interface SpacecraftMovement {
@@ -3423,6 +3431,7 @@ export class SpacecraftService {
         throw new BadRequestException('Das Schiff ist bereits in einer Flotte');
       }
       this.assertFleetName(name);
+      this.assertFleetCrewLimit([], leader);
       const saved = await manager.save(
         Fleet,
         manager.create(Fleet, {
@@ -3466,6 +3475,7 @@ export class SpacecraftService {
           'Schiff und Flottenführer müssen sich auf demselben Feld befinden',
         );
       }
+      this.assertFleetCrewLimit(members, ship);
       await manager.update(Spacecraft, ship.id, { fleetId });
     });
     return this.findOne(shipId, userId);
@@ -3635,6 +3645,58 @@ export class SpacecraftService {
     return { alertState, applied, failed };
   }
 
+  /** STU `activateFleet`/`deactivateFleet`: every member switches on its own. */
+  async toggleFleetSystem(
+    userId: number,
+    fleetId: number,
+    systemKey: FleetSwitchableSystemKey,
+    active: boolean,
+  ): Promise<FleetSystemToggleResultDto> {
+    if (!FLEET_SWITCHABLE_SYSTEM_KEYS.includes(systemKey)) {
+      throw new BadRequestException(
+        'Dieses System kann nicht flottenweit geschaltet werden',
+      );
+    }
+    if (typeof active !== 'boolean') {
+      throw new BadRequestException('active muss ein boolescher Wert sein');
+    }
+    await this.requireFleet(userId, fleetId);
+    const members = await this.shipRepo.find({
+      where: { fleetId, userId },
+      order: { id: 'ASC' },
+    });
+    const result: FleetSystemToggleResultDto = {
+      systemKey,
+      active,
+      applied: [],
+      failed: [],
+    };
+    for (const member of members) {
+      try {
+        await this.toggleSystem(member.id, userId, systemKey, active);
+        result.applied.push({ shipId: member.id, shipName: member.name });
+      } catch (error: unknown) {
+        result.failed.push({
+          shipId: member.id,
+          shipName: member.name,
+          reason:
+            error instanceof Error
+              ? error.message
+              : 'System konnte nicht geschaltet werden',
+        });
+      }
+    }
+    return result;
+  }
+
+  private assertFleetCrewLimit(members: Spacecraft[], joining: Spacecraft) {
+    if (fleetCrewSum([...members, joining]) > CREW_PER_FLEET) {
+      throw new BadRequestException(
+        `${joining.name}: Es sind maximal ${CREW_PER_FLEET} Crew pro Flotte möglich`,
+      );
+    }
+  }
+
   async toggleFleetFixation(userId: number, fleetId: number): Promise<Fleet> {
     return this.dataSource.transaction(async (manager) => {
       const hint = await manager.findOneBy(Fleet, { id: fleetId, userId });
@@ -3700,12 +3762,20 @@ export class SpacecraftService {
     }
   }
 
-  async getUserFleets(userId: number): Promise<Fleet[]> {
-    return this.fleetRepo.find({
+  async getUserFleets(
+    userId: number,
+  ): Promise<Array<Fleet & { crewSum: number; crewLimit: number }>> {
+    const fleets = await this.fleetRepo.find({
       where: { userId },
       relations: ['members'],
       order: { sort: 'DESC', id: 'ASC' },
     });
+    return fleets.map((fleet) =>
+      Object.assign(fleet, {
+        crewSum: fleetCrewSum(fleet.members ?? []),
+        crewLimit: CREW_PER_FLEET,
+      }),
+    );
   }
 
   private findLocationByGalaxyField(

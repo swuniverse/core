@@ -1,3 +1,4 @@
+import type { FleetSwitchableSystemKey } from '@swuniverse/shared';
 import {
   Controller,
   Get,
@@ -678,6 +679,21 @@ export class SpacecraftController {
       req.user.sub,
       fleetId,
       dto.alertState,
+    );
+  }
+
+  @Patch('fleets/:fleetId/systems/:systemKey')
+  toggleFleetSystem(
+    @Param('fleetId', ParseIntPipe) fleetId: number,
+    @Param('systemKey') systemKey: string,
+    @Request() req: { user: { sub: number } },
+    @Body('active') active: boolean,
+  ) {
+    return this.spacecraftService.toggleFleetSystem(
+      req.user.sub,
+      fleetId,
+      systemKey as FleetSwitchableSystemKey,
+      active,
     );
   }
 
