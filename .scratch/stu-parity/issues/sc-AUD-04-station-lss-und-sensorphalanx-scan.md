@@ -1,6 +1,6 @@
 # Station: LSS-Karte und Sensorphalanx-Scan
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -25,11 +25,11 @@ Stationen haben in SWU keine LSS-Karte, weil `NavigationPanel` für `kind === 'S
 
 ## Akzeptanzkriterien
 
-- [ ] Stationen zeigen die LSS-Karte (ohne Flugsteuerung, Klickflug und Blindflug).
+- [x] Stationen zeigen die LSS-Karte (ohne Flugsteuerung, Klickflug und Blindflug).
 - [ ] Bei einer Sensorphalanx öffnet ein Klick auf ein LSS-Feld den Sensorscan wie STU: Feldinfo und NBS des Zielfelds; Systemfelder laden zusätzlich den Systemsensorscan über `system-field-scan`.
-- [ ] Kosten, Reichweite und Voraussetzungen kommen aus dem Backend; Fehlermeldungen werden angezeigt. Andere Stationsrollen sehen die LSS ohne Phalanx-Scan.
-- [ ] `ship-action-registry.ts` führt die Aktion nicht mehr als „planned“.
-- [ ] Frontend-Tests für LSS an Stationen und Sensorscan-Aufruf; Backend-Test, falls DTO/Endpunkt angepasst wird.
+- [x] Kosten, Reichweite und Voraussetzungen kommen aus dem Backend; Fehlermeldungen werden angezeigt. Andere Stationsrollen sehen die LSS ohne Phalanx-Scan.
+- [x] `ship-action-registry.ts` führt die Aktion nicht mehr als „planned“.
+- [x] Frontend-Tests für LSS an Stationen und Sensorscan-Aufruf; Backend-Test, falls DTO/Endpunkt angepasst wird.
 
 ## Herkunft
 
@@ -37,3 +37,11 @@ Stationen haben in SWU keine LSS-Karte, weil `NavigationPanel` für `kind === 'S
 - Resolved-Ticket mit nicht erfüllter Akzeptanz: [sc-WP-STAT-2](sc-WP-STAT-2-stationsansicht-und-liste.md) (Kriterium „Sensorstationen bieten Sensorscan … und Systemsensorscan … wie STU“).
 
 ## Comments
+
+- 2026-11-20 – umgesetzt, Prüfung ausstehend. Commit: `feat(spacecraft): station LSS and sensor array scan (stu-parity sc-AUD-04)`.
+  - Backend: neu `POST /spacecraft/:id/sensor-scan { x, y }` → `SpacecraftScanService.stationSensorScan` nach STU `ShowSensorScan`: nur eigene Station mit Rolle Sensorphalanx, Crew, LSS aktiv und intakt, 15 EPS (unter Zeilensperre abgebucht), Reichweite wie die LSS-Karte (Modulreichweite × LSS-Integrität). Zielfeld im eigenen Scope (Galaxie: Ebene, im System: dasselbe System). Ergebnis `StationSensorScanDto`: Feld (Typ, Effekte, Himmelskörper, System), Schiffe am Feld (Status IDLE, ohne die Station selbst, getarnte fremde und RPG-verborgene gefiltert über `isHiddenFromViewer`; nur Name, Art, Klasse, Besitzername) sowie sichtbare und verblasste Signaturen.
+  - Frontend: Stationen zeigen statt `NavigationPanel` das neue `StationLssPanel` (LSS ohne Flug-, Klickflug- und Blindflugsteuerung). Bei einer Sensorphalanx öffnet ein Feldklick den Dialog „Sensorscan x|y“; Fehlertext des Backends als Alert; danach `onUpdate` für EPS. Andere Rollen: Hinweis „Sensorscans sind nur mit einer Sensorphalanx möglich.“. Registry `fieldScan` → `existing`, `POST /spacecraft/:id/sensor-scan`.
+  - Abweichung von Kriterium 2: Den Systemsensorscan über `system-field-scan` ruft die Oberfläche nicht auf. Der Endpunkt scannt nur ein Feld im eigenen System; der Phalanx-Scan deckt Feldinfo und NBS dort bereits ab, ein zweiter Aufruf würde doppelt EPS kosten. Die STU-Systemkarte für Galaxiefelder mit System ist nach [sc-AUD-04b](sc-AUD-04b-systemsensorscan-der-sensorphalanx.md) abgespalten (needs-triage). Kriterium 2 daher nicht abgehakt. Keine Tachyon-Erkennung getarnter Schiffe beim Phalanx-Scan.
+  - Geprüft: `nx typecheck` backend/frontend/shared grün; Backend-Unit `spacecraft` 768/769 (rot nur das unabhängige `resource-collection.controller.spec`), neu `station-sensor-scan.spec.ts` (Erfolg mit Filter getarnter/RPG-verborgener Schiffe, Ablehnung andere Rolle/EPS/LSS aus/außer Reichweite ohne Abbuchung, Reichweite bei beschädigter LSS); Frontend `pages/spacecraft*` + `components/spacecraft` 258/258, neu `StationLssPanel.spec.tsx`, Stations-LSS in `spacecraft-detail.spec.tsx`, Registry-Spec; ESLint 0 Fehler.
+  - Ausstehend: gesammelter vollständiger Prüflauf (inkl. PostgreSQL-Integration des Endpunkts).
+  - Modell: Opus 5.5 direkt (Informationsfreigabe), keine Delegation.

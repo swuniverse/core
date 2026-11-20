@@ -280,6 +280,18 @@ class SystemFieldScanDto {
   targetY: number;
 }
 
+class StationSensorScanRequestDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  x: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  y: number;
+}
+
 class CommunicationTextDto {
   @IsString()
   body: string;
@@ -1038,6 +1050,15 @@ export class SpacecraftController {
     @Request() req: { user: { sub: number } },
   ) {
     return this.scanService.analyzeSubspace(id, req.user.sub, signatureId);
+  }
+
+  @Post(':id/sensor-scan')
+  stationSensorScan(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body() dto: StationSensorScanRequestDto,
+  ) {
+    return this.scanService.stationSensorScan(id, req.user.sub, dto.x, dto.y);
   }
 
   @Post(':id/system-field-scan')

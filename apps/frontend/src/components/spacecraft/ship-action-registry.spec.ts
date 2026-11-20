@@ -22,6 +22,13 @@ describe('SHIP_ACTIONS', () => {
     });
   });
 
+  it('documents the sensor array scan as an existing station action', () => {
+    expect(SHIP_ACTIONS.fieldScan).toMatchObject({
+      availability: 'existing',
+      destination: 'POST /spacecraft/:id/sensor-scan',
+    });
+  });
+
   it('keeps installed modules read-only on ship detail', () => {
     expect(SHIP_ACTIONS.modules.destination).toBe(
       'GET /spacecraft/:id/modules',
@@ -40,7 +47,6 @@ describe('SHIP_ACTIONS', () => {
       'selfDestruct',
       'energyFlow',
       'sectorScan',
-      'fieldScan',
     ] as const) {
       expect(SHIP_ACTIONS[key].availability).toBe('planned');
     }

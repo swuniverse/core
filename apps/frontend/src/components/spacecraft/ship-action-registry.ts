@@ -185,13 +185,13 @@ export const SHIP_ACTIONS = {
     ['ship', 'scans', 'local-map'],
   ),
   fieldScan: action(
-    'Systemfeld scannen',
-    'planned',
-    'POST /spacecraft/:id/system-field-scan',
+    'Sensorscan (Sensorphalanx)',
+    'existing',
+    'POST /spacecraft/:id/sensor-scan',
     'Scanne Feld…',
     'Feld gescannt',
-    'Feldscan fehlgeschlagen',
-    ['ship', 'scans', 'local-map'],
+    'Sensorscan fehlgeschlagen',
+    ['ship'],
   ),
   reactorSplit: action(
     'Reaktorverteilung',

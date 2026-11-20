@@ -1294,3 +1294,36 @@ export type SpacecraftVisibilityPayload =
   | { type: 'STATE'; shipId: number; state: SharedLivePositionDto };
 
 export { getShieldRegenerationRate, SHIELD_REGENERATION_INTERVAL_MS, type ShieldRegenerationInput } from './shield-regeneration.js';
+
+/** STU `ShowSensorScan`: a sensor array scans one field within its long-range sensor range. */
+export interface StationSensorScanDto {
+  energyCost: number;
+  energy: number;
+  field: {
+    scope: 'GALAXY' | 'SYSTEM';
+    x: number;
+    y: number;
+    fieldType: { id: number; name: string };
+    effects: string[];
+    celestialObject: { name: string | null; classId: number | null; objectType: number } | null;
+    starSystem: { id: number; name: string } | null;
+  };
+  ships: Array<{
+    id: number;
+    name: string;
+    shipClassId: number;
+    kind: 'SHIP' | 'STATION';
+    ownerName: string | null;
+    isOwn: boolean;
+  }>;
+  signatures: Array<{
+    id: number;
+    shipClassName: string | null;
+    spacecraftName: string | null;
+    fromDirection: 'NORTH' | 'EAST' | 'SOUTH' | 'WEST' | null;
+    toDirection: 'NORTH' | 'EAST' | 'SOUTH' | 'WEST' | null;
+    isCloaked: boolean;
+    createdAt: string;
+  }>;
+  fadedSignatures: { uncloaked: number; cloaked: number };
+}

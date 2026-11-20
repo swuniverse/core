@@ -14,6 +14,7 @@ import { Repository } from 'typeorm';
 import type {
   SpacecraftScanPageDto,
   SpacecraftScanResultDto,
+  StationSensorScanDto,
 } from '@swuniverse/shared';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { Buoy, toBuoyDto } from './entities/buoy.entity';
@@ -22,7 +23,13 @@ import { resolveColonyLocation } from '../colony/colony-location';
 import { PlanetGeneratorService } from '../starmap/generator/planet-generator.service';
 import { supportsStuSurface } from '../starmap/generator/stu-planet-surface.generator';
 import { GameDataService } from '../game-data/game-data.service';
-import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
+import {
+  Spacecraft,
+  SpacecraftKind,
+  SpacecraftStatus,
+  StationRole,
+} from './entities/spacecraft.entity';
+import { isHiddenFromViewer } from './spacecraft-cloak';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import { ColonyScan } from './entities/colony-scan.entity';
 import { SpacecraftCrewService } from './spacecraft-crew.service';
@@ -44,6 +51,8 @@ import { resolveSpacecraftLocation } from './spacecraft-field';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { ColonyScanProjectionService } from './colony-scan-projection.service';
 import { FlightSignatureService } from './flight-signature.service';
+
+const STATION_SENSOR_SCAN_EPS = 15;
 
 @Injectable()
 export class SpacecraftScanService {
@@ -122,6 +131,103 @@ export class SpacecraftScanService {
         expiresAt: scannedAt + TACHYON_SCAN_DURATION_MS,
       };
     });
+  }
+
+  /** STU `ShowSensorScan`: a sensor array scans a field within its LSS range. */
+  async stationSensorScan(
+    stationId: number,
+    userId: number,
+    x: number,
+    y: number,
+  ): Promise<StationSensorScanDto> {
+    const { energy, location, field } = await this.shipRepo.manager.transaction(async (manager) => {
+      const station = await manager.findOne(Spacecraft, {
+        where: { id: stationId, userId },
+        relations: { modules: true, location: { galaxyField: true, systemField: true } },
+        lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
+      });
+      if (!station || isRpgHidden(station)) throw new NotFoundException('Spacecraft not found');
+      if (station.kind !== SpacecraftKind.STATION || station.stationRole !== StationRole.SENSOR) {
+        throw new BadRequestException('Nur eine Sensorphalanx kann Sensorscans durchführen');
+      }
+      if (station.status === SpacecraftStatus.DESTROYED)
+        throw new BadRequestException('Destroyed ship cannot scan');
+      if (!(await this.spacecraftCrewService.hasEnoughCrew(station)))
+        throw new BadRequestException('Not enough crew');
+      const lss = this.runtimeState.initialize(station).LONG_RANGE_SENSORS;
+      if (!lss?.active) throw new BadRequestException('Langstreckensensoren sind nicht aktiv');
+      if (lss.integrity <= 0) throw new BadRequestException('Langstreckensensoren sind zerstört');
+      if (station.energy < STATION_SENSOR_SCAN_EPS) {
+        throw new BadRequestException(
+          `Nicht genügend Energie vorhanden (${STATION_SENSOR_SCAN_EPS} benötigt)`,
+        );
+      }
+      const own = resolveSpacecraftLocation(station);
+      if (!own) throw new BadRequestException('Station hat kein aktuelles Feld');
+      // Same range as the LSS map the player clicks on (`SpacecraftService.getSensorRange`).
+      const range = Math.ceil(((await this.getSensorRange(station)) * lss.integrity) / 100);
+      if (Math.max(Math.abs(x - own.x), Math.abs(y - own.y)) > range) {
+        throw new BadRequestException('Zielfeld liegt außerhalb der Sensorreichweite');
+      }
+      const target =
+        own.scope === 'SYSTEM'
+          ? await manager.findOne(SystemField, {
+              where: { starSystemId: own.systemId, sx: x, sy: y },
+              relations: { fieldType: true, celestialObject: true },
+            })
+          : await manager.findOne(GalaxyField, {
+              where: { layerId: own.layerId, cx: x, cy: y },
+              relations: { fieldType: true, starSystem: true },
+            });
+      if (!target) throw new NotFoundException('Zielfeld nicht gefunden');
+      const targetLocation = await manager.findOne(SpaceLocation, {
+        where: own.scope === 'SYSTEM' ? { systemFieldId: target.id } : { galaxyFieldId: target.id },
+      });
+      station.energy -= STATION_SENSOR_SCAN_EPS;
+      await manager.save(station);
+      return { energy: station.energy, location: targetLocation, field: { scope: own.scope, target } };
+    });
+
+    const [ships, signatureResult] = location
+      ? await Promise.all([
+          this.shipRepo.find({
+            where: { locationId: location.id, status: SpacecraftStatus.IDLE },
+            relations: { user: true },
+            order: { id: 'ASC' },
+          }),
+          this.flightSignatureService.getVisibleAt(location.id, userId),
+        ])
+      : [[], { signatures: [], fadedSignatures: { uncloaked: 0, cloaked: 0 } }];
+    const { scope, target } = field;
+    const object = 'celestialObject' in target ? target.celestialObject : null;
+    const system = 'starSystem' in target ? target.starSystem : null;
+    return {
+      energyCost: STATION_SENSOR_SCAN_EPS,
+      energy,
+      field: {
+        scope,
+        x,
+        y,
+        fieldType: { id: target.fieldType.id, name: target.fieldType.name },
+        effects: target.effects ?? [],
+        celestialObject: object
+          ? { name: object.name, classId: object.classId, objectType: object.objectType }
+          : null,
+        starSystem: system ? { id: system.id, name: system.name } : null,
+      },
+      ships: ships
+        .filter((ship) => ship.id !== stationId && !isHiddenFromViewer(ship, userId))
+        .map((ship) => ({
+          id: ship.id,
+          name: ship.name,
+          shipClassId: ship.shipClassId,
+          kind: ship.kind,
+          ownerName: ship.user?.username ?? null,
+          isOwn: ship.userId === userId,
+        })),
+      signatures: signatureResult.signatures,
+      fadedSignatures: signatureResult.fadedSignatures,
+    };
   }
 
   async sectorScan(

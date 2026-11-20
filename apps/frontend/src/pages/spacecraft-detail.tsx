@@ -6,6 +6,7 @@ import { api } from '../services/api';
 import { useSocket } from '../hooks/use-socket';
 import { WsEventType } from '@swuniverse/shared';
 import { NavigationPanel } from '../components/spacecraft/NavigationPanel';
+import { StationLssPanel } from '../components/spacecraft/StationLssPanel';
 import { ShipHeaderTable } from '../components/spacecraft/ShipHeaderTable';
 import { ShipControlCenter } from '../components/spacecraft/ShipControlCenter';
 import { ReactorPanel } from '../components/spacecraft/ReactorPanel';
@@ -265,7 +266,7 @@ export function SpacecraftDetailPage() {
       </ShipHeaderTable>
 
       <div className="mt-2 grid gap-2 xl:grid-cols-[minmax(360px,1.2fr)_minmax(300px,0.9fr)_minmax(250px,0.75fr)] xl:items-start">
-        {ship.kind !== 'STATION' && (
+        {ship.kind !== 'STATION' ? (
           <div id="ship-navigation">
             <NavigationPanel
               ship={ship}
@@ -273,6 +274,12 @@ export function SpacecraftDetailPage() {
               cartography={cartography}
             />
           </div>
+        ) : (
+          <StationLssPanel
+            stationId={ship.id}
+            isSensorArray={ship.stationRole === 'SENSOR'}
+            onUpdate={refreshShipAndStorage}
+          />
         )}
         <div className="space-y-2">
           <ShipControlCenter

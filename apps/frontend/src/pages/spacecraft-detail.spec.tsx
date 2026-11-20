@@ -309,6 +309,8 @@ describe('SpacecraftDetailPage', () => {
     expect(screen.getByText('Keine Schiffe angedockt')).toBeTruthy();
     expect(screen.getByText(/Lagerraum 0\/20/)).toBeTruthy();
     expect(screen.queryByText('Navigation')).toBeNull();
+    expect(screen.getByRole('region', { name: 'Langstreckensensoren' })).toBeTruthy();
+    expect(screen.getByText('Feld anklicken für einen Sensorscan (15 EPS).')).toBeTruthy();
     expect(await screen.findByRole('heading', { name: 'Wurmloch-Zugangsregeln' })).toBeTruthy();
     expect(await screen.findByText('Verboten')).toBeTruthy();
     expect(screen.getByText(/Allianz-ID 1.234/)).toBeTruthy();
