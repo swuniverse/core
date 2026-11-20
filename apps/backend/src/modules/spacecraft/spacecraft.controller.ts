@@ -696,6 +696,11 @@ export class SpacecraftController {
     return this.spacecraftService.findAllByUser(req.user.sub);
   }
 
+  @Get('buoys')
+  listBuoys(@Request() req: { user: { sub: number } }) {
+    return this.spacecraftService.listBuoys(req.user.sub);
+  }
+
   @Get('shared-live-positions')
   getSharedLivePositions(@Request() req: { user: { sub: number } }) {
     return this.starmapVisibilityService.listSharedLivePositions(req.user.sub);
@@ -990,14 +995,6 @@ export class SpacecraftController {
       id,
       req.user.sub,
     );
-  }
-
-  @Get(':id/buoys')
-  listBuoys(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { sub: number } },
-  ) {
-    return this.spacecraftService.listBuoys(id, req.user.sub);
   }
 
   @Post(':id/buoys')

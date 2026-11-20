@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type {
   CartographyPlanDto,
+  SpacecraftBuoyDto,
   SpacecraftDetailDto,
   SpacecraftFieldContextDto,
   SpacecraftRuntimeSystemsDto,
@@ -57,6 +58,7 @@ type SectorScanResult = {
     createdAt: string;
   }>;
   fadedSignatures: { uncloaked: number; cloaked: number };
+  buoys?: SpacecraftBuoyDto[];
 };
 
 type SubspaceAnalysisResult = {
@@ -139,6 +141,16 @@ export function FieldContextPanel({
   );
   const [enteringWormhole, setEnteringWormhole] = useState(false);
   const [orbitBusy, setOrbitBusy] = useState(false);
+  const [buoys, setBuoys] = useState<SpacecraftBuoyDto[]>(context?.buoys ?? []);
+  const [buoyDropOpen, setBuoyDropOpen] = useState(false);
+  const [buoyText, setBuoyText] = useState('');
+  const [buoyError, setBuoyError] = useState<string | null>(null);
+  const [buoyBusy, setBuoyBusy] = useState(false);
+  const [analysedBuoy, setAnalysedBuoy] = useState<SpacecraftBuoyDto | null>(null);
+
+  useEffect(() => {
+    setBuoys(context?.buoys ?? []);
+  }, [context]);
 
   useEffect(() => {
     setScan(null);
@@ -335,6 +347,49 @@ export function FieldContextPanel({
     }
   }
 
+  // The page only reloads the field context on movement, so buoys are refreshed here.
+  async function reloadBuoys() {
+    const fresh = await api.get<SpacecraftFieldContextDto>(
+      `/spacecraft/${shipId}/field-context`,
+      { cache: 'no-store' },
+    );
+    const next = fresh?.buoys ?? [];
+    setBuoys(next);
+    setScan((current) =>
+      current && { ...current, result: { ...current.result, buoys: next } },
+    );
+  }
+
+  async function dropBuoy() {
+    setBuoyBusy(true);
+    setBuoyError(null);
+    try {
+      await api.post(`/spacecraft/${shipId}/buoys`, { text: buoyText.trim() });
+      setBuoyDropOpen(false);
+      setBuoyText('');
+      await Promise.all([reloadBuoys(), onUpdate()]);
+    } catch (err: unknown) {
+      setBuoyError(err instanceof Error ? err.message : 'Boje konnte nicht gesetzt werden');
+    } finally {
+      setBuoyBusy(false);
+    }
+  }
+
+  async function pickUpBuoy(buoyId: number) {
+    setBuoyBusy(true);
+    try {
+      await api.post(`/spacecraft/${shipId}/buoys/${buoyId}/pick-up`, {});
+      await Promise.all([reloadBuoys(), onUpdate()]);
+    } catch (err: unknown) {
+      setActionMessage({
+        title: 'Boje aufbringen',
+        message: err instanceof Error ? err.message : 'Boje konnte nicht aufgebracht werden',
+      });
+    } finally {
+      setBuoyBusy(false);
+    }
+  }
+
   function closeSectorScan() {
     analysisRequest.current++;
     analysisPendingRef.current = false;
@@ -528,6 +583,16 @@ export function FieldContextPanel({
               <img src="/assets/buttons/lupe1.png" alt="" className="size-5" />
               {scanPending ? 'Sektor-Scan läuft …' : `Sektor ${context.coordinates.x}|${context.coordinates.y} scannen`}
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setBuoyError(null);
+                setBuoyDropOpen(true);
+              }}
+              className="block text-swu-primary hover:text-swu-accent"
+            >
+              Boje setzen
+            </button>
             {context.wormholePassages?.length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
                 <label htmlFor="wormhole-passage" className="text-swu-muted">
@@ -647,6 +712,14 @@ export function FieldContextPanel({
           </div>
         </div>
       </div>
+      {buoys.length > 0 && (
+        <BuoyTable
+          buoys={buoys}
+          busy={buoyBusy}
+          onPickUp={(buoyId) => void pickUpBuoy(buoyId)}
+          onAnalyse={setAnalysedBuoy}
+        />
+      )}
       {context.information.colonizationTarget && (
         <div className="border border-swu-border bg-swu-surface">
           <h3 className="border-b border-swu-border px-3 py-1 text-center font-bold text-swu-primary">
@@ -895,7 +968,49 @@ export function FieldContextPanel({
           selectedSignatureId={selectedSignatureId}
           onAnalyze={(signatureId) => void analyzeSubspace(signatureId)}
           onClose={closeSectorScan}
+          buoyBusy={buoyBusy}
+          onPickUpBuoy={(buoyId) => void pickUpBuoy(buoyId)}
+          onAnalyseBuoy={setAnalysedBuoy}
         />
+      )}
+      {buoyDropOpen && (
+        <Dialog title="Boje setzen" label="Boje setzen" onClose={() => setBuoyDropOpen(false)}>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void dropBuoy();
+            }}
+            className="space-y-2"
+          >
+            <label className="grid gap-1">
+              Botschaft (1–60 Zeichen)
+              <input
+                value={buoyText}
+                maxLength={60}
+                onChange={(event) => setBuoyText(event.target.value)}
+                className="border border-swu-border bg-swu-bg px-1 py-0.5 text-swu-primary"
+              />
+            </label>
+            <p className="text-swu-muted">Verbraucht eine Sondenboje und 1 EPS.</p>
+            {buoyError && (
+              <p role="alert" className="text-red-300">
+                {buoyError}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setBuoyDropOpen(false)}>
+                Abbrechen
+              </button>
+              <button
+                type="submit"
+                disabled={buoyBusy || buoyText.trim().length === 0}
+                className="text-swu-primary disabled:opacity-40"
+              >
+                Setzen
+              </button>
+            </div>
+          </form>
+        </Dialog>
       )}
       {regionOpen && context.region && (
         <Dialog
@@ -926,6 +1041,14 @@ export function FieldContextPanel({
           onClose={() => setActionMessage(null)}
         >
           <p>{actionMessage.message}</p>
+        </Dialog>
+      )}
+      {analysedBuoy && (
+        <Dialog title="Bojenanalyse" label="Bojenanalyse" onClose={() => setAnalysedBuoy(null)}>
+          <p className="whitespace-pre-wrap">{analysedBuoy.text}</p>
+          <p className="mt-2">
+            Besitzer: <span className="text-swu-primary">{analysedBuoy.ownerName}</span>
+          </p>
         </Dialog>
       )}
       {colonyScan && (
@@ -1117,6 +1240,9 @@ function SectorScanDialog({
   selectedSignatureId,
   onAnalyze,
   onClose,
+  buoyBusy,
+  onPickUpBuoy,
+  onAnalyseBuoy,
 }: {
   scan: { result: SectorScanResult; energyCost: number };
   runtimeSystems?: SpacecraftRuntimeSystemsDto;
@@ -1126,6 +1252,9 @@ function SectorScanDialog({
   selectedSignatureId: number | null;
   onAnalyze: (signatureId: number) => void;
   onClose: () => void;
+  buoyBusy: boolean;
+  onPickUpBuoy: (buoyId: number) => void;
+  onAnalyseBuoy: (buoy: SpacecraftBuoyDto) => void;
 }) {
   const field = scan.result.field;
   const object = field.celestialObject;
@@ -1273,7 +1402,73 @@ function SectorScanDialog({
           <div>Getarnt: {fadedSignatures.cloaked}</div>
         </div>
       )}
+      {(scan.result.buoys?.length ?? 0) > 0 && (
+        <div className="mt-3">
+          <BuoyTable
+            buoys={scan.result.buoys ?? []}
+            busy={buoyBusy}
+            onPickUp={onPickUpBuoy}
+            onAnalyse={onAnalyseBuoy}
+          />
+        </div>
+      )}
     </Dialog>
+  );
+}
+
+function BuoyTable({
+  buoys,
+  busy,
+  onPickUp,
+  onAnalyse,
+}: {
+  buoys: SpacecraftBuoyDto[];
+  busy: boolean;
+  onPickUp: (buoyId: number) => void;
+  onAnalyse: (buoy: SpacecraftBuoyDto) => void;
+}) {
+  return (
+    <table className="w-full border-collapse border border-swu-border bg-swu-surface text-left">
+      <caption className="border border-swu-border bg-black/30 px-2 py-1 text-left font-bold text-swu-primary">
+        Bojen
+      </caption>
+      <thead>
+        <tr className="border border-swu-border text-swu-muted">
+          <th className="px-2 py-1">Eigner</th>
+          <th className="px-2 py-1">Botschaft</th>
+          <th className="px-2 py-1">Datum</th>
+          <th className="px-2 py-1" />
+        </tr>
+      </thead>
+      <tbody>
+        {buoys.map((buoy) => (
+          <tr key={buoy.id} className="border border-swu-border">
+            <td className="px-2 py-1">{buoy.ownerName}</td>
+            <td className="px-2 py-1 break-words">{buoy.text}</td>
+            <td className="px-2 py-1 whitespace-nowrap">
+              {new Date(buoy.createdAt).toLocaleString('de-DE')}
+            </td>
+            <td className="px-2 py-1 whitespace-nowrap">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onPickUp(buoy.id)}
+                className="text-swu-primary hover:text-swu-accent disabled:opacity-40"
+              >
+                Boje aufbringen · 1 EPS
+              </button>{' '}
+              <button
+                type="button"
+                onClick={() => onAnalyse(buoy)}
+                className="text-swu-primary hover:text-swu-accent"
+              >
+                Analysieren
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 

@@ -1,5 +1,5 @@
 import { WsEventType } from '@swuniverse/shared';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { SpacecraftPage } from './spacecraft';
 
@@ -62,6 +62,7 @@ describe('SpacecraftPage', () => {
     let finish!: (ships: typeof ship[]) => void;
     apiMocks.get.mockReset();
     apiMocks.get.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    apiMocks.get.mockResolvedValueOnce([]);
     render(<MemoryRouter><SpacecraftPage /></MemoryRouter>);
     apiMocks.get.mockResolvedValue([]);
     await act(async () => { handlers.get(WsEventType.SPACECRAFT_VISIBILITY_CHANGED)?.({ type: 'REMOVED', shipId: ship.id }); });
@@ -105,6 +106,17 @@ describe('SpacecraftPage', () => {
     await act(async () => { handlers.get(WsEventType.SPACECRAFT_VISIBILITY_CHANGED)?.({ type: 'STATE', shipId: ship.id }); });
     expect(await screen.findAllByText('Falke')).toHaveLength(2);
   });
+  it('lists own buoys with their position below the ship list', async () => {
+    apiMocks.get.mockReset();
+    apiMocks.get.mockImplementation((path: string) => Promise.resolve(path === '/spacecraft/buoys'
+      ? [{ id: 1, text: 'Treffpunkt', ownerId: 1, ownerName: 'Ich', createdAt: '2026-11-20T10:00:00Z', sector: '3|4 (Yavin-System)' }]
+      : [ship]));
+    render(<MemoryRouter><SpacecraftPage /></MemoryRouter>);
+
+    const table = (await screen.findByRole('heading', { name: 'Bojen' })).closest('section')!;
+    expect(within(table).getByText('Treffpunkt')).toBeTruthy();
+    expect(within(table).getByText('3|4 (Yavin-System)')).toBeTruthy();
+  });
   it('loads each ship cargo on first hover and reuses the cached hold', async () => {
     apiMocks.get.mockReset();
     apiMocks.get.mockImplementation((path: string) => {
@@ -124,6 +136,7 @@ describe('SpacecraftPage', () => {
           { id: 2, commodityId: 42424243, commodityName: 'Duranium', amount: 7 },
         ]);
       }
+      if (path === '/spacecraft/buoys') return Promise.resolve([]);
       throw new Error(`Unexpected API request: ${path}`);
     });
 
@@ -135,7 +148,7 @@ describe('SpacecraftPage', () => {
 
     const falke = await screen.findByRole('button', { name: 'Lager von Falke' });
     const adler = screen.getByRole('button', { name: 'Lager von Adler' });
-    expect(apiMocks.get).toHaveBeenCalledTimes(1);
+    expect(apiMocks.get).toHaveBeenCalledTimes(2);
 
     fireEvent.mouseEnter(falke, { clientX: 40, clientY: 30 });
     const falkeTooltip = await screen.findByRole('tooltip');
@@ -144,18 +157,18 @@ describe('SpacecraftPage', () => {
     expect(falkeTooltip.querySelector('img')?.getAttribute('src')).toBe(
       '/assets/commodities/42424242.png',
     );
-    expect(apiMocks.get).toHaveBeenNthCalledWith(2, '/spacecraft/251/cargo');
+    expect(apiMocks.get).toHaveBeenNthCalledWith(3, '/spacecraft/251/cargo');
 
     fireEvent.mouseLeave(falke);
     fireEvent.mouseEnter(falke, { clientX: 40, clientY: 30 });
-    expect(apiMocks.get).toHaveBeenCalledTimes(2);
+    expect(apiMocks.get).toHaveBeenCalledTimes(3);
 
     fireEvent.mouseEnter(adler, { clientX: 60, clientY: 30 });
     const adlerTooltip = await screen.findByRole('tooltip');
     expect(await screen.findByText('Duranium')).toBeTruthy();
     expect(adlerTooltip.textContent).toContain('7/30');
     expect(adlerTooltip.textContent).not.toContain('Tibanna');
-    expect(apiMocks.get).toHaveBeenNthCalledWith(3, '/spacecraft/252/cargo');
+    expect(apiMocks.get).toHaveBeenNthCalledWith(4, '/spacecraft/252/cargo');
   });
 
   it('formats cargo amounts and capacity with German thousands separators', async () => {
@@ -171,6 +184,7 @@ describe('SpacecraftPage', () => {
           { id: 3, commodityId: 42424244, commodityName: 'Duranium', amount: 1_234 },
         ]);
       }
+      if (path === '/spacecraft/buoys') return Promise.resolve([]);
       throw new Error(`Unexpected API request: ${path}`);
     });
 
@@ -199,6 +213,7 @@ describe('SpacecraftPage', () => {
         ]);
       }
       if (path === '/spacecraft/260/cargo') return Promise.resolve([]);
+      if (path === '/spacecraft/buoys') return Promise.resolve([]);
       throw new Error(`Unexpected API request: ${path}`);
     });
 
@@ -209,7 +224,7 @@ describe('SpacecraftPage', () => {
     );
 
     const image = await screen.findByRole('button', { name: 'Lager von Leerer Falke' });
-    expect(apiMocks.get).toHaveBeenCalledTimes(1);
+    expect(apiMocks.get).toHaveBeenCalledTimes(2);
 
     fireEvent.touchStart(image, { touches: [{ clientX: 40, clientY: 30 }] });
     fireEvent.click(image);
@@ -217,7 +232,7 @@ describe('SpacecraftPage', () => {
     const tooltip = await screen.findByRole('tooltip');
     expect(await screen.findByRole('cell', { name: 'Leer' })).toBeTruthy();
     expect(tooltip.textContent).toContain('Lagerraum 0/20');
-    expect(apiMocks.get).toHaveBeenNthCalledWith(2, '/spacecraft/260/cargo');
+    expect(apiMocks.get).toHaveBeenNthCalledWith(3, '/spacecraft/260/cargo');
   });
 
   it('renders canonical galaxy and system location coordinates', async () => {

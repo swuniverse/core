@@ -1921,4 +1921,101 @@ describe('Seasonal anomaly opening in the ship field context', () => {
     }} /></MemoryRouter>);
     expect(screen.queryByRole('button', { name: /öffnen/i })).toBeNull();
   });
+
+  describe('buoys', () => {
+    beforeEach(() => {
+      apiMocks.get.mockReset();
+      apiMocks.post.mockReset();
+      apiMocks.get.mockResolvedValue(null);
+    });
+    const buoy = { id: 9, text: 'Vorsicht Minen', ownerId: 4, ownerName: 'Fremder', createdAt: '2026-11-20T10:00:00Z' };
+    const base = {
+      wormholePassages: [],
+      coordinates: { x: 5, y: 6 },
+      starSystem: null,
+      colony: null,
+      information: { canSectorScan: true, cartographyKnown: false },
+    };
+    const renderPanel = (buoys: (typeof buoy)[], onUpdate = vi.fn()) =>
+      render(
+        <MemoryRouter>
+          <FieldContextPanel shipId={7} context={{ ...base, buoys } as any} onUpdate={onUpdate} />
+        </MemoryRouter>,
+      );
+
+    it('drops a buoy with the entered text and shows the new buoy', async () => {
+      const onUpdate = vi.fn();
+      apiMocks.post.mockResolvedValue({});
+      apiMocks.get.mockImplementation((path: string) =>
+        Promise.resolve(path === '/spacecraft/7/field-context' ? { ...base, buoys: [buoy] } : null),
+      );
+      renderPanel([], onUpdate);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Boje setzen' }));
+      const dialog = screen.getByRole('dialog', { name: 'Boje setzen' });
+      fireEvent.change(within(dialog).getByLabelText(/Botschaft/), { target: { value: ' Vorsicht Minen ' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Setzen' }));
+
+      await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/7/buoys', { text: 'Vorsicht Minen' }));
+      expect(await screen.findByText('Vorsicht Minen')).toBeTruthy();
+      expect(screen.queryByRole('dialog', { name: 'Boje setzen' })).toBeNull();
+      expect(onUpdate).toHaveBeenCalled();
+    });
+
+    it('shows the backend reason when a buoy cannot be dropped', async () => {
+      apiMocks.post.mockRejectedValue(new Error('Maximal 16 aktive Bojen erlaubt'));
+      renderPanel([]);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Boje setzen' }));
+      const dialog = screen.getByRole('dialog', { name: 'Boje setzen' });
+      fireEvent.change(within(dialog).getByLabelText(/Botschaft/), { target: { value: 'x' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Setzen' }));
+
+      expect((await within(dialog).findByRole('alert')).textContent).toBe('Maximal 16 aktive Bojen erlaubt');
+    });
+
+    it('lists buoys in the sector scan and picks one up there', async () => {
+      const onUpdate = vi.fn();
+      apiMocks.get.mockImplementation((path: string) =>
+        Promise.resolve(path === '/spacecraft/7/field-context' ? { ...base, buoys: [] } : null),
+      );
+      apiMocks.post.mockImplementation((path: string) =>
+        Promise.resolve(
+          path === '/spacecraft/7/sector-scan'
+            ? {
+                energyCost: 1,
+                result: {
+                  field: { x: 5, y: 6, fieldType: { id: 1, name: 'Leerraum' }, movementEnergyCost: 1, damage: 0, specialDamage: 0, effects: [], celestialObject: null },
+                  signatures: [],
+                  fadedSignatures: { uncloaked: 0, cloaked: 0 },
+                  buoys: [buoy],
+                },
+              }
+            : { pickedUp: true },
+        ),
+      );
+      renderPanel([buoy], onUpdate);
+
+      fireEvent.click(screen.getByRole('button', { name: /Sektor .* scannen/ }));
+      const scan = await screen.findByRole('dialog', { name: 'Sektor-Scan' });
+      const row = within(scan).getByText('Vorsicht Minen').closest('tr')!;
+      expect(within(row).getByText('Fremder')).toBeTruthy();
+      fireEvent.click(within(row).getByRole('button', { name: 'Boje aufbringen · 1 EPS' }));
+
+      await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/7/buoys/9/pick-up', {}));
+      await waitFor(() => expect(screen.queryByText('Vorsicht Minen')).toBeNull());
+      expect(onUpdate).toHaveBeenCalled();
+    });
+
+    it('analyses a buoy without leaving the field', () => {
+      renderPanel([buoy]);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Analysieren' }));
+
+      const dialog = screen.getByRole('dialog', { name: 'Bojenanalyse' });
+      expect(within(dialog).getByText('Vorsicht Minen')).toBeTruthy();
+      expect(within(dialog).getByText('Fremder')).toBeTruthy();
+      expect(apiMocks.post).not.toHaveBeenCalled();
+    });
+  });
 });

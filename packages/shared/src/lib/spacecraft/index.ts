@@ -725,7 +725,13 @@ export interface SpacecraftBuoyDto {
   id: number;
   text: string;
   ownerId: number;
+  ownerName: string;
   createdAt: string;
+}
+
+/** Own buoy in the buoy list; `sector` follows STU `getSectorString`. */
+export interface SpacecraftOwnBuoyDto extends SpacecraftBuoyDto {
+  sector: string;
 }
 
 export interface SpacecraftScanPageDto {

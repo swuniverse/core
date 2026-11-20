@@ -1,6 +1,6 @@
 # Bojen im UI: auslegen, aufnehmen, anzeigen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -28,12 +28,12 @@ Bojen sind im Backend vollständig vorhanden (sc-WP-SENS-1), für Spieler aber u
 
 ## Akzeptanzkriterien
 
-- [ ] Im Feldkontext gibt es „Boje setzen“ mit Texteingabe (1–60 Zeichen); Fehlergründe des Backends (keine Bojenware, Rampe defekt, Limit 16, zu wenig EPS) werden angezeigt.
-- [ ] Bojen am Feld erscheinen im Feldkontext und im Sektor-Scan als Tabelle (Eigner, Text, Datum) mit „Boje aufbringen“ (1 EPS) für jedes Schiff am Feld.
-- [ ] Bojen lassen sich analysieren (Text/Eigner wie `analysebuoy.twig`), ohne das Feld verlassen zu müssen.
-- [ ] Unter der Schiffsliste steht wie STU eine Bojenliste der eigenen Bojen mit Position.
+- [x] Im Feldkontext gibt es „Boje setzen“ mit Texteingabe (1–60 Zeichen); Fehlergründe des Backends (keine Bojenware, Rampe defekt, Limit 16, zu wenig EPS) werden angezeigt.
+- [x] Bojen am Feld erscheinen im Feldkontext und im Sektor-Scan als Tabelle (Eigner, Text, Datum) mit „Boje aufbringen“ (1 EPS) für jedes Schiff am Feld.
+- [x] Bojen lassen sich analysieren (Text/Eigner wie `analysebuoy.twig`), ohne das Feld verlassen zu müssen.
+- [x] Unter der Schiffsliste steht wie STU eine Bojenliste der eigenen Bojen mit Position.
 - [ ] Nach Setzen/Aufnehmen aktualisieren sich Feldkontext, Sektor-Scan, Lager und EPS ohne Reload.
-- [ ] Frontend-Tests (Vitest/Testing Library) für Setzen, Anzeige im Sektor-Scan, Aufnehmen und Bojenliste; Backend-Test, falls für die Bojenliste ein neuer Endpunkt nötig ist.
+- [x] Frontend-Tests (Vitest/Testing Library) für Setzen, Anzeige im Sektor-Scan, Aufnehmen und Bojenliste; Backend-Test, falls für die Bojenliste ein neuer Endpunkt nötig ist.
 
 ## Herkunft
 
@@ -41,3 +41,11 @@ Bojen sind im Backend vollständig vorhanden (sc-WP-SENS-1), für Spieler aber u
 - Resolved-Ticket mit nicht erfüllter Akzeptanz: [sc-WP-SENS-1](sc-WP-SENS-1-bojen.md) („Frontend-Test deckt Anzeige und Aktionen ab“ trifft nicht zu; Feature-Commit `5408d3ca` ohne Frontend-Datei).
 
 ## Comments
+
+- 2026-11-20 – umgesetzt, Prüfung ausstehend. Commit: `feat(spacecraft): drop, pick up and list buoys in the UI (stu-parity sc-AUD-01)`.
+  - Backend: `SpacecraftBuoyDto.ownerName` (Eignername für Tabelle/Analyse); Feldkontext lieferte rohe Entities (`userId` statt `ownerId`) und mappt jetzt wie der Sektor-Scan über `toBuoyDto`. Ungenutztes `GET :id/buoys` ersetzt durch nutzerweites `GET /spacecraft/buoys` (`SpacecraftOwnBuoyDto` mit `sector` wie STU `getSectorString`: `x|y` bzw. `sx|sy (Name-System)`).
+  - Frontend: „Boje setzen“ im Informationsblock (Dialog, 1–60 Zeichen, Backendfehler im Dialog). Bojentabelle (Eigner, Botschaft, Datum, „Boje aufbringen · 1 EPS“, „Analysieren“) im Feldkontext und im Sektor-Scan. Analyse zeigt Text und Besitzer ohne Serveraufruf. Nach Setzen/Aufbringen lädt das Panel die Bojen per Feldkontext nach (die Seite lädt den Kontext sonst nur bei Bewegung) und ruft `onUpdate` für EPS/Lager auf. Bojenliste (Botschaft, x|y) unter den Einzelschiffen.
+  - Abweichungen: STU-Analyse-Minispiel (Amplitude/Wellenlänge bis zum Treffer) nicht übernommen, Besitzer direkt sichtbar; Textbuttons statt STU-Grafiken (`take_buoy`/`analyse_buoy` fehlen in SWU-Assets); kein Fraktionsbild der Boje.
+  - Geprüft: `nx typecheck` backend/frontend/shared grün; Backend-Unit `spacecraft` 753/754 (rot nur `resource-collection.controller.spec` – Meldungstext des PermissionGuard, unabhängig) inkl. neuem `spacecraft-buoy-list.spec.ts`; Frontend `components/spacecraft` + `pages/spacecraft*` 252/252 inkl. neuer Tests (Setzen, Fehlergrund, Sektor-Scan + Aufbringen, Analyse, Bojenliste); ESLint 0 Fehler.
+  - Ausstehend: Browserprüfung (Setzen mit Sondenboje im Lager, Anzeige/Aufbringen im Sektor-Scan, EPS/Lager-Aktualisierung, Bojenliste); PostgreSQL-Check von `GET /spacecraft/buoys` (Relationen `location.systemField.starSystem`).
+  - Modell: Opus 5.5 direkt (ticket-coder/Luna in dieser Sitzung nicht verfügbar), keine Delegation.

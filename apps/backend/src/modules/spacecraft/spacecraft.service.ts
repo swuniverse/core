@@ -52,7 +52,7 @@ import { isSpacecraftDestroyed } from './spacecraft-status.util';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
 import { SpacecraftTakeover } from './entities/spacecraft-takeover.entity';
-import { Buoy } from './entities/buoy.entity';
+import { Buoy, toBuoyDto } from './entities/buoy.entity';
 import { CargoItem } from './entities/cargo-item.entity';
 import { SpacecraftTakeoverService } from './spacecraft-takeover.service';
 import { SpacecraftTrackerService } from './spacecraft-tracker.service';
@@ -100,6 +100,7 @@ import {
   type SpacecraftOperatingModeResultDto,
   type ShipCentredMapDto,
   type CartographyPlanDto,
+  type SpacecraftOwnBuoyDto,
   type SpacecraftLssMode as SpacecraftLssModeDto,
   type MovementResultDto,
   WsEventType,
@@ -3865,9 +3866,19 @@ export class SpacecraftService {
     };
   }
 
-  async listBuoys(shipId: number, userId: number) {
-    await this.findOne(shipId, userId);
-    return this.buoyRepo.find({ where: { userId }, order: { createdAt: 'DESC' } });
+  async listBuoys(userId: number): Promise<SpacecraftOwnBuoyDto[]> {
+    const buoys = await this.buoyRepo.find({
+      where: { userId },
+      relations: { user: true, location: { galaxyField: true, systemField: { starSystem: true } } },
+      order: { createdAt: 'DESC' },
+    });
+    return buoys.map((buoy) => {
+      const { galaxyField, systemField } = buoy.location;
+      const sector = systemField
+        ? `${systemField.sx}|${systemField.sy} (${systemField.starSystem.name}-System)`
+        : `${galaxyField?.cx ?? '?'}|${galaxyField?.cy ?? '?'}`;
+      return { ...toBuoyDto(buoy), sector };
+    });
   }
 
   async dropBuoy(shipId: number, userId: number, rawText: string) {
@@ -4051,7 +4062,9 @@ export class SpacecraftService {
               leaveReason,
             }
           : null,
-      buoys: await this.buoyRepo.find({ where: { locationId: ship.locationId }, order: { createdAt: 'ASC' } }),
+      buoys: (
+        await this.buoyRepo.find({ where: { locationId: ship.locationId }, relations: { user: true }, order: { createdAt: 'ASC' } })
+      ).map(toBuoyDto),
       anomalies: (await this.anomalyQuery?.findAtLocation(ship.locationId)) ?? [],
       colony: colony
         ? {

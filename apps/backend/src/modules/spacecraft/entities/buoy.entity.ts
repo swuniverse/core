@@ -7,6 +7,7 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import type { SpacecraftBuoyDto } from '@swuniverse/shared';
 import { User } from '../../auth/user.entity';
 import { SpaceLocation } from '../../starmap/entities/space-location.entity';
 import { Spacecraft } from './spacecraft.entity';
@@ -44,4 +45,15 @@ export class Buoy {
 
   @CreateDateColumn()
   createdAt: Date;
+}
+
+/** Requires the `user` relation. */
+export function toBuoyDto(buoy: Buoy): SpacecraftBuoyDto {
+  return {
+    id: buoy.id,
+    text: buoy.text,
+    ownerId: buoy.userId,
+    ownerName: buoy.user.username,
+    createdAt: buoy.createdAt.toISOString(),
+  };
 }

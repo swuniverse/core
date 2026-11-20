@@ -3,6 +3,7 @@ import { useSocket } from '../hooks/use-socket';
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   SpacecraftListDto,
+  SpacecraftOwnBuoyDto,
   SpacecraftListSystemDto,
 } from '@swuniverse/shared';
 import { useNavigate } from 'react-router-dom';
@@ -42,6 +43,7 @@ export function SpacecraftPage() {
   const [fleetName, setFleetName] = useState('');
   const [leaderId, setLeaderId] = useState('');
   const [fleetAlertFailures, setFleetAlertFailures] = useState<Record<number, string[]>>({});
+  const [buoys, setBuoys] = useState<SpacecraftOwnBuoyDto[]>([]);
 
   const loadVersion = useRef(0);
   const loadShips = useCallback(async () => {
@@ -54,6 +56,7 @@ export function SpacecraftPage() {
 
   useEffect(() => {
     void loadShips();
+    void api.get<SpacecraftOwnBuoyDto[]>('/spacecraft/buoys').then(setBuoys).catch(() => setBuoys([]));
   }, [loadShips]);
 
   useSocket(WsEventType.SPACECRAFT_VISIBILITY_CHANGED, payload => {
@@ -203,6 +206,7 @@ export function SpacecraftPage() {
         emptyLabel={ships.length === 0 ? 'Du besitzt derzeit keine Schiffe' : 'Alle Schiffe sind einer Flotte zugeordnet'}
         onOpen={(id) => navigate(`/spacecraft/${id}`)}
       />
+      <BuoyTable buoys={buoys} />
       <form onSubmit={createFleet} className="border border-swu-border bg-swu-surface/70 text-xs">
         <h2 className="border-b border-swu-border bg-black/30 px-3 py-2 font-bold text-swu-primary">Neue Flotte</h2>
         <div className="flex flex-wrap items-end gap-3 p-3">
@@ -224,6 +228,23 @@ const STATION_ROLES: Record<string, string> = {
   OUTPOST: 'Außenposten',
   BASE: 'Raumstation',
 };
+
+function BuoyTable({ buoys }: { buoys: SpacecraftOwnBuoyDto[] }) {
+  return (
+    <section className="overflow-x-auto border border-swu-border bg-swu-surface/70">
+      <header className="border-b border-swu-border bg-black/30 px-3 py-2 text-xs">
+        <h2 className="font-bold text-swu-primary">Bojen</h2>
+      </header>
+      <table className="w-full border-collapse text-xs">
+        <thead><tr className="bg-black/40 text-center font-bold text-swu-primary"><th className={cell}>Botschaft</th><th className={cell} title="im System (außerhalb)">x|y</th></tr></thead>
+        <tbody>{buoys.length === 0
+          ? <tr><td colSpan={2} className={`${cell} py-4 text-center text-swu-muted`}>Du hast keine Bojen ausgelegt</td></tr>
+          : buoys.map((buoy) => <tr key={buoy.id}><td className={`${cell} break-words`}>{buoy.text}</td><td className={numberCell}>{buoy.sector}</td></tr>)}
+        </tbody>
+      </table>
+    </section>
+  );
+}
 
 function StationTable({ stations, onOpen }: { stations: SpacecraftListDto[]; onOpen: (id: number) => void }) {
   return (
