@@ -2,7 +2,7 @@
 
 Stand 2026-11-20. Umfang: Grundgebäude, materialfinanzierte Frühforschung und FP-Stufe-I-Gebäude; Forschungszentrum II als Übergang eingeschlossen. Geländevarianten zusammengefasst.
 
-**20 Familien erstellt und angebunden (47 IDs); 21 Stufe-I-Familien offen, 1 Übergang offen.**
+**24 Familien erstellt und angebunden (57 IDs); 17 Stufe-I-Familien offen, 1 Übergang offen.**
 
 Die sieben Restserien werden einzeln direkt geprüft und committet; gemeinsame abschließende Browser-/Vollständigkeitsprüfung noch ausstehend.
 
@@ -30,15 +30,15 @@ Die sieben Restserien werden einzeln direkt geprüft und committet; gemeinsame a
 | Cantina                   | 22010100 | 22010100, 22010199           |
 | Allianz-Akademie          | 51010100 | 51010100, 51010199           |
 | Raumbahnhof               | 81120100 | 81120100, 81120199           |
+| Außenposten               | 81010100 | 81010100, 81010199           |
+| Versorgungskuppel         | 12020100 | 12020100, 12020199           |
+| Habitatkuppel             | 12010100 | 12010100, 12010104, 12010199 |
+| Kryo-Zuchtanlage          | 21120100 | 21120100, 21120102, 21120199 |
 
 ## Noch offen
 
 | Gebäude                    | Haupt-ID | Forschung |
 | -------------------------- | -------- | --------- |
-| Außenposten                | 81010100 | 1001      |
-| Versorgungskuppel          | 12020100 | 211201    |
-| Habitatkuppel              | 12010100 | 211301    |
-| Kryo-Zuchtanlage           | 21120100 | 800201    |
 | Solarspiegel               | 33010100 | 231301    |
 | Solarfokus                 | 33020100 | 231201    |
 | Strömungsanker             | 33030100 | 231001    |
