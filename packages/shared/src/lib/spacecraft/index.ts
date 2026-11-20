@@ -1160,6 +1160,8 @@ export * from './movement-result.js';
 export interface ShipDisassemblyReturns {
   reactorFuel: Array<{ commodityId: number; amount: number }>;
   torpedoes: Array<{ commodityId: number; amount: number }>;
+  /** Cargo destroyed with the ship (STU `SpacecraftRemover`). */
+  lostCargo: Array<{ commodityId: number; amount: number }>;
 }
 
 export interface SpacecraftCargoDisposeRequestDto {

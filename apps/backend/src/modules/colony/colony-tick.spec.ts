@@ -6604,12 +6604,13 @@ describe('orbit ship operations', () => {
 
     afterEach(() => jest.restoreAllMocks());
 
-    it('recovers modules by integrity, whole reactor loads, every torpedo type and cargo without hull refunds', async () => {
-      const { service, colony, stored, shipRepo } = setup();
+    it('recovers modules by integrity, whole reactor loads and every torpedo type, destroying cargo without hull refunds', async () => {
+      const { service, colony, stored, shipRepo, cargoRepo } = setup();
       jest.spyOn(Math, 'random').mockReturnValue(0.49);
       await service.disassembleShip(1, 1, 8);
+      // STU SpacecraftRemover: cargo goes down with the ship, never into the colony.
+      expect(cargoRepo.save).not.toHaveBeenCalled();
       expect([...stored]).toEqual([
-        [2, 4],
         [100, 1],
         [8, 2],
         [6, 4],
@@ -6630,7 +6631,19 @@ describe('orbit ship operations', () => {
       expect((detail as unknown as { detailV2: { orbitShips: Array<{ disassemblyReturns: unknown }> } }).detailV2.orbitShips[0].disassemblyReturns).toEqual({
         reactorFuel: [{ commodityId: 8, amount: 2 }, { commodityId: 6, amount: 4 }, { commodityId: 5, amount: 4 }],
         torpedoes: [{ commodityId: 81, amount: 3 }, { commodityId: 82, amount: 5 }],
+        lostCargo: [],
       });
+    });
+
+    it('previews the cargo that the disassembly destroys', async () => {
+      const { service, shipRepo, shipClassRepo, spacecraftModuleRepo, cargoRepo } = setup();
+      shipRepo.find.mockResolvedValue([{ id: 8, userId: 1, shipClassId: 1, ...orbitShipLocation, reactorFuel: 0, crew: 1 } as never]);
+      shipClassRepo.findBy.mockResolvedValue([{ id: 1, category: 'CORVETTE' } as never]);
+      spacecraftModuleRepo.find.mockResolvedValue([]);
+      cargoRepo.find.mockResolvedValue([{ spacecraftId: 8, commodityId: 2, amount: 4 }] as never);
+      const detail = await service.findOne(1, 1);
+      const ship = (detail as unknown as { detailV2: { orbitShips: Array<{ disassemblyReturns: { lostCargo: unknown } }> } }).detailV2.orbitShips[0];
+      expect(ship.disassemblyReturns.lostCargo).toEqual([{ commodityId: 2, amount: 4 }]);
     });
 
     it('caps all recovered supplies together to the remaining colony storage', async () => {
@@ -6638,10 +6651,10 @@ describe('orbit ship operations', () => {
       jest.spyOn(Math, 'random').mockReturnValue(0.49);
       await service.disassembleShip(1, 1, 8);
       expect([...stored]).toEqual([
-        [2, 4],
         [100, 1],
         [8, 2],
-        [6, 1],
+        [6, 4],
+        [5, 1],
       ]);
     });
 
@@ -6668,16 +6681,24 @@ describe('orbit ship operations', () => {
       expect(stored.has(100)).toBe(false);
     });
 
-    it('rejects an inactive shipyard before moving cargo or crew', async () => {
-      const { service, colony, gameData, cargoRepo, colonyCrewService, shipRepo } =
-        setup();
+    it('accepts a deactivated shipyard building (STU ColonySurface::hasShipyard)', async () => {
+      const { service, colony, gameData, shipRepo } = setup();
       colony.fields[0].isActive = false;
       gameData.getShipClassSlotRule.mockReturnValue({
-        allowedBuildingFunctionIds: [6],
+        allowedBuildingFunctionIds: gameData.getBuildingFunctions(85130100),
+        slots: [],
+      });
+      await service.disassembleShip(1, 1, 8);
+      expect(shipRepo.remove).toHaveBeenCalled();
+    });
+
+    it('rejects a hull without a matching shipyard function before moving crew', async () => {
+      const { service, gameData, colonyCrewService, shipRepo } = setup();
+      gameData.getShipClassSlotRule.mockReturnValue({
+        allowedBuildingFunctionIds: [-1],
         slots: [],
       });
       await expect(service.disassembleShip(1, 1, 8)).rejects.toThrow();
-      expect(cargoRepo.save).not.toHaveBeenCalled();
       expect(
         colonyCrewService.transferCrewFromShipToColony,
       ).not.toHaveBeenCalled();

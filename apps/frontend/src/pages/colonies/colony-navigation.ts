@@ -41,6 +41,8 @@ const BUILDING_CONTEXT_DEFINITIONS: Array<{
     view: 'shipyard',
     label: 'Werft öffnen',
     functionIds: [6, 7, 8, 21],
+    // STU opens shipyard menus for deactivated buildings too (disassembly needs no active yard).
+    requiresActiveField: false,
   },
   {
     view: 'waste',

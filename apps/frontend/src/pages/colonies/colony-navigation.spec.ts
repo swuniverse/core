@@ -48,6 +48,12 @@ describe('colony navigation', () => {
     ]);
   });
 
+  it('opens a deactivated shipyard like STU, for disassembly', () => {
+    expect(getBuildingContextActions([6], false)).toEqual([
+      { view: 'shipyard', label: 'Werft öffnen', enabled: true },
+    ]);
+  });
+
   it('maps warehouse function 23 to server-controlled waste availability', () => {
     expect(
       getBuildingContextActions([23], true, {

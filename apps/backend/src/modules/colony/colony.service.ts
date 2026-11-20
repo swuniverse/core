@@ -1386,9 +1386,10 @@ export class ColonyService {
     if (!shipClass || shipClass.isNpc) {
       throw new BadRequestException('Unknown ship class');
     }
+    // STU `ShipDisassemblyProvider`: a matching shipyard building, active or not.
     this.assertShipyardCompatibility(
       shipClass,
-      this.getActiveShipyardFunctionIds(colony),
+      this.getShipyardFunctionIds(colony),
     );
 
     const [modules, torpedoes] = await Promise.all([
@@ -1398,7 +1399,7 @@ export class ColonyService {
       }),
       this.spacecraftTorpedoService.getStorage(ship.id),
     ]);
-    await this.transferShipCargoToColony(colony, ship);
+    // STU `SpacecraftRemover` drops the cargo; it is deleted with the ship.
     await this.colonyCrewService.transferCrewFromShipToColony(
       colony,
       ship,
@@ -1485,40 +1486,6 @@ export class ColonyService {
       amount,
     );
     return this.findOne(colonyId, userId);
-  }
-
-  private async transferShipCargoToColony(
-    colony: Colony,
-    ship: Spacecraft,
-  ): Promise<void> {
-    const maxStorage =
-      this.colonyStatsService.calculateSummary(colony).effectiveStorageMax;
-    const cargo = await this.cargoRepo.find({
-      where: { spacecraftId: ship.id },
-    });
-    await Promise.all(
-      cargo.map(async (item) => {
-        const stored = await this.colonyStorageService.upperStorage(
-          colony,
-          item.commodityId,
-          item.amount,
-          maxStorage,
-        );
-        item.amount = Math.max(0, item.amount - stored);
-        return this.cargoRepo.save(item);
-      }),
-    );
-    ship.cargoUsed = await this.getShipCargoUsed(ship.id);
-    await this.shipRepo.save(ship);
-  }
-
-  private async getShipCargoUsed(shipId: number): Promise<number> {
-    const result = await this.cargoRepo
-      .createQueryBuilder('c')
-      .select('COALESCE(SUM(c.amount), 0)', 'total')
-      .where('c.spacecraftId = :shipId', { shipId })
-      .getRawOne();
-    return parseInt(result?.total || '0', 10);
   }
 
   private canManageOrbitShip(colony: Colony, ship: Spacecraft): boolean {
@@ -1862,13 +1829,12 @@ export class ColonyService {
     );
   }
 
-  private getActiveShipyardFunctionIds(colony: Colony): number[] {
+  /** Functions of finished shipyard buildings, active or deactivated. */
+  private getShipyardFunctionIds(colony: Colony): number[] {
     return [
       ...new Set(
         (colony.fields ?? [])
-          .filter(
-            (field) => this.isShipyardField(field, false) && field.isActive,
-          )
+          .filter((field) => this.isShipyardField(field, false))
           .flatMap((field) =>
             this.gameData.getBuildingFunctions(field.buildingId!),
           )

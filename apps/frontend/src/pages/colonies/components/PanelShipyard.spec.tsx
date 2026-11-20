@@ -120,10 +120,11 @@ describe('PanelShipyard EPS cost and function occupation', () => {
     availableEnergy = 20,
     orbitShips: unknown[] = [],
     onDisassembleShip = noop,
+    yard: Record<string, unknown> = shipyard,
   ) =>
     render(
       <PanelShipyard
-        shipyard={shipyard as never}
+        shipyard={yard as never}
         shipClasses={[shipClass as never]}
         queue={queue as never}
         availableModules={[]}
@@ -187,6 +188,54 @@ describe('PanelShipyard EPS cost and function occupation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Demontieren' }));
     expect(disassemble).toHaveBeenCalledWith(8);
     confirm.mockRestore();
+  });
+
+  describe('disassembly like STU (col-AUD-14)', () => {
+    const alpha = (lostCargo: unknown[]) => ({
+      id: 8,
+      name: 'Alpha',
+      shipClassId: 1,
+      canDisassemble: true,
+      crew: 1,
+      crewMax: 2,
+      disassemblyReturns: { reactorFuel: [], torpedoes: [], lostCargo },
+    });
+
+    it('warns that the cargo is destroyed and repeats it in the confirmation', () => {
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+      renderPanel([], vi.fn(), 50, [alpha([{ commodityId: 2, amount: 4 }])]);
+      fireEvent.click(screen.getByRole('button', { name: 'Werft öffnen' }));
+      fireEvent.click(screen.getByRole('button', { name: /Schiffdemontage/ }));
+      expect(screen.getByRole('alert').textContent).toContain(
+        'Die Fracht des Schiffs (4 Einheiten) geht bei der Demontage verloren: 4 Ware #2',
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Demontieren' }));
+      expect(confirm.mock.calls[0][0]).toContain('(4 Einheiten) geht bei der Demontage verloren');
+      confirm.mockRestore();
+    });
+
+    it('shows no cargo warning for an empty hold', () => {
+      renderPanel([], vi.fn(), 50, [alpha([])]);
+      fireEvent.click(screen.getByRole('button', { name: 'Werft öffnen' }));
+      fireEvent.click(screen.getByRole('button', { name: /Schiffdemontage/ }));
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+
+    it('opens a deactivated shipyard for disassembly only', () => {
+      renderPanel([], vi.fn(), 50, [alpha([])], noop, {
+        ...shipyard,
+        activeFunctionIds: [],
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Werft öffnen' }));
+      const disabled = (name: RegExp) =>
+        (screen.getByRole('button', { name }) as HTMLButtonElement).disabled;
+      expect(disabled(/Schiffbau/)).toBe(true);
+      expect(disabled(/Schiffsreparatur/)).toBe(true);
+      expect(disabled(/Schiffsumrüstung/)).toBe(true);
+      expect(disabled(/Schiffdemontage/)).toBe(false);
+      fireEvent.click(screen.getByRole('button', { name: /Schiffdemontage/ }));
+      expect(screen.getByRole('button', { name: 'Demontieren' })).toBeTruthy();
+    });
   });
 
   it('shows EPS cost against available energy and sends the selected function', () => {

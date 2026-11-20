@@ -580,6 +580,11 @@ export class ColonyProjectionService {
       shipyardShipClasses.map((shipClass) => [shipClass.id, shipClass]),
     );
     const activeShipyardFunctionIds = this.getActiveShipyardFunctionIds(colony);
+    // Disassembly accepts deactivated shipyards too (STU `ShipDisassemblyProvider`).
+    const builtShipyardFunctionIds = this.getActiveShipyardFunctionIds(
+      colony,
+      true,
+    );
     const shipyardBuilding = this.getPrimaryShipyardBuilding();
     const shipyardUnlocked = shipyardBuilding
       ? await this.unlockResolver.isBuildingUnlocked(
@@ -1125,11 +1130,29 @@ export class ColonyProjectionService {
                   commodityId: item.commodityId,
                   amount: item.amount,
                 })),
+              // Destroyed with the ship (STU `SpacecraftRemover`).
+              lostCargo: cargo
+                .filter((item: CargoItem) => item.amount > 0)
+                .map((item: CargoItem) => ({
+                  commodityId: item.commodityId,
+                  amount: item.amount,
+                })),
             },
             canDisassemble:
               canManage &&
               getColonyChangeable(colony).energy >= 20 &&
-              hasMatchingRepairShipyard,
+              !!shipClass &&
+              (() => {
+                try {
+                  this.assertShipyardCompatibility(
+                    shipClass,
+                    builtShipyardFunctionIds,
+                  );
+                  return true;
+                } catch {
+                  return false;
+                }
+              })(),
             canRepair,
             canRetrofit,
             canManage,
@@ -2058,12 +2081,17 @@ export class ColonyProjectionService {
     return item?.outputCommodityId ?? null;
   }
 
-  private getActiveShipyardFunctionIds(colony: Colony): number[] {
+  private getActiveShipyardFunctionIds(
+    colony: Colony,
+    includeInactive = false,
+  ): number[] {
     return [
       ...new Set(
         (colony.fields ?? [])
           .filter(
-            (field) => this.isShipyardField(field, false) && field.isActive,
+            (field) =>
+              this.isShipyardField(field, false) &&
+              (includeInactive || field.isActive),
           )
           .flatMap((field) =>
             this.gameData.getBuildingFunctions(field.buildingId!),

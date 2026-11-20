@@ -192,15 +192,13 @@ function ShipyardSelectView({
                   )}
                 </div>
               )}
-              {isActive && (
-                <button
-                  type="button"
-                  onClick={() => onSelectYard(functionId)}
-                  className="rounded border border-swu-accent/50 bg-swu-accent/10 px-2.5 py-1 text-[10px] font-semibold text-swu-accent hover:bg-swu-accent/20"
-                >
-                  Werft öffnen
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => onSelectYard(functionId)}
+                className="rounded border border-swu-accent/50 bg-swu-accent/10 px-2.5 py-1 text-[10px] font-semibold text-swu-accent hover:bg-swu-accent/20"
+              >
+                Werft öffnen
+              </button>
             </div>
           );
         })}
@@ -208,6 +206,8 @@ function ShipyardSelectView({
     </div>
   );
 }
+
+const YARD_INACTIVE = 'Werft ist deaktiviert – nur Demontage möglich';
 
 type PanelShipyardProps = {
   shipyard?: ColonyDetailV2['shipyard'];
@@ -860,6 +860,9 @@ export function PanelShipyard({
     ...(shipyard?.presentFunctionIds ?? []),
   ].filter((functionId) => SHIPYARD_FUNCTION_IDS.has(functionId));
   const shipyardActive = activeShipyardIds.length > 0;
+  const selectedYardActive =
+    selectedShipyardFunctionId != null &&
+    activeShipyardIds.includes(selectedShipyardFunctionId);
 
   const runShipyardAction = async (
     key: string,
@@ -1085,7 +1088,7 @@ export function PanelShipyard({
     <div className="space-y-3">
       {!shipyardActive && presentShipyardIds.length > 0 && (
         <div className="bg-yellow-500/10 border border-yellow-500/40 rounded px-3 py-2 text-[10px] text-yellow-400">
-          Werftgebäude ist vorhanden, aber nicht aktiv. Aktionen sind blockiert.
+          Werftgebäude ist vorhanden, aber nicht aktiv. Nur die Demontage ist möglich.
         </div>
       )}
 
@@ -1160,7 +1163,9 @@ export function PanelShipyard({
                 setDesignerMode('build');
                 startBuildFlow();
               }}
-              className="rounded border border-swu-accent/50 bg-swu-accent/10 px-4 py-3 text-left text-sm font-semibold text-swu-accent hover:bg-swu-accent/20"
+              disabled={!selectedYardActive}
+              title={selectedYardActive ? undefined : YARD_INACTIVE}
+              className="disabled:opacity-40 rounded border border-swu-accent/50 bg-swu-accent/10 px-4 py-3 text-left text-sm font-semibold text-swu-accent hover:bg-swu-accent/20"
             >
               Schiffbau
               <div className="mt-1 text-[10px] font-normal text-swu-muted">
@@ -1184,7 +1189,9 @@ export function PanelShipyard({
             <button
               type="button"
               onClick={() => setView('repairSelection')}
-              className="rounded border border-cyan-400/40 bg-cyan-900/10 px-4 py-3 text-left text-sm font-semibold text-cyan-300 hover:border-cyan-400/70"
+              disabled={!selectedYardActive}
+              title={selectedYardActive ? undefined : YARD_INACTIVE}
+              className="disabled:opacity-40 rounded border border-cyan-400/40 bg-cyan-900/10 px-4 py-3 text-left text-sm font-semibold text-cyan-300 hover:border-cyan-400/70"
             >
               Schiffsreparatur
               <div className="mt-1 text-[10px] font-normal text-swu-muted">
@@ -1196,7 +1203,9 @@ export function PanelShipyard({
             <button
               type="button"
               onClick={() => setView('retrofitSelection')}
-              className="rounded border border-swu-border bg-swu-surface px-4 py-3 text-left text-sm font-semibold text-swu-primary hover:border-swu-accent/40"
+              disabled={!selectedYardActive}
+              title={selectedYardActive ? undefined : YARD_INACTIVE}
+              className="disabled:opacity-40 rounded border border-swu-border bg-swu-surface px-4 py-3 text-left text-sm font-semibold text-swu-primary hover:border-swu-accent/40"
             >
               Schiffsumrüstung
               <div className="mt-1 text-[10px] font-normal text-swu-muted">
@@ -1297,6 +1306,12 @@ export function PanelShipyard({
                   : 'keine';
               const reactorReturn = `Reaktorladung: ${formatReturns(ship.disassemblyReturns?.reactorFuel)}`;
               const torpedoReturn = `Torpedos: ${formatReturns(ship.disassemblyReturns?.torpedoes)}`;
+              const lostCargo = ship.disassemblyReturns?.lostCargo ?? [];
+              const lostCargoUnits = lostCargo.reduce(
+                (sum, item) => sum + item.amount,
+                0,
+              );
+              const lostCargoWarning = `Die Fracht des Schiffs (${lostCargoUnits} Einheiten) geht bei der Demontage verloren`;
               return (
                 <div
                   key={ship.id}
@@ -1308,9 +1323,17 @@ export function PanelShipyard({
                     </div>
                     <div className="text-[10px] text-swu-muted">
                       {ship.shipClassName ?? `Klasse #${ship.shipClassId}`} ·
-                      Crew {ship.crew}/{ship.crewMax} · Fracht und einige
-                      eingebaute Module werden zurückgeführt.
+                      Crew {ship.crew}/{ship.crewMax} · Einige eingebaute
+                      Module werden zurückgeführt.
                     </div>
+                    {lostCargoUnits > 0 && (
+                      <div
+                        role="alert"
+                        className="mt-1 rounded border border-red-500/50 bg-red-900/20 px-2 py-1 text-[10px] text-red-300"
+                      >
+                        {lostCargoWarning}: {formatReturns(lostCargo)}
+                      </div>
+                    )}
                     <div className="text-[10px] text-swu-muted">
                       {reactorReturn}
                     </div>
@@ -1327,7 +1350,7 @@ export function PanelShipyard({
                     onClick={() => {
                       if (
                         !window.confirm(
-                          `${ship.name} wirklich demontieren?\nEinige eingebaute Module und Fracht.\n${reactorReturn}\n${torpedoReturn}\nBegrenzt auf freien Lagerplatz; keine Rumpfkostenerstattung. Kosten: 20 Energie.`,
+                          `${ship.name} wirklich demontieren?${lostCargoUnits > 0 ? `\n${lostCargoWarning}: ${formatReturns(lostCargo)}.` : ''}\nEinige eingebaute Module.\n${reactorReturn}\n${torpedoReturn}\nBegrenzt auf freien Lagerplatz; keine Rumpfkostenerstattung. Kosten: 20 Energie.`,
                         )
                       )
                         return;
