@@ -64,6 +64,19 @@ const operational = (ship: Spacecraft) =>
   ship.status === SpacecraftStatus.IDLE &&
   ship.operatingMode !== SpacecraftOperatingMode.STANDBY;
 
+const ALERT_LEVEL: Record<AlertState, number> = {
+  [AlertState.GREEN]: 0,
+  [AlertState.YELLOW]: 1,
+  [AlertState.RED]: 2,
+};
+
+/** STU `AlertStateBattleParty::initMembers`: not warped and alerted at least like the leader. */
+const joinsAlertParty = (ship: Spacecraft, leader: Spacecraft) =>
+  !(
+    ship.location?.kind === 'GALAXY_FIELD' &&
+    (ship.runtimeSystems?.WARPDRIVE as { active?: boolean } | undefined)?.active === true
+  ) && ALERT_LEVEL[ship.alertState] >= ALERT_LEVEL[leader.alertState];
+
 /**
  * Alert reaction on a reached field (STU `AlertReactionFacade`): every
  * eligible foreign alerted ship or fleet attacks the incoming party in random
@@ -143,7 +156,9 @@ export class AlertReactionService implements MovementReaction, OnModuleInit {
       const attackers = attackingParty(
         candidate,
         candidate.fleetId == null ? null : fleetLeaders.get(candidate.fleetId),
-        foreign.filter((ship) => ship.status !== SpacecraftStatus.DESTROYED),
+        foreign.filter(
+          (ship) => ship.status !== SpacecraftStatus.DESTROYED && joinsAlertParty(ship, candidate),
+        ),
       );
       const defenders = incoming.filter((ship) => !isHiddenFromViewer(ship, candidate.userId));
       if (!defenders.length) continue;

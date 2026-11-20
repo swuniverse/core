@@ -300,7 +300,35 @@ describe('AlertReactionService', () => {
 
     expect(battle).toHaveBeenCalledTimes(1);
     expect(battle.mock.calls[0][0]).toMatchObject({ initiatorShipId: 21 });
-    expect(battle.mock.calls[0][0].attackers.map((member) => member.id).sort()).toEqual([20, 21, 22]);
+    expect(battle.mock.calls[0][0].attackers.map((member) => member.id).sort()).toEqual([20, 21]);
+  });
+
+  it.each([
+    [AlertState.RED, [21, 23]],
+    [AlertState.YELLOW, [21, 22, 23]],
+  ])('lets fleet members join a %s leader only at that alert level or above, never warped', async (leaderAlert, expected) => {
+    const mover = incoming();
+    const { service, battle } = createService({
+      ships: [
+        mover,
+        ship(20, 2, { alertState: AlertState.GREEN, fleetId: 9 }),
+        ship(21, 2, { alertState: leaderAlert, fleetId: 9 }),
+        ship(22, 2, { alertState: AlertState.YELLOW, fleetId: 9 }),
+        ship(23, 2, { alertState: AlertState.RED, fleetId: 9 }),
+        ship(24, 2, {
+          alertState: AlertState.RED,
+          fleetId: 9,
+          location: { kind: 'GALAXY_FIELD' },
+          runtimeSystems: { WARPDRIVE: { active: true } },
+        } as never),
+      ],
+      stances: { 2: 'ENEMY' },
+      fleets: [{ id: 9, leaderId: 21 }],
+    });
+
+    await service.afterTransition(context([mover]));
+
+    expect(battle.mock.calls[0][0].attackers.map((member) => member.id).sort()).toEqual(expected);
   });
 
   it('marks destroyed moving ships so the flight stops them', async () => {
