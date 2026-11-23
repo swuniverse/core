@@ -131,7 +131,7 @@ export function ShipHeaderTable({
       : ship.crew > ship.crewMax
         ? 'text-yellow-400'
         : 'text-green-400';
-  const rows = [
+  const allRows = [
     {
       label: 'Koordinaten',
       value: `${ship.location.x}|${ship.location.y}`,
@@ -180,6 +180,12 @@ export function ShipHeaderTable({
       valueClassName: crewClassName,
     },
   ];
+  // STU spacecraft.twig: warp only with a warp drive, battery only with capacity.
+  const rows = allRows.filter(
+    (row) =>
+      (row.label !== 'Hyperantrieb' || systems?.WARPDRIVE != null) &&
+      (row.label !== 'Batterie' || ship.batteryMax > 0),
+  );
 
   return (
     <section
@@ -241,6 +247,8 @@ export function ShipHeaderTable({
                 />
               </td>
               <td className="border border-swu-border px-1 py-2">
+                {/* STU shows the alert level only with a computer (`hasComputer`). */}
+                {systems?.COMPUTER && (
                 <button
                   type="button"
                   onClick={() => setAlertOpen(true)}
@@ -249,6 +257,7 @@ export function ShipHeaderTable({
                   title="Alarmstufe ändern"
                   className={`size-4 border border-swu-border ${alertState === 'GREEN' ? 'bg-green-500' : alertState === 'YELLOW' ? 'bg-yellow-400' : 'bg-red-500'}`}
                 />
+                )}
               </td>
               {rows.map((row) => (
                 <td
@@ -296,6 +305,7 @@ export function ShipHeaderTable({
                           standby={standby}
                           onNavigation={onNavigation}
                           onSensors={onSensors}
+                          sensorsAvailable={systems?.LONG_RANGE_SENSORS != null}
                         />
                       </td>
                       <td className="w-[24%] px-2 align-middle">{children}</td>
@@ -375,6 +385,7 @@ export function ShipHeaderTable({
           standby={standby}
           onNavigation={onNavigation}
           onSensors={onSensors}
+          sensorsAvailable={systems?.LONG_RANGE_SENSORS != null}
         />
       </div>
 

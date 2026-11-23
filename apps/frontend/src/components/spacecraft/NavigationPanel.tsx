@@ -216,6 +216,11 @@ export function NavigationPanel({
   };
 
   const lssActive = ship.runtimeSystems?.LONG_RANGE_SENSORS?.active === true;
+  // STU control_nav.twig: LSS controls need long range sensors (`hasLss`),
+  // movement needs a warp or impulse drive (`canMove`).
+  const hasLss = ship.runtimeSystems?.LONG_RANGE_SENSORS != null;
+  const canMove =
+    ship.runtimeSystems?.WARPDRIVE != null || ship.runtimeSystems?.SUBLIGHT_DRIVE != null;
   const cartographyPoints =
     ship.lssMode === 'CARTOGRAPHY' &&
     cartography?.status === 'PLANNED' &&
@@ -284,6 +289,7 @@ export function NavigationPanel({
           id="navigation-panel-heading"
           className="flex items-center gap-1 text-xs font-bold tracking-wide text-swu-primary"
         >
+          {hasLss && (
           <button
             type="button"
             onClick={() => void toggleLss()}
@@ -305,9 +311,12 @@ export function NavigationPanel({
               className="size-5 object-contain"
             />
           </button>
+          )}
           {lssActive && localMap
             ? `LSS · ${localMap.mode === 'system' ? localMap.systemName : 'Galaxie'} · R${localMap.sensorRange}`
-            : 'Navigation Applet (Langstreckensensoren aktivieren)'}
+            : hasLss
+              ? 'Navigation Applet (Langstreckensensoren aktivieren)'
+              : 'Navigation'}
         </h3>
         <div className="flex items-center gap-2 font-mono text-[11px] text-swu-muted">
           <span>
@@ -328,6 +337,7 @@ export function NavigationPanel({
       </div>
 
       {!lssActive ? (
+        canMove && (
         <div className="border border-swu-border/50 bg-black/20 p-3 text-xs">
           <div className="mx-auto grid w-fit grid-cols-3 place-items-center gap-2 font-mono">
             <BlindFlightTarget
@@ -363,6 +373,7 @@ export function NavigationPanel({
             />
           </div>
         </div>
+        )
       ) : !localMap ? (
         <div className="rounded border border-red-500/40 bg-red-500/5 p-3">
           <p className="text-xs text-red-300">Keine Kartendaten verfügbar.</p>
@@ -407,12 +418,14 @@ export function NavigationPanel({
                 </button>
               </div>
             )}
-            <DirectionalControls
-              onMove={handleDirectionalMove}
-              stepSize={stepSize}
-              onStepChange={setStepSize}
-              disabled={!isDocked || moving || changingSystem}
-            />
+            {canMove && (
+              <DirectionalControls
+                onMove={handleDirectionalMove}
+                stepSize={stepSize}
+                onStepChange={setStepSize}
+                disabled={!isDocked || moving || changingSystem}
+              />
+            )}
           </div>
         </div>
       )}

@@ -18,6 +18,10 @@ interface ReactorPanelProps {
   hyperdriveActive: boolean;
   inSystem: boolean;
   canTransferReactorCharge?: boolean;
+  /** STU control_right.twig: reactor block only with a reactor system. */
+  hasReactor?: boolean;
+  /** STU control_right.twig: warp block only with a warp drive (`hasWarpDrive`). */
+  hasWarpdrive?: boolean;
   onUpdate: () => void;
 }
 
@@ -34,6 +38,8 @@ export function ReactorPanel({
   hyperdriveActive,
   inSystem,
   canTransferReactorCharge = false,
+  hasReactor = true,
+  hasWarpdrive = true,
   onUpdate,
 }: ReactorPanelProps) {
   const [split, setSplit] = useState(reactorWarpSplit);
@@ -194,6 +200,7 @@ export function ReactorPanel({
   const warpProduction = flow?.warpProduction ?? 0;
   const epsProduction = flow?.epsProduction ?? 0;
 
+  if (!hasReactor && !hasWarpdrive && batteryMax <= 0) return null;
   return (
     <section
       aria-labelledby="reactor-panel-heading"
@@ -213,6 +220,7 @@ export function ReactorPanel({
       </h3>
 
       <div className="overflow-hidden rounded-md border border-swu-border/60 divide-y divide-swu-border/60">
+        {hasReactor && (
         <div className="flex flex-wrap items-center gap-2 p-2">
           <img
             src="/assets/buttons/fusrkt.png"
@@ -241,6 +249,7 @@ export function ReactorPanel({
             </button>
           )}
         </div>
+        )}
 
         {transferTargets && (
           <div className="space-y-1 p-2">
@@ -282,6 +291,7 @@ export function ReactorPanel({
           </div>
         )}
 
+        {hasWarpdrive && (
         <div className="space-y-2 p-2">
           <div className="flex items-center gap-1">
             <img
@@ -354,8 +364,9 @@ export function ReactorPanel({
             />
           </label>
         </div>
+        )}
 
-        {!inSystem && (
+        {hasWarpdrive && !inSystem && (
           <div className="flex items-center justify-between gap-2 p-2">
             <span className="font-mono text-swu-primary">
               Hyperantrieb {warpdrive}/{warpdriveMax}
@@ -370,6 +381,7 @@ export function ReactorPanel({
           </div>
         )}
 
+        {batteryMax > 0 && (
         <div className="flex flex-wrap items-center gap-2 p-2">
           <img
             src="/assets/buttons/batt.png"
@@ -391,6 +403,7 @@ export function ReactorPanel({
             }
           />
         </div>
+        )}
       </div>
       {error && (
         <p role="alert" className="mt-2 text-[11px] text-red-300">

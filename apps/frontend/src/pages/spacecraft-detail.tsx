@@ -337,6 +337,8 @@ export function SpacecraftDetailPage() {
               canTransferReactorCharge={
                 ship.runtimeSystems?.REACTOR_CHARGE_TRANSFER?.active === true
               }
+              hasReactor={ship.runtimeSystems?.REACTOR != null}
+              hasWarpdrive={ship.runtimeSystems?.WARPDRIVE != null}
               onUpdate={refreshShipAndStorage}
             />
           </div>

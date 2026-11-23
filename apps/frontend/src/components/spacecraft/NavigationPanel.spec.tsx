@@ -45,7 +45,11 @@ const ship = {
   energy: 20,
   energyMax: 30,
   location: { scope: 'GALAXY' as const, layerId: 1, x: 5, y: 5 },
-  runtimeSystems: { LONG_RANGE_SENSORS: { active: true } },
+  runtimeSystems: {
+    LONG_RANGE_SENSORS: { active: true },
+    WARPDRIVE: { active: true },
+    SUBLIGHT_DRIVE: { active: false },
+  },
 };
 
 describe('NavigationPanel', () => {
@@ -315,7 +319,7 @@ describe('NavigationPanel', () => {
       <NavigationPanel
         ship={{
           ...ship,
-          runtimeSystems: { LONG_RANGE_SENSORS: { active: false } },
+          runtimeSystems: { ...ship.runtimeSystems, LONG_RANGE_SENSORS: { active: false } },
         }}
         onShipUpdate={vi.fn()}
       />,
@@ -351,7 +355,7 @@ describe('NavigationPanel', () => {
         ship={{
           ...ship,
           location: { scope: 'SYSTEM', systemId: 8, x: 20, y: 30 },
-          runtimeSystems: { LONG_RANGE_SENSORS: { active: false } },
+          runtimeSystems: { ...ship.runtimeSystems, LONG_RANGE_SENSORS: { active: false } },
         }}
         onShipUpdate={vi.fn()}
       />,
@@ -400,5 +404,17 @@ describe('NavigationPanel', () => {
     ).toBeTruthy();
     expect(screen.getByText('Sensoren offline')).toBeTruthy();
     unmount();
+  });
+
+  it('hides the LSS toggle without long range sensors and movement without a drive like STU', () => {
+    render(
+      <NavigationPanel
+        ship={{ ...ship, runtimeSystems: {} }}
+        onShipUpdate={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /Langstreckensensoren aktivieren/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Blindflug nach/ })).toBeNull();
+    expect(screen.getByText('Navigation')).toBeTruthy();
   });
 });

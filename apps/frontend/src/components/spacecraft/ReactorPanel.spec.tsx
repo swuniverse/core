@@ -213,4 +213,20 @@ describe('ReactorPanel', () => {
       ).disabled,
     ).toBe(false);
   });
+
+  it('shows only the STU blocks the ship has: reactor, warp drive, battery', () => {
+    const { unmount } = render(
+      <ReactorPanel {...props} hasWarpdrive={false} batteryMax={0} />,
+    );
+    expect(document.querySelector('[src="/assets/buttons/fusrkt.png"]')).toBeTruthy();
+    expect(document.querySelector('[src="/assets/buttons/battp2.png"]')).toBeNull();
+    expect(screen.queryByText(/^Hyperantrieb \d/)).toBeNull();
+    expect(screen.queryByText(/Ersatzbatterie/)).toBeNull();
+    unmount();
+
+    const { container } = render(
+      <ReactorPanel {...props} hasReactor={false} hasWarpdrive={false} batteryMax={0} />,
+    );
+    expect(container.innerHTML).toBe('');
+  });
 });

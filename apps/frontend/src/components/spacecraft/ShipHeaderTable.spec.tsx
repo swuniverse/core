@@ -71,7 +71,11 @@ describe('ShipHeaderTable', () => {
         alertState="GREEN"
         onNavigation={vi.fn()}
         onSensors={vi.fn()}
-        systems={{ SHIELDS: { active: true, integrity: 100 } }}
+        systems={{
+          SHIELDS: { active: true, integrity: 100 },
+          WARPDRIVE: { active: false, integrity: 100 },
+          COMPUTER: { active: true, integrity: 100 },
+        }}
       />,
     );
 
@@ -465,5 +469,30 @@ describe('ShipHeaderTable', () => {
       'Name bereits vergeben',
     );
     expect((input as HTMLInputElement).value).toBe('Besetzt');
+  });
+
+  it('shows header entries only for installed systems like STU', () => {
+    render(
+      <ShipHeaderTable
+        ship={{ ...ship, batteryMax: 0 }}
+        onUpdate={vi.fn()}
+        onSelfDestruct={vi.fn()}
+        onInfo={vi.fn()}
+        onEnergy={vi.fn()}
+        standby={false}
+        alertState="GREEN"
+        onNavigation={vi.fn()}
+        onSensors={vi.fn()}
+        systems={{
+          SHIELDS: { active: true, integrity: 100 },
+          CLOAK: { active: false, integrity: 100 },
+        }}
+      />,
+    );
+    expect(screen.queryAllByText('Hyperantrieb')).toHaveLength(0);
+    expect(screen.queryAllByText('Batterie')).toHaveLength(0);
+    expect(screen.queryByRole('button', { name: 'Alarmstufe ändern' })).toBeNull();
+    expect(screen.queryAllByRole('button', { name: 'Sensoren' })).toHaveLength(0);
+    expect(screen.getAllByTitle('Tarnung: 100%').length).toBeGreaterThan(0);
   });
 });

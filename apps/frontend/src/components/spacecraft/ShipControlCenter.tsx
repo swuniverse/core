@@ -45,6 +45,20 @@ export const SYSTEM_ASSETS: Record<string, string> = {
   BEAM_BLOCKER: '22.png',
   SUBSPACE_SCANNER: '18.png',
   TACHYON_SCANNER: '12.png',
+  // STU system icon numbers (SpacecraftSystemTypeEnum values).
+  DEFLECTOR: '16.png',
+  MATRIX_SCANNER: '19.png',
+  UPLINK: '24.png',
+  ASTROMETRY_LAB: '17.png',
+  CLOAK: '7.png',
+  TRACTOR_BEAM: '14.png',
+  REACTOR_CHARGE_TRANSFER: '34.png',
+  HYPERDRIVE_BOOSTER: '33.png',
+  HYPERSPACE_COIL: '26.png',
+  TRACKER: '27.png',
+  RESOURCE_COLLECTOR: '31.png',
+  RESOURCE_CONVERTER: '32.png',
+  SHUTTLE_RAMP: '21.png',
 };
 
 export function ShipControlCenter({

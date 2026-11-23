@@ -14,6 +14,8 @@ interface ShipQuickActionsProps {
   standby: boolean;
   onNavigation: () => void;
   onSensors: () => void;
+  /** STU `hasLss`: the LSS filter needs long range sensors. */
+  sensorsAvailable?: boolean;
 }
 
 type QuickAction = {
@@ -52,6 +54,7 @@ export function ShipQuickActions({
   standby,
   onNavigation,
   onSensors,
+  sensorsAvailable = true,
 }: ShipQuickActionsProps) {
   const [dialog, setDialog] = useState<'communication' | 'repair' | null>(null);
 
@@ -87,7 +90,7 @@ export function ShipQuickActions({
       >
         <LastCombatReportButton shipId={shipId} available={hasLastCombatReport} />
         <SignatureMaskButton shipId={shipId} available={signatureMaskingAvailable} onRefresh={onRefresh} />
-        {ACTIONS.map((action, index) => (
+        {ACTIONS.filter((action) => action.action !== 'sensors' || sensorsAvailable).map((action, index) => (
           <button
             key={`${action.action ?? action.target ?? action.label}-${index}`}
             type="button"

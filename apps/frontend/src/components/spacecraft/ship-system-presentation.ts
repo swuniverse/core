@@ -135,6 +135,17 @@ export const SHIP_SYSTEMS: ShipSystemPresentation[] = [
     'border-sky-400/60 bg-sky-500/10 text-sky-100',
   ),
   system('UPLINK', 'Kooperationsuplink', 'Fremde Crew an Sensorphalanx-Stationen · 5 EPS pro Tick', '⌁', 'border-sky-400/60 bg-sky-500/10 text-sky-100'),
+  // STU shows every installed system in the header (`getSystems`).
+  system('ASTROMETRY_LAB', 'Astrometrie-Labor', 'Kartographie von Systemen und Regionen', '✦', 'border-violet-400/60 bg-violet-500/10 text-violet-100'),
+  system('CLOAK', 'Tarnung', 'Tarnfeld-Generator', '◌', 'border-slate-300/60 bg-slate-500/10 text-slate-100'),
+  system('TRACTOR_BEAM', 'Traktorstrahl', 'Erfasst und schleppt Schiffe', '⊸', 'border-sky-400/60 bg-sky-500/10 text-sky-100'),
+  system('REACTOR_CHARGE_TRANSFER', 'Reaktorladungstransfer', 'Überträgt Reaktorladung an andere Schiffe', '⇄', 'border-orange-400/60 bg-orange-500/10 text-orange-100'),
+  system('HYPERDRIVE_BOOSTER', 'Hyperantriebs-Notladegerät', 'Lädt den Hyperantrieb kurzfristig nach', '⋇', 'border-blue-400/60 bg-blue-500/10 text-blue-100'),
+  system('HYPERSPACE_COIL', 'Hyperraum-Spule', 'Navicomputer-Sprung', '⋇', 'border-blue-400/60 bg-blue-500/10 text-blue-100'),
+  system('TRACKER', 'Peilsender', 'Verfolgt ein markiertes Schiff', '◎', 'border-amber-400/60 bg-amber-500/10 text-amber-100'),
+  system('RESOURCE_COLLECTOR', 'Ressourcen-Kollektor', 'Sammelt Ressourcen im Feld', '⛏', 'border-lime-400/60 bg-lime-500/10 text-lime-100'),
+  system('RESOURCE_CONVERTER', 'Molekular-Raffinerie', 'Wandelt Ressourcen um', '⚗', 'border-lime-400/60 bg-lime-500/10 text-lime-100'),
+  system('SHUTTLE_RAMP', 'Shuttlerampe', 'Start und Landung von Shuttles', '▭', 'border-slate-300/60 bg-slate-500/10 text-slate-100'),
 ];
 
 export const SHIP_SYSTEM_PRESENTATION = new Map(

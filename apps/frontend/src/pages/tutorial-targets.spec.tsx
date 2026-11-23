@@ -48,6 +48,7 @@ const ship = {
   battery: 5, batteryMax: 10, warpSpeed: 2, crew: 4,
   crewRequired: 2, crewMax: 8, cargoUsed: 0, cargoMax: 20, reactorWarpSplit: 30,
   reactorAutoCarryOver: false, runtimeSystems: {
+    COMPUTER: { active: true, cooldown: 0, integrity: 100 },
     SHIELDS: { active: true, cooldown: 0, integrity: 100 },
     SHORT_RANGE_SENSORS: { active: true, cooldown: 0, integrity: 100 },
     LONG_RANGE_SENSORS: { active: true, cooldown: 0, integrity: 100 },

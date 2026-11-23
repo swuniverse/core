@@ -565,6 +565,8 @@ export function NearbySensorPanel({
     </tr>
   );
 
+  // STU spacecraft.twig shows the NBS block only with near field sensors (`hasNbs`).
+  if (systems && !systems.SHORT_RANGE_SENSORS) return null;
   return (
     <section
       className="mt-2 border border-swu-border bg-swu-surface text-xs"

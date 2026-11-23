@@ -754,5 +754,11 @@ describe('NearbySensorPanel', () => {
     await screen.findByText('Rotte');
     expect(screen.queryByTitle('Flotte Rotte andocken')).toBeNull();
   });
-});
 
+  it('shows no near field sensor block without near field sensors like STU', () => {
+    const { container } = render(
+      <NearbySensorPanel shipId={2} locationKey="galaxy:1:5:5" systems={{ TRACKER: { active: false } }} onUpdate={vi.fn()} />,
+    );
+    expect(container.innerHTML).toBe('');
+  });
+});
