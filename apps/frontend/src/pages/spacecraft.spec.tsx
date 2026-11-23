@@ -104,7 +104,7 @@ describe('SpacecraftPage', () => {
     expect(screen.queryAllByText('Falke')).toHaveLength(0);
     apiMocks.get.mockResolvedValue([ship]);
     await act(async () => { handlers.get(WsEventType.SPACECRAFT_VISIBILITY_CHANGED)?.({ type: 'STATE', shipId: ship.id }); });
-    expect(await screen.findAllByText('Falke')).toHaveLength(2);
+    expect(await screen.findAllByText('Falke')).toHaveLength(1);
   });
   it('lists own buoys with their position below the ship list', async () => {
     apiMocks.get.mockReset();
@@ -267,7 +267,7 @@ describe('SpacecraftPage', () => {
     expect(screen.getByText('4|7 (11|12)')).toBeTruthy();
   });
 
-  it('groups fleets and singles and creates a fleet from a single ship', async () => {
+  it('groups fleets and singles and manages fleets from the last cell like STU', async () => {
     apiMocks.get.mockResolvedValue([
       {
         ...ship,
@@ -309,20 +309,23 @@ describe('SpacecraftPage', () => {
     expect(screen.getByLabelText('Flottenführer Adler')).toBeTruthy();
     expect(screen.getByText('2 Schiffe')).toBeTruthy();
 
-    fireEvent.change(screen.getByLabelText('Flottenname'), {
-      target: { value: 'Gold-Staffel' },
-    });
-    fireEvent.change(screen.getByLabelText('Flottenführer'), {
-      target: { value: '7' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Flotte anlegen' }));
+    expect(screen.queryByLabelText('Flottenname')).toBeNull();
 
+    // STU shiplist: the last cell creates, leaves or dissolves a fleet.
+    fireEvent.click(screen.getByRole('button', { name: 'Flotte erstellen: Solo' }));
     await waitFor(() =>
       expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/fleets/create', {
-        name: 'Gold-Staffel',
+        name: 'Flotte',
         leaderId: 7,
       }),
     );
+    fireEvent.click(await screen.findByRole('button', { name: 'Flotte verlassen: Falke' }));
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/leave-fleet', {}),
+    );
+    apiMocks.delete.mockResolvedValue({});
+    fireEvent.click(await screen.findByRole('button', { name: 'Flotte auflösen: Adler' }));
+    await waitFor(() => expect(apiMocks.delete).toHaveBeenCalledWith('/spacecraft/fleets/4'));
     expect(apiMocks.get).toHaveBeenCalledWith('/spacecraft');
   });
 

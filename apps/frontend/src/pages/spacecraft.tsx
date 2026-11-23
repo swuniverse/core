@@ -1,6 +1,6 @@
 import { WsEventType, type SpacecraftVisibilityPayload } from '@swuniverse/shared';
 import { useSocket } from '../hooks/use-socket';
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   SpacecraftListDto,
   SpacecraftOwnBuoyDto,
@@ -40,8 +40,6 @@ export function SpacecraftPage() {
   const [loading, setLoading] = useState(true);
   const [fleetActionPending, setFleetActionPending] = useState(false);
   const [fleetActionError, setFleetActionError] = useState<string | null>(null);
-  const [fleetName, setFleetName] = useState('');
-  const [leaderId, setLeaderId] = useState('');
   const [fleetAlertFailures, setFleetAlertFailures] = useState<Record<number, string[]>>({});
   const [buoys, setBuoys] = useState<SpacecraftOwnBuoyDto[]>([]);
 
@@ -94,16 +92,25 @@ export function SpacecraftPage() {
   const mobileShips = ships.filter((ship) => ship.kind !== 'STATION');
   const singles = mobileShips.filter((ship) => ship.fleetId == null);
 
-  async function createFleet(event: FormEvent) {
-    event.preventDefault();
-    if (!fleetName.trim() || !leaderId) return;
-    await api.post('/spacecraft/fleets/create', {
-      name: fleetName.trim(),
-      leaderId: Number(leaderId),
-    });
-    setFleetName('');
-    setLeaderId('');
-    await loadShips();
+  // STU shiplist: the last cell creates, leaves or dissolves a fleet.
+  async function changeFleet(ship: SpacecraftListDto) {
+    if (fleetActionPending) return;
+    setFleetActionPending(true);
+    setFleetActionError(null);
+    try {
+      if (ship.fleetId == null) {
+        await api.post('/spacecraft/fleets/create', { name: 'Flotte', leaderId: ship.id });
+      } else if (ship.fleetLeaderId === ship.id) {
+        await api.delete(`/spacecraft/fleets/${ship.fleetId}`);
+      } else {
+        await api.post(`/spacecraft/${ship.id}/leave-fleet`, {});
+      }
+      await loadShips();
+    } catch (error) {
+      setFleetActionError(error instanceof Error ? error.message : 'Flottenaktion fehlgeschlagen');
+    } finally {
+      setFleetActionPending(false);
+    }
   }
 
   async function renameFleet(id: number, currentName: string) {
@@ -196,7 +203,8 @@ export function SpacecraftPage() {
             </>
           )}
           message={fleetAlertFailures[fleet.id]?.join('\n')}
-          onOpen={(id) => navigate(`/spacecraft/${id}`)}
+          onFleet={(ship) => void changeFleet(ship)}
+onOpen={(id) => navigate(`/spacecraft/${id}`)}
         />
       ))}
       <StationTable stations={stations} onOpen={(id) => navigate(`/spacecraft/${id}`)} />
@@ -204,17 +212,10 @@ export function SpacecraftPage() {
         title="Einzelschiffe"
         ships={singles}
         emptyLabel={ships.length === 0 ? 'Du besitzt derzeit keine Schiffe' : 'Alle Schiffe sind einer Flotte zugeordnet'}
-        onOpen={(id) => navigate(`/spacecraft/${id}`)}
+        onFleet={(ship) => void changeFleet(ship)}
+onOpen={(id) => navigate(`/spacecraft/${id}`)}
       />
       <BuoyTable buoys={buoys} />
-      <form onSubmit={createFleet} className="border border-swu-border bg-swu-surface/70 text-xs">
-        <h2 className="border-b border-swu-border bg-black/30 px-3 py-2 font-bold text-swu-primary">Neue Flotte</h2>
-        <div className="flex flex-wrap items-end gap-3 p-3">
-          <label className="grid gap-1">Flottenname<input aria-label="Flottenname" value={fleetName} onChange={(event) => setFleetName(event.target.value)} className="border border-swu-border bg-black/30 px-2 py-1" required /></label>
-          <label className="grid gap-1">Flottenführer<select aria-label="Flottenführer" value={leaderId} onChange={(event) => setLeaderId(event.target.value)} className="border border-swu-border bg-black/30 px-2 py-1" required><option value="">Schiff auswählen</option>{singles.map((ship) => <option key={ship.id} value={ship.id}>{ship.name}</option>)}</select></label>
-          <button type="submit" disabled={singles.length === 0} className="border border-swu-primary px-3 py-1 text-swu-primary disabled:cursor-not-allowed disabled:opacity-40">Flotte anlegen</button>
-        </div>
-      </form>
     </div>
   );
 }
@@ -280,6 +281,7 @@ function ShipTable({
   emptyLabel,
   collapsed = false,
   onOpen,
+  onFleet,
 }: {
   title: string;
   ships: SpacecraftListDto[];
@@ -289,6 +291,7 @@ function ShipTable({
   emptyLabel?: string;
   collapsed?: boolean;
   onOpen: (id: number) => void;
+  onFleet: (ship: SpacecraftListDto) => void;
 }) {
   return (
     <section className="overflow-x-auto border border-swu-border bg-swu-surface/70">
@@ -324,6 +327,7 @@ function ShipTable({
                 'Crew',
                 'Systeme',
                 'Status',
+                'Flotte',
               ].map((heading) => (
                 <th key={heading} className={cell}>
                   {heading}
@@ -335,7 +339,7 @@ function ShipTable({
             {ships.length === 0 ? (
               <tr>
                 <td
-                  colSpan={14}
+                  colSpan={15}
                   className={`${cell} py-4 text-center text-swu-muted`}
                 >
                   {emptyLabel}
@@ -348,6 +352,7 @@ function ShipTable({
                   ship={ship}
                   leader={ship.id === leaderId}
                   onOpen={() => onOpen(ship.id)}
+                  onFleet={() => onFleet(ship)}
                 />
               ))
             )}
@@ -358,7 +363,7 @@ function ShipTable({
   );
 }
 
-function ShipRow({ ship, leader = false, onOpen }: { ship: SpacecraftListDto; leader?: boolean; onOpen: () => void }) {
+function ShipRow({ ship, leader = false, onOpen, onFleet }: { ship: SpacecraftListDto; leader?: boolean; onOpen: () => void; onFleet: () => void }) {
   const alert = ALERT_PRESENTATION[ship.alertState];
   const location = ship.location.scope === 'SYSTEM'
     ? `${ship.location.galaxyX ?? 0}|${ship.location.galaxyY ?? 0} (${ship.location.x}|${ship.location.y})`
@@ -389,7 +394,33 @@ function ShipRow({ ship, leader = false, onOpen }: { ship: SpacecraftListDto; le
       <td className={`${numberCell} ${crewOk ? 'text-green-500' : 'text-red-500'}`} aria-label={crewLabel}>{ship.crew}/{ship.crewRequired}/{ship.crewMax}</td>
       <td className={`${cell} whitespace-nowrap text-center`}>{SYSTEMS.map(([key, short, label]) => <SystemIcon key={key} label={label} short={short} system={ship.systems[key]} />)}{ship.systems.CLOAK?.present && <CloakIcon system={ship.systems.CLOAK} />}</td>
       <td className={`${cell} text-center`}>{ship.specialStatus && <span role="img" title={STATUS[ship.specialStatus]} aria-label={STATUS[ship.specialStatus]} className="inline-block size-3 border border-swu-accent bg-swu-accent/30" />}</td>
+      <td className={`${cell} text-center`}><FleetButton ship={ship} onClick={onFleet} /></td>
     </tr>
+  );
+}
+
+const FLEET_BUTTONS = {
+  create: { label: 'Flotte erstellen', icon: 'fl_flag1.png' },
+  leave: { label: 'Flotte verlassen', icon: 'fl_raus1.png' },
+  dissolve: { label: 'Flotte auflösen', icon: 'fl_flag2.png' },
+};
+
+function FleetButton({ ship, onClick }: { ship: SpacecraftListDto; onClick: () => void }) {
+  const { label, icon } = FLEET_BUTTONS[
+    ship.fleetId == null ? 'create' : ship.fleetLeaderId === ship.id ? 'dissolve' : 'leave'
+  ];
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={`${label}: ${ship.name}`}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+    >
+      <img src={`/assets/buttons/${icon}`} alt="" aria-hidden="true" className="inline-block size-5" />
+    </button>
   );
 }
 

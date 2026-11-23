@@ -259,104 +259,7 @@ describe('ShipHeaderTable', () => {
     expect(onUpdate).toHaveBeenCalled();
   });
 
-  it('lets a fleet member leave without leader actions', () => {
-    render(
-      <ShipHeaderTable
-        ship={{ ...ship, fleetId: 7, fleetName: 'Aurek', fleetLeaderId: 3, fleetIsFixed: false, fleetMembers: [] }}
-        onUpdate={vi.fn()}
-        onSelfDestruct={vi.fn()}
-        onInfo={vi.fn()}
-        onEnergy={vi.fn()}
-        standby={false}
-        alertState="GREEN"
-        onNavigation={vi.fn()}
-        onSensors={vi.fn()}
-      />,
-    );
-
-    expect(screen.getAllByRole('button', { name: 'Flotte verlassen' }).length).toBeGreaterThan(0);
-    expect(screen.queryByRole('button', { name: 'Flotte auflösen' })).toBeNull();
-  });
-
-  it('manages a fleet from the ship header', async () => {
-    const onUpdate = vi.fn();
-    render(
-      <ShipHeaderTable
-        ship={{
-          ...ship,
-          fleetId: 7,
-          fleetName: 'Aurek',
-          fleetLeaderId: 2,
-          fleetIsFixed: false,
-          fleetMembers: [
-            { id: 2, name: 'Falke' },
-            { id: 3, name: 'Möwe' },
-          ],
-        }}
-        onUpdate={onUpdate}
-        onSelfDestruct={vi.fn()}
-        onInfo={vi.fn()}
-        onEnergy={vi.fn()}
-        standby={false}
-        alertState="GREEN"
-        onNavigation={vi.fn()}
-        onSensors={vi.fn()}
-      />,
-    );
-
-    expect(screen.getAllByText('Aurek (Flottenführer)').length).toBeGreaterThan(
-      0,
-    );
-    // STU: the leader dissolves or hands over instead of leaving.
-    expect(screen.queryByRole('button', { name: 'Flotte verlassen' })).toBeNull();
-    expect(screen.getAllByRole('button', { name: 'Flotte auflösen' }).length).toBeGreaterThan(0);
-    fireEvent.click(
-      screen.getAllByRole('button', { name: 'Flotte fixieren' })[0],
-    );
-    await waitFor(() =>
-      expect(apiMocks.patch).toHaveBeenCalledWith(
-        '/spacecraft/fleets/7/fixation',
-        {},
-      ),
-    );
-    fireEvent.click(
-      screen.getAllByRole('button', { name: 'Flotte umbenennen' })[0],
-    );
-    fireEvent.change(screen.getByLabelText('Flottenname'), {
-      target: { value: 'Besh' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
-    await waitFor(() =>
-      expect(apiMocks.patch).toHaveBeenCalledWith('/spacecraft/fleets/7', {
-        name: 'Besh',
-      }),
-    );
-
-    fireEvent.click(
-      screen.getAllByRole('button', { name: 'Leader wechseln' })[0],
-    );
-    fireEvent.change(screen.getByLabelText('Neuer Flottenführer'), {
-      target: { value: '3' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Übergeben' }));
-    await waitFor(() =>
-      expect(apiMocks.patch).toHaveBeenCalledWith(
-        '/spacecraft/fleets/7/leader',
-        {
-          leaderId: 3,
-        },
-      ),
-    );
-
-    fireEvent.click(
-      screen.getAllByRole('button', { name: 'Flotte auflösen' })[0],
-    );
-    await waitFor(() =>
-      expect(apiMocks.delete).toHaveBeenCalledWith('/spacecraft/fleets/7'),
-    );
-  });
-
-  it('creates a fleet for a fleetless ship', async () => {
+  it('has no fleet controls; STU keeps them on the ship list', () => {
     render(
       <ShipHeaderTable
         ship={ship}
@@ -370,19 +273,8 @@ describe('ShipHeaderTable', () => {
         onSensors={vi.fn()}
       />,
     );
-    fireEvent.click(
-      screen.getAllByRole('button', { name: 'Flotte erstellen' })[0],
-    );
-    fireEvent.change(screen.getByLabelText('Flottenname'), {
-      target: { value: 'Aurek' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Erstellen' }));
-    await waitFor(() =>
-      expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/fleets/create', {
-        name: 'Aurek',
-        leaderId: 2,
-      }),
-    );
+    expect(screen.queryByText('Keine Flotte')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Flotte erstellen' })).toBeNull();
   });
 
   it('uses STU unknown-capacity notation for the Icarus', () => {
