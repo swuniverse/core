@@ -51,3 +51,12 @@ Commit: `fix(spacecraft): tow tractored ship on galaxy flight (stu-parity sc-WP-
 - Fix: Vorbereitung (Ziel laden, Abriss bei EPS-Mangel, Flugkosten inkl. Ziel) in `prepareTowing` ausgelagert und in `navigate` und `flyGalaxy` genutzt; `flyGalaxy` setzt das gezogene Schiff bei jedem Feld mit und beendet dessen Orbitbefehl wie `navigate`.
 - Test: neuer Unit-Test in `spacecraft-movement-resources.spec.ts`, ohne Fix rot, mit Fix grün (20/20). Jest `spacecraft`, `combat`, `alert-reaction` 928/928; PostgreSQL Traktor, Bewegung, Navicomputer, Wurmloch, Anomalie 128/128; `nx typecheck backend` ✓.
 - Offen, nicht geprüft: (1) `prepareTowing` lädt das Ziel mit `findOne(id, userId)` – fremde gezogene Schiffe (sc-WP-TRACT-1b) würden den Flug mit „nicht gefunden“ abbrechen; (2) Systemein- und -austritt (`enterSystem`, `leaveSystem`) nehmen das gezogene Schiff nicht mit (keine Referenz auf `tractoredShip`); STU nutzt dafür den normalen Flugweg (`EnterStarSystem`/`LeaveStarSystem` → `getFlightRoute`) und schleppt mit. Die Wurmlochpassage nimmt es mit (`wormhole-passage.service.ts` Z. 110–113).
+
+### 2026-11-23 — Nachtrag: Lücken beim Mitschleppen geschlossen
+
+Commit: `fix(spacecraft): tow foreign ships and on system enter/leave (stu-parity sc-WP-TRACT-1d)`
+
+- Fremde gezogene Schiffe: Das Ziel wird über `loadShip({ id })` ohne Besitzerfilter geladen (`findOne` nutzt dieselbe Methode mit `userId`). Vorher brach der Flug mit „nicht gefunden“ ab.
+- Systemein- und -austritt (`enterSystem`, `leaveSystem`) nehmen das gezogene Schiff mit (gemeinsamer Lader `loadTowedShip`, auch von `prepareTowing` genutzt). Beide Wege kosten in SWU kein EPS, daher auch kein Zusatz für das Ziel; das ist eine bestehende SWU-Abweichung von STU, nicht Teil dieses Tickets.
+- Tests: drei neue Unit-Tests (fremdes Ziel im Galaxie-Flug, Systemeintritt, Systemaustritt) in `spacecraft-movement-resources.spec.ts`; der Test-Spy fängt jetzt `loadShip` statt `findOne` ab. 23/23. Jest `spacecraft`, `combat`, `alert-reaction`, `colony` 1373/1373; PostgreSQL Traktor, Bewegung, Navicomputer, Wurmloch (2), Anomalie, Orbitbefehl 185/185; `nx typecheck backend` ✓.
+- Gegenprobe ohne Service-Änderung nicht aussagekräftig (der Spy braucht `loadShip`, alle 23 Tests scheitern).

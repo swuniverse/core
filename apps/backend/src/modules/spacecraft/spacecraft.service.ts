@@ -465,8 +465,13 @@ export class SpacecraftService {
   }
 
   async findOne(shipId: number, userId: number): Promise<Spacecraft> {
+    return this.loadShip({ id: shipId, userId });
+  }
+
+  /** Detail load without an owner filter, e.g. for a towed foreign ship. */
+  private async loadShip(where: { id: number; userId?: number }): Promise<Spacecraft> {
     const ship = await this.shipRepo.findOne({
-      where: { id: shipId, userId },
+      where,
       relations: [
         'modules',
         'fleet',
@@ -2311,7 +2316,6 @@ export class SpacecraftService {
     );
     const { tractoredShip, flightCost } = await this.prepareTowing(
       ship,
-      userId,
       shipClass,
       originals,
     );
@@ -2493,21 +2497,27 @@ export class SpacecraftService {
   }
 
   // Galaxy-map flight: ship-class EPS per entered field
+  /** The towed ship of a flight; it may belong to another player (sc-WP-TRACT-1b). */
+  private async loadTowedShip(
+    ship: Spacecraft,
+    originals: Map<Spacecraft, ReturnType<typeof captureMovementState>>,
+  ): Promise<Spacecraft[]> {
+    if (!ship.tractoredShipId) return [];
+    const towed = await this.loadShip({ id: ship.tractoredShipId });
+    originals.set(towed, captureMovementState(towed));
+    return [towed];
+  }
+
   /**
    * STU `TractorConsequence`: the towed ship follows the puller, which pays
    * both flight costs; the beam breaks before departure if it cannot.
    */
   private async prepareTowing(
     ship: Spacecraft,
-    userId: number,
     shipClass: { flightEnergyCost: number },
     originals: Map<Spacecraft, ReturnType<typeof captureMovementState>>,
   ) {
-    const tractoredShip = ship.tractoredShipId
-      ? await this.findOne(ship.tractoredShipId, userId)
-      : null;
-    if (tractoredShip)
-      originals.set(tractoredShip, captureMovementState(tractoredShip));
+    const [tractoredShip = null] = await this.loadTowedShip(ship, originals);
     const tractoredShipClass = tractoredShip
       ? await this.shipClassService.findById(tractoredShip.shipClassId)
       : null;
@@ -2583,7 +2593,6 @@ export class SpacecraftService {
     );
     const { tractoredShip, flightCost } = await this.prepareTowing(
       ship,
-      userId,
       shipClass,
       originals,
     );
@@ -3048,12 +3057,15 @@ export class SpacecraftService {
       },
       originals,
     );
+    // STU enters a system on a normal flight route, so the beam tows along.
+    const carried = await this.loadTowedShip(ship, originals);
     const previousLocation = ship.location;
     const destination = await this.findLocationBySystemField(entryField.id);
     const origins = new Map(
       fleetMembers.map((member) => [member, member.location]),
     );
     await this.setCurrentLocation(ship, destination);
+    for (const target of carried) await this.setCurrentLocation(target, destination);
     for (const member of fleetMembers) {
       await this.setCurrentLocation(member, destination);
       member.status = SpacecraftStatus.IDLE;
@@ -3071,7 +3083,9 @@ export class SpacecraftService {
       ship,
       [ship, ...fleetMembers],
       originals,
+      carried,
     );
+    for (const target of carried) await this.cancelTowedOrbitOrder(target);
     for (const member of fleetMembers) {
       await this.flightSignatureService.createMovement(
         member,
@@ -3203,6 +3217,8 @@ export class SpacecraftService {
       },
       originals,
     );
+    // STU leaves a system on a normal flight route, so the beam tows along.
+    const carried = await this.loadTowedShip(ship, originals);
     const previousLocation = ship.location;
     const destination = galaxyField
       ? await this.findLocationByGalaxyField(galaxyField.id)
@@ -3211,6 +3227,7 @@ export class SpacecraftService {
       fleetMembers.map((member) => [member, member.location]),
     );
     await this.setCurrentLocation(ship, destination);
+    for (const target of carried) await this.setCurrentLocation(target, destination);
     for (const member of fleetMembers) {
       await this.setCurrentLocation(member, destination);
       member.status = SpacecraftStatus.IDLE;
@@ -3221,7 +3238,9 @@ export class SpacecraftService {
       ship,
       [ship, ...fleetMembers],
       originals,
+      carried,
     );
+    for (const target of carried) await this.cancelTowedOrbitOrder(target);
     for (const member of fleetMembers) {
       await this.flightSignatureService.createMovement(
         member,

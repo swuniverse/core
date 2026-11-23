@@ -275,10 +275,13 @@ function createService() {
     >[42],
   );
 
-  const findOne = service.findOne.bind(service);
-  jest.spyOn(service, 'findOne').mockImplementation(async (id, userId) => {
-    const ship = await findOne(id, userId);
-    persisted.set(id, structuredClone(ship));
+  // findOne and the towed-ship load both go through loadShip.
+  type Loader = { loadShip(where: { id: number; userId?: number }): Promise<Spacecraft> };
+  const loader = service as unknown as Loader;
+  const loadShip = loader.loadShip.bind(service);
+  jest.spyOn(loader, 'loadShip').mockImplementation(async (where) => {
+    const ship = await loadShip(where);
+    persisted.set(where.id, structuredClone(ship));
     return ship;
   });
 
@@ -774,6 +777,104 @@ describe('SpacecraftService movement resources', () => {
     expect(ship.energy).toBe(8);
     expect(target.locationId).toBe(92);
     expect(shipRepo.save).toHaveBeenCalledWith(target);
+  });
+
+  describe('towing on other flight routes', () => {
+    const towed = <L extends { locationId: number }>(userId: number, location: L) => ({
+      id: 8,
+      userId,
+      name: 'Hammer 1',
+      shipClassId: 2,
+      status: SpacecraftStatus.IDLE,
+      ...location,
+      modules: [],
+    });
+    const lookup =
+      (ship: { id: number }, target: { id: number }) =>
+      async ({ where }: { where: Record<string, unknown> }) => {
+        if ('tractoredShipId' in where) return null;
+        if (where.id === target.id) return target;
+        return where.id === ship.id && (where.userId === undefined || where.userId === 1) ? ship : null;
+      };
+
+    it('tows a foreign ship on galaxy flight', async () => {
+      const { service, shipRepo, galaxyFieldRepo } = createService();
+      const ship = {
+        id: 7,
+        userId: 1,
+        shipClassId: 1,
+        status: SpacecraftStatus.IDLE,
+        energy: 10,
+        tractoredShipId: 8,
+        ...galaxyLocation(),
+        runtimeSystems: { WARPDRIVE: { active: true, cooldown: 0, integrity: 100 } },
+        modules: [],
+      };
+      const target = towed(2, galaxyLocation());
+      shipRepo.findOne.mockImplementation(lookup(ship, target));
+      galaxyFieldRepo.findOne.mockResolvedValue({ id: 41, isPassable: true });
+
+      await service.flyGalaxy(ship.id, ship.userId, 2, 1);
+
+      expect(target.locationId).toBe(91);
+      expect(shipRepo.save).toHaveBeenCalledWith(target);
+    });
+
+    it('tows the held ship into a star system', async () => {
+      const { service, shipRepo, galaxyFieldRepo, systemRepo, systemFieldRepo } =
+        createService();
+      const ship = {
+        id: 7,
+        userId: 1,
+        shipClassId: 1,
+        status: SpacecraftStatus.IDLE,
+        energy: 10,
+        tractoredShipId: 8,
+        lastGalaxyFlightDirection: 'TOP',
+        ...galaxyLocation(),
+        modules: [],
+      };
+      const target = towed(1, galaxyLocation());
+      shipRepo.findOne.mockImplementation(lookup(ship, target));
+      galaxyFieldRepo.findOne.mockResolvedValue({ id: 30, starSystemId: 3 });
+      systemRepo.findOne.mockResolvedValue({ id: 3, maxX: 10, maxY: 10 });
+      (systemFieldRepo as unknown as { find: jest.Mock }).find = jest.fn(async () => [
+        { id: 31, sx: 5, sy: 10, isPassable: true },
+      ]);
+
+      await service.enterSystem(ship.id, ship.userId);
+
+      expect(target.locationId).toBe(91);
+      expect(shipRepo.save).toHaveBeenCalledWith(target);
+    });
+
+    it('tows the held ship out of a star system', async () => {
+      const { service, shipRepo, galaxyFieldRepo, systemRepo, runtimeState } =
+        createService();
+      const ship = {
+        id: 7,
+        userId: 1,
+        shipClassId: 1,
+        status: SpacecraftStatus.IDLE,
+        energy: 10,
+        tractoredShipId: 8,
+        ...systemLocation(3, 5, 5),
+        runtimeSystems: { WARPDRIVE: { active: false, cooldown: 0, integrity: 100 } },
+        modules: [],
+      };
+      const target = towed(1, systemLocation(3, 5, 5));
+      runtimeState.initialize.mockImplementation(
+        (value: { runtimeSystems?: object }) => value.runtimeSystems ?? {},
+      );
+      shipRepo.findOne.mockImplementation(lookup(ship, target));
+      systemRepo.findOne.mockResolvedValue({ id: 3, layerId: 1, cx: 4, cy: 4 });
+      galaxyFieldRepo.findOne.mockResolvedValue({ id: 41, isPassable: true });
+
+      await service.leaveSystem(ship.id, ship.userId);
+
+      expect(target.locationId).toBe(91);
+      expect(shipRepo.save).toHaveBeenCalledWith(target);
+    });
   });
 
   it('pays galaxy flight with EPS and keeps the warpdrive charge', async () => {
