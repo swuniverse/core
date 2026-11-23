@@ -2309,26 +2309,12 @@ export class SpacecraftService {
       },
       originals,
     );
-    const tractoredShip = ship.tractoredShipId
-      ? await this.findOne(ship.tractoredShipId, userId)
-      : null;
-    if (tractoredShip)
-      originals.set(tractoredShip, captureMovementState(tractoredShip));
-    const tractoredShipClass = tractoredShip
-      ? await this.shipClassService.findById(tractoredShip.shipClassId)
-      : null;
-    if (
-      tractoredShip &&
-      tractoredShipClass &&
-      ship.energy <
-        shipClass.flightEnergyCost + tractoredShipClass.flightEnergyCost
-    ) {
-      ship.tractoredShipId = null;
-      ship.tractoredShip = null;
-      const systems = this.spacecraftRuntimeStateService.initialize(ship);
-      if (systems.TRACTOR_BEAM) systems.TRACTOR_BEAM.active = false;
-      ship.runtimeSystems = systems;
-    }
+    const { tractoredShip, flightCost } = await this.prepareTowing(
+      ship,
+      userId,
+      shipClass,
+      originals,
+    );
     const participants = [ship, ...fleetMembers];
     const direction = this.directionFromMove(
       currentLocation.x,
@@ -2348,18 +2334,9 @@ export class SpacecraftService {
       isPassable: (field) => field.isPassable,
       participants: participants.map((member) => ({
         id: member.id,
-        canPay: () =>
-          member.energy >=
-          shipClass.flightEnergyCost +
-            (member === ship && ship.tractoredShipId && tractoredShipClass
-              ? tractoredShipClass.flightEnergyCost
-              : 0),
+        canPay: () => member.energy >= flightCost(member),
         pay: () => {
-          member.energy -=
-            shipClass.flightEnergyCost +
-            (member === ship && ship.tractoredShipId && tractoredShipClass
-              ? tractoredShipClass.flightEnergyCost
-              : 0);
+          member.energy -= flightCost(member);
         },
         isDestroyed: () => member.status === SpacecraftStatus.DESTROYED,
       })),
@@ -2516,6 +2493,44 @@ export class SpacecraftService {
   }
 
   // Galaxy-map flight: ship-class EPS per entered field
+  /**
+   * STU `TractorConsequence`: the towed ship follows the puller, which pays
+   * both flight costs; the beam breaks before departure if it cannot.
+   */
+  private async prepareTowing(
+    ship: Spacecraft,
+    userId: number,
+    shipClass: { flightEnergyCost: number },
+    originals: Map<Spacecraft, ReturnType<typeof captureMovementState>>,
+  ) {
+    const tractoredShip = ship.tractoredShipId
+      ? await this.findOne(ship.tractoredShipId, userId)
+      : null;
+    if (tractoredShip)
+      originals.set(tractoredShip, captureMovementState(tractoredShip));
+    const tractoredShipClass = tractoredShip
+      ? await this.shipClassService.findById(tractoredShip.shipClassId)
+      : null;
+    if (
+      tractoredShip &&
+      tractoredShipClass &&
+      ship.energy <
+        shipClass.flightEnergyCost + tractoredShipClass.flightEnergyCost
+    ) {
+      ship.tractoredShipId = null;
+      ship.tractoredShip = null;
+      const systems = this.spacecraftRuntimeStateService.initialize(ship);
+      if (systems.TRACTOR_BEAM) systems.TRACTOR_BEAM.active = false;
+      ship.runtimeSystems = systems;
+    }
+    const flightCost = (member: Spacecraft) =>
+      shipClass.flightEnergyCost +
+      (member === ship && ship.tractoredShipId && tractoredShipClass
+        ? tractoredShipClass.flightEnergyCost
+        : 0);
+    return { tractoredShip, flightCost };
+  }
+
   async flyGalaxy(
     shipId: number,
     userId: number,
@@ -2566,6 +2581,12 @@ export class SpacecraftService {
       },
       originals,
     );
+    const { tractoredShip, flightCost } = await this.prepareTowing(
+      ship,
+      userId,
+      shipClass,
+      originals,
+    );
     const participants = [ship, ...fleetMembers];
     const direction = this.directionFromMove(
       currentLocation.x,
@@ -2586,9 +2607,9 @@ export class SpacecraftService {
       isPassable: (field) => field.isPassable,
       participants: participants.map((member) => ({
         id: member.id,
-        canPay: () => member.energy >= shipClass.flightEnergyCost,
+        canPay: () => member.energy >= flightCost(member),
         pay: () => {
-          member.energy -= shipClass.flightEnergyCost;
+          member.energy -= flightCost(member);
         },
         isDestroyed: () => member.status === SpacecraftStatus.DESTROYED,
       })),
@@ -2603,7 +2624,19 @@ export class SpacecraftService {
           await this.setCurrentLocation(member, destination);
           member.status = SpacecraftStatus.IDLE;
         }
-        await this.saveMovementParticipants(flight.leader, moving, originals);
+        const carried =
+          tractoredShip && ship.tractoredShipId && !isSpacecraftDestroyed(ship)
+            ? [tractoredShip]
+            : [];
+        for (const target of carried)
+          await this.setCurrentLocation(target, destination);
+        await this.saveMovementParticipants(
+          flight.leader,
+          moving,
+          originals,
+          carried,
+        );
+        for (const target of carried) await this.cancelTowedOrbitOrder(target);
         for (const member of moving) {
           await this.flightSignatureService.createMovement(
             member,

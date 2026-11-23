@@ -42,3 +42,12 @@ Commit: `fix(spacecraft): lock only spacecraft rows for tractor actions (stu-par
 - Fix: Sperre nur auf `spacecraft` (`tables: ['spacecraft']`), wie in `ship-colony-context.service.ts`.
 - Neu: `spacecraft-tractor.int-spec.ts` (PostgreSQL): Erfassen, Fluchtversuch, Schild-Meldung der Quelle. Erfassen und Schild-Meldung vor dem Fix rot reproduziert, danach 3/3 grün; Unit 23/23; `nx typecheck backend` ✓.
 - Gleiches Sperrmuster ohne Tabelleneinschränkung noch in `holonet.service.ts`, `spacecraft-boarding.service.ts`, `spacecraft-takeover.service.ts` — nicht geprüft, separat klären.
+
+### 2026-11-23 — Nachtrag: Mitschleppen im Galaxie-Flug
+
+Commit: `fix(spacecraft): tow tractored ship on galaxy flight (stu-parity sc-WP-TRACT-1d)`
+
+- Ursache: Das Mitschleppen (sc-WP-TRACT-1a) war nur in `navigate` (Systemflug) umgesetzt. Im freien Raum ruft die UI `/fly` → `flyGalaxy` auf; dort fehlte es, das gezogene Schiff blieb stehen.
+- Fix: Vorbereitung (Ziel laden, Abriss bei EPS-Mangel, Flugkosten inkl. Ziel) in `prepareTowing` ausgelagert und in `navigate` und `flyGalaxy` genutzt; `flyGalaxy` setzt das gezogene Schiff bei jedem Feld mit und beendet dessen Orbitbefehl wie `navigate`.
+- Test: neuer Unit-Test in `spacecraft-movement-resources.spec.ts`, ohne Fix rot, mit Fix grün (20/20). Jest `spacecraft`, `combat`, `alert-reaction` 928/928; PostgreSQL Traktor, Bewegung, Navicomputer, Wurmloch, Anomalie 128/128; `nx typecheck backend` ✓.
+- Offen, nicht geprüft: (1) `prepareTowing` lädt das Ziel mit `findOne(id, userId)` – fremde gezogene Schiffe (sc-WP-TRACT-1b) würden den Flug mit „nicht gefunden“ abbrechen; (2) Systemein- und -austritt sowie Wurmlochpassage nehmen das gezogene Schiff vermutlich nicht mit.

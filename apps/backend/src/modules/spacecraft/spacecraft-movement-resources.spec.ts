@@ -733,6 +733,49 @@ describe('SpacecraftService movement resources', () => {
     );
   });
 
+  it('tows a tractored ship on galaxy flight and charges its flight EPS cost', async () => {
+    const { service, shipRepo, galaxyFieldRepo, locationRepo } = createService();
+    const ship = {
+      id: 7,
+      userId: 1,
+      name: 'Hammer 2',
+      shipClassId: 1,
+      status: SpacecraftStatus.IDLE,
+      energy: 10,
+      tractoredShipId: 8,
+      ...galaxyLocation(),
+      runtimeSystems: {
+        WARPDRIVE: { active: true, cooldown: 0, integrity: 100 },
+      },
+      modules: [],
+    };
+    const target = {
+      id: 8,
+      userId: 1,
+      name: 'Hammer 1',
+      shipClassId: 2,
+      status: SpacecraftStatus.IDLE,
+      ...galaxyLocation(),
+      modules: [],
+    };
+    shipRepo.findOne.mockImplementation(async ({ where }) => {
+      if ('tractoredShipId' in where) return null;
+      return where.id === target.id ? target : ship;
+    });
+    galaxyFieldRepo.findOne.mockResolvedValue({ id: 41, isPassable: true });
+    locationRepo.findOne.mockResolvedValue({
+      id: 92,
+      kind: 'GALAXY_FIELD',
+      galaxyFieldId: 41,
+    });
+
+    await service.flyGalaxy(ship.id, ship.userId, 2, 1);
+
+    expect(ship.energy).toBe(8);
+    expect(target.locationId).toBe(92);
+    expect(shipRepo.save).toHaveBeenCalledWith(target);
+  });
+
   it('pays galaxy flight with EPS and keeps the warpdrive charge', async () => {
     const { service, shipRepo, galaxyFieldRepo, runtimeState } =
       createService();
