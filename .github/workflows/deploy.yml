@@ -96,7 +96,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to Hetzner Server
+      - name: Deploy to production VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}

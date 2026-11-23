@@ -38,7 +38,7 @@ echo ""
 
 echo -e "${BLUE}[4/6] Warten auf Backend (max 60s)${NC}"
 for i in $(seq 1 60); do
-    if docker compose -f docker-compose.prod.yml --env-file .env.production exec -T backend wget --no-verbose --tries=1 --spider http://localhost:3001/api/health 2>/dev/null; then
+    if docker compose -f docker-compose.prod.yml --env-file .env.production exec -T backend node -e "fetch('http://127.0.0.1:3001/api/factions',{signal:AbortSignal.timeout(5000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" 2>/dev/null; then
         echo -e "${GREEN}Backend bereit (${i}s)${NC}"
         break
     fi
