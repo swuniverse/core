@@ -1,5 +1,7 @@
 # Zeilensperren mit geladenen Relationen brechen auf PostgreSQL ab
 
+> Umbenannt am 2026-11-23: zuerst versehentlich als `sc-AUD-13` angelegt (Nummer war schon vergeben). Commit-Nachrichten dieses Tickets nennen noch `sc-AUD-13`.
+
 **Status:** claimed
 **Priority:** P1
 **Size:** S
@@ -26,7 +28,7 @@ TypeORM lädt `relations` per LEFT JOIN. Zusammen mit `lock: { mode: 'pessimisti
 
 ### 2026-11-23 — umgesetzt, Prüfung ausstehend
 
-Commit: `fix(backend): lock only base tables when loading relations (stu-parity sc-AUD-13)`
+Commit: `fix(backend): lock only base tables when loading relations (stu-parity sc-AUD-13, jetzt sc-AUD-17)`
 
 - Neu: `apps/backend/src/modules/spacecraft/row-lock-relations.int-spec.ts` (Übernahme-Start, Übernahme-Tick, Entern, Plotantrag). Vor dem Fix 4/4 rot mit `QueryFailedError`, danach 4/4 grün.
 - Für den Holonet-Test sind `HolonetPost`, `PlotPostRequest`, `RpgPlot`, `RpgPlotMember`, `UserCharacter` in `INTEGRATION_ENTITIES` aufgenommen.

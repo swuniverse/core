@@ -1,5 +1,7 @@
 # Schiffsseite: Einträge nur bei vorhandener Voraussetzung (Paket A, Frontend)
 
+> Umbenannt am 2026-11-23: zuerst versehentlich als `sc-AUD-15` angelegt (Nummer war schon vergeben). Commit-Nachrichten dieses Tickets nennen noch `sc-AUD-15`.
+
 **Status:** claimed
 **Priority:** P2
 **Size:** M
@@ -34,7 +36,7 @@ STU zeigt Funktionen der Schiffsseite nur, wenn das Schiff die Voraussetzung hat
 
 ### 2026-11-23 — umgesetzt, Prüfung ausstehend
 
-Commit: `feat(spacecraft): show ship page entries only with their STU prerequisite (stu-parity sc-AUD-15)`
+Commit: `feat(spacecraft): show ship page entries only with their STU prerequisite (stu-parity sc-AUD-15, jetzt sc-AUD-19)`
 
 - Bestehende Fixtures ergänzt, die Systeme stillschweigend voraussetzten (Navigation: Warp/Impuls; Kopf: Warp, Computer; Tutorial-Ziele: Computer).
 - Checks: Vitest `components/spacecraft`, `spacecraft-detail`, `tutorial-targets` 262/262 (4 neue Tests); `nx typecheck frontend` ✓; `nx lint frontend` 127 Warnungen vorher wie nachher.

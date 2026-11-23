@@ -1,5 +1,7 @@
 # Waffen bei Alarmstufe Grün wie STU sperren
 
+> Umbenannt am 2026-11-23: zuerst versehentlich als `sc-AUD-14` angelegt (Nummer war schon vergeben). Commit-Nachrichten dieses Tickets nennen noch `sc-AUD-14`.
+
 **Status:** claimed
 **Priority:** P2
 **Size:** S
@@ -25,7 +27,7 @@ STU lässt Strahlen- und Projektilwaffen nur außerhalb von „unalarmiert“ ei
 
 ### 2026-11-23 — umgesetzt, Prüfung ausstehend
 
-Commit: `feat(spacecraft): block weapons while unalerted like STU (stu-parity sc-AUD-14)`
+Commit: `feat(spacecraft): block weapons while unalerted like STU (stu-parity sc-AUD-14, jetzt sc-AUD-18)`
 
 - Prüfung nach der Tarnungsprüfung, Reihenfolge wie STU. Fehlende STU-Bedingung „keine Torpedos vorhanden“ nicht Teil dieses Tickets.
 - Frontend wertet „unalarmiert“ nur aus, wenn die Alarmstufe übergeben wird (Schiffsseite); das Backend prüft immer.
