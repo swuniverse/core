@@ -160,6 +160,42 @@ describe('NearbySensorPanel', () => {
     expect(onUpdate).toHaveBeenCalled();
   });
 
+  it('shows the threat reaction report of an alerted boarding target', async () => {
+    apiMocks.get.mockResolvedValue({
+      ...nearby,
+      ships: [
+        {
+          ...nearby.ships[0],
+          actions: { ...nearby.ships[0].actions, boarding: true },
+        },
+      ],
+    });
+    apiMocks.post.mockResolvedValue({
+      outcome: 'ABORTED',
+      message: 'Das Schiff wurde bei dem Angriff zerstört',
+      threatReport: {
+        rounds: [{ number: 1, lines: [{ text: 'Ziel feuert auf Falcon' }] }],
+        outcome: { winner: 'ATTACKER', destroyedShipIds: [2] },
+      },
+    });
+    render(
+      <NearbySensorPanel
+        shipId={2}
+        locationKey="system:1:5:5"
+        systems={{ SHORT_RANGE_SENSORS: { active: true } }}
+        onUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(await screen.findByTitle('Ziel entern'));
+
+    expect(
+      await screen.findByText('Das Schiff wurde bei dem Angriff zerstört'),
+    ).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Kampfbericht' })).toBeTruthy();
+    expect(screen.getByText(/Ziel feuert auf Falcon/)).toBeTruthy();
+  });
+
   it('shows takeover progress and lets the attacker cancel', async () => {
     apiMocks.get.mockResolvedValue({
       ...nearby,
@@ -225,7 +261,10 @@ describe('NearbySensorPanel', () => {
         },
       ],
     });
-    apiMocks.post.mockResolvedValue({});
+    apiMocks.post.mockResolvedValue({
+      message: 'Der Traktorstrahl wurde auf die Ziel gerichtet',
+      threatReport: null,
+    });
     const onUpdate = vi.fn();
     render(
       <MemoryRouter>
@@ -246,6 +285,9 @@ describe('NearbySensorPanel', () => {
         {},
       ),
     );
+    expect(
+      await screen.findByText('Der Traktorstrahl wurde auf die Ziel gerichtet'),
+    ).toBeTruthy();
     expect(onUpdate).toHaveBeenCalled();
   });
 

@@ -4465,7 +4465,6 @@ export class SpacecraftService {
               tractor:
                 target.kind === 'SHIP' &&
                 target.user != null &&
-                target.user.isNpc !== true &&
                 !isVacationEffective(target.user) &&
                 systems.TRACTOR_BEAM != null &&
                 systems.TRACTOR_BEAM.integrity > 0 &&

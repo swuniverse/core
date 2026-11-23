@@ -3,6 +3,7 @@ import { Fragment, useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type {
   SpacecraftBoardingResultDto,
+  SpacecraftTractorResultDto,
   SpacecraftDockResultDto,
   SpacecraftNearbyDto,
   SpacecraftNearbyFleetDto,
@@ -180,6 +181,7 @@ export function NearbySensorPanel({
         {},
       );
       setSalvageMessage(result.message);
+      if (result.threatReport) setCombatReport(result.threatReport);
       await refreshNearby();
       onUpdate();
     } catch (err: unknown) {
@@ -247,9 +249,15 @@ export function NearbySensorPanel({
   }
 
   async function activateTractor(target: SpacecraftNearbyTargetDto) {
+    setSalvageMessage(null);
     setError(null);
     try {
-      await api.post(`/spacecraft/${shipId}/nearby/${target.id}/tractor`, {});
+      const result = await api.post<SpacecraftTractorResultDto>(
+        `/spacecraft/${shipId}/nearby/${target.id}/tractor`,
+        {},
+      );
+      setSalvageMessage(result.message);
+      if (result.threatReport) setCombatReport(result.threatReport);
       await refreshNearby();
       onUpdate();
     } catch (err: unknown) {

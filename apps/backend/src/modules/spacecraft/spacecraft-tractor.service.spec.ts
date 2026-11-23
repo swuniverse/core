@@ -61,9 +61,12 @@ function setup() {
   const dataSource = { transaction: jest.fn(async (work) => work(manager)) };
   const runtime = { initialize: jest.fn((ship) => ship.runtimeSystems) };
   const messaging = { sendSystem: jest.fn(async () => undefined) };
+  const reaction = { reactToThreat: jest.fn(async (): Promise<unknown> => null) };
   return {
-    service: new SpacecraftTractorService(dataSource as any, runtime as any, messaging as any),
+    service: new SpacecraftTractorService(dataSource as any, runtime as any, messaging as any, [reaction as any]),
     messaging,
+    reaction,
+    ships,
     source,
     target,
     manager,
@@ -88,7 +91,7 @@ describe('SpacecraftTractorService', () => {
     target.runtimeSystems.SHIELDS.active = true;
 
     await expect(service.activate(source.id, source.userId, target.id)).rejects.toThrow(
-      'Die Schilde des Ziels sind aktiviert',
+      'Die Ghost kann aufgrund der aktiven Schilde nicht erfasst werden',
     );
   });
 
@@ -104,15 +107,85 @@ describe('SpacecraftTractorService', () => {
     );
   });
 
-  it('rejects an NPC target', async () => {
+  it('captures an NPC target like STU', async () => {
     const { service, source, target } = setup();
     target.userId = 8;
     target.user.id = 8;
     target.user.isNpc = true;
 
-    await expect(service.activate(source.id, source.userId, target.id)).rejects.toThrow(
-      'NPC-Schiffe können nicht erfasst werden',
-    );
+    await service.activate(source.id, source.userId, target.id);
+
+    expect(source.tractoredShipId).toBe(target.id);
+  });
+
+  describe('threat reaction (STU ThreatReaction)', () => {
+    const report = { rounds: [{ round: 1, lines: [{ text: 'Ghost feuert' }] }] };
+
+    it('lets the target react before the beam locks and returns its report', async () => {
+      const { service, source, target, reaction } = setup();
+      target.userId = 8;
+      reaction.reactToThreat.mockImplementation(async () => {
+        expect(source.tractoredShipId).toBeNull();
+        return report;
+      });
+
+      const result = await service.activate(source.id, source.userId, target.id);
+
+      expect(reaction.reactToThreat).toHaveBeenCalledWith(source.id, target.id, 'ACTIVATE_TRACTOR');
+      expect(result).toEqual({ message: 'Der Traktorstrahl wurde auf die Ghost gerichtet', threatReport: report });
+      expect(source.tractoredShipId).toBe(target.id);
+    });
+
+    it('does not react when the request is invalid', async () => {
+      const { service, source, target, reaction } = setup();
+      source.energy = 0;
+
+      await expect(service.activate(source.id, source.userId, target.id)).rejects.toThrow();
+      expect(reaction.reactToThreat).not.toHaveBeenCalled();
+    });
+
+    it('checks target shields only after the reaction', async () => {
+      const { service, source, target, reaction } = setup();
+      target.userId = 8;
+      target.runtimeSystems.SHIELDS.active = true;
+      reaction.reactToThreat.mockResolvedValue(report);
+
+      const result = await service.activate(source.id, source.userId, target.id);
+
+      expect(reaction.reactToThreat).toHaveBeenCalled();
+      expect(result).toEqual({
+        message: 'Die Ghost kann aufgrund der aktiven Schilde nicht erfasst werden',
+        threatReport: report,
+      });
+      expect(source.tractoredShipId).toBeNull();
+    });
+
+    it('aborts with the report when the causing ship was destroyed', async () => {
+      const { service, source, target, reaction, ships } = setup();
+      target.userId = 8;
+      reaction.reactToThreat.mockImplementation(async () => {
+        ships.splice(ships.indexOf(source), 1);
+        return report;
+      });
+
+      const result = await service.activate(source.id, source.userId, target.id);
+
+      expect(result).toEqual({ message: 'Das Schiff wurde bei dem Angriff zerstört', threatReport: report });
+      expect(source.tractoredShipId).toBeNull();
+    });
+
+    it('aborts when the tractor beam was destroyed in the reaction', async () => {
+      const { service, source, target, reaction } = setup();
+      target.userId = 8;
+      reaction.reactToThreat.mockImplementation(async () => {
+        source.runtimeSystems.TRACTOR_BEAM.integrity = 0;
+        return report;
+      });
+
+      const result = await service.activate(source.id, source.userId, target.id);
+
+      expect(result.message).toBe('Der Traktorstrahl wurde bei dem Angriff zerstört');
+    });
   });
 
   it('rejects a station like STU, which only tractors ships', async () => {

@@ -1,6 +1,7 @@
 import type { Stance } from '../alliance/index.js';
 import type { AnomalyViewDto, SpaceLocationDto } from '../starmap/index.js';
 import type { ShipModuleSelection } from '../colony/index.js';
+import type { CombatReportDto } from './movement-result.js';
 
 export interface StationShipBuildRequestDto {
   shipClassId?: number;
@@ -226,10 +227,17 @@ export interface SpacecraftTakeoverDto {
   completed: boolean;
 }
 
+export interface SpacecraftTractorResultDto {
+  message: string;
+  /** One-way battle the alerted target fired before the beam (STU ThreatReaction). */
+  threatReport: CombatReportDto | null;
+}
+
 export interface SpacecraftBoardingResultDto {
   attackerId: number;
   targetId: number;
-  outcome: 'ATTACKER_VICTORY' | 'DEFENDER_VICTORY';
+  /** ABORTED: the threat reaction left the boarding ship unable to board. */
+  outcome: 'ATTACKER_VICTORY' | 'DEFENDER_VICTORY' | 'ABORTED';
   attackerCrewBefore: number;
   attackerCrewLost: number;
   attackerCrewAfter: number;
@@ -238,6 +246,8 @@ export interface SpacecraftBoardingResultDto {
   defenderCrewAfter: number;
   prestigeCost: number;
   message: string;
+  /** One-way battle the alerted target fired before boarding (STU ThreatReaction). */
+  threatReport?: CombatReportDto | null;
 }
 
 export interface SpacecraftCrewMemberDto {

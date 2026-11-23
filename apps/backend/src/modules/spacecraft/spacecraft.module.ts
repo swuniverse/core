@@ -118,6 +118,7 @@ import {
 import { FieldTransitionExecutor } from './field-transition-executor';
 import { DeflectorConsequence } from './deflector-consequence';
 import { MOVEMENT_REACTIONS, type MovementReaction } from './movement-reaction.port';
+import { THREAT_REACTIONS, type ThreatReaction } from './threat-reaction.port';
 import { ORBIT_ORDER_VIEW, type OrbitOrderViewPort } from './orbit-order-view.port';
 import { ORBIT_ORDER_LIFECYCLE, type OrbitOrderLifecyclePort } from './orbit-order-lifecycle.port';
 import {
@@ -296,6 +297,8 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     },
     // Filled at startup by reaction modules (alert combat) that import this module.
     { provide: MOVEMENT_REACTIONS, useFactory: (): MovementReaction[] => [] },
+    // Filled at startup by the alert reaction module (STU ThreatReaction).
+    { provide: THREAT_REACTIONS, useFactory: (): ThreatReaction[] => [] },
     // Filled at startup by the colony module (orbit order policy).
     { provide: ORBIT_ORDER_VIEW, useFactory: (): OrbitOrderViewPort => ({ view: null }) },
     { provide: ORBIT_ORDER_LIFECYCLE, useFactory: (): OrbitOrderLifecyclePort => ({ lifecycle: null }) },
@@ -320,6 +323,7 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     RpgActionLockService,
     ShuttleService,
     MOVEMENT_REACTIONS,
+    THREAT_REACTIONS,
     ORBIT_ORDER_VIEW,
     ORBIT_ORDER_LIFECYCLE,
     SpacecraftService,

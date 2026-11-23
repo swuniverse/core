@@ -28,7 +28,7 @@ import {
   type MovementReactionOutcome,
 } from '../spacecraft/movement-reaction.port';
 
-const COMBAT_RELATIONS = [
+export const COMBAT_RELATIONS = [
   'user',
   'location',
   'location.galaxyField',
@@ -44,7 +44,7 @@ export function reactsToIncoming(alertState: AlertState, stance: ResolvedStance)
   return false;
 }
 
-const ALERT_DESCRIPTIONS: Partial<Record<AlertState, string>> = {
+export const ALERT_DESCRIPTIONS: Partial<Record<AlertState, string>> = {
   [AlertState.YELLOW]: 'Alarm-Gelb',
   [AlertState.RED]: 'Alarm-Rot',
 };
@@ -59,7 +59,7 @@ function shuffled<T>(items: T[]): T[] {
   return result;
 }
 
-const operational = (ship: Spacecraft) =>
+export const operational = (ship: Spacecraft) =>
   !isRpgHidden(ship) &&
   ship.status === SpacecraftStatus.IDLE &&
   ship.operatingMode !== SpacecraftOperatingMode.STANDBY;

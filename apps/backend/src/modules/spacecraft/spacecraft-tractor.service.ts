@@ -1,9 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { isVacationEffective } from '@swuniverse/shared';
+import { BadRequestException, HttpException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { isVacationEffective, type SpacecraftTractorResultDto } from '@swuniverse/shared';
 import { DataSource, EntityManager } from 'typeorm';
 import { MessagingService } from '../messaging/messaging.service';
 import { Spacecraft, SpacecraftKind, SpacecraftStatus } from './entities/spacecraft.entity';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
+import { reactToThreat, THREAT_REACTIONS, type ThreatReaction } from './threat-reaction.port';
 
 const TRACTOR_ACTIVATION_EPS = 2;
 const TRACTOR_ESCAPE_EPS = 20;
@@ -16,73 +17,108 @@ export class SpacecraftTractorService {
     private readonly dataSource: DataSource,
     private readonly runtimeState: SpacecraftRuntimeStateService,
     private readonly messaging: MessagingService,
+    @Inject(THREAT_REACTIONS)
+    private readonly threatReactions: ThreatReaction[] = [],
   ) {}
 
-  activate(sourceId: number, userId: number, targetId: number) {
-    return this.dataSource.transaction(async (manager) => {
-      const [source, target] = await Promise.all([
-        this.lock(manager, sourceId),
-        this.lock(manager, targetId),
-      ]);
-      if (!source || source.userId !== userId) {
-        throw new NotFoundException('Spacecraft not found');
-      }
-      if (!target) throw new BadRequestException('Ziel nicht gefunden');
-      // STU `ActivateTractorBeam` only tractors ships; stations (and their trade posts) stay put.
-      if (target.kind === SpacecraftKind.STATION) throw new BadRequestException('Das Ziel kann nicht erfasst werden');
-      if (target.user?.isNpc) {
-        throw new BadRequestException('NPC-Schiffe können nicht erfasst werden');
-      }
-      if (target.user && isVacationEffective(target.user)) {
-        throw new BadRequestException('Der Spieler befindet sich im Urlaubsmodus');
-      }
-      if (source.id === target.id || source.locationId !== target.locationId) {
-        throw new BadRequestException('Das Ziel befindet sich nicht am selben Feld');
-      }
-      if (
-        source.status !== SpacecraftStatus.IDLE ||
-        target.status !== SpacecraftStatus.IDLE
-      ) {
-        throw new BadRequestException('Traktorstrahl nur zwischen einsatzbereiten Schiffen möglich');
-      }
-      const [sourceTractor, targetTractor] = await Promise.all([
-        manager.findOneBy(Spacecraft, { tractoredShipId: source.id }),
-        manager.findOneBy(Spacecraft, { tractoredShipId: target.id }),
-      ]);
-      if (sourceTractor) {
-        throw new BadRequestException('Das Schiff wird von einem Traktorstrahl gehalten');
-      }
-      if (source.tractoredShipId || targetTractor || target.tractoredShipId) {
-        throw new BadRequestException('Ein beteiligtes Schiff verwendet bereits einen Traktorstrahl');
-      }
-      const systems = this.runtimeState.initialize(source);
-      const tractor = systems.TRACTOR_BEAM;
-      if (!tractor) throw new BadRequestException('Kein Traktorstrahl installiert');
-      if (tractor.integrity <= 0) throw new BadRequestException('Traktorstrahl zerstört');
-      if (tractor.cooldown > 0) throw new BadRequestException(`Cooldown ${tractor.cooldown}`);
-      if (systems.SHIELDS?.active) {
-        throw new BadRequestException('Die Schilde sind aktiviert');
-      }
-      const targetSystems = this.runtimeState.initialize(target);
-      if (targetSystems.SHIELDS?.active) {
-        throw new BadRequestException('Die Schilde des Ziels sind aktiviert');
-      }
-      if (source.energy < TRACTOR_ACTIVATION_EPS) {
-        throw new BadRequestException('Nicht genug EPS für den Traktorstrahl');
-      }
-      source.energy -= TRACTOR_ACTIVATION_EPS;
-      source.tractoredShipId = target.id;
-      source.tractoredShip = target;
-      tractor.active = true;
-      source.runtimeSystems = systems;
-      await manager.save(source);
-      await this.messaging.sendSystem(
-        target.userId,
-        'Traktorstrahl',
-        `${target.name} wurde vom Traktorstrahl der ${source.name} erfasst.`,
-      );
-      return source;
-    });
+  /**
+   * STU `ActivateTractorBeam`: an alerted target reacts before the beam locks
+   * (`ThreatReaction`), then every check runs again on the survivors.
+   */
+  async activate(
+    sourceId: number,
+    userId: number,
+    targetId: number,
+  ): Promise<SpacecraftTractorResultDto> {
+    await this.dataSource.transaction((manager) => this.check(manager, sourceId, userId, targetId, false));
+    const threatReport = await reactToThreat(this.threatReactions, sourceId, targetId, 'ACTIVATE_TRACTOR');
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        const { source, target, systems, tractor } = await this.check(manager, sourceId, userId, targetId, true);
+        source.energy -= TRACTOR_ACTIVATION_EPS;
+        source.tractoredShipId = target.id;
+        source.tractoredShip = target;
+        tractor.active = true;
+        source.runtimeSystems = systems;
+        await manager.save(source);
+        await this.messaging.sendSystem(
+          target.userId,
+          'Traktorstrahl',
+          `${target.name} wurde vom Traktorstrahl der ${source.name} erfasst.`,
+        );
+        return { message: `Der Traktorstrahl wurde auf die ${target.name} gerichtet`, threatReport };
+      });
+    } catch (error) {
+      // The reaction is already persisted; report it together with the abort.
+      if (!threatReport || !(error instanceof HttpException)) throw error;
+      return { message: error.message, threatReport };
+    }
+  }
+
+  private async check(
+    manager: EntityManager,
+    sourceId: number,
+    userId: number,
+    targetId: number,
+    afterThreat: boolean,
+  ) {
+    const [source, target] = await Promise.all([
+      this.lock(manager, sourceId),
+      this.lock(manager, targetId),
+    ]);
+    // Destroyed ships are removed; before the reaction the first check proved both existed.
+    if (afterThreat && (!source || source.status === SpacecraftStatus.DESTROYED)) {
+      throw new BadRequestException('Das Schiff wurde bei dem Angriff zerstört');
+    }
+    if (afterThreat && (!target || target.status === SpacecraftStatus.DESTROYED)) {
+      throw new BadRequestException('Das Ziel wurde bei dem Angriff zerstört');
+    }
+    if (!source || source.userId !== userId) {
+      throw new NotFoundException('Spacecraft not found');
+    }
+    if (!target) throw new BadRequestException('Ziel nicht gefunden');
+    // STU `ActivateTractorBeam` only tractors ships; stations (and their trade posts) stay put.
+    if (target.kind === SpacecraftKind.STATION) throw new BadRequestException('Das Ziel kann nicht erfasst werden');
+    if (target.user && isVacationEffective(target.user)) {
+      throw new BadRequestException('Der Spieler befindet sich im Urlaubsmodus');
+    }
+    if (source.id === target.id || source.locationId !== target.locationId) {
+      throw new BadRequestException('Das Ziel befindet sich nicht am selben Feld');
+    }
+    if (
+      source.status !== SpacecraftStatus.IDLE ||
+      target.status !== SpacecraftStatus.IDLE
+    ) {
+      throw new BadRequestException('Traktorstrahl nur zwischen einsatzbereiten Schiffen möglich');
+    }
+    const [sourceTractor, targetTractor] = await Promise.all([
+      manager.findOneBy(Spacecraft, { tractoredShipId: source.id }),
+      manager.findOneBy(Spacecraft, { tractoredShipId: target.id }),
+    ]);
+    if (sourceTractor) {
+      throw new BadRequestException('Das Schiff wird von einem Traktorstrahl gehalten');
+    }
+    if (source.tractoredShipId || targetTractor || target.tractoredShipId) {
+      throw new BadRequestException('Ein beteiligtes Schiff verwendet bereits einen Traktorstrahl');
+    }
+    const systems = this.runtimeState.initialize(source);
+    const tractor = systems.TRACTOR_BEAM;
+    if (!tractor) throw new BadRequestException('Kein Traktorstrahl installiert');
+    if (tractor.integrity <= 0) {
+      throw new BadRequestException(afterThreat ? 'Der Traktorstrahl wurde bei dem Angriff zerstört' : 'Traktorstrahl zerstört');
+    }
+    if (tractor.cooldown > 0) throw new BadRequestException(`Cooldown ${tractor.cooldown}`);
+    if (systems.SHIELDS?.active) {
+      throw new BadRequestException('Die Schilde sind aktiviert');
+    }
+    // STU checks the target shields only after the threat reaction.
+    if (afterThreat && this.runtimeState.initialize(target).SHIELDS?.active) {
+      throw new BadRequestException(`Die ${target.name} kann aufgrund der aktiven Schilde nicht erfasst werden`);
+    }
+    if (source.energy < TRACTOR_ACTIVATION_EPS) {
+      throw new BadRequestException('Nicht genug EPS für den Traktorstrahl');
+    }
+    return { source, target, systems, tractor };
   }
 
   escape(

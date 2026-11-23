@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, HttpException, Inject, Injectable } from '@nestjs/common';
 import { DataSource, EntityManager, In } from 'typeorm';
 import {
   isVacationEffective,
@@ -17,6 +17,7 @@ import { Spacecraft, SpacecraftKind, SpacecraftStatus } from './entities/spacecr
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
 import { buildNearbyInteractionContext, decideNearbyInteraction } from './nearby-interaction';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
+import { reactToThreat, THREAT_REACTIONS, type ThreatReaction } from './threat-reaction.port';
 
 export const TROOP_QUARTERS_MODULE_TYPE = 'Truppenquartiere';
 export const BOARDING_RANDOM_TOKEN = 'BOARDING_RANDOM';
@@ -33,6 +34,8 @@ export class SpacecraftBoardingService {
     private readonly random: BoardingRandom = {
       integer: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
     },
+    @Inject(THREAT_REACTIONS)
+    private readonly threatReactions: ThreatReaction[] = [],
   ) {}
 
   async board(
@@ -40,9 +43,34 @@ export class SpacecraftBoardingService {
     targetId: number,
     userId: number,
   ): Promise<SpacecraftBoardingResultDto> {
-    const result = await this.dataSource.transaction((manager) =>
-      this.boardInTransaction(manager, attackerId, targetId, userId),
+    await this.dataSource.transaction((manager) =>
+      this.validate(manager, attackerId, targetId, userId, false),
     );
+    // STU `BoardShip`: an alerted target fires first; boarding is re-checked afterwards.
+    const threatReport = await reactToThreat(this.threatReactions, attackerId, targetId, 'BOARD_SHIP');
+    let result: Awaited<ReturnType<SpacecraftBoardingService['boardInTransaction']>>;
+    try {
+      result = await this.dataSource.transaction((manager) =>
+        this.boardInTransaction(manager, attackerId, targetId, userId),
+      );
+    } catch (error) {
+      // The reaction is already persisted; report it together with the abort.
+      if (!threatReport || !(error instanceof HttpException)) throw error;
+      return {
+        attackerId,
+        targetId,
+        outcome: 'ABORTED',
+        attackerCrewBefore: 0,
+        attackerCrewLost: 0,
+        attackerCrewAfter: 0,
+        defenderCrewBefore: 0,
+        defenderCrewLost: 0,
+        defenderCrewAfter: 0,
+        prestigeCost: 0,
+        message: error.message,
+        threatReport,
+      };
+    }
     await Promise.all([
       this.messaging.sendSystem(
         result.attackerUserId,
@@ -59,15 +87,16 @@ export class SpacecraftBoardingService {
         MessageFolder.SHIP,
       ),
     ]);
-    return result;
+    return { ...result, threatReport };
   }
 
-  private async boardInTransaction(
+  private async validate(
     manager: EntityManager,
     attackerId: number,
     targetId: number,
     userId: number,
-  ): Promise<SpacecraftBoardingResultDto & { attackerUserId: number; targetUserId: number }> {
+    afterThreat: boolean,
+  ) {
     if (attackerId === targetId) throw new BadRequestException('Ungültiges Ziel');
     const ids = [attackerId, targetId].sort((a, b) => a - b);
     const locked = await manager.find(Spacecraft, {
@@ -81,6 +110,9 @@ export class SpacecraftBoardingService {
     });
     const attacker = locked.find((ship) => ship.id === attackerId);
     const target = locked.find((ship) => ship.id === targetId);
+    // Destroyed ships are removed; the first check proved both existed.
+    if (afterThreat && !attacker) throw new BadRequestException('Das Schiff wurde bei dem Angriff zerstört');
+    if (afterThreat && !target) throw new BadRequestException('Das Ziel wurde bei dem Angriff zerstört');
     if (!attacker || attacker.userId !== userId || !target) {
       throw new BadRequestException('Schiff nicht gefunden');
     }
@@ -138,7 +170,22 @@ export class SpacecraftBoardingService {
     if ((attacker.user?.prestige ?? 0) < prestigeCost) {
       throw new BadRequestException(`Nicht genügend Prestige vorhanden, benötigt wird: ${prestigeCost}`);
     }
+    return { attacker, target, attackerCrew, defenderCrew, prestigeCost };
+  }
 
+  private async boardInTransaction(
+    manager: EntityManager,
+    attackerId: number,
+    targetId: number,
+    userId: number,
+  ): Promise<SpacecraftBoardingResultDto & { attackerUserId: number; targetUserId: number }> {
+    const { attacker, target, attackerCrew, defenderCrew, prestigeCost } = await this.validate(
+      manager,
+      attackerId,
+      targetId,
+      userId,
+      true,
+    );
     const combat = resolveBoardingCombat(
       attackerCrew.map((entry) => ({ id: entry.crewId, type: entry.crew.type })),
       defenderCrew.map((entry) => ({ id: entry.crewId, type: entry.crew.type })),

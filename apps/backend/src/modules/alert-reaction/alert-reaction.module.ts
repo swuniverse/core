@@ -6,9 +6,10 @@ import { Fleet } from '../spacecraft/entities/fleet.entity';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { SpacecraftModule } from '../spacecraft/spacecraft.module';
 import { AlertReactionService } from './alert-reaction.service';
+import { ThreatReactionService } from './threat-reaction.service';
 
 /**
- * Connects the movement reaction port of the spacecraft core with the
+ * Connects the movement and threat reaction ports of the spacecraft core with the
  * internal battle resolver; neither module imports the other for it.
  */
 @Module({
@@ -18,6 +19,6 @@ import { AlertReactionService } from './alert-reaction.service';
     CombatModule,
     AllianceModule,
   ],
-  providers: [AlertReactionService],
+  providers: [AlertReactionService, ThreatReactionService],
 })
 export class AlertReactionModule {}
