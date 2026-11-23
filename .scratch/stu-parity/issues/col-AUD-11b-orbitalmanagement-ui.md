@@ -1,6 +1,6 @@
 # Orbitalmanagement: Rumpfbild, Torpedoreserven, Typauswahl, Shuttle-Transfer, PanelOrbit-Callbacks
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** col-AUD-11a
@@ -44,3 +44,4 @@ Im SWU-Orbitalmanagement fehlen das Rumpfbild, die Torpedoreserven der Kolonie j
 
 - 2026-11-17: Aus dem Audit angelegt.
 - 2026-11-23 – **umgesetzt, Prüfung ausstehend.** Commit „feat(colony): orbital management hull, torpedo types and shuttle transfer (stu-parity col-AUD-11b)“. Backend: `getManagement` (Kolonie und Station) liefert `shipClassKey` und `possibleTorpedoTypes` (kompatible Typen mit Lagerbestand > 0 oder bereits geladen, je mit `stock`) über `ShipManagementService.possibleTorpedoTypes`; das Laden lehnt inkompatible Typen jetzt ab. Eigene Schiffe mit Shuttlerampe bekommen `shuttles` (`capacity`, `blockReason` aus neuem `ShuttleService.rampStatus`, Bestand je Shuttletyp auf Schiff und Kolonie). Frontend: `OrbitalManagementPanel` mit Rumpfbild, Reserven je Typ („N im Lager“), Auswahlliste statt Typ-ID (gesperrt, solange Torpedos geladen sind), Spalte „Shuttle-Transfer“ mit Dialog wie STU `shuttleManagement.twig` (Zielmenge je Typ, Summe/Kapazität) → `onTransferShuttles` → `POST :id/orbit/ships/:shipId/shuttles`. `PanelOrbit` nimmt alle fünf Callbacks: Verteidigen/Blockieren/Auftrag beenden und Demontieren (mit Bestätigung) beim ausgewählten eigenen Schiff, Shuttle-Transfer im Orbitalmanagement. Shuttle-Transfer in beide Richtungen ist durch `shuttle.int-spec.ts` („…respects storage limits for colony transfers“) abgedeckt; kein neuer Integrationstest. Checks: Jest `colony` + `shuttle.spec` 452/452, `station-ship-management` grün, Vitest `PanelOrbit`/`OrbitalManagementPanel`/`PanelInfo`/`StationShipManagementPanel` grün, `nx typecheck` backend/frontend ohne neue Fehler, ESLint ohne neue Warnungen. **Ausstehend:** gesammelter Verifikationslauf (Lint/Typecheck/Unit gesamt, PostgreSQL `shuttle.int-spec`, Diff-Review gegen STU). Modell: Opus 5.5 direkt (kein Sol/Luna verfügbar), keine Delegation.
+- 2026-11-23 – **Prüfung bestanden, resolved.** Gesammelter Verifikationslauf auf `6f7bd48b`: Lint 0 Fehler, `nx typecheck` alle Projekte grün, Unit Backend 2721/2721 und Frontend 978/978, PostgreSQL-Integration 1062/1062. Diff-Review gegen die Akzeptanzkriterien und STU ohne Befund; Shuttle-Transfer in beide Richtungen durch `shuttle.int-spec.ts` im Integrationslauf bestätigt. Modell: Opus 5.5 direkt.

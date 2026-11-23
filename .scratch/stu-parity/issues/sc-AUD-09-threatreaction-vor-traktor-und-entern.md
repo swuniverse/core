@@ -1,6 +1,6 @@
 # ThreatReaction vor Traktor und Entern, NPC-Ausschluss beim Traktor wie STU
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** M
 **Blocked by:** sc-AUD-07a, sc-AUD-07b
@@ -41,3 +41,4 @@ In SWU sind Traktor und Entern gegen alarmierte Schiffe risikolos: `spacecraft-t
 ## Comments
 
 - 2026-11-23 – **umgesetzt, Prüfung ausstehend.** Commit „feat(spacecraft): threat reaction before tractor and boarding (stu-parity sc-AUD-09)“. Neuer Port `spacecraft/threat-reaction.port.ts` (`THREAT_REACTIONS`, Muster wie `MOVEMENT_REACTIONS`); Implementierung `alert-reaction/threat-reaction.service.ts` (Ziel nicht Grün, fremd, kein Freund → `attackingParty` des Ziels feuert Einweg-Kampf `ACTIVATE_TRACTOR`/`BOARD_SHIP` auf den Verursacher allein, PM „Bedrohungsreaktion“ mit STU-Ursachentext und Kampfverlauf an den Ziel-Eigner; ohne Kampfzeilen kein Bericht wie STU `isEmpty`). Traktor/Entern: Vorprüfung in eigener Transaktion → Reaktion → vollständige Prüfung in der Schreibtransaktion; Zielschilde beim Traktor erst danach. Abbruch nach erfolgter Reaktion (Verursacher/Ziel zerstört, Traktorstrahl zerstört, Schilde aktiv …) liefert statt Fehler `{ message, threatReport }` bzw. Enter-`outcome: 'ABORTED'` ohne Prestigekosten. NPC-Ausschluss beim Traktor entfernt (Service und Nearby-Aktion `actions.tractor`), Entern behält ihn. UI: `NearbySensorPanel` zeigt Meldung und öffnet `CombatReportDialog` mit `threatReport`. Abweichung zu Kriterium 4: Die Verursacherseite ist wie STU (`createSingletonBattleParty`) nur das Schiff selbst, nicht `attackedParty`. Checks: Jest `alert-reaction` + `combat` + Traktor/Entern 147/147, Vitest `NearbySensorPanel` 25/25, `nx typecheck` backend/frontend/shared grün, ESLint ohne neue Warnungen. **Ausstehend:** gesammelter Verifikationslauf (Lint/Typecheck/Unit gesamt, PostgreSQL-Integration, Diff-Review gegen STU). Modell: Opus 5.5 direkt (kein Sol/Luna verfügbar), keine Delegation.
+- 2026-11-23 – **Prüfung bestanden, resolved.** Gesammelter Verifikationslauf auf `6f7bd48b`: Lint 0 Fehler, `nx typecheck` alle Projekte grün, Unit Backend 2721/2721 und Frontend 978/978, PostgreSQL-Integration 1062/1062. Diff-Review gegen die Akzeptanzkriterien und STU ohne Befund; offener Hinweis: Die Reaktion läuft außerhalb der Schreibtransaktion, zwei gleichzeitige Traktor-/Enterversuche können daher zwei Reaktionen auslösen (wie STU nicht atomar). Modell: Opus 5.5 direkt.
