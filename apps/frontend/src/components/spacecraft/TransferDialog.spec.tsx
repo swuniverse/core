@@ -51,3 +51,34 @@ it('offers crew admission separately from blocked cargo and caps submission to t
     direction: 'TO_TARGET',
   });
 });
+
+it('quotes a foreign orbit ship as the colony without crew transfer and shows the block reason', async () => {
+  mocks.get.mockResolvedValue({
+    available: false,
+    reason: 'Schilde müssen deaktiviert sein',
+    colonyId: 3,
+    cargo: { shipUsed: 0, shipMax: 0, colonyFree: 0 },
+    shipCargo: [],
+    colonyCargo: [],
+    crew: { shipCurrent: 0, shipMinimum: 0, shipMax: 0, colonyAvailable: 0, maxLoad: 0, maxUnload: 0 },
+    energyPerCapacity: 5,
+  });
+  render(
+    <TransferDialog
+      shipId={8}
+      colonyId={3}
+      direction="TO_COLONY"
+      initiator="COLONY"
+      crewTransfer={false}
+      onClose={vi.fn()}
+      onTransfer={vi.fn()}
+    />,
+  );
+  await waitFor(() =>
+    expect(mocks.get).toHaveBeenCalledWith(
+      '/spacecraft/8/transfer-quote?colonyId=3&initiator=COLONY&direction=TO_COLONY',
+    ),
+  );
+  expect(await screen.findByText(/Schilde müssen deaktiviert sein/)).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Crew' })).toBeNull();
+});

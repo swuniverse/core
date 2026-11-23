@@ -1487,8 +1487,16 @@ export class SpacecraftController {
     @Param('id', ParseIntPipe) id: number,
     @Request() req: { user: { sub: number } },
     @Query('colonyId', ParseIntPipe) colonyId: number,
+    @Query('initiator') initiator?: string,
+    @Query('direction') direction?: string,
   ) {
-    return this.contextService.getQuote(id, req.user.sub, colonyId);
+    return this.contextService.getQuote(
+      id,
+      req.user.sub,
+      colonyId,
+      initiator === 'COLONY' ? 'COLONY' : 'SHIP',
+      direction === 'TO_COLONY' ? 'TO_COLONY' : 'TO_SHIP',
+    );
   }
 
   @Get(':id/communications/recipients')

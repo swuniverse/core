@@ -11,7 +11,6 @@ type OrbitEntry =
   | { foreign: false; id: number; ship: OrbitShip }
   | { foreign: true; id: number; ship: ForeignOrbitShip };
 
-const FOREIGN_BEAM_BLOCKED = 'Beamen zu fremden Schiffen ist noch nicht möglich';
 
 type PanelOrbitProps = {
   colonyId: number;
@@ -119,9 +118,7 @@ export function PanelOrbit({
               <button
                 type="button"
                 onClick={() => setTransfer('TO_COLONY')}
-                disabled={selected.foreign}
-                title={selected.foreign ? FOREIGN_BEAM_BLOCKED : 'Von Schiff zur Kolonie entladen'}
-                className="disabled:opacity-40"
+                title="Von Schiff zur Kolonie entladen"
               >
                 <img
                   src="/assets/buttons/b_down1.png"
@@ -132,9 +129,7 @@ export function PanelOrbit({
               <button
                 type="button"
                 onClick={() => setTransfer('TO_SHIP')}
-                disabled={selected.foreign}
-                title={selected.foreign ? FOREIGN_BEAM_BLOCKED : 'Von Kolonie zum Schiff verladen'}
-                className="disabled:opacity-40"
+                title="Von Kolonie zum Schiff verladen"
               >
                 <img
                   src="/assets/buttons/b_up1.png"
@@ -172,9 +167,10 @@ export function PanelOrbit({
           onTransferShuttles={onTransferShuttles}
         />
       )}
-      {transfer && selected && !selected.foreign && (
+      {transfer && selected && (
         <TransferDialog
           shipId={selected.id}
+          crewTransfer={!selected.foreign}
           colonyId={colonyId}
           colonyName={`Kolonie ${colonyId}`}
           direction={transfer}

@@ -3,8 +3,20 @@ import { MemoryRouter } from 'react-router-dom';
 import { PanelOrbit } from './PanelOrbit';
 
 vi.mock('../../../components/spacecraft/TransferDialog', () => ({
-  TransferDialog: ({ direction }: { direction: string }) => (
-    <div>Transfer {direction}</div>
+  TransferDialog: ({
+    direction,
+    shipId,
+    initiator,
+    crewTransfer,
+  }: {
+    direction: string;
+    shipId: number;
+    initiator?: string;
+    crewTransfer?: boolean;
+  }) => (
+    <div>
+      {`Transfer ${direction} ship ${shipId} ${initiator} crew ${crewTransfer === false ? 'no' : 'yes'}`}
+    </div>
   ),
 }));
 
@@ -73,7 +85,7 @@ describe('PanelOrbit landing', () => {
     expect(screen.getByText('8/20')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Entladen' }));
-    expect(screen.getByText('Transfer TO_COLONY')).toBeTruthy();
+    expect(screen.getByText('Transfer TO_COLONY ship 7 COLONY crew yes')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Schiffe auswählen' }));
     const selector = screen.getByRole('dialog', {
@@ -110,14 +122,16 @@ describe('PanelOrbit foreign ships (STU OrbitShipWrappersRetriever)', () => {
     expect(screen.getAllByText('Hülle')).toHaveLength(2);
   });
 
-  it('blocks beaming once a foreign ship is selected', () => {
+  it('beams with a selected foreign ship as the colony, without crew transfer', () => {
     renderPanel([rival]);
     fireEvent.click(screen.getByRole('button', { name: 'Schiffe auswählen' }));
     fireEvent.click(screen.getByText('Nemesis').closest('button')!);
     const unload = screen.getByRole('button', { name: 'Entladen' });
-    expect((unload as HTMLButtonElement).disabled).toBe(true);
-    expect(unload.getAttribute('title')).toContain('fremden Schiffen');
-    expect((screen.getByRole('button', { name: 'Verladen' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((unload as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(unload);
+    expect(screen.getByText('Transfer TO_COLONY ship 8 COLONY crew no')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Verladen' }));
+    expect(screen.getByText('Transfer TO_SHIP ship 8 COLONY crew no')).toBeTruthy();
   });
 });
 

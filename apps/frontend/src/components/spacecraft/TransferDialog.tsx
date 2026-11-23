@@ -19,6 +19,7 @@ export function TransferDialog({
   targetName,
   direction,
   initiator = 'SHIP',
+  crewTransfer = true,
   onClose,
   onTransfer,
 }: {
@@ -30,6 +31,8 @@ export function TransferDialog({
   direction: Direction;
   /** Who pays the transfer energy: the ship (default) or the colony. */
   initiator?: 'SHIP' | 'COLONY';
+  /** Crew may only be beamed with own ships (STU `acceptsCrewFrom`). */
+  crewTransfer?: boolean;
   onClose: () => void;
   onTransfer: () => void;
 }) {
@@ -78,12 +81,12 @@ export function TransferDialog({
       return;
     }
     const nextQuote = await api.get<SpacecraftTransferQuoteDto>(
-      `/spacecraft/${shipId}/transfer-quote?colonyId=${colonyId}`,
+      `/spacecraft/${shipId}/transfer-quote?colonyId=${colonyId}&initiator=${initiator}&direction=${direction}`,
     );
     setQuote(nextQuote);
     setShipCargo(nextQuote.shipCargo);
     setColonyCargo(nextQuote.colonyCargo);
-  }, [colonyId, direction, isShipTransfer, shipId, targetShipId]);
+  }, [colonyId, direction, initiator, isShipTransfer, shipId, targetShipId]);
 
   useEffect(() => {
     void refresh().catch((err: unknown) =>
@@ -240,6 +243,7 @@ export function TransferDialog({
               ? `Kein Energieverbrauch · Freie Kapazität: ${capacity}`
               : `Energie: ${initiator === 'COLONY' ? 'Kolonie' : 'Schiff'} · Transferkapazität pro Energie: ${quote?.energyPerCapacity ?? '—'} · Freie Kapazität: ${capacity}`}
           {transferType === 'CARGO' && shipQuote?.reason && ` · ${shipQuote.reason}`}
+          {!isShipTransfer && quote?.reason && ` · ${quote.reason}`}
           {transferType === 'CREW' && shipQuote?.crewTransferReason && ` · ${shipQuote.crewTransferReason}`}
         </div>
         {(isShipTransfer || colonyId != null) && (
@@ -252,14 +256,16 @@ export function TransferDialog({
             >
               Waren
             </button>
-            <button
-              type="button"
-              onClick={() => setTransferType('CREW')}
-              aria-pressed={transferType === 'CREW'}
-              className="px-3 py-1 aria-pressed:text-swu-accent"
-            >
-              Crew
-            </button>
+            {(isShipTransfer || crewTransfer) && (
+              <button
+                type="button"
+                onClick={() => setTransferType('CREW')}
+                aria-pressed={transferType === 'CREW'}
+                className="px-3 py-1 aria-pressed:text-swu-accent"
+              >
+                Crew
+              </button>
+            )}
             {isShipTransfer && (
               <button
                 type="button"

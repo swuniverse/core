@@ -7,7 +7,7 @@ import type {
   SpacecraftCargoDisposeResultDto,
 } from '@swuniverse/shared';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import { getColonyChangeable } from '../colony/colony-stats.service';
@@ -25,6 +25,7 @@ import { SpacecraftWreck } from './entities/spacecraft-wreck.entity';
 import { SpacecraftTorpedoStorage } from './entities/spacecraft-torpedo-storage.entity';
 import {
   ShipColonyContextService,
+  type ColonyTransferDirection,
   type TransferInitiator,
 } from './ship-colony-context.service';
 import { SpacecraftTorpedoService } from './spacecraft-torpedo.service';
@@ -100,12 +101,14 @@ export class TransferService {
     amount: number,
     initiator: TransferInitiator = 'SHIP',
   ): Promise<CargoItem> {
-    return this.dataSource.transaction(async (manager) => {
-      const { ship, colony } = await this.contextService.requireContext(
+    const result = await this.dataSource.transaction(async (manager) => {
+      const { ship, colony } = await this.requireColonyTransfer(
         shipId,
         userId,
         colonyId,
         manager,
+        initiator,
+        'TO_SHIP',
       );
       this.assertCommodityBeamable(
         commodityId,
@@ -142,8 +145,41 @@ export class TransferService {
       if (initiator === 'COLONY') {
         await manager.save(getColonyChangeable(colony));
       }
-      return cargoItem;
+      return { cargoItem, ship, colony };
     });
+    await this.contextService.notifyForeignOwner(
+      result.ship,
+      result.colony,
+      commodityId,
+      amount,
+      'TO_SHIP',
+    );
+    return result.cargoItem;
+  }
+
+  /** Locks the ship/colony pair and applies the foreign-ship beam rules. */
+  private async requireColonyTransfer(
+    shipId: number,
+    userId: number,
+    colonyId: number,
+    manager: EntityManager,
+    initiator: TransferInitiator,
+    direction: ColonyTransferDirection,
+  ) {
+    const context = await this.contextService.requireContext(
+      shipId,
+      userId,
+      colonyId,
+      manager,
+      initiator,
+    );
+    const reason = await this.contextService.foreignShipBlockReason(
+      context.ship,
+      userId,
+      direction,
+    );
+    if (reason) throw new BadRequestException(reason);
+    return context;
   }
 
   async loadCrew(
@@ -182,12 +218,14 @@ export class TransferService {
     amount: number,
     initiator: TransferInitiator = 'SHIP',
   ): Promise<void> {
-    await this.dataSource.transaction(async (manager) => {
-      const { ship, colony } = await this.contextService.requireContext(
+    const { ship, colony } = await this.dataSource.transaction(async (manager) => {
+      const { ship, colony } = await this.requireColonyTransfer(
         shipId,
         userId,
         colonyId,
         manager,
+        initiator,
+        'TO_COLONY',
       );
       this.assertCommodityBeamable(
         commodityId,
@@ -227,7 +265,15 @@ export class TransferService {
       if (initiator === 'COLONY') {
         await manager.save(getColonyChangeable(colony));
       }
+      return { ship, colony };
     });
+    await this.contextService.notifyForeignOwner(
+      ship,
+      colony,
+      commodityId,
+      amount,
+      'TO_COLONY',
+    );
   }
 
   async getShipTransferQuote(

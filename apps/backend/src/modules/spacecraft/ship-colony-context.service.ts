@@ -3,7 +3,14 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
+import { isVacationEffective } from '@swuniverse/shared';
+import { User } from '../auth/user.entity';
+import { RelationshipResolverService } from '../alliance/relationship-resolver.service';
+import { MessagingService } from '../messaging/messaging.service';
+import { MessageFolder } from '../messaging/message-folder';
+import { isCloaked } from './spacecraft-cloak';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { SpacecraftTransferQuoteDto } from '@swuniverse/shared';
 import { EntityManager, Repository } from 'typeorm';
@@ -27,6 +34,7 @@ import {
 } from '../colony/colony-stats.service';
 
 export type TransferInitiator = 'SHIP' | 'COLONY';
+export type ColonyTransferDirection = 'TO_SHIP' | 'TO_COLONY';
 
 @Injectable()
 export class ShipColonyContextService {
@@ -45,6 +53,10 @@ export class ShipColonyContextService {
     private readonly crewService: SpacecraftCrewService,
     private readonly gameData: GameDataService,
     private readonly statsService: ColonyStatsService,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+    private readonly relationships: RelationshipResolverService,
+    @Optional() private readonly messaging?: MessagingService,
   ) {}
 
   /** Storage capacity including building bonuses, as shown in the colony inventory. */
@@ -57,6 +69,7 @@ export class ShipColonyContextService {
     userId: number,
     colonyId: number,
     manager?: EntityManager,
+    initiator: TransferInitiator = 'SHIP',
   ) {
     const shipRepo = manager?.getRepository(Spacecraft) ?? this.shipRepo;
     const colonyRepo = manager?.getRepository(Colony) ?? this.colonyRepo;
@@ -68,7 +81,8 @@ export class ShipColonyContextService {
         : undefined;
     const [ship, colony] = await Promise.all([
       shipRepo.findOne({
-        where: { id: shipId, userId },
+        // A colony may beam with foreign ships in its orbit (STU Transfer).
+        where: initiator === 'COLONY' ? { id: shipId } : { id: shipId, userId },
         relations: ['location', 'location.systemField'],
         lock: lockFor('spacecraft'),
       }),
@@ -78,7 +92,12 @@ export class ShipColonyContextService {
         lock: lockFor('colonies'),
       }),
     ]);
-    if (!ship || isRpgHidden(ship)) throw new NotFoundException('Ship not found');
+    if (
+      !ship ||
+      isRpgHidden(ship) ||
+      (ship.userId !== userId && isCloaked(ship))
+    )
+      throw new NotFoundException('Ship not found');
     if (!colony) throw new NotFoundException('Colony not found');
     const changeable = await (
       manager?.getRepository(ColonyChangeable) ??
@@ -95,6 +114,51 @@ export class ShipColonyContextService {
       throw new BadRequestException('Ship must be in colony orbit');
     }
     return { ship, colony };
+  }
+
+  /**
+   * STU `Transfer` checks for a foreign target ship: no vacation, shields down.
+   * SWU keeps the orbital-management exception that a friend (target owner's
+   * view) may still supply a shielded ship.
+   */
+  async foreignShipBlockReason(
+    ship: Spacecraft,
+    userId: number,
+    direction: ColonyTransferDirection,
+  ): Promise<string | null> {
+    if (ship.userId === userId) return null;
+    const owner = await this.userRepo.findOneBy({ id: ship.userId });
+    if (owner && isVacationEffective(owner))
+      return 'Aktion nicht möglich, der Spieler befindet sich im Urlaubsmodus!';
+    const systems = ship.runtimeSystems as Record<string, { active?: boolean }>;
+    if (systems?.SHIELDS?.active !== true) return null;
+    if (
+      direction === 'TO_SHIP' &&
+      (await this.relationships.resolve(ship.userId, userId))
+        .mayProvisionProtectedShip
+    )
+      return null;
+    return 'Schilde müssen deaktiviert sein';
+  }
+
+  /** STU sends the target owner a trade message about the beamed goods. */
+  async notifyForeignOwner(
+    ship: Spacecraft,
+    colony: Colony,
+    commodityId: number,
+    amount: number,
+    direction: ColonyTransferDirection,
+  ): Promise<void> {
+    if (ship.userId === colony.userId) return;
+    const commodity =
+      this.gameData.getCommodity(commodityId)?.name ?? `Ware #${commodityId}`;
+    await this.messaging?.sendSystem(
+      ship.userId,
+      'Warentransfer im Orbit',
+      `Die Kolonie ${colony.name} hat folgende Waren ${direction === 'TO_SHIP' ? 'zur' : 'von der'} ${ship.name} gebeamt: ${amount} ${commodity}`,
+      undefined,
+      MessageFolder.TRADE,
+    );
   }
 
   chargeEnergy(ship: Spacecraft, amount: number): number {
@@ -123,13 +187,26 @@ export class ShipColonyContextService {
     shipId: number,
     userId: number,
     colonyId: number,
+    initiator: TransferInitiator = 'SHIP',
+    direction: ColonyTransferDirection = 'TO_SHIP',
   ): Promise<SpacecraftTransferQuoteDto> {
     try {
       const { ship, colony } = await this.requireContext(
         shipId,
         userId,
         colonyId,
+        undefined,
+        initiator,
       );
+      const blockReason = await this.foreignShipBlockReason(
+        ship,
+        userId,
+        direction,
+      );
+      if (blockReason) throw new BadRequestException(blockReason);
+      if (ship.userId !== userId) {
+        return this.foreignQuote(ship, colony, colonyId, direction);
+      }
       const [colonyFree, colonyCrew, assignedCrew, colonyStorage, shipCargo] =
         await Promise.all([
           this.storageService.getFreeStorage(
@@ -188,8 +265,64 @@ export class ShipColonyContextService {
       };
     } catch (error) {
       return {
+        ...this.emptyQuote(colonyId),
         available: false,
         reason: error instanceof Error ? error.message : 'Transfer unavailable',
+      };
+    }
+  }
+
+  /**
+   * STU shows a foreign ship's storage bar, and its cargo only when beaming
+   * from it; crew stays hidden because crew transfer is own-ships only.
+   */
+  private async foreignQuote(
+    ship: Spacecraft,
+    colony: Colony,
+    colonyId: number,
+    direction: ColonyTransferDirection,
+  ): Promise<SpacecraftTransferQuoteDto> {
+    const [colonyFree, colonyStorage, shipCargo] = await Promise.all([
+      this.storageService.getFreeStorage(
+        colony,
+        this.getEffectiveStorageMax(colony),
+      ),
+      direction === 'TO_SHIP'
+        ? this.colonyStorageRepo.find({
+            where: { colonyId: colony.id },
+            order: { commodityId: 'ASC' },
+          })
+        : [],
+      direction === 'TO_COLONY'
+        ? this.cargoRepo.find({
+            where: { spacecraftId: ship.id },
+            order: { commodityId: 'ASC' },
+          })
+        : [],
+    ]);
+    const named = (items: Array<{ commodityId: number; amount: number }>) =>
+      items
+        .filter((item) => item.amount > 0)
+        .map((item) => ({
+          commodityId: item.commodityId,
+          commodityName:
+            this.gameData.getCommodity(item.commodityId)?.name ??
+            `Ware #${item.commodityId}`,
+          amount: item.amount,
+        }));
+    return {
+      ...this.emptyQuote(colonyId),
+      available: true,
+      cargo: { shipUsed: ship.cargoUsed, shipMax: ship.cargoMax, colonyFree },
+      shipCargo: named(shipCargo),
+      colonyCargo: named(colonyStorage),
+    };
+  }
+
+  private emptyQuote(colonyId: number): SpacecraftTransferQuoteDto {
+    return {
+        available: false,
+        reason: null,
         colonyId,
         cargo: { shipUsed: 0, shipMax: 0, colonyFree: 0 },
         shipCargo: [],
@@ -203,7 +336,6 @@ export class ShipColonyContextService {
           maxUnload: 0,
         },
         energyPerCapacity: TRANSFER_CAPACITY_PER_EPS,
-      };
-    }
+    };
   }
 }

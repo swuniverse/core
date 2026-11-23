@@ -1,6 +1,6 @@
 # Beamen zwischen Kolonie und fremden Schiffen im Orbit wie STU
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** col-AUD-11a
@@ -23,14 +23,26 @@ Seit col-AUD-11a zeigt der Orbit-Kasten fremde ungetarnte Schiffe, die Beam-Knö
 
 ## Akzeptanzkriterien
 
-- [ ] Kolonie-initiiertes Beamen zu und von fremden ungetarnten Schiffen im Orbit nach STU-Regeln; Crew-Transfer bleibt eigenen Schiffen vorbehalten.
-- [ ] Angebot (Quote) gibt für fremde Schiffe keine Fracht- oder Crew-Details preis, die STU nicht zeigt.
-- [ ] Sperren und Energieabbuchung wie beim bestehenden Kolonietransfer; Eigner bekommt eine Nachricht.
-- [ ] Beam-Knöpfe im Orbit-Kasten für fremde Schiffe freigeschaltet.
-- [ ] Backend-Tests (inkl. PostgreSQL): erlaubter Transfer, Schilde blockieren für Nicht-Freunde, getarntes Schiff abgelehnt; Frontend-Test der Knöpfe.
+- [x] Kolonie-initiiertes Beamen zu und von fremden ungetarnten Schiffen im Orbit nach STU-Regeln; Crew-Transfer bleibt eigenen Schiffen vorbehalten.
+- [x] Angebot (Quote) gibt für fremde Schiffe keine Fracht- oder Crew-Details preis, die STU nicht zeigt.
+- [x] Sperren und Energieabbuchung wie beim bestehenden Kolonietransfer; Eigner bekommt eine Nachricht.
+- [x] Beam-Knöpfe im Orbit-Kasten für fremde Schiffe freigeschaltet.
+- [x] Backend-Tests (inkl. PostgreSQL): erlaubter Transfer, Schilde blockieren für Nicht-Freunde, getarntes Schiff abgelehnt; Frontend-Test der Knöpfe.
 
 ## Herkunft
 
 - Aus col-AUD-11a abgespalten (Product Owner, 2026-11-19), weil SWU keine Kolonie↔Fremdschiff-Transferregeln hat.
 
 ## Comments
+
+### 2026-11-23 — umgesetzt, Prüfung ausstehend
+
+Commit: `feat(colony): beam between colony and foreign orbit ships (stu-parity col-AUD-11c)`
+
+- Regeln (STU `Transfer`/`CommodityTransferStrategy`): Kolonie-initiiertes Beamen (`initiator: 'COLONY'`) mit fremden ungetarnten Schiffen in beide Richtungen; getarnt → „Ship not found“; Eigner im Urlaubsmodus → abgelehnt; aktive Schilde des Fremdschiffs blockieren. SWU-Ausnahme wie Orbitalmanagement/Schiff-zu-Schiff: Freund aus Sicht des Zieleigners (`mayProvisionProtectedShip`) darf zu einem geschirmten Schiff beamen, nicht von ihm. Schiff-initiierte Transfers und Crew-Transfer bleiben eigenen Schiffen vorbehalten (`requireContext` filtert dort weiter nach `userId`).
+- Quote (`GET /spacecraft/:id/transfer-quote?initiator=COLONY&direction=…`): für fremde Schiffe nur Lagerbalken (used/max), Schiffsladung nur bei `TO_COLONY` (STU `BEAMABLE_STORAGE`), keine Crewdaten.
+- Sperren/Energie unverändert über `requireContext` + `chargeTransferEnergy`; Eigner erhält nach Commit Nachricht „Warentransfer im Orbit“ im Ordner TRADE (STU SPECIAL_TRADE).
+- Frontend: Beam-Knöpfe in `PanelOrbit` freigeschaltet; `TransferDialog` lädt Quote mit Initiator/Richtung, zeigt Sperrgrund, blendet Crew-Reiter für Fremdschiffe aus.
+- Checks: `nx typecheck backend` ✓, `nx typecheck frontend` ✓, Jest `transfer.service.spec` + `ship-colony-context.service.spec` (44) ✓, PostgreSQL `colony-foreign-ship-transfer.int-spec.ts` (5) ✓, Vitest `TransferDialog.spec` + `PanelOrbit.spec` (8) ✓, `nx lint frontend` ohne neue Befunde.
+- Modell: Claude Opus 5.5 direkt (Sol/Luna in dieser Sitzung nicht verfügbar; Ticket betrifft Autorisierung/Informationspreisgabe → Direktumsetzung).
+- Ausstehend: gesammelter Verifikationslauf (Diff-Review gegen AK, volle Backend-/Frontend-Suiten).
