@@ -1717,6 +1717,104 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
     });
   });
 
+  it('tows the held ship out of a system and counts it in the long range sensor view (sc-WP-TRACT-1d)', async () => {
+    const layer = await dataSource
+      .getRepository(Layer)
+      .findOneByOrFail({ name: 'Movement test layer' });
+    const system = await dataSource.getRepository(StarSystem).save({
+      name: 'Tow system',
+      layerId: layer.id,
+      cx: 1,
+      cy: 1,
+      maxX: 1,
+      maxY: 1,
+      systemTypeId: 1,
+    });
+    const field = await dataSource
+      .getRepository(SystemField)
+      .save({ starSystemId: system.id, sx: 1, sy: 1, fieldTypeId: 1 });
+    const location = await dataSource
+      .getRepository(SpaceLocation)
+      .findOneByOrFail({ systemFieldId: field.id });
+    const towed = await dataSource.getRepository(Spacecraft).save({
+      name: 'Towed',
+      userId: ship.userId,
+      shipClassId: ship.shipClassId,
+      locationId: location.id,
+      energy: 20,
+    });
+    await dataSource
+      .getRepository(Spacecraft)
+      .update(ship.id, { locationId: location.id, tractoredShipId: towed.id });
+    await dataSource.getRepository(SpacecraftModule).save([
+      { spacecraftId: ship.id, category: 'HYPERDRIVE', moduleType: 'Hyperdrive', isActive: true },
+      { spacecraftId: ship.id, category: 'SENSORS', moduleType: 'Sensorphalanx', isActive: true },
+    ]);
+
+    await fixture.service.leaveSystem(ship.id, ship.userId);
+
+    const saved = await dataSource.getRepository(Spacecraft).findOneByOrFail({ id: towed.id });
+    expect(saved.locationId).toBe(locations[0].id);
+    // The fixture stubs AnomalyQueryService empty; the sensor view only needs "no anomalies".
+    Object.assign((fixture.service as unknown as { anomalyQuery: object }).anomalyQuery, {
+      findAtGalaxyFields: async () => new Map(),
+    });
+    const map = (await fixture.service.getLocalMap(ship.id, ship.userId)) as {
+      overlays: { signatures: Array<{ x: number; y: number; count?: number; state: string }> };
+    };
+    expect(map.overlays.signatures).toContainEqual({ x: 1, y: 1, count: 2, state: 'COUNT' });
+  });
+
+  it('tows the held ship into a system and counts it in the long range sensor view (sc-WP-TRACT-1d)', async () => {
+    const layer = await dataSource
+      .getRepository(Layer)
+      .findOneByOrFail({ name: 'Movement test layer' });
+    const system = await dataSource.getRepository(StarSystem).save({
+      name: 'Tow entry system',
+      layerId: layer.id,
+      cx: 1,
+      cy: 1,
+      maxX: 1,
+      maxY: 1,
+      systemTypeId: 1,
+    });
+    const field = await dataSource
+      .getRepository(SystemField)
+      .save({ starSystemId: system.id, sx: 1, sy: 1, fieldTypeId: 1, isPassable: true });
+    const entry = await dataSource
+      .getRepository(SpaceLocation)
+      .findOneByOrFail({ systemFieldId: field.id });
+    await dataSource
+      .getRepository(GalaxyField)
+      .update(locations[0].galaxyFieldId!, { starSystemId: system.id });
+    const towed = await dataSource.getRepository(Spacecraft).save({
+      name: 'Towed',
+      userId: ship.userId,
+      shipClassId: ship.shipClassId,
+      locationId: locations[0].id,
+      energy: 20,
+    });
+    await dataSource
+      .getRepository(Spacecraft)
+      .update(ship.id, { tractoredShipId: towed.id });
+    await dataSource.getRepository(SpacecraftModule).save([
+      { spacecraftId: ship.id, category: 'SUBLIGHT_DRIVE', moduleType: 'Ion-Triebwerk', isActive: true },
+      { spacecraftId: ship.id, category: 'SENSORS', moduleType: 'Sensorphalanx', isActive: true },
+    ]);
+
+    await fixture.service.enterSystem(ship.id, ship.userId);
+
+    const saved = await dataSource.getRepository(Spacecraft).findOneByOrFail({ id: towed.id });
+    expect(saved.locationId).toBe(entry.id);
+    Object.assign((fixture.service as unknown as { anomalyQuery: object }).anomalyQuery, {
+      findAtSystemFields: async () => new Map(),
+    });
+    const map = (await fixture.service.getLocalMap(ship.id, ship.userId)) as {
+      overlays: { signatures: Array<{ x: number; y: number; count?: number; state: string }> };
+    };
+    expect(map.overlays.signatures).toContainEqual({ x: 1, y: 1, count: 2, state: 'COUNT' });
+  });
+
   describe('movement result and reaction port', () => {
     const warpModules = (spacecraftId: number) => [
       {
