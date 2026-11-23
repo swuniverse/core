@@ -495,4 +495,41 @@ describe('ShipHeaderTable', () => {
     expect(screen.queryAllByRole('button', { name: 'Sensoren' })).toHaveLength(0);
     expect(screen.getAllByTitle('Tarnung: 100%').length).toBeGreaterThan(0);
   });
+
+  const renderWith = (extra: object) =>
+    render(
+      <ShipHeaderTable
+        ship={{ ...ship, ...extra }}
+        onUpdate={vi.fn()}
+        onSelfDestruct={vi.fn()}
+        onInfo={vi.fn()}
+        onEnergy={vi.fn()}
+        standby={false}
+        alertState="GREEN"
+        onNavigation={vi.fn()}
+        onSensors={vi.fn()}
+      />,
+    );
+
+  it('hides repair and map when the server reports them unavailable like STU', () => {
+    renderWith({
+      actions: { repair: { available: false }, starMap: { available: false } },
+    });
+    expect(screen.queryAllByRole('button', { name: 'Reparaturoptionen' })).toHaveLength(0);
+    expect(screen.queryAllByRole('button', { name: 'Navigation und Karte' })).toHaveLength(0);
+    expect(screen.getAllByRole('button', { name: 'Selbstzerstörung' }).length).toBeGreaterThan(0);
+  });
+
+  it('shows repair and map when available', () => {
+    renderWith({
+      actions: { repair: { available: true }, starMap: { available: true } },
+    });
+    expect(screen.getAllByRole('button', { name: 'Reparaturoptionen' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Navigation und Karte' }).length).toBeGreaterThan(0);
+  });
+
+  it('offers no self-destruct on a construction like STU', () => {
+    renderWith({ kind: 'STATION', stationRole: 'CONSTRUCTION' });
+    expect(screen.queryAllByRole('button', { name: 'Selbstzerstörung' })).toHaveLength(0);
+  });
 });

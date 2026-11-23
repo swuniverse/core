@@ -76,6 +76,7 @@ export function FieldContextPanel({
   onColonized,
   onLanded,
   runtimeSystems,
+  canDropBuoy = true,
 }: {
   shipId: number;
   context: SpacecraftFieldContextDto | null;
@@ -84,6 +85,8 @@ export function FieldContextPanel({
   onColonized?: (colonyId: number) => void;
   onLanded?: (colonyId: number) => void;
   runtimeSystems?: SpacecraftRuntimeSystemsDto;
+  /** STU `hasStoredBuoy`: a buoy is in the ship's storage. */
+  canDropBuoy?: boolean;
 }) {
   const navigate = useNavigate();
   const [transfer, setTransfer] = useState<'TO_SHIP' | 'TO_COLONY' | null>(
@@ -576,16 +579,18 @@ export function FieldContextPanel({
               <img src="/assets/buttons/lupe1.png" alt="" className="size-5" />
               {scanPending ? 'Sektor-Scan läuft …' : `Sektor ${context.coordinates.x}|${context.coordinates.y} scannen`}
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setBuoyError(null);
-                setBuoyDropOpen(true);
-              }}
-              className="block text-swu-primary hover:text-swu-accent"
-            >
-              Boje setzen
-            </button>
+            {canDropBuoy && (
+              <button
+                type="button"
+                onClick={() => {
+                  setBuoyError(null);
+                  setBuoyDropOpen(true);
+                }}
+                className="block text-swu-primary hover:text-swu-accent"
+              >
+                Boje setzen
+              </button>
+            )}
             {context.wormholePassages?.length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
                 <label htmlFor="wormhole-passage" className="text-swu-muted">

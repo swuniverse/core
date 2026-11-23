@@ -170,7 +170,7 @@ import { StationScrappingService } from './station-scrapping.service';
 import { LastCombatReportService } from './last-combat-report.service';
 import { StationRepairService } from './station-repair.service';
 import { StationShipyardService } from './station-shipyard.service';
-import { SpacecraftRepairService } from './spacecraft-repair.service';
+import { REPAIR_THRESHOLD, SpacecraftRepairService } from './spacecraft-repair.service';
 import type { FlightDirection } from './entities/flight-signature.entity';
 import { COLONY_FUNCTION_IDS } from '../colony/colony.constants';
 import { CrewEnhancementService } from './crew-enhancement.service';
@@ -291,6 +291,7 @@ export class SpacecraftService {
     private readonly fieldTransitionExecutor: FieldTransitionExecutor = new FieldTransitionExecutor(),
     private readonly layerKnowledgeService: LayerKnowledgeService = {
       markKnown: async () => undefined,
+      get: async () => null,
     } as unknown as LayerKnowledgeService,
     private readonly takeoverService: SpacecraftTakeoverService = {
       cancelForShip: async () => false,
@@ -544,10 +545,23 @@ export class SpacecraftService {
     const dockedAt = ship.dockedAtId
       ? await this.shipRepo.findOneBy({ id: ship.dockedAtId })
       : null;
-    const [tractoringShip, holdingShip] = await Promise.all([
+    const mapLayerId =
+      ship.location?.galaxyField?.layerId ?? ship.location?.systemField?.starSystem?.layerId;
+    const [tractoringShip, holdingShip, storedBuoy, knownLayer] = await Promise.all([
       this.shipRepo.findOneBy({ tractoredShipId: ship.id }),
       ship.tractoredShipId ? this.shipRepo.findOneBy({ id: ship.tractoredShipId }) : null,
+      this.cargoRepo.findOneBy({ spacecraftId: ship.id, commodityId: 88 }),
+      mapLayerId ? this.layerKnowledgeService.get(userId, mapLayerId) : null,
     ]);
+    const systems = this.spacecraftRuntimeStateService.initialize(ship);
+    // STU SpacecraftWrapper::canBeRepaired; damage uses the SWU self-repair threshold.
+    const canBeRepaired =
+      (ship.alertState === AlertState.GREEN || !systems.COMPUTER) &&
+      systems.SHIELDS?.active !== true &&
+      systems.CLOAK?.active !== true &&
+      (Math.floor((ship.hull / ship.hullMax) * 100) <= REPAIR_THRESHOLD ||
+        (ship.modules ?? []).some((module) => module.integrity <= REPAIR_THRESHOLD));
+    const visible = (available: boolean) => ({ available, reason: null });
     return {
       ...ship,
       dockedAtId: ship.dockedAtId ?? null,
@@ -625,6 +639,11 @@ export class SpacecraftService {
             ? null
             : 'Standby muss vor einem Angriff beendet werden',
         },
+        repair: visible(canBeRepaired),
+        // STU IS_MAP_BUTTON_VISIBLE: the ship's layer is known to the user.
+        starMap: visible(knownLayer !== null),
+        // STU hasStoredBuoy
+        dropBuoy: visible((storedBuoy?.amount ?? 0) > 0),
       },
     };
   }

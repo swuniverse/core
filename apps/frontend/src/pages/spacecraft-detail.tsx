@@ -300,6 +300,7 @@ export function SpacecraftDetailPage() {
             }
             onLanded={(colonyId) => navigate(`/colonies?selected=${colonyId}`)}
             runtimeSystems={ship.runtimeSystems}
+            canDropBuoy={ship.actions?.dropBuoy?.available ?? true}
           />
           <TradePostEntry
             key={[

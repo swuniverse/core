@@ -31,7 +31,7 @@ import { SpacecraftCrewService } from './spacecraft-crew.service';
 
 const SPARE_PARTS_ID = 10001;
 const SYSTEM_COMPONENTS_ID = 10002;
-const REPAIR_THRESHOLD = 45;
+export const REPAIR_THRESHOLD = 45;
 
 @Injectable()
 export class SpacecraftRepairService {

@@ -45,6 +45,9 @@ interface ShipHeaderTableProps {
     fleetLeaderId?: number | null;
     fleetIsFixed?: boolean;
     fleetMembers?: Array<{ id: number; name: string }>;
+    kind?: 'SHIP' | 'STATION';
+    stationRole?: string | null;
+    actions?: Record<string, { available: boolean }>;
   };
   onUpdate?: () => void;
   onSelfDestruct: () => void;
@@ -72,6 +75,8 @@ export function ShipHeaderTable({
   children,
 }: ShipHeaderTableProps) {
   const [draftName, setDraftName] = useState(ship.name);
+  const isConstruction =
+    ship.kind === 'STATION' && ship.stationRole === 'CONSTRUCTION';
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [alertOpen, setAlertOpen] = useState(false);
@@ -164,8 +169,7 @@ export function ShipHeaderTable({
         ? `${ship.energy}/${ship.energyMax} +${energyFlow.effectiveEpsProduction} (${energyFlow.totalSystemConsumption}/${energyFlow.reactorOutput})`
         : `${ship.energy}/${ship.energyMax}`,
       icon: 'eps.png',
-      tooltip:
-        'Aktuell/Maximum, +Zuwachs, (Systemverbrauch/Reaktorleistung)',
+      tooltip: 'Aktuell/Maximum, +Zuwachs, (Systemverbrauch/Reaktorleistung)',
     },
     {
       label: 'Batterie',
@@ -220,7 +224,10 @@ export function ShipHeaderTable({
                     </Tooltip>
                   ) : row.tooltip ? (
                     <Tooltip content={row.tooltip}>
-                      <span className="inline-flex items-center gap-1" tabIndex={0}>
+                      <span
+                        className="inline-flex items-center gap-1"
+                        tabIndex={0}
+                      >
                         <AssetIcon file={row.icon} />
                         {row.label}
                       </span>
@@ -249,14 +256,14 @@ export function ShipHeaderTable({
               <td className="border border-swu-border px-1 py-2">
                 {/* STU shows the alert level only with a computer (`hasComputer`). */}
                 {systems?.COMPUTER && (
-                <button
-                  type="button"
-                  onClick={() => setAlertOpen(true)}
-                  aria-label="Alarmstufe ändern"
-                  data-tutorial="ship-alarm"
-                  title="Alarmstufe ändern"
-                  className={`size-4 border border-swu-border ${alertState === 'GREEN' ? 'bg-green-500' : alertState === 'YELLOW' ? 'bg-yellow-400' : 'bg-red-500'}`}
-                />
+                  <button
+                    type="button"
+                    onClick={() => setAlertOpen(true)}
+                    aria-label="Alarmstufe ändern"
+                    data-tutorial="ship-alarm"
+                    title="Alarmstufe ändern"
+                    className={`size-4 border border-swu-border ${alertState === 'GREEN' ? 'bg-green-500' : alertState === 'YELLOW' ? 'bg-yellow-400' : 'bg-red-500'}`}
+                  />
                 )}
               </td>
               {rows.map((row) => (
@@ -283,7 +290,7 @@ export function ShipHeaderTable({
                   onSave={saveName}
                   saving={saving}
                   disabled={!draftName.trim() || draftName.trim() === ship.name}
-                  onSelfDestruct={onSelfDestruct}
+                  onSelfDestruct={isConstruction ? undefined : onSelfDestruct}
                 />
               </td>
             </tr>
@@ -306,6 +313,12 @@ export function ShipHeaderTable({
                           onNavigation={onNavigation}
                           onSensors={onSensors}
                           sensorsAvailable={systems?.LONG_RANGE_SENSORS != null}
+                          repairAvailable={
+                            ship.actions?.repair?.available ?? true
+                          }
+                          mapAvailable={
+                            ship.actions?.starMap?.available ?? true
+                          }
                         />
                       </td>
                       <td className="w-[24%] px-2 align-middle">{children}</td>
@@ -374,7 +387,7 @@ export function ShipHeaderTable({
           onSave={saveName}
           saving={saving}
           disabled={!draftName.trim() || draftName.trim() === ship.name}
-          onSelfDestruct={onSelfDestruct}
+          onSelfDestruct={isConstruction ? undefined : onSelfDestruct}
         />
         <ShipQuickActions
           hasLastCombatReport={ship.hasLastCombatReport}
@@ -386,6 +399,8 @@ export function ShipHeaderTable({
           onNavigation={onNavigation}
           onSensors={onSensors}
           sensorsAvailable={systems?.LONG_RANGE_SENSORS != null}
+          repairAvailable={ship.actions?.repair?.available ?? true}
+          mapAvailable={ship.actions?.starMap?.available ?? true}
         />
       </div>
 
@@ -433,9 +448,7 @@ export function ShipHeaderTable({
               {ship.region.description ?? 'Keine Beschreibung vorhanden.'}
             </p>
             {ship.adminRegion && (
-              <p className="mt-2">
-                Verwaltungsregion: {ship.adminRegion.name}
-              </p>
+              <p className="mt-2">Verwaltungsregion: {ship.adminRegion.name}</p>
             )}
           </section>
         </div>
@@ -789,7 +802,8 @@ function RenameForm({
   onSave: () => void;
   saving: boolean;
   disabled: boolean;
-  onSelfDestruct: () => void;
+  /** Missing on a construction, where STU offers no self-destruct. */
+  onSelfDestruct?: () => void;
 }) {
   return (
     <div className="flex min-w-[220px] items-center gap-1">
@@ -811,15 +825,17 @@ function RenameForm({
       >
         {saving ? 'Speichere…' : 'Ändern'}
       </button>
-      <button
-        type="button"
-        onClick={onSelfDestruct}
-        className="rounded border border-red-700/70 bg-black/30 p-1 hover:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400"
-        aria-label="Selbstzerstörung"
-        title="Selbstzerstörung"
-      >
-        <AssetIcon file="selfdes1.png" />
-      </button>
+      {onSelfDestruct && (
+        <button
+          type="button"
+          onClick={onSelfDestruct}
+          className="rounded border border-red-700/70 bg-black/30 p-1 hover:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400"
+          aria-label="Selbstzerstörung"
+          title="Selbstzerstörung"
+        >
+          <AssetIcon file="selfdes1.png" />
+        </button>
+      )}
     </div>
   );
 }

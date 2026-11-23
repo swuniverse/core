@@ -1954,6 +1954,15 @@ describe('Seasonal anomaly opening in the ship field context', () => {
         </MemoryRouter>,
       );
 
+    it('offers no buoy drop without a stored buoy like STU', () => {
+      render(
+        <MemoryRouter>
+          <FieldContextPanel shipId={7} context={{ ...base, buoys: [] } as any} onUpdate={vi.fn()} canDropBuoy={false} />
+        </MemoryRouter>,
+      );
+      expect(screen.queryByRole('button', { name: 'Boje setzen' })).toBeNull();
+    });
+
     it('drops a buoy with the entered text and shows the new buoy', async () => {
       const onUpdate = vi.fn();
       apiMocks.post.mockResolvedValue({});

@@ -311,6 +311,56 @@ describe('spacecraft core detail controls', () => {
     expect(resourceFlow.calculate).toHaveBeenCalled();
   });
 
+  describe('ship page visibility (STU canBeRepaired, map, hasStoredBuoy)', () => {
+    function detailService() {
+      const created = createService();
+      Object.assign(created.ship, {
+        location: { galaxyField: { layerId: 4 } },
+        runtimeSystems: { SHIELDS: { active: false, cooldown: 0, integrity: 100 } },
+      });
+      return created;
+    }
+
+    it('hides repair, map and buoy on an intact ship in an unknown layer without buoys', async () => {
+      const { service } = detailService();
+
+      const { actions } = await service.getDetails(2, 1);
+
+      expect(actions?.repair?.available).toBe(false);
+      expect(actions?.starMap?.available).toBe(false);
+      expect(actions?.dropBuoy?.available).toBe(false);
+    });
+
+    it('offers repair for a damaged module, the map in a known layer and a stored buoy', async () => {
+      const { service, ship } = detailService();
+      ship.modules = [{ integrity: 40 } as never];
+      const knowledge = { get: jest.fn(async () => ({ status: 'KNOWN' })) };
+      const cargo = { findOneBy: jest.fn(async () => ({ amount: 1 })) };
+      Object.assign(service as any, { layerKnowledgeService: knowledge, cargoRepo: cargo });
+
+      const { actions } = await service.getDetails(2, 1);
+
+      expect(actions?.repair?.available).toBe(true);
+      expect(actions?.starMap?.available).toBe(true);
+      expect(actions?.dropBuoy?.available).toBe(true);
+      expect(knowledge.get).toHaveBeenCalledWith(1, 4);
+      expect(cargo.findOneBy).toHaveBeenCalledWith({ spacecraftId: 2, commodityId: 88 });
+    });
+
+    it.each([
+      ['shields up', { SHIELDS: { active: true, cooldown: 0, integrity: 100 } }, AlertState.GREEN],
+      ['cloaked', { SHIELDS: { active: false, cooldown: 0, integrity: 100 }, CLOAK: { active: true, cooldown: 0, integrity: 100 } }, AlertState.GREEN],
+      ['yellow alert', { SHIELDS: { active: false, cooldown: 0, integrity: 100 } }, AlertState.YELLOW],
+    ])('hides repair for a damaged hull while %s', async (_label, systems, alertState) => {
+      const { service, ship } = detailService();
+      Object.assign(ship, { hull: 10, runtimeSystems: systems, alertState });
+
+      const { actions } = await service.getDetails(2, 1);
+
+      expect(actions?.repair?.available).toBe(false);
+    });
+  });
+
   it('activates only a concrete Astrometrie-Labor after charging one EPS and requiring both sensors', async () => {
     const { service, ship } = createService();
     ship.modules = [

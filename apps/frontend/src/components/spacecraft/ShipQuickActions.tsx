@@ -16,13 +16,23 @@ interface ShipQuickActionsProps {
   onSensors: () => void;
   /** STU `hasLss`: the LSS filter needs long range sensors. */
   sensorsAvailable?: boolean;
+  /** STU `canBeRepaired`. */
+  repairAvailable?: boolean;
+  /** STU `IS_MAP_BUTTON_VISIBLE`: the ship's layer is known. */
+  mapAvailable?: boolean;
 }
 
 type QuickAction = {
   label: string;
   icon: string;
   action?:
-    'refresh' | 'info' | 'communication' | 'repair' | 'standby' | 'navigation' | 'sensors';
+    | 'refresh'
+    | 'info'
+    | 'communication'
+    | 'repair'
+    | 'standby'
+    | 'navigation'
+    | 'sensors';
   target?: string;
   disabled?: boolean;
 };
@@ -55,6 +65,8 @@ export function ShipQuickActions({
   onNavigation,
   onSensors,
   sensorsAvailable = true,
+  repairAvailable = true,
+  mapAvailable = true,
 }: ShipQuickActionsProps) {
   const [dialog, setDialog] = useState<'communication' | 'repair' | null>(null);
 
@@ -88,9 +100,21 @@ export function ShipQuickActions({
         role="toolbar"
         aria-label="Schiffsaktionen"
       >
-        <LastCombatReportButton shipId={shipId} available={hasLastCombatReport} />
-        <SignatureMaskButton shipId={shipId} available={signatureMaskingAvailable} onRefresh={onRefresh} />
-        {ACTIONS.filter((action) => action.action !== 'sensors' || sensorsAvailable).map((action, index) => (
+        <LastCombatReportButton
+          shipId={shipId}
+          available={hasLastCombatReport}
+        />
+        <SignatureMaskButton
+          shipId={shipId}
+          available={signatureMaskingAvailable}
+          onRefresh={onRefresh}
+        />
+        {ACTIONS.filter(
+          (action) =>
+            (action.action !== 'sensors' || sensorsAvailable) &&
+            (action.action !== 'repair' || repairAvailable) &&
+            (action.action !== 'navigation' || mapAvailable),
+        ).map((action, index) => (
           <button
             key={`${action.action ?? action.target ?? action.label}-${index}`}
             type="button"
