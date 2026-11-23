@@ -207,13 +207,6 @@ export function FieldContextPanel({
     }
   }, [context?.wormholePassages, selectedWormholeId]);
 
-  const localQualified =
-    cartography?.status === 'MEASURED'
-      ? cartography.actions?.finalize?.available === true
-      : cartography?.status === 'PLANNABLE'
-        ? cartography.actions?.plan?.available === true
-        : false;
-
   async function confirmCartographyAction() {
     if (cartographyDialog !== 'PLAN' && cartographyDialog !== 'FINALIZE')
       return;
@@ -650,7 +643,7 @@ export function FieldContextPanel({
               <CartographyStatus
                 plan={cartography}
                 loading={cartographyLoading}
-                qualified={localQualified}
+                labActive={runtimeSystems?.ASTROMETRY_LAB?.active === true}
                 onPlan={() => setCartographyDialog('PLAN')}
                 onFinalize={() => setCartographyDialog('FINALIZE')}
               />
@@ -1101,16 +1094,20 @@ export function FieldContextPanel({
   );
 }
 
+/**
+ * STU `astroStates` macro (control_mid.twig): actions follow the active
+ * Astrometrie-Labor (`getAstroState`); the backend reports other reasons on click.
+ */
 function CartographyStatus({
   plan,
   loading,
-  qualified,
+  labActive,
   onPlan,
   onFinalize,
 }: {
   plan: CartographyPlanDto | null;
   loading: boolean;
-  qualified: boolean;
+  labActive: boolean;
   onPlan: () => void;
   onFinalize: () => void;
 }) {
@@ -1119,81 +1116,57 @@ function CartographyStatus({
   if (!plan) return null;
   if (plan.status === 'NONE') return null;
   const region = plan.targetType === 'REGION';
+  const type = region ? 'Region' : 'System';
+  const mapLine = (text: string, icon = 'map2.png') => (
+    <div className="flex min-h-5 items-center gap-1 whitespace-nowrap text-swu-muted">
+      <img src={`/assets/buttons/${icon}`} alt="" className="size-5 shrink-0" />
+      {text}
+    </div>
+  );
   if (plan.status === 'PLANNABLE') {
-    if (qualified)
+    if (labActive)
       return (
         <button
           type="button"
           onClick={onPlan}
           className="text-swu-primary hover:text-swu-accent"
         >
-          {region ? 'Region kartographieren' : 'Kartographie planen'}
+          {type} kartographieren
         </button>
       );
-    return region ? (
-      <span className="text-swu-muted">
-        Region nicht kartographiert
-        {plan.actions.plan.reason ? `: ${plan.actions.plan.reason}` : ''}
-      </span>
-    ) : (
-      <span className="text-swu-muted">System nicht kartographiert</span>
-    );
+    return region ? null : mapLine('System nicht kartographiert');
   }
   if (plan.status === 'PLANNED')
-    return (
-      <div className="flex min-h-5 items-center gap-1 text-swu-muted">
-        <img
-          src="/assets/buttons/map2.png"
-          alt=""
-          className="size-5 shrink-0"
-        />
-        {region ? 'Regionskartographie – verbleibende Messpunkte' : 'Verbleibende Messpunkte'}:{' '}
-        {plan.remainingFieldIds.length}
-      </div>
+    return labActive
+      ? mapLine(`Verbleibende Messpunkte: ${plan.remainingFieldIds.length}`)
+      : mapLine(`Kartographierung ist geplant (${type})`);
+  if (plan.status === 'MEASURED') {
+    if (labActive)
+      return (
+        <button
+          type="button"
+          onClick={onFinalize}
+          className="text-swu-primary hover:text-swu-accent"
+        >
+          Kartographierung finalisieren ({type})
+        </button>
+      );
+    return region ? null : mapLine(`Kartographierung ist geplant (${type})`);
+  }
+  if (plan.status === 'FINISHING') {
+    const turnsLeft = Math.max(1, 3 - (plan.finalizationTick ?? 0));
+    return mapLine(
+      `Kartographierung wird finalisiert (noch ${turnsLeft} ${turnsLeft === 1 ? 'Tick' : 'Ticks'})`,
+      'map1.png',
     );
-  if (plan.status === 'MEASURED')
-    return (
-      <div className="flex flex-wrap gap-x-2">
-        <span className="text-swu-muted">Messpunkte abgeschlossen</span>
-        {qualified && (
-          <button
-            type="button"
-            onClick={onFinalize}
-            className="text-swu-primary hover:text-swu-accent"
-          >
-            {region ? 'Regionskartographie finalisieren' : 'Kartographie finalisieren'}
-          </button>
-        )}
-      </div>
-    );
-  if (plan.status === 'FINISHING')
-    return (
-      <div className="flex min-h-5 items-center gap-1 whitespace-nowrap text-swu-muted">
-        <img
-          src="/assets/buttons/map2.png"
-          alt=""
-          className="size-5 shrink-0"
-        />
-        {region ? 'Regionskartographie' : 'Kartographie'}: {plan.finalizationTick ?? 0}/3
-      </div>
-    );
+  }
   if (plan.status === 'DONE' && plan.completionOutcome === 'INVALIDATED')
     return (
       <span className="text-swu-muted">
         Kartographie ohne Belohnung beendet
       </span>
     );
-  if (plan.status === 'DONE')
-    return (
-      <div className="flex min-h-5 items-center gap-1 whitespace-nowrap text-swu-primary">
-        <img
-          src="/assets/buttons/map2.png"
-          alt=""
-          className="size-5 shrink-0"
-        />
-        {region ? 'Region ist kartographiert' : 'System ist kartographiert'}
-      </div>
-    );
+  if (plan.status === 'DONE') return mapLine(`${type} ist kartographiert`, 'map1.png');
   return <span className="text-swu-muted">Kartographiestatus unbekannt</span>;
 }
 

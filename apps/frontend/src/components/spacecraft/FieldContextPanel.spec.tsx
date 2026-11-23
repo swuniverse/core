@@ -182,7 +182,7 @@ describe('FieldContextPanel', () => {
     expect(dialog.textContent).toContain('Verwaltungsregion: Kernregion');
   });
 
-  it('shows cartography controls only for a qualified local ship', async () => {
+  it('offers the STU finalization with an active laboratory', async () => {
     apiMocks.get.mockResolvedValue({
       id: 4,
       starSystemId: 8,
@@ -224,12 +224,12 @@ describe('FieldContextPanel', () => {
     );
 
     expect(
-      await screen.findByRole('button', { name: 'Kartographie finalisieren' }),
+      await screen.findByRole('button', { name: 'Kartographierung finalisieren (System)' }),
     ).toBeTruthy();
-    expect(screen.getByText('Messpunkte abgeschlossen')).toBeTruthy();
+    expect(screen.queryByText('Messpunkte abgeschlossen')).toBeNull();
   });
 
-  it('renders legacy cartography without action availability as read-only', async () => {
+  it('shows a measured system as planned without an active laboratory (STU)', async () => {
     apiMocks.get.mockResolvedValue({
       id: 4,
       starSystemId: 8,
@@ -263,13 +263,13 @@ describe('FieldContextPanel', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Messpunkte abgeschlossen')).toBeTruthy();
+    expect(await screen.findByText('Kartographierung ist geplant (System)')).toBeTruthy();
     expect(
-      screen.queryByRole('button', { name: 'Kartographie finalisieren' }),
+      screen.queryByRole('button', { name: /finalisieren/ }),
     ).toBeNull();
   });
 
-  it('keeps shared cartography status read-only for an unqualified ship', async () => {
+  it('shows a planned system as planned without an active laboratory (STU)', async () => {
     apiMocks.get.mockResolvedValue({
       id: 4,
       starSystemId: 8,
@@ -308,7 +308,7 @@ describe('FieldContextPanel', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Verbleibende Messpunkte: 2')).toBeTruthy();
+    expect(await screen.findByText('Kartographierung ist geplant (System)')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Kartographie/ })).toBeNull();
   });
 
@@ -347,6 +347,7 @@ describe('FieldContextPanel', () => {
             colony: null,
             information: { canSectorScan: false, cartographyKnown: false },
           }}
+          runtimeSystems={{ ASTROMETRY_LAB: { active: true, integrity: 100, cooldown: 0 } } as never}
           onUpdate={vi.fn()}
         />
       </MemoryRouter>,
@@ -409,7 +410,7 @@ describe('FieldContextPanel', () => {
 
     expect(await screen.findByText('System nicht kartographiert')).toBeTruthy();
     expect(
-      screen.queryByRole('button', { name: 'Kartographie planen' }),
+      screen.queryByRole('button', { name: 'System kartographieren' }),
     ).toBeNull();
   });
 
@@ -461,19 +462,20 @@ describe('FieldContextPanel', () => {
             colony: null,
             information: { canSectorScan: false, cartographyKnown: false },
           }}
+          runtimeSystems={{ ASTROMETRY_LAB: { active: true, integrity: 100, cooldown: 0 } } as never}
           onUpdate={vi.fn()}
         />
       </MemoryRouter>,
     );
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Kartographie planen' }),
+      await screen.findByRole('button', { name: 'System kartographieren' }),
     );
     expect(apiMocks.post).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }));
     expect(apiMocks.post).not.toHaveBeenCalled();
     fireEvent.click(
-      screen.getByRole('button', { name: 'Kartographie planen' }),
+      screen.getByRole('button', { name: 'System kartographieren' }),
     );
     fireEvent.click(screen.getByRole('button', { name: 'Bestätigen' }));
     await waitFor(() =>
@@ -531,13 +533,14 @@ describe('FieldContextPanel', () => {
             colony: null,
             information: { canSectorScan: false, cartographyKnown: false },
           }}
+          runtimeSystems={{ ASTROMETRY_LAB: { active: true, integrity: 100, cooldown: 0 } } as never}
           onUpdate={vi.fn()}
         />
       </MemoryRouter>,
     );
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Kartographie finalisieren' }),
+      await screen.findByRole('button', { name: 'Kartographierung finalisieren (System)' }),
     );
     expect(apiMocks.post).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Bestätigen' }));
@@ -547,11 +550,11 @@ describe('FieldContextPanel', () => {
         {},
       ),
     );
-    const finalizationStatus = await screen.findByText('Kartographie: 1/3');
+    const finalizationStatus = await screen.findByText('Kartographierung wird finalisiert (noch 2 Ticks)');
     const finalizationRow = finalizationStatus.closest('div');
     expect(finalizationRow?.className).toContain('whitespace-nowrap');
     expect(finalizationRow?.querySelector('img')?.getAttribute('src')).toBe(
-      '/assets/buttons/map2.png',
+      '/assets/buttons/map1.png',
     );
     expect(screen.queryByText(/Hauptticks/)).toBeNull();
   });
@@ -599,7 +602,7 @@ describe('FieldContextPanel', () => {
     const successRow = successStatus.closest('div');
     expect(successRow?.className).toContain('whitespace-nowrap');
     expect(successRow?.querySelector('img')?.getAttribute('src')).toBe(
-      '/assets/buttons/map2.png',
+      '/assets/buttons/map1.png',
     );
     const systemLink = screen.getByRole('link', { name: '✦ Testsystem' });
     expect(systemLink.getAttribute('href')).toBe('/database/systems/8');
@@ -705,7 +708,7 @@ describe('FieldContextPanel', () => {
     const successRow = successStatus.closest('div');
     expect(successRow?.className).toContain('whitespace-nowrap');
     expect(successRow?.querySelector('img')?.getAttribute('src')).toBe(
-      '/assets/buttons/map2.png',
+      '/assets/buttons/map1.png',
     );
     expect(
       screen.getByRole('link', { name: '✦ Testsystem' }).getAttribute('href'),
@@ -1826,10 +1829,11 @@ describe('FieldContextPanel', () => {
       },
       ...overrides,
     });
-    const renderRegion = (context = regionContext()) =>
+    const labOn = { ASTROMETRY_LAB: { active: true, integrity: 100, cooldown: 0 } };
+    const renderRegion = (context = regionContext(), runtimeSystems: object = labOn) =>
       render(
         <MemoryRouter>
-          <FieldContextPanel shipId={1} context={context} onUpdate={vi.fn()} />
+          <FieldContextPanel shipId={1} context={context} runtimeSystems={runtimeSystems as never} onUpdate={vi.fn()} />
         </MemoryRouter>,
       );
 
@@ -1843,11 +1847,10 @@ describe('FieldContextPanel', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Bestätigen' }));
 
       await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/1/cartography', {}));
-      expect(await screen.findByText(/Regionskartographie – verbleibende Messpunkte/)).toBeTruthy();
-      expect(screen.getByText(/2$/)).toBeTruthy();
+      expect(await screen.findByText('Verbleibende Messpunkte: 2')).toBeTruthy();
     });
 
-    it('explains the server rejection instead of offering the action', async () => {
+    it('offers the action with an active laboratory and reports a server rejection on click (STU)', async () => {
       apiMocks.get.mockResolvedValue(
         regionPlan({
           id: null,
@@ -1857,12 +1860,20 @@ describe('FieldContextPanel', () => {
           },
         }),
       );
+      apiMocks.post.mockRejectedValue(new Error('Nicht genug Crew für die Kartographie'));
       renderRegion();
 
-      expect(
-        await screen.findByText('Region nicht kartographiert: Nicht genug Crew für die Kartographie'),
-      ).toBeTruthy();
-      expect(screen.queryByRole('button', { name: 'Region kartographieren' })).toBeNull();
+      fireEvent.click(await screen.findByRole('button', { name: 'Region kartographieren' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Bestätigen' }));
+      expect(await screen.findByText('Nicht genug Crew für die Kartographie')).toBeTruthy();
+    });
+
+    it('shows nothing for a plannable region without an active laboratory (STU)', async () => {
+      apiMocks.get.mockResolvedValue(regionPlan({ id: null }));
+      renderRegion(regionContext(), {});
+
+      await waitFor(() => expect(apiMocks.get).toHaveBeenCalledWith('/spacecraft/1/cartography', expect.anything()));
+      expect(screen.queryByText(/kartograph/i)).toBeNull();
     });
 
     it('hides cartography outside of systems and regions', async () => {
@@ -1879,10 +1890,10 @@ describe('FieldContextPanel', () => {
       apiMocks.post.mockResolvedValue(regionPlan({ status: 'FINISHING', finalizationTick: 1 }));
       const view = renderRegion();
 
-      fireEvent.click(await screen.findByRole('button', { name: 'Regionskartographie finalisieren' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Kartographierung finalisieren (Region)' }));
       fireEvent.click(screen.getByRole('button', { name: 'Bestätigen' }));
       await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/1/cartography/finalize', {}));
-      expect(await screen.findByText('Regionskartographie: 1/3')).toBeTruthy();
+      expect(await screen.findByText('Kartographierung wird finalisiert (noch 2 Ticks)')).toBeTruthy();
 
       // A field change reloads the status without a manual reload.
       apiMocks.get.mockResolvedValue(regionPlan({ status: 'DONE', completionOutcome: 'SUCCESS' }));
