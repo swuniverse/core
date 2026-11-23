@@ -329,6 +329,35 @@ describe('SpacecraftPage', () => {
     expect(apiMocks.get).toHaveBeenCalledWith('/spacecraft');
   });
 
+  it('adds idle single ships on the leader field to a fleet like STU', async () => {
+    const away = { ...ship.location, x: ship.location.x + 1 };
+    apiMocks.get.mockResolvedValue([
+      { ...ship, id: 3, name: 'Adler', fleetId: 4, fleetName: 'Rote Staffel', fleetLeaderId: 3 },
+      { ...ship, id: 7, name: 'Solo', fleetId: null },
+      { ...ship, id: 8, name: 'Fern', fleetId: null, location: away },
+      { ...ship, id: 9, name: 'Werft', fleetId: null, status: 'UNDER_CONSTRUCTION' },
+    ]);
+    apiMocks.post.mockReset();
+    apiMocks.post.mockResolvedValue({});
+    render(
+      <MemoryRouter>
+        <SpacecraftPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Schiff zu Rote Staffel hinzufügen' }));
+    const dialog = screen.getByRole('dialog', { name: 'Schiff(e) hinzufügen' });
+    expect(within(dialog).queryByText('Fern')).toBeNull();
+    expect(within(dialog).queryByText('Werft')).toBeNull();
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Solo' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Schiffe hinzufügen' }));
+
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/fleets/4/join', { shipId: 7 }),
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
   it('changes the alert state for every ship from the fleet header', async () => {
     apiMocks.get.mockResolvedValue([
       {

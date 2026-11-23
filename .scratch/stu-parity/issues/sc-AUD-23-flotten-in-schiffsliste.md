@@ -30,3 +30,9 @@ STU verwaltet Flotten in der Schiffsliste (`src/html/shiplistmacros.twig` Z. 183
 - Daten aus `GET /spacecraft` (Listen-DTO), kein Backend-Umbau; `fleetIsFixed` im Detail-Typ ergänzt.
 - Abweichung: STU zeigt zusätzlich Icons beschädigter Systeme je Mitglied; fehlt, weil das Listen-DTO nur vier Systeme kennt.
 - Tests: neu `FleetStatusPanel.spec.tsx` (4). Vitest `components/spacecraft` + `pages` 796/796; `nx typecheck frontend` ✓.
+
+### 2026-11-23 — Schiffe zur Flotte hinzufügen, Prüfung ausstehend
+
+- STU `shiplistFleetform.twig` (Icon `fl_join`), `ShowAvailableShips` + `getPossibleFleetMembers` (eigene Schiffe ohne Flotte am Standort des Führers, nicht im Umbau), `JoinFleetInShiplist`.
+- SWU: Icon im Flottenkopf der Schiffsliste öffnet „Schiff(e) hinzufügen“ mit Checkboxen; Kandidaten = Einzelschiffe mit Status `IDLE` auf dem Feld des Führers (Backend verlangt `IDLE`). Beitritt je Schiff über `POST /spacecraft/fleets/:id/join`; Ablehnungen pro Schiff als Meldung. Leer: „Keine Schiffe vorhanden“. Icons `fl_join1/2` aus STU.
+- Tests: `spacecraft.spec.tsx` +1. Vitest `pages` + `components/spacecraft` grün; `nx typecheck frontend` ✓.

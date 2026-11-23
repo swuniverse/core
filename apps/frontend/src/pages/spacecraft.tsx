@@ -40,6 +40,7 @@ export function SpacecraftPage() {
   const [loading, setLoading] = useState(true);
   const [fleetActionPending, setFleetActionPending] = useState(false);
   const [fleetActionError, setFleetActionError] = useState<string | null>(null);
+  const [joinFleetId, setJoinFleetId] = useState<number | null>(null);
   const [fleetAlertFailures, setFleetAlertFailures] = useState<Record<number, string[]>>({});
   const [buoys, setBuoys] = useState<SpacecraftOwnBuoyDto[]>([]);
 
@@ -168,7 +169,7 @@ export function SpacecraftPage() {
       <div className="border border-swu-border bg-black/30 px-3 py-1.5">
         <h1 className="text-xs font-bold text-swu-primary">/ Schiffe / Flotte</h1>
       </div>
-      {fleetActionError && <p role="alert" className="border border-swu-danger px-3 py-2 text-xs text-red-400">{fleetActionError}</p>}
+      {fleetActionError && <p role="alert" className="whitespace-pre-line border border-swu-danger px-3 py-2 text-xs text-red-400">{fleetActionError}</p>}
       {fleets.map((fleet) => (
         <ShipTable
           key={fleet.id}
@@ -179,6 +180,7 @@ export function SpacecraftPage() {
           actions={(
             <>
               <span>{fleet.members.length} {fleet.members.length === 1 ? 'Schiff' : 'Schiffe'}</span>
+              <button type="button" title="Schiff hinzufügen" aria-label={`Schiff zu ${fleet.name} hinzufügen`} onClick={() => setJoinFleetId(fleet.id)}><img src="/assets/buttons/fl_join1.png" alt="" aria-hidden="true" className="size-5" /></button>
               <button type="button" disabled={fleetActionPending} aria-label={`${fleet.name} ${fleet.isHidden ? 'einblenden' : 'ausblenden'}`} aria-expanded={!fleet.isHidden} className="border border-swu-border px-2 py-1 text-swu-primary disabled:opacity-40" onClick={() => void updateFleetList(fleet.id, !fleet.isHidden)}>{fleet.isHidden ? 'Einblenden' : 'Ausblenden'}</button>
               <button type="button" disabled={fleetActionPending} aria-label={`${fleet.name} nach oben`} className="border border-swu-border px-2 py-1 text-swu-primary disabled:opacity-40" onClick={() => void updateFleetList(fleet.id)}>Nach oben</button>
               <div className="flex items-center gap-1">
@@ -216,6 +218,34 @@ onOpen={(id) => navigate(`/spacecraft/${id}`)}
 onOpen={(id) => navigate(`/spacecraft/${id}`)}
       />
       <BuoyTable buoys={buoys} />
+      {joinFleetId != null && (() => {
+        const fleet = fleets.find((candidate) => candidate.id === joinFleetId);
+        const leader = fleet?.members.find((member) => member.id === fleet.leaderId);
+        // STU getPossibleFleetMembers: own ships without a fleet on the leader's field.
+        const available = leader
+          ? singles.filter((ship) => ship.status === 'IDLE' && locationKey(ship) === locationKey(leader))
+          : [];
+        return (
+          <FleetJoinDialog
+            ships={available}
+            onClose={() => setJoinFleetId(null)}
+            onJoin={async (shipIds) => {
+              const failures: string[] = [];
+              for (const shipId of shipIds) {
+                try {
+                  await api.post(`/spacecraft/fleets/${joinFleetId}/join`, { shipId });
+                } catch (error) {
+                  const name = available.find((ship) => ship.id === shipId)?.name ?? shipId;
+                  failures.push(`${name}: ${error instanceof Error ? error.message : 'Beitritt fehlgeschlagen'}`);
+                }
+              }
+              setFleetActionError(failures.length ? failures.join('\n') : null);
+              setJoinFleetId(null);
+              await loadShips();
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -396,6 +426,66 @@ function ShipRow({ ship, leader = false, onOpen, onFleet }: { ship: SpacecraftLi
       <td className={`${cell} text-center`}>{ship.specialStatus && <span role="img" title={STATUS[ship.specialStatus]} aria-label={STATUS[ship.specialStatus]} className="inline-block size-3 border border-swu-accent bg-swu-accent/30" />}</td>
       <td className={`${cell} text-center`}><FleetButton ship={ship} onClick={onFleet} /></td>
     </tr>
+  );
+}
+
+const locationKey = ({ location }: SpacecraftListDto) =>
+  location.scope === 'SYSTEM'
+    ? `S:${location.systemId}:${location.x}:${location.y}`
+    : `G:${location.layerId}:${location.x}:${location.y}`;
+
+function FleetJoinDialog({
+  ships,
+  onClose,
+  onJoin,
+}: {
+  ships: SpacecraftListDto[];
+  onClose: () => void;
+  onJoin: (shipIds: number[]) => Promise<void>;
+}) {
+  const [chosen, setChosen] = useState<number[]>([]);
+  const [busy, setBusy] = useState(false);
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Schiff(e) hinzufügen" className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4">
+      <section className="w-full max-w-sm border border-swu-border bg-swu-bg p-3 text-xs">
+        <header className="mb-2 flex justify-between border-b border-swu-border pb-2">
+          <h2 className="font-bold text-swu-primary">Schiff(e) hinzufügen</h2>
+          <button type="button" onClick={onClose}>Schließen</button>
+        </header>
+        {ships.length === 0 ? (
+          <p>Keine Schiffe vorhanden</p>
+        ) : (
+          <>
+            <ul className="mb-2 divide-y divide-swu-border/60">
+              {ships.map((ship) => (
+                <li key={ship.id}>
+                  <label className="flex items-center gap-2 py-1">
+                    <img src={shipImage(ship.shipClassId, ship.shipClassKey)} alt="" aria-hidden="true" className="max-h-6" />
+                    <input
+                      type="checkbox"
+                      checked={chosen.includes(ship.id)}
+                      onChange={(event) => setChosen((current) => event.target.checked ? [...current, ship.id] : current.filter((id) => id !== ship.id))}
+                    />
+                    {ship.name}
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              disabled={busy || chosen.length === 0}
+              className="border border-swu-border px-2 py-1 text-swu-primary disabled:opacity-40"
+              onClick={async () => {
+                setBusy(true);
+                await onJoin(chosen);
+              }}
+            >
+              Schiffe hinzufügen
+            </button>
+          </>
+        )}
+      </section>
+    </div>
   );
 }
 
