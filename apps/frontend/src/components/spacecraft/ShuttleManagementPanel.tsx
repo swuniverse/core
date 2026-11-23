@@ -60,6 +60,8 @@ export function ShuttleManagementPanel({
       setPending(false);
     }
   }
+  // STU control_mid.twig offers the shuttle start only with stored shuttles.
+  if (data && !data.isShuttle && !data.stored?.length && !data.nearby?.length) return null;
   return (
     <details open className="border-b border-swu-border p-2 text-xs">
       <summary className="font-bold text-swu-primary">
@@ -67,7 +69,7 @@ export function ShuttleManagementPanel({
       </summary>
       {data && (
         <>
-          {data.capacity > 0 && (
+          {data.capacity > 0 && data.storedCount > 0 && (
             <p className="my-1">
               {data.storedCount} / {data.capacity} Shuttleplätze belegt ·
               Shuttlerampe ohne laufenden EPS-Verbrauch
@@ -97,9 +99,6 @@ export function ShuttleManagementPanel({
               )}
             </div>
           ))}
-          {data.capacity > 0 && !data.stored?.length && (
-            <p className="my-1 text-swu-muted">Keine Shuttles im Lager.</p>
-          )}
           {(data.nearby ?? []).map((item) => (
             <div key={item.id} className="my-2">
               <button

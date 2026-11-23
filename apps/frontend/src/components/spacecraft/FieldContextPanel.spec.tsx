@@ -590,6 +590,7 @@ describe('FieldContextPanel', () => {
             information: { canSectorScan: false, cartographyKnown: false },
           }}
           onUpdate={vi.fn()}
+          runtimeSystems={{ WARPDRIVE: { active: false, cooldown: 0, integrity: 100 } } as never}
         />
       </MemoryRouter>,
     );
@@ -1295,7 +1296,7 @@ describe('FieldContextPanel', () => {
     ).toBeNull();
   });
 
-  it('disables system exit when no hyperdrive is available', () => {
+  it('hides system exit without a hyperdrive like STU (hasWarpdrive)', () => {
     render(
       <MemoryRouter>
         <FieldContextPanel
@@ -1320,9 +1321,8 @@ describe('FieldContextPanel', () => {
       </MemoryRouter>,
     );
 
-    const button = screen.getByRole('button', { name: 'System verlassen' });
-    expect((button as HTMLButtonElement).disabled).toBe(true);
-    expect(button.getAttribute('title')).toBe('Kein Hyperantrieb installiert');
+    expect(screen.queryByRole('button', { name: 'System verlassen' })).toBeNull();
+    expect(screen.getByRole('link', { name: '✦ Testsystem' })).toBeTruthy();
   });
 
   it('lands from the ship colony controls after both transfer buttons', async () => {

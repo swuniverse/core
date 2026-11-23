@@ -665,10 +665,11 @@ export function FieldContextPanel({
                 >
                   ✦ {context.starSystem.name}
                 </Link>
+                {/* STU control_mid.twig: "verlassen" only with a warp drive; other reasons on click. */}
+                {runtimeSystems?.WARPDRIVE && (
                 <button
                   type="button"
-                  disabled={leaving || !context.starSystem.canLeave}
-                  title={context.starSystem.leaveReason ?? undefined}
+                  disabled={leaving}
                   onClick={() => void leaveSystem()}
                   className="inline-flex items-center gap-1 text-swu-muted hover:text-swu-accent disabled:cursor-not-allowed disabled:opacity-40"
                 >
@@ -679,6 +680,7 @@ export function FieldContextPanel({
                   />
                   System verlassen
                 </button>
+                )}
               </div>
             ) : context.information.entrySystem ? (
               <>
@@ -694,6 +696,7 @@ export function FieldContextPanel({
                   )}
                   {context.information.entrySystem.name}
                 </div>
+                {runtimeSystems?.WARPDRIVE && (
                 <button
                   type="button"
                   disabled={leaving}
@@ -707,6 +710,7 @@ export function FieldContextPanel({
                   />
                   einfliegen
                 </button>
+                )}
               </>
             ) : null}
           </div>
