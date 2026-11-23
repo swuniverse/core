@@ -8,7 +8,17 @@ vi.mock('../../../components/spacecraft/TransferDialog', () => ({
   ),
 }));
 
-function renderPanel(foreignOrbitShips: Parameters<typeof PanelOrbit>[0]['foreignOrbitShips'] = []) {
+function renderPanel(
+  foreignOrbitShips: Parameters<typeof PanelOrbit>[0]['foreignOrbitShips'] = [],
+  shipOverrides: Record<string, unknown> = {},
+) {
+  const handlers = {
+    onDisassembleShip: vi.fn(),
+    onDefendShip: vi.fn(),
+    onBlockadeShip: vi.fn(),
+    onClearOrbitOrder: vi.fn(),
+    onTransferShuttles: vi.fn(),
+  };
   render(
     <MemoryRouter>
       <PanelOrbit
@@ -33,20 +43,18 @@ function renderPanel(foreignOrbitShips: Parameters<typeof PanelOrbit>[0]['foreig
             hasEnoughCrew: true,
             canManage: true,
             canLand: true,
+            ...shipOverrides,
           },
         ]}
         foreignOrbitShips={foreignOrbitShips}
         commodityMap={{}}
-        onDisassembleShip={vi.fn()}
-        onDefendShip={vi.fn()}
-        onBlockadeShip={vi.fn()}
-        onClearOrbitOrder={vi.fn()}
-        onTransferShuttles={vi.fn()}
+        {...handlers}
         compact
         onOpenManagement={vi.fn()}
       />
     </MemoryRouter>,
   );
+  return handlers;
 }
 
 describe('PanelOrbit landing', () => {
@@ -113,3 +121,27 @@ describe('PanelOrbit foreign ships (STU OrbitShipWrappersRetriever)', () => {
   });
 });
 
+describe('PanelOrbit actions for own ships', () => {
+  it('starts defend and blockade orders and offers disassembly after confirmation', () => {
+    const handlers = renderPanel([], { canDefend: true, canBlock: false, canDisassemble: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Verteidigen' }));
+    expect(handlers.onDefendShip).toHaveBeenCalledWith(7);
+    expect((screen.getByRole('button', { name: 'Blockieren' }) as HTMLButtonElement).disabled).toBe(true);
+
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Demontieren' }));
+    expect(handlers.onDisassembleShip).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Demontieren' }));
+    expect(handlers.onDisassembleShip).toHaveBeenCalledWith(7);
+    confirm.mockRestore();
+  });
+
+  it('ends a running orbit order', () => {
+    const handlers = renderPanel([], {
+      orbitAssignment: { id: 1, mode: 'BLOCKADE', fleetId: 3 },
+    });
+    expect(screen.queryByRole('button', { name: 'Verteidigen' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Blockade beenden' }));
+    expect(handlers.onClearOrbitOrder).toHaveBeenCalledWith(7);
+  });
+});

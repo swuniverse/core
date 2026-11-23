@@ -51,6 +51,20 @@ export class StationShipManagementService {
       : [[], [], []];
     const stationCargo = await manager.find(CargoItem, { where: { spacecraftId: station.id } });
     const crewMin = new Map(classes.map((shipClass) => [shipClass.id, shipClass.crewMin]));
+    const classKey = new Map(classes.map((shipClass) => [shipClass.id, shipClass.key]));
+    const stationStock = (commodityId: number) =>
+      stationCargo.find((item) => item.commodityId === commodityId)?.amount ?? 0;
+    const possibleTorpedoTypes = await Promise.all(
+      ships.map((ship) =>
+        this.management.possibleTorpedoTypes(
+          ship,
+          stationStock,
+          ship.userId === station.userId
+            ? torpedoes.find((entry) => entry.spacecraftId === ship.id)?.torpedoTypeId
+            : null,
+        ),
+      ),
+    );
     return {
       station: {
         id: station.id,
@@ -63,10 +77,11 @@ export class StationShipManagementService {
           .filter((item) => item.amount > 0)
           .map((item) => ({ commodityId: item.commodityId, amount: item.amount })),
       },
-      ships: ships.map((ship) => ({
+      ships: ships.map((ship, index) => ({
         id: ship.id,
         name: ship.name,
         shipClassId: ship.shipClassId,
+        shipClassKey: classKey.get(ship.shipClassId) ?? null,
         foreign: ship.userId !== station.userId,
         crew: { current: ship.crew, max: ship.crewMax, minimum: crewMin.get(ship.shipClassId) ?? 0 },
         battery: { current: ship.battery, max: ship.batteryMax },
@@ -75,6 +90,7 @@ export class StationShipManagementService {
           profile: reactorFuelProfile(ship.modules ?? []),
         },
         torpedoes: torpedoes.find((entry) => entry.spacecraftId === ship.id) ?? null,
+        possibleTorpedoTypes: possibleTorpedoTypes[index],
         cargo: {
           used: cargo
             .filter((item) => item.spacecraftId === ship.id)

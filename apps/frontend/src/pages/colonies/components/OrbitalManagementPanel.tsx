@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { commodityImage } from '../../../lib/assets';
+import { commodityImage, shipImage } from '../../../lib/assets';
 import { api } from '../../../services/api';
 
 type ManagementSource = {
@@ -15,6 +15,7 @@ type ManagementData = {
     id: number;
     name: string;
     shipClassId: number;
+    shipClassKey?: string | null;
     /** Foreign ships take no crew changes and hide their state (STU). */
     foreign?: boolean;
     ownerName?: string | null;
@@ -31,6 +32,24 @@ type ManagementData = {
       };
     };
     torpedoes: { torpedoTypeId: number; amount: number } | null;
+    /** Types the ship can fire that the source stocks (or already loaded), with the source reserve. */
+    possibleTorpedoTypes?: Array<{
+      id: number;
+      name: string;
+      commodityId: number;
+      stock: number;
+    }>;
+    /** Shuttle ramp of own ships; null without ramp. */
+    shuttles?: {
+      capacity: number;
+      blockReason: string | null;
+      items: Array<{
+        commodityId: number;
+        name: string;
+        ship: number;
+        colony: number;
+      }>;
+    } | null;
     cargo: { used: number; max: number } | null;
     shieldsActive: boolean;
     hyperdriveActive: boolean;
@@ -45,6 +64,11 @@ type OrbitalManagementPanelProps = {
   endpoint?: string;
   title?: string;
   sourceLabel?: string;
+  /** Enables the STU column "Shuttle-Transfer" (colony orbit only). */
+  onTransferShuttles?: (
+    shipId: number,
+    items: Array<{ commodityId: number; amount: number }>,
+  ) => Promise<void> | void;
 };
 
 /** Crew, battery, reactor and torpedo supply table for ships in a colony orbit or docked at a station. */
@@ -53,7 +77,9 @@ export function OrbitalManagementPanel({
   endpoint = `/colonies/${colonyId}/orbital-management`,
   title = 'Orbitalmanagement',
   sourceLabel = 'Kolonie-EPS',
+  onTransferShuttles,
 }: OrbitalManagementPanelProps) {
+  const [shuttleShip, setShuttleShip] = useState<ManagedShip | null>(null);
   const [data, setData] = useState<ManagementData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [values, setValues] = useState<
@@ -89,7 +115,10 @@ export function OrbitalManagementPanel({
                 batteryCharge: 0,
                 reactorLoad: 0,
                 torpedoLoad: 0,
-                torpedoTypeId: ship.torpedoes?.torpedoTypeId ?? 0,
+                torpedoTypeId:
+                  ship.torpedoes?.torpedoTypeId ??
+                  ship.possibleTorpedoTypes?.[0]?.id ??
+                  0,
               },
             ]),
           ),
@@ -176,6 +205,8 @@ export function OrbitalManagementPanel({
     }
   }
 
+  const columns = onTransferShuttles ? 7 : 6;
+
   return (
     <section className="border border-swu-border bg-swu-surface text-xs">
       <header className="flex items-center justify-between border-b border-swu-border px-2 py-1">
@@ -195,6 +226,11 @@ export function OrbitalManagementPanel({
               <th className="w-[14%] border border-swu-border p-1">Batterie</th>
               <th className="w-[19%] border border-swu-border p-1">Reaktor</th>
               <th className="w-[16%] border border-swu-border p-1">Torpedos</th>
+              {onTransferShuttles && (
+                <th className="w-[11%] border border-swu-border p-1">
+                  Shuttle-Transfer
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -203,7 +239,7 @@ export function OrbitalManagementPanel({
                 ? [
                     <tr key={`group-${label}`}>
                       <td
-                        colSpan={6}
+                        colSpan={columns}
                         className="border border-swu-border bg-black/30 p-1 font-bold text-swu-muted"
                       >
                         {label}
@@ -224,6 +260,11 @@ export function OrbitalManagementPanel({
                   />
                 </td>
                 <td className="border border-swu-border p-1 font-bold text-swu-primary">
+                  <img
+                    src={shipImage(ship.shipClassId, ship.shipClassKey)}
+                    alt={`Rumpf ${ship.name}`}
+                    className="mb-1 h-8 w-14 object-contain"
+                  />
                   <a
                     href={`/spacecraft/${ship.id}`}
                     className="hover:text-swu-accent"
@@ -371,52 +412,102 @@ export function OrbitalManagementPanel({
                   </div>
                 </td>
                 <td className="border border-swu-border p-1 font-mono">
-                  {ship.torpedoes
-                    ? `${ship.torpedoes.torpedoTypeId}: ${ship.torpedoes.amount}`
-                    : '0'}
-                  <input
-                    aria-label={`${ship.name} Torpedomenge`}
-                    type="number"
-                    min={0}
-                    value={values[ship.id]?.torpedoLoad ?? 0}
-                    onChange={(event) =>
-                      updateValue(
-                        ship.id,
-                        'torpedoLoad',
-                        Math.max(0, Number(event.target.value) || 0),
-                      )
-                    }
-                    className="ml-1 w-12 border border-swu-border bg-black px-1"
-                  />
-                  <input
-                    aria-label={`${ship.name} Torpedotyp`}
-                    type="number"
-                    min={1}
-                    value={values[ship.id]?.torpedoTypeId ?? 0}
-                    onChange={(event) =>
-                      updateValue(
-                        ship.id,
-                        'torpedoTypeId',
-                        Math.max(0, Number(event.target.value) || 0),
-                      )
-                    }
-                    className="ml-1 w-10 border border-swu-border bg-black px-1"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => updateValue(ship.id, 'torpedoLoad', 99)}
-                    className="ml-1 border border-swu-border px-1 text-[10px]"
-                  >
-                    max
-                  </button>
+                  <div>
+                    Geladen:{' '}
+                    {ship.torpedoes
+                      ? `${torpedoName(ship, ship.torpedoes.torpedoTypeId)} ${ship.torpedoes.amount}`
+                      : '0'}
+                  </div>
+                  {(ship.possibleTorpedoTypes ?? []).length === 0 ? (
+                    <div className="text-[10px] text-swu-muted">
+                      Keine passenden Torpedos im Lager
+                    </div>
+                  ) : (
+                    <>
+                      {(ship.possibleTorpedoTypes ?? []).map((type) => (
+                        <div
+                          key={type.id}
+                          className="flex items-center gap-1 text-[10px] text-swu-muted"
+                        >
+                          <img
+                            src={commodityImage(type.commodityId)}
+                            alt=""
+                            className="inline size-4"
+                          />
+                          {type.name} ({type.stock} im Lager)
+                        </div>
+                      ))}
+                      <select
+                        aria-label={`${ship.name} Torpedotyp`}
+                        value={values[ship.id]?.torpedoTypeId ?? 0}
+                        // A loaded type must be unloaded before switching (backend rule).
+                        disabled={(ship.torpedoes?.amount ?? 0) > 0}
+                        onChange={(event) =>
+                          updateValue(
+                            ship.id,
+                            'torpedoTypeId',
+                            Number(event.target.value),
+                          )
+                        }
+                        className="mt-1 w-full border border-swu-border bg-black px-1"
+                      >
+                        {(ship.possibleTorpedoTypes ?? []).map((type) => (
+                          <option key={type.id} value={type.id}>
+                            {type.name}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="mt-1 flex items-center">
+                        <input
+                          aria-label={`${ship.name} Torpedomenge`}
+                          type="number"
+                          min={0}
+                          value={values[ship.id]?.torpedoLoad ?? 0}
+                          onChange={(event) =>
+                            updateValue(
+                              ship.id,
+                              'torpedoLoad',
+                              Math.max(0, Number(event.target.value) || 0),
+                            )
+                          }
+                          className="w-12 border border-swu-border bg-black px-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => updateValue(ship.id, 'torpedoLoad', 99)}
+                          className="ml-1 border border-swu-border px-1 text-[10px]"
+                        >
+                          max
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </td>
+                {onTransferShuttles && (
+                  <td className="border border-swu-border p-1">
+                    {ship.shuttles &&
+                      (ship.shuttles.blockReason ? (
+                        <span className="text-[10px] text-swu-muted">
+                          {ship.shuttles.blockReason}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setShuttleShip(ship)}
+                          className="border border-swu-border px-1 text-[10px] hover:border-swu-accent"
+                        >
+                          Shuttle-Management öffnen
+                        </button>
+                      ))}
+                  </td>
+                )}
               </tr>
               )),
             ])}
             {data.ships.length === 0 && (
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={columns}
                   className="border border-swu-border p-2 text-swu-muted"
                 >
                   Keine Schiffe verfügbar.
@@ -453,11 +544,147 @@ export function OrbitalManagementPanel({
           <span className="text-red-300">{result.rejected.join(', ')}</span>
         </p>
       ))}
+      {shuttleShip?.shuttles && onTransferShuttles && (
+        <ShuttleTransferDialog
+          ship={shuttleShip}
+          shuttles={shuttleShip.shuttles}
+          onClose={() => setShuttleShip(null)}
+          onSubmit={async (items) => {
+            await onTransferShuttles(shuttleShip.id, items);
+            setShuttleShip(null);
+            setData(await api.get<ManagementData>(endpoint));
+          }}
+        />
+      )}
     </section>
   );
 }
 
+/** STU `shuttleManagement.twig`: set the target count per shuttle type on the ship. */
+function ShuttleTransferDialog({
+  ship,
+  shuttles,
+  onClose,
+  onSubmit,
+}: {
+  ship: ManagedShip;
+  shuttles: NonNullable<ManagedShip['shuttles']>;
+  onClose: () => void;
+  onSubmit: (items: Array<{ commodityId: number; amount: number }>) => Promise<void>;
+}) {
+  const [targets, setTargets] = useState<Record<number, number>>(() =>
+    Object.fromEntries(shuttles.items.map((item) => [item.commodityId, item.ship])),
+  );
+  const [pending, setPending] = useState(false);
+  const total = shuttles.items.reduce(
+    (sum, item) => sum + (targets[item.commodityId] ?? item.ship),
+    0,
+  );
+  const items = shuttles.items
+    .map((item) => ({
+      commodityId: item.commodityId,
+      amount: (targets[item.commodityId] ?? item.ship) - item.ship,
+    }))
+    .filter((item) => item.amount !== 0);
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Shuttle-Transfer ${ship.name}`}
+      className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section className="w-full max-w-md border border-swu-border bg-swu-bg text-xs">
+        <header className="flex items-center justify-between border-b border-swu-border px-3 py-2">
+          <h3 className="font-bold text-swu-primary">
+            Shuttle-Transfer: {ship.name}
+          </h3>
+          <button type="button" onClick={onClose}>
+            Schließen
+          </button>
+        </header>
+        {shuttles.items.length === 0 ? (
+          <p className="p-3 text-swu-muted">
+            Keine Shuttles auf Schiff oder Kolonie.
+          </p>
+        ) : (
+          <table className="w-full border-collapse">
+            <thead className="text-left text-swu-muted">
+              <tr>
+                <th className="border border-swu-border p-1">Shuttle-Typ</th>
+                <th className="border border-swu-border p-1">Kolonie</th>
+                <th className="border border-swu-border p-1">Auf dem Schiff</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shuttles.items.map((item) => {
+                const target = targets[item.commodityId] ?? item.ship;
+                return (
+                  <tr key={item.commodityId}>
+                    <td className="border border-swu-border p-1">
+                      <img
+                        src={commodityImage(item.commodityId)}
+                        alt=""
+                        className="mr-1 inline size-4"
+                      />
+                      {item.name}
+                    </td>
+                    <td className="border border-swu-border p-1 font-mono">
+                      {item.colony + item.ship - target}
+                    </td>
+                    <td className="border border-swu-border p-1">
+                      <input
+                        aria-label={`${item.name} auf dem Schiff`}
+                        type="number"
+                        min={0}
+                        max={item.ship + item.colony}
+                        value={target}
+                        onChange={(event) =>
+                          setTargets((current) => ({
+                            ...current,
+                            [item.commodityId]: Math.min(
+                              item.ship + item.colony,
+                              Math.max(0, Number(event.target.value) || 0),
+                            ),
+                          }))
+                        }
+                        className="w-14 border border-swu-border bg-black px-1"
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+        <footer className="flex items-center gap-2 border-t border-swu-border p-2">
+          <span className={total > shuttles.capacity ? 'text-red-300' : 'text-swu-muted'}>
+            Summe: {total}/{shuttles.capacity}
+          </span>
+          <button
+            type="button"
+            disabled={pending || items.length === 0 || total > shuttles.capacity}
+            onClick={() => {
+              setPending(true);
+              void onSubmit(items).finally(() => setPending(false));
+            }}
+            className="ml-auto border border-swu-accent px-3 py-1 text-swu-accent disabled:opacity-40"
+          >
+            Transfer starten
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
 type ManagedShip = ManagementData['ships'][number];
+
+function torpedoName(ship: ManagedShip, typeId: number): string {
+  return ship.possibleTorpedoTypes?.find((type) => type.id === typeId)?.name ?? `Typ ${typeId}`;
+}
 
 function ownCrew(ship: ManagedShip): ship is ManagedShip & { crew: NonNullable<ManagedShip['crew']> } {
   return !ship.foreign && ship.crew != null;

@@ -405,6 +405,11 @@ export class ShuttleService {
     });
   }
 
+  /** Ramp capacity and block reason; `ship` needs `modules` and `shipClass`. */
+  rampStatus(ship: Spacecraft): { capacity: number; blockReason: string | null } {
+    return { capacity: this.capacity(ship), blockReason: this.rampReason(ship) };
+  }
+
   private actorReason(ship: Spacecraft, crew: number): string | null {
     const systems = ship.runtimeSystems as SpacecraftRuntimeSystemsDto;
     if (ship.status !== 'IDLE' || ship.operatingMode === 'STANDBY')

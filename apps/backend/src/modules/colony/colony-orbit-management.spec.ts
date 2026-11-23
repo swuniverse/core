@@ -33,13 +33,27 @@ function ship(id: number, userId: number, overrides: Record<string, unknown> = {
   };
 }
 
-function setup(ships: ReturnType<typeof ship>[], friend = false) {
+const torpedoTypes = [
+  { id: 1, name: 'Photon', commodityId: 501 },
+  { id: 2, name: 'Plasma', commodityId: 502 },
+  { id: 3, name: 'Quanten', commodityId: 503 },
+];
+
+function setup(
+  ships: ReturnType<typeof ship>[],
+  friend = false,
+  {
+    storage = [] as Array<{ commodityId: number; amount: number }>,
+    cargo = [] as Array<{ spacecraftId: number; commodityId: number; amount: number }>,
+    torpedoes = [] as Array<{ spacecraftId: number; torpedoTypeId: number; amount: number }>,
+  } = {},
+) {
   const colony = {
     id: 1,
     userId: 1,
     name: 'Heimat',
     systemField,
-    storage: [],
+    storage,
     changeable: { energy: 100, maxEnergy: 100 },
   };
   const shipRepo = {
@@ -50,31 +64,48 @@ function setup(ships: ReturnType<typeof ship>[], friend = false) {
     manager: { save: jest.fn(async (value: unknown) => value) },
   };
   const empty = { find: jest.fn(async () => []) };
+  const cargoRepo = { find: jest.fn(async () => cargo) };
+  const torpedoRepo = { find: jest.fn(async () => torpedoes) };
+  const gameData = {
+    isSmallCraftCommodity: (id: number) => id >= 20000,
+    getCommodity: (id: number) => ({ name: `Ware ${id}` }),
+    getTorpedoType: (id: number) => torpedoTypes.find((type) => type.id === id),
+  };
+  // Ship 1 fires types 1 and 2; other ships carry no torpedoes.
+  const torpedoService = {
+    getCompatibleTorpedoTypes: jest.fn(async (target: { id: number }) =>
+      target.id === 1 ? torpedoTypes.slice(0, 2) : [],
+    ),
+  };
+  const shuttles = {
+    rampStatus: (target: { id: number }) =>
+      target.id === 1 ? { capacity: 4, blockReason: null } : { capacity: 0, blockReason: 'Keine Shuttleplätze' },
+  };
   const messaging = { sendSystem: jest.fn(async () => undefined) };
   const relationships = {
     resolve: jest.fn(async () => ({ mayProvisionProtectedShip: friend })),
   };
   const service = new ColonyOrbitService(
-    { manager: { getRepository: () => empty } } as never,
+    { manager: { getRepository: () => torpedoRepo } } as never,
     { save: jest.fn(async (value: unknown) => value) } as never,
     empty as never,
     shipRepo as never,
-    empty as never,
+    cargoRepo as never,
     empty as never,
     {} as never,
     empty as never,
     { findOwnedColony: jest.fn(async () => colony) } as never,
+    gameData as never,
     {} as never,
     {} as never,
     {} as never,
     {} as never,
-    {} as never,
-    new ShipManagementService({} as never, {} as never),
+    new ShipManagementService(gameData as never, torpedoService as never),
     {} as never,
     undefined,
     undefined,
     messaging as never,
-    undefined,
+    shuttles as never,
     relationships as never,
   );
   return { service, colony, messaging, relationships };
@@ -140,5 +171,44 @@ describe('ColonyOrbitService orbital management (STU ShowOrbitManagement)', () =
       undefined,
       'SHIP',
     );
+  });
+
+  it('offers compatible torpedo types the colony stocks or the ship already carries', async () => {
+    const { service } = setup([ship(1, 1)], false, {
+      storage: [{ commodityId: 501, amount: 12 }, { commodityId: 503, amount: 9 }],
+      torpedoes: [{ spacecraftId: 1, torpedoTypeId: 2, amount: 3 }],
+    });
+    const { ships } = await service.getManagement(1, 1);
+    expect(ships[0].possibleTorpedoTypes).toEqual([
+      { id: 1, name: 'Photon', commodityId: 501, stock: 12 },
+      { id: 2, name: 'Plasma', commodityId: 502, stock: 0 },
+    ]);
+  });
+
+  it('lists shuttle stock of ship and colony only for ships with a ramp', async () => {
+    const { service } = setup([ship(1, 1), ship(2, 1)], false, {
+      storage: [{ commodityId: 20061, amount: 2 }, { commodityId: 7, amount: 50 }],
+      cargo: [{ spacecraftId: 1, commodityId: 21401, amount: 1 }],
+    });
+    const { ships } = await service.getManagement(1, 1);
+    expect(ships[0].shuttles).toEqual({
+      capacity: 4,
+      blockReason: null,
+      items: [
+        { commodityId: 21401, name: 'Ware 21401', ship: 1, colony: 0 },
+        { commodityId: 20061, name: 'Ware 20061', ship: 0, colony: 2 },
+      ],
+    });
+    expect(ships[1].shuttles).toBeNull();
+  });
+
+  it('rejects a torpedo type the ship cannot fire', async () => {
+    const { service } = setup([ship(1, 1)], false, {
+      storage: [{ commodityId: 503, amount: 9 }],
+    });
+    const { results } = await service.executeManagement(1, 1, [
+      { shipId: 1, torpedoTypeId: 3, torpedoLoad: 2 },
+    ]);
+    expect(results[0].rejected).toEqual(['Torpedotyp ist für dieses Schiff nicht möglich']);
   });
 });

@@ -230,6 +230,7 @@ export class ColonyOrbitService implements OnModuleInit {
       'fleet',
       'user',
       'modules',
+      'shipClass',
     ]);
     const shipIds = orbitShips.map((ship) => ship.id);
     const [cargo, assignments, torpedoes] = await Promise.all([
@@ -267,6 +268,55 @@ export class ColonyOrbitService implements OnModuleInit {
     const torpedoesByShip = new Map(
       torpedoes.map((storage) => [storage.spacecraftId, storage]),
     );
+    const colonyStock = (commodityId: number) =>
+      colony.storage.find((item) => item.commodityId === commodityId)?.amount ?? 0;
+    const shuttleTypes = (shipId: number) =>
+      [
+        ...new Set(
+          [
+            ...cargo.filter((item) => item.spacecraftId === shipId),
+            ...colony.storage,
+          ]
+            .filter(
+              (item) =>
+                item.amount > 0 &&
+                this.gameData.isSmallCraftCommodity(item.commodityId),
+            )
+            .map((item) => item.commodityId),
+        ),
+      ].map((commodityId) => ({
+        commodityId,
+        name: this.gameData.getCommodity(commodityId)?.name ?? `#${commodityId}`,
+        ship:
+          cargo.find(
+            (item) =>
+              item.spacecraftId === shipId && item.commodityId === commodityId,
+          )?.amount ?? 0,
+        colony: colonyStock(commodityId),
+      }));
+    // STU `ShowShuttleManagement`: only ships with a shuttle ramp get the transfer.
+    const shuttles = (ship: Spacecraft) => {
+      const ramp = this.shuttles?.rampStatus(ship);
+      if (!ramp || ramp.capacity <= 0) return null;
+      return { ...ramp, items: shuttleTypes(ship.id) };
+    };
+    const possibleTorpedoTypes = new Map(
+      await Promise.all(
+        orbitShips.map(
+          async (ship) =>
+            [
+              ship.id,
+              await this.shipManagement.possibleTorpedoTypes(
+                ship,
+                colonyStock,
+                ship.userId === userId
+                  ? torpedoesByShip.get(ship.id)?.torpedoTypeId
+                  : null,
+              ),
+            ] as const,
+        ),
+      ),
+    );
     return {
       colony: {
         id: colony.id,
@@ -292,12 +342,15 @@ export class ColonyOrbitService implements OnModuleInit {
             id: ship.id,
             name: ship.name,
             shipClassId: ship.shipClassId,
+            shipClassKey: ship.shipClass?.key ?? null,
             foreign: true,
             ...fleet,
             crew: null,
             battery: { current: null, max: ship.batteryMax },
             reactor: { fuel: { current: null, max: ship.reactorFuelMax }, profile },
             torpedoes: null,
+            possibleTorpedoTypes: possibleTorpedoTypes.get(ship.id) ?? [],
+            shuttles: null,
             cargo: null,
             shieldsActive: isShieldActive(ship),
             hyperdriveActive: false,
@@ -308,6 +361,7 @@ export class ColonyOrbitService implements OnModuleInit {
           id: ship.id,
           name: ship.name,
           shipClassId: ship.shipClassId,
+          shipClassKey: ship.shipClass?.key ?? null,
           foreign: false,
           ...fleet,
           crew: {
@@ -321,6 +375,8 @@ export class ColonyOrbitService implements OnModuleInit {
             profile,
           },
           torpedoes: torpedoesByShip.get(ship.id) ?? null,
+          possibleTorpedoTypes: possibleTorpedoTypes.get(ship.id) ?? [],
+          shuttles: shuttles(ship),
           cargo: { used: usedByShip.get(ship.id) ?? 0, max: ship.cargoMax },
           shieldsActive: isShieldActive(ship),
           hyperdriveActive:

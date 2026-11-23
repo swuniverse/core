@@ -191,6 +191,22 @@ export class ShipManagementService {
     applied.push(`Reaktor: +${gained}`);
   }
 
+  /** STU `getPossibleTorpedoTypes`, limited to types the source stocks or the ship already carries. */
+  async possibleTorpedoTypes(
+    ship: Spacecraft,
+    getStock: (commodityId: number) => number,
+    loadedTypeId?: number | null,
+  ) {
+    return (await this.torpedoService.getCompatibleTorpedoTypes(ship))
+      .map((type) => ({
+        id: type.id,
+        name: type.name,
+        commodityId: type.commodityId,
+        stock: getStock(type.commodityId),
+      }))
+      .filter((type) => type.stock > 0 || type.id === loadedTypeId);
+  }
+
   private async loadTorpedoes(
     manager: EntityManager,
     source: ShipManagementSource,
@@ -206,6 +222,12 @@ export class ShipManagementService {
     if (!type) throw new BadRequestException('Torpedotyp fehlt');
     const torpedo = this.gameData.getTorpedoType(type);
     if (!torpedo) throw new BadRequestException('Unbekannter Torpedotyp');
+    if (
+      !(await this.torpedoService.getCompatibleTorpedoTypes(ship)).some(
+        (entry) => entry.id === type,
+      )
+    )
+      throw new BadRequestException('Torpedotyp ist für dieses Schiff nicht möglich');
     const repo = manager.getRepository(SpacecraftTorpedoStorage);
     let storage = await repo.findOneBy({ spacecraftId: ship.id });
     if (storage && storage.amount > 0 && storage.torpedoTypeId !== type) {

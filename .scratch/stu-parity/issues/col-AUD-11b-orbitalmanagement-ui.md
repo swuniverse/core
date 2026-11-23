@@ -1,6 +1,6 @@
 # Orbitalmanagement: Rumpfbild, Torpedoreserven, Typauswahl, Shuttle-Transfer, PanelOrbit-Callbacks
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** col-AUD-11a
@@ -27,12 +27,12 @@ Im SWU-Orbitalmanagement fehlen das Rumpfbild, die Torpedoreserven der Kolonie j
 
 ## Akzeptanzkriterien
 
-- [ ] Jede Zeile des Orbitalmanagements zeigt das Rumpfbild.
-- [ ] Die Kolonie-Torpedoreserven werden je Typ angezeigt. Der Torpedotyp wird per Auswahlliste aus den für das Schiff möglichen und auf der Kolonie vorhandenen Typen gewählt, nicht per ID-Eingabe. Das Backend liefert die möglichen Typen.
-- [ ] Spalte bzw. Dialog „Shuttle-Transfer“ wie STU: Shuttles zwischen Kolonie und eigenem Schiff transferieren, Kapazität und Bestand sichtbar, Aufruf von `POST :id/orbit/ships/:shipId/shuttles`.
-- [ ] `PanelOrbit` nimmt alle übergebenen Callbacks entgegen und bietet die Aktionen an (Shuttle-Transfer, Demontage-Einstieg, Verteidigen, Blockieren, Orbitauftrag aufheben). Nicht benötigte Callbacks werden entfernt statt ungenutzt deklariert.
-- [ ] Backend-Test: mögliche Torpedotypen je Schiff, Shuttle-Transfer in beide Richtungen.
-- [ ] Frontend-Tests `PanelOrbit.spec.tsx` und ein Test für `OrbitalManagementPanel` (Bild, Reserven, Typauswahl, Shuttle-Transfer).
+- [x] Jede Zeile des Orbitalmanagements zeigt das Rumpfbild.
+- [x] Die Kolonie-Torpedoreserven werden je Typ angezeigt. Der Torpedotyp wird per Auswahlliste aus den für das Schiff möglichen und auf der Kolonie vorhandenen Typen gewählt, nicht per ID-Eingabe. Das Backend liefert die möglichen Typen.
+- [x] Spalte bzw. Dialog „Shuttle-Transfer“ wie STU: Shuttles zwischen Kolonie und eigenem Schiff transferieren, Kapazität und Bestand sichtbar, Aufruf von `POST :id/orbit/ships/:shipId/shuttles`.
+- [x] `PanelOrbit` nimmt alle übergebenen Callbacks entgegen und bietet die Aktionen an (Shuttle-Transfer, Demontage-Einstieg, Verteidigen, Blockieren, Orbitauftrag aufheben). Nicht benötigte Callbacks werden entfernt statt ungenutzt deklariert.
+- [x] Backend-Test: mögliche Torpedotypen je Schiff, Shuttle-Transfer in beide Richtungen.
+- [x] Frontend-Tests `PanelOrbit.spec.tsx` und ein Test für `OrbitalManagementPanel` (Bild, Reserven, Typauswahl, Shuttle-Transfer).
 
 ## Herkunft
 
@@ -43,3 +43,4 @@ Im SWU-Orbitalmanagement fehlen das Rumpfbild, die Torpedoreserven der Kolonie j
 ## Comments
 
 - 2026-11-17: Aus dem Audit angelegt.
+- 2026-11-23 – **umgesetzt, Prüfung ausstehend.** Commit „feat(colony): orbital management hull, torpedo types and shuttle transfer (stu-parity col-AUD-11b)“. Backend: `getManagement` (Kolonie und Station) liefert `shipClassKey` und `possibleTorpedoTypes` (kompatible Typen mit Lagerbestand > 0 oder bereits geladen, je mit `stock`) über `ShipManagementService.possibleTorpedoTypes`; das Laden lehnt inkompatible Typen jetzt ab. Eigene Schiffe mit Shuttlerampe bekommen `shuttles` (`capacity`, `blockReason` aus neuem `ShuttleService.rampStatus`, Bestand je Shuttletyp auf Schiff und Kolonie). Frontend: `OrbitalManagementPanel` mit Rumpfbild, Reserven je Typ („N im Lager“), Auswahlliste statt Typ-ID (gesperrt, solange Torpedos geladen sind), Spalte „Shuttle-Transfer“ mit Dialog wie STU `shuttleManagement.twig` (Zielmenge je Typ, Summe/Kapazität) → `onTransferShuttles` → `POST :id/orbit/ships/:shipId/shuttles`. `PanelOrbit` nimmt alle fünf Callbacks: Verteidigen/Blockieren/Auftrag beenden und Demontieren (mit Bestätigung) beim ausgewählten eigenen Schiff, Shuttle-Transfer im Orbitalmanagement. Shuttle-Transfer in beide Richtungen ist durch `shuttle.int-spec.ts` („…respects storage limits for colony transfers“) abgedeckt; kein neuer Integrationstest. Checks: Jest `colony` + `shuttle.spec` 452/452, `station-ship-management` grün, Vitest `PanelOrbit`/`OrbitalManagementPanel`/`PanelInfo`/`StationShipManagementPanel` grün, `nx typecheck` backend/frontend ohne neue Fehler, ESLint ohne neue Warnungen. **Ausstehend:** gesammelter Verifikationslauf (Lint/Typecheck/Unit gesamt, PostgreSQL `shuttle.int-spec`, Diff-Review gegen STU). Modell: Opus 5.5 direkt (kein Sol/Luna verfügbar), keine Delegation.

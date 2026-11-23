@@ -39,6 +39,11 @@ export function PanelOrbit({
   colonyId,
   orbitShips,
   foreignOrbitShips = [],
+  onDisassembleShip,
+  onDefendShip,
+  onBlockadeShip,
+  onClearOrbitOrder,
+  onTransferShuttles,
   compact = false,
   onOpenManagement,
   showHeading = true,
@@ -101,6 +106,15 @@ export function PanelOrbit({
               </h3>
             )}
             <OrbitEntryCard entry={selected} openShip />
+            {!selected.foreign && selected.ship.canManage && (
+              <OrbitShipActions
+                ship={selected.ship}
+                onDefendShip={onDefendShip}
+                onBlockadeShip={onBlockadeShip}
+                onClearOrbitOrder={onClearOrbitOrder}
+                onDisassembleShip={onDisassembleShip}
+              />
+            )}
             <div className="flex items-center gap-2 border-t border-swu-border p-2">
               <button
                 type="button"
@@ -153,7 +167,10 @@ export function PanelOrbit({
           </div>
         )
       ) : (
-        <OrbitalManagementPanel colonyId={colonyId} />
+        <OrbitalManagementPanel
+          colonyId={colonyId}
+          onTransferShuttles={onTransferShuttles}
+        />
       )}
       {transfer && selected && !selected.foreign && (
         <TransferDialog
@@ -178,6 +195,75 @@ export function PanelOrbit({
         />
       )}
     </section>
+  );
+}
+
+/** Orbit orders of the fleet and the disassembly entry for an own ship. */
+function OrbitShipActions({
+  ship,
+  onDefendShip,
+  onBlockadeShip,
+  onClearOrbitOrder,
+  onDisassembleShip,
+}: {
+  ship: OrbitShip;
+} & Pick<
+  PanelOrbitProps,
+  'onDefendShip' | 'onBlockadeShip' | 'onClearOrbitOrder' | 'onDisassembleShip'
+>) {
+  const button =
+    'border border-swu-border px-2 py-0.5 hover:border-swu-accent disabled:opacity-40';
+  return (
+    <div className="flex flex-wrap items-center gap-1 border-t border-swu-border p-2">
+      {ship.orbitAssignment ? (
+        <button
+          type="button"
+          className={button}
+          onClick={() => void onClearOrbitOrder(ship.id)}
+        >
+          {ship.orbitAssignment.mode === 'DEFEND'
+            ? 'Verteidigung beenden'
+            : 'Blockade beenden'}
+        </button>
+      ) : (
+        <>
+          <button
+            type="button"
+            className={button}
+            disabled={!ship.canDefend}
+            title={ship.actionBlockers?.defend ?? 'Kolonie verteidigen'}
+            onClick={() => void onDefendShip(ship.id)}
+          >
+            Verteidigen
+          </button>
+          <button
+            type="button"
+            className={button}
+            disabled={!ship.canBlock}
+            title={ship.actionBlockers?.block ?? 'Kolonie blockieren'}
+            onClick={() => void onBlockadeShip(ship.id)}
+          >
+            Blockieren
+          </button>
+        </>
+      )}
+      {ship.canDisassemble && (
+        <button
+          type="button"
+          className="ml-auto border border-red-500/50 px-2 py-0.5 text-red-300"
+          onClick={() => {
+            if (
+              window.confirm(
+                `${ship.name} wirklich demontieren? Demontage ist endgültig.`,
+              )
+            )
+              void onDisassembleShip(ship.id);
+          }}
+        >
+          Demontieren
+        </button>
+      )}
+    </div>
   );
 }
 
