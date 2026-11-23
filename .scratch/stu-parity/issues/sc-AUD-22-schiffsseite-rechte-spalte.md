@@ -11,7 +11,7 @@ Rechte Spalte der Schiffsseite nach STU `src/html/spacecraft/control/control_rig
 
 ## Akzeptanzkriterien
 
-- [x] „Warp-Signatur fälschen“ (Rumpfauswahl + Knopf) als Zeile im Block „Reaktor + Antrieb“ direkt unter dem Hyperantrieb-Schalter, nur bei `isWarpPossible` (Warpantrieb vorhanden, außerhalb eines Systems). Aktive Signatur mit Restzeit darunter. Der bisherige Knopf „Signatur“ mit Dialog in den Schnellaktionen entfällt.
+- [x] „Hyperantrieb-Signatur fälschen“ (Rumpfauswahl + Knopf) als Zeile im Block „Reaktor + Antrieb“ direkt unter dem Hyperantrieb-Schalter, nur bei `isWarpPossible` (Warpantrieb vorhanden, außerhalb eines Systems). Aktive Signatur mit Restzeit darunter. Der bisherige Knopf „Signatur“ mit Dialog in den Schnellaktionen entfällt.
 - [x] Block „Traktorstrahl“ nur bei aktivem Strahl: „Gerichtet auf: X“ mit Schiffsbild und „deaktivieren“ (Station zusätzlich Andock-Icon) bzw. „Gehalten von: X“ mit „Fluchtversuch“ nur bei funktionsfähigem Deflektor (`isDeflectorHealthy`, SWU: Schilde-Integrität > 0). Die Banner oben auf der Seite entfallen.
 - [x] `tractor.holding/heldBy` liefern `shipClassId` und `shipClassKey` für das Bild.
 

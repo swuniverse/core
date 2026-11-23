@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { SignatureMaskDto } from '@swuniverse/shared';
 import { api } from '../../services/api';
 
-/** STU `control_right.twig`: hull select and "Warp-Signatur fälschen" below the warp drive. */
+/** STU `control_right.twig` "Warp-Signatur fälschen", in SWU terms below the hyperdrive. */
 export function SignatureMaskRow({
   shipId,
   onRefresh,
@@ -53,7 +53,7 @@ export function SignatureMaskRow({
       setError(
         reason instanceof Error
           ? reason.message
-          : 'Warp-Signatur konnte nicht geändert werden',
+          : 'Hyperantrieb-Signatur konnte nicht geändert werden',
       );
     } finally {
       setBusy(false);
@@ -83,7 +83,7 @@ export function SignatureMaskRow({
           onClick={() => void change(false)}
           className={button}
         >
-          Warp-Signatur fälschen
+          Hyperantrieb-Signatur fälschen
         </button>
         {error && (
           <span role="alert" className="w-full text-[11px] text-red-300">
@@ -94,7 +94,7 @@ export function SignatureMaskRow({
       {menu.active && remaining > 0 && (
         <div className="flex items-center justify-center gap-2 p-2">
           <span role="status">
-            Aktive Warpsignatur: {menu.active.name} (
+            Aktive Hyperantrieb-Signatur: {menu.active.name} (
             {Math.floor(remaining / 60)}:
             {String(remaining % 60).padStart(2, '0')})
           </span>

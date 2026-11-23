@@ -39,7 +39,7 @@ it('fakes the warp signature of the selected hull like STU', async () => {
     target: { value: '8' },
   });
   fireEvent.click(
-    screen.getByRole('button', { name: 'Warp-Signatur fälschen' }),
+    screen.getByRole('button', { name: 'Hyperantrieb-Signatur fälschen' }),
   );
 
   await waitFor(() =>
@@ -48,7 +48,7 @@ it('fakes the warp signature of the selected hull like STU', async () => {
     }),
   );
   expect((await screen.findByRole('status')).textContent).toMatch(
-    /Aktive Warpsignatur: Korvette/,
+    /Aktive Hyperantrieb-Signatur: Korvette/,
   );
   expect(refresh).toHaveBeenCalledOnce();
 });
@@ -58,7 +58,7 @@ it('shows the server reason and keeps the selection', async () => {
   render(<SignatureMaskRow shipId={12} onRefresh={vi.fn()} />);
 
   fireEvent.click(
-    await screen.findByRole('button', { name: 'Warp-Signatur fälschen' }),
+    await screen.findByRole('button', { name: 'Hyperantrieb-Signatur fälschen' }),
   );
 
   expect((await screen.findByRole('alert')).textContent).toBe(
