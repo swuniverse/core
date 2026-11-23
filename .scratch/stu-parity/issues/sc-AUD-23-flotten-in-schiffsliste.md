@@ -16,9 +16,7 @@ STU verwaltet Flotten in der Schiffsliste (`src/html/shiplistmacros.twig` Z. 183
 - [x] Formular „Neue Flotte“ unter der Liste entfernt; Umbenennen bleibt im Flottenkopf.
 - [x] Icons `fl_flag1-3`, `fl_raus1-2` aus den STU-Assets übernommen (Submodul `assets`).
 
-## Offen
-
-- Flotte fixieren und Flottenführer wechseln gibt es jetzt nirgends mehr. STU hat beides im Block „Flottenstatus“ rechts in der Schiffsansicht des Führers (`control_right.twig`, Makro `fleetInfo`).
+- [x] Block „Flottenstatus“ rechts in der Schiffsansicht (STU `control_right.twig`, Makro `fleetInfo`): Mitglied sieht „zum Führungsschiff wechseln“; Führer mit weiteren Schiffen sieht Checkbox „fixiert“ und pro Mitglied Bild, Name, Balken für Hülle/Schilde/Energie/Hyperantrieb und Flagge „Flottenführung wechseln“. Icons `modul_1/2/8/11` aus STU übernommen.
 
 ## Comments
 
@@ -26,3 +24,9 @@ STU verwaltet Flotten in der Schiffsliste (`src/html/shiplistmacros.twig` Z. 183
 
 - Tests: `spacecraft.spec.tsx` (Flottenaktionen pro Zeile statt Formular; Zählung im Sichtbarkeitstest von 2 auf 1, die zweite Fundstelle war die Option im entfernten Formular); `ShipHeaderTable.spec.tsx` drei Flottentests durch „keine Flottenleiste“ ersetzt. Vitest `pages` + `components/spacecraft` 792/792; `nx typecheck frontend` ✓.
 - Modell: Claude Opus 5.5 direkt.
+
+### 2026-11-23 — Flottenstatus umgesetzt, Prüfung ausstehend
+
+- Daten aus `GET /spacecraft` (Listen-DTO), kein Backend-Umbau; `fleetIsFixed` im Detail-Typ ergänzt.
+- Abweichung: STU zeigt zusätzlich Icons beschädigter Systeme je Mitglied; fehlt, weil das Listen-DTO nur vier Systeme kennt.
+- Tests: neu `FleetStatusPanel.spec.tsx` (4). Vitest `components/spacecraft` + `pages` 796/796; `nx typecheck frontend` ✓.

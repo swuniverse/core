@@ -594,6 +594,7 @@ export interface SpacecraftDetailDto {
   fleetId?: number | null;
   fleetName?: string | null;
   fleetLeaderId?: number | null;
+  fleetIsFixed?: boolean;
   fleetMembers?: Array<{ id: number; name: string }>;
   /** Class key of the fleet's flagship; drives the map cursor of all members. */
   fleetFlagshipClassKey?: string | null;

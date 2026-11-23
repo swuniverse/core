@@ -11,6 +11,7 @@ import { ShipHeaderTable } from '../components/spacecraft/ShipHeaderTable';
 import { ShipControlCenter } from '../components/spacecraft/ShipControlCenter';
 import { ReactorPanel } from '../components/spacecraft/ReactorPanel';
 import { TractorBeamPanel } from '../components/spacecraft/TractorBeamPanel';
+import { FleetStatusPanel } from '../components/spacecraft/FleetStatusPanel';
 import { SpacecraftMessageBar } from '../components/spacecraft/SpacecraftMessageBar';
 import { ShipStoragePanel } from '../components/spacecraft/ShipStoragePanel';
 import { NearbySensorPanel } from '../components/spacecraft/NearbySensorPanel';
@@ -325,6 +326,16 @@ export function SpacecraftDetailPage() {
                 {tractorMessage}
               </p>
             )}
+          </div>
+          <div className="mt-2">
+            <FleetStatusPanel
+              shipId={ship.id}
+              fleetId={ship.fleetId ?? null}
+              fleetLeaderId={ship.fleetLeaderId ?? null}
+              fleetIsFixed={ship.fleetIsFixed ?? false}
+              refreshKey={shipRefreshVersion}
+              onUpdate={refreshShipAndStorage}
+            />
           </div>
         </div>
       </div>
