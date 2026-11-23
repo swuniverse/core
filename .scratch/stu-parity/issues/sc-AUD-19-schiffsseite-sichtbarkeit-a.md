@@ -2,7 +2,7 @@
 
 > Umbenannt am 2026-11-23: zuerst versehentlich als `sc-AUD-15` angelegt (Nummer war schon vergeben). Commit-Nachrichten dieses Tickets nennen noch `sc-AUD-15`.
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -42,3 +42,5 @@ Commit: `feat(spacecraft): show ship page entries only with their STU prerequisi
 - Checks: Vitest `components/spacecraft`, `spacecraft-detail`, `tutorial-targets` 262/262 (4 neue Tests); `nx typecheck frontend` ✓; `nx lint frontend` 127 Warnungen vorher wie nachher.
 - Modell: Claude Opus 5.5 direkt.
 - Ausstehend: gesammelter Verifikationslauf.
+
+- 2026-11-23 – **Prüfung bestanden, resolved.** Gesammelter Verifikationslauf auf `afa856fb`: Lint 0 Fehler (in den geänderten Dateien keine Warnung), `nx typecheck` und `nx build` alle Projekte grün, Unit Backend 2739/2739, Frontend 990/991 (Ausreißer `settings-tutorial.spec.tsx` einzeln 23/23 grün, nicht berührt), PostgreSQL-Integration 1076/1076. Diff-Review gegen Akzeptanzkriterien ohne Befund (Rechte: Kolonie-Eigentum, Orbit, Tarnung; Flottenendpunkte prüfen den Eigner). Modell: Opus 5.5 direkt.

@@ -1,6 +1,6 @@
 # Traktorstrahl als Standardsystem wie STU
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -45,3 +45,5 @@ Commit: `feat(spacecraft): tractor beam as STU default system (stu-parity sc-WP-
 - Checks: Unit-Test neu in `spacecraft-runtime-state.service.spec.ts` (16/16); Jest `spacecraft`, `combat`, `alert-reaction`, `colony` (114 Suites, 1365 Tests) ✓; PostgreSQL-Integrationstests mit Traktorbezug (10 Suites, 256 Tests) ✓; `nx typecheck backend` ✓.
 - Modell: Claude Opus 5.5 direkt (Sol/Luna in dieser Sitzung nicht verfügbar).
 - Ausstehend: gesammelter Verifikationslauf (volle Suiten, Diff-Review).
+
+- 2026-11-23 – **Prüfung bestanden, resolved.** Gesammelter Verifikationslauf auf `afa856fb`: Lint 0 Fehler (in den geänderten Dateien keine Warnung), `nx typecheck` und `nx build` alle Projekte grün, Unit Backend 2739/2739, Frontend 990/991 (Ausreißer `settings-tutorial.spec.tsx` einzeln 23/23 grün, nicht berührt), PostgreSQL-Integration 1076/1076. Diff-Review gegen Akzeptanzkriterien ohne Befund (Rechte: Kolonie-Eigentum, Orbit, Tarnung; Flottenendpunkte prüfen den Eigner). Modell: Opus 5.5 direkt.

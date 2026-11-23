@@ -2,7 +2,7 @@
 
 > Umbenannt am 2026-11-23: zuerst versehentlich als `sc-AUD-14` angelegt (Nummer war schon vergeben). Commit-Nachrichten dieses Tickets nennen noch `sc-AUD-14`.
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -35,3 +35,5 @@ Commit: `feat(spacecraft): block weapons while unalerted like STU (stu-parity sc
 - Checks: Jest `spacecraft-core-controls.spec.ts` 30/30 (4 neu); Jest `spacecraft`, `combat`, `alert-reaction`, `colony` 1373/1373 (vor den neuen Tests); Vitest `ShipControlCenter.spec.tsx` 11/11 (1 neu), `components/spacecraft` + `spacecraft-detail` 251/251; `nx typecheck backend` und `frontend` ✓; `nx lint frontend` ohne neue Befunde.
 - Modell: Claude Opus 5.5 direkt.
 - Ausstehend: gesammelter Verifikationslauf.
+
+- 2026-11-23 – **Prüfung bestanden, resolved.** Gesammelter Verifikationslauf auf `afa856fb`: Lint 0 Fehler (in den geänderten Dateien keine Warnung), `nx typecheck` und `nx build` alle Projekte grün, Unit Backend 2739/2739, Frontend 990/991 (Ausreißer `settings-tutorial.spec.tsx` einzeln 23/23 grün, nicht berührt), PostgreSQL-Integration 1076/1076. Diff-Review gegen Akzeptanzkriterien ohne Befund (Rechte: Kolonie-Eigentum, Orbit, Tarnung; Flottenendpunkte prüfen den Eigner). Modell: Opus 5.5 direkt.

@@ -2,7 +2,7 @@
 
 > Umbenannt am 2026-11-23: zuerst versehentlich als `sc-AUD-13` angelegt (Nummer war schon vergeben). Commit-Nachrichten dieses Tickets nennen noch `sc-AUD-13`.
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P1
 **Size:** S
 **Blocked by:** —
@@ -36,3 +36,5 @@ Commit: `fix(backend): lock only base tables when loading relations (stu-parity 
 - Checks: Jest `spacecraft`, `holonet`, `alert-reaction`, `combat` 975/975; `nx typecheck backend` ✓; volle Integrationssuite 109 Suites, 1076 Tests ✓.
 - Modell: Claude Opus 5.5 direkt.
 - Ausstehend: gesammelter Verifikationslauf.
+
+- 2026-11-23 – **Prüfung bestanden, resolved.** Gesammelter Verifikationslauf auf `afa856fb`: Lint 0 Fehler (in den geänderten Dateien keine Warnung), `nx typecheck` und `nx build` alle Projekte grün, Unit Backend 2739/2739, Frontend 990/991 (Ausreißer `settings-tutorial.spec.tsx` einzeln 23/23 grün, nicht berührt), PostgreSQL-Integration 1076/1076. Diff-Review gegen Akzeptanzkriterien ohne Befund (Rechte: Kolonie-Eigentum, Orbit, Tarnung; Flottenendpunkte prüfen den Eigner). Modell: Opus 5.5 direkt.

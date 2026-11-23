@@ -2,7 +2,7 @@
 
 > Umbenannt am 2026-11-23: zuerst versehentlich als `sc-AUD-16` angelegt (Nummer war schon vergeben). Commit-Nachrichten dieses Tickets nennen noch `sc-AUD-16`.
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -42,3 +42,5 @@ Commit: `feat(spacecraft): STU cartography wording and lab rule (stu-parity sc-A
 - Aktionen und Texte folgen dem aktiven Astrometrie-Labor (STU `getAstroState`): „System/Region kartographieren“, „Verbleibende Messpunkte: N“ oder „Kartographierung ist geplant (System|Region)“, „Kartographierung finalisieren (System|Region)“, „Kartographierung wird finalisiert (noch N Ticks)“, „System/Region ist kartographiert“. Region ohne aktives Labor zeigt nichts.
 - Ersetzt bewusst die Regeln aus `stu-messpunkt-systemkartographie/07` (Aktionen nur für lokal qualifizierte Schiffe) und `tmw-K8b3` (Grund statt Aktion): Gründe des Backends erscheinen jetzt nach dem Klick im Meldungsdialog. 11 Tests in `FieldContextPanel.spec.tsx` auf die STU-Regel umgeschrieben, 1 neu (Region ohne Labor).
 - Checks: Vitest `FieldContextPanel.spec.tsx` 51/51; `components/spacecraft` + `spacecraft-detail` + `tutorial-targets` 259/259; volle Frontend-Suite 980/981 — der Fehlschlag `player-profile.spec.tsx` („groups scanned ship logbooks…“) betrifft keine Datei dieses Tickets (`player-profile.tsx` importiert nichts davon); im Arbeitsbaum liegt zudem eine fremde, nicht committete Änderung an `apps/frontend/src/lib/assets.ts`. `nx typecheck frontend` ✓; `nx lint frontend` 127 Warnungen vorher wie nachher.
+
+- 2026-11-23 – **Prüfung bestanden, resolved.** Gesammelter Verifikationslauf auf `afa856fb`: Lint 0 Fehler (in den geänderten Dateien keine Warnung), `nx typecheck` und `nx build` alle Projekte grün, Unit Backend 2739/2739, Frontend 990/991 (Ausreißer `settings-tutorial.spec.tsx` einzeln 23/23 grün, nicht berührt), PostgreSQL-Integration 1076/1076. Diff-Review gegen Akzeptanzkriterien ohne Befund (Rechte: Kolonie-Eigentum, Orbit, Tarnung; Flottenendpunkte prüfen den Eigner). Modell: Opus 5.5 direkt.

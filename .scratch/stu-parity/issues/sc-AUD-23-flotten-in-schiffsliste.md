@@ -1,6 +1,6 @@
 # Flotten nur in der Schiffsliste wie STU
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -36,3 +36,5 @@ STU verwaltet Flotten in der Schiffsliste (`src/html/shiplistmacros.twig` Z. 183
 - STU `shiplistFleetform.twig` (Icon `fl_join`), `ShowAvailableShips` + `getPossibleFleetMembers` (eigene Schiffe ohne Flotte am Standort des Führers, nicht im Umbau), `JoinFleetInShiplist`.
 - SWU: Icon im Flottenkopf der Schiffsliste öffnet „Schiff(e) hinzufügen“ mit Checkboxen; Kandidaten = Einzelschiffe mit Status `IDLE` auf dem Feld des Führers (Backend verlangt `IDLE`). Beitritt je Schiff über `POST /spacecraft/fleets/:id/join`; Ablehnungen pro Schiff als Meldung. Leer: „Keine Schiffe vorhanden“. Icons `fl_join1/2` aus STU.
 - Tests: `spacecraft.spec.tsx` +1. Vitest `pages` + `components/spacecraft` grün; `nx typecheck frontend` ✓.
+
+- 2026-11-23 – **Prüfung bestanden, resolved.** Gesammelter Verifikationslauf auf `afa856fb`: Lint 0 Fehler (in den geänderten Dateien keine Warnung), `nx typecheck` und `nx build` alle Projekte grün, Unit Backend 2739/2739, Frontend 990/991 (Ausreißer `settings-tutorial.spec.tsx` einzeln 23/23 grün, nicht berührt), PostgreSQL-Integration 1076/1076. Diff-Review gegen Akzeptanzkriterien ohne Befund (Rechte: Kolonie-Eigentum, Orbit, Tarnung; Flottenendpunkte prüfen den Eigner). Offene Abweichung: Flottenstatus ohne Icons beschädigter Systeme je Mitglied. Modell: Opus 5.5 direkt.

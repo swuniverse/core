@@ -1,6 +1,6 @@
 # Beamen zwischen Kolonie und fremden Schiffen im Orbit wie STU
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** col-AUD-11a
@@ -46,3 +46,5 @@ Commit: `feat(colony): beam between colony and foreign orbit ships (stu-parity c
 - Checks: `nx typecheck backend` ✓, `nx typecheck frontend` ✓, Jest `transfer.service.spec` + `ship-colony-context.service.spec` (44) ✓, PostgreSQL `colony-foreign-ship-transfer.int-spec.ts` (5) ✓, Vitest `TransferDialog.spec` + `PanelOrbit.spec` (8) ✓, `nx lint frontend` ohne neue Befunde.
 - Modell: Claude Opus 5.5 direkt (Sol/Luna in dieser Sitzung nicht verfügbar; Ticket betrifft Autorisierung/Informationspreisgabe → Direktumsetzung).
 - Ausstehend: gesammelter Verifikationslauf (Diff-Review gegen AK, volle Backend-/Frontend-Suiten).
+
+- 2026-11-23 – **Prüfung bestanden, resolved.** Gesammelter Verifikationslauf auf `afa856fb`: Lint 0 Fehler (in den geänderten Dateien keine Warnung), `nx typecheck` und `nx build` alle Projekte grün, Unit Backend 2739/2739, Frontend 990/991 (Ausreißer `settings-tutorial.spec.tsx` einzeln 23/23 grün, nicht berührt), PostgreSQL-Integration 1076/1076. Diff-Review gegen Akzeptanzkriterien ohne Befund (Rechte: Kolonie-Eigentum, Orbit, Tarnung; Flottenendpunkte prüfen den Eigner). Modell: Opus 5.5 direkt.

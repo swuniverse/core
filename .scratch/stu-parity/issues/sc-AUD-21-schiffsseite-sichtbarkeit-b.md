@@ -1,6 +1,6 @@
 # Schiffsseite: Reparatur, Karte, Boje, Selbstzerstörung wie STU (Paket B)
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -32,3 +32,5 @@ Paket B aus `sc-AUD-19`: Aktionen, deren Sichtbarkeit STU an Schiffsdaten knüpf
 - Abweichung: STU zeigt Reparatur schon bei Hülle < Maximum; SWU nutzt die eigene Schwelle von 45 %.
 - Backend lehnt Selbstzerstörung eines Konstrukts weiterhin nicht ab (nur UI ausgeblendet).
 - Modell: Claude Opus 5.5 direkt.
+
+- 2026-11-23 – **Prüfung bestanden, resolved.** Gesammelter Verifikationslauf auf `afa856fb`: Lint 0 Fehler (in den geänderten Dateien keine Warnung), `nx typecheck` und `nx build` alle Projekte grün, Unit Backend 2739/2739, Frontend 990/991 (Ausreißer `settings-tutorial.spec.tsx` einzeln 23/23 grün, nicht berührt), PostgreSQL-Integration 1076/1076. Diff-Review gegen Akzeptanzkriterien ohne Befund (Rechte: Kolonie-Eigentum, Orbit, Tarnung; Flottenendpunkte prüfen den Eigner). Offene Abweichung: Selbstzerstörung eines Konstrukts nur im UI ausgeblendet, Backend lehnt nicht ab. Modell: Opus 5.5 direkt.

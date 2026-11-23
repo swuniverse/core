@@ -1,6 +1,6 @@
 # Traktor-Symbol in der NBS-Liste und Aktivierungsmeldungen wie STU
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** sc-WP-TRACT-1c
@@ -60,3 +60,5 @@ Commit: `fix(spacecraft): tow foreign ships and on system enter/leave (stu-parit
 - Systemein- und -austritt (`enterSystem`, `leaveSystem`) nehmen das gezogene Schiff mit (gemeinsamer Lader `loadTowedShip`, auch von `prepareTowing` genutzt). Beide Wege kosten in SWU kein EPS, daher auch kein Zusatz für das Ziel; das ist eine bestehende SWU-Abweichung von STU, nicht Teil dieses Tickets.
 - Tests: drei neue Unit-Tests (fremdes Ziel im Galaxie-Flug, Systemeintritt, Systemaustritt) in `spacecraft-movement-resources.spec.ts`; der Test-Spy fängt jetzt `loadShip` statt `findOne` ab. 23/23. Jest `spacecraft`, `combat`, `alert-reaction`, `colony` 1373/1373; PostgreSQL Traktor, Bewegung, Navicomputer, Wurmloch (2), Anomalie, Orbitbefehl 185/185; `nx typecheck backend` ✓.
 - Gegenprobe ohne Service-Änderung nicht aussagekräftig (der Spy braucht `loadShip`, alle 23 Tests scheitern).
+
+- 2026-11-23 – **Prüfung bestanden, resolved.** Gesammelter Verifikationslauf auf `afa856fb`: Lint 0 Fehler (in den geänderten Dateien keine Warnung), `nx typecheck` und `nx build` alle Projekte grün, Unit Backend 2739/2739, Frontend 990/991 (Ausreißer `settings-tutorial.spec.tsx` einzeln 23/23 grün, nicht berührt), PostgreSQL-Integration 1076/1076. Diff-Review gegen Akzeptanzkriterien ohne Befund (Rechte: Kolonie-Eigentum, Orbit, Tarnung; Flottenendpunkte prüfen den Eigner). Modell: Opus 5.5 direkt.
