@@ -4462,23 +4462,15 @@ export class SpacecraftService {
                 interactionDecision('CONTACT').allowed,
               transfer: interactionDecision('TRANSFER').allowed || (hasStationUplink(target) && !targetOnVacation && !hyperdriveActive && !targetHyperdriveActive && systems.CLOAK?.active !== true && targetSystems.CLOAK?.active !== true && systems.SHIELDS?.active !== true && targetSystems.SHIELDS?.active !== true),
               energyTransfer: interactionDecision('TRANSFER').allowed,
+              // STU shows the icon by the target only (`isTractorBeamPossible`)
+              // plus "not already tractoring"; activation reports the rest.
               tractor:
                 target.kind === 'SHIP' &&
-                target.user != null &&
-                !isVacationEffective(target.user) &&
-                systems.TRACTOR_BEAM != null &&
-                systems.TRACTOR_BEAM.integrity > 0 &&
-                systems.SHIELDS?.active !== true &&
+                targetSystems.CLOAK?.active !== true &&
+                targetSystems.SHIELDS?.active !== true &&
+                !targetHyperdriveActive &&
                 ship.tractoredShipId == null &&
-                target.tractoredShipId == null &&
-                !ships.some(
-                  (candidate) => candidate.tractoredShipId === ship.id,
-                ) &&
-                !ships.some(
-                  (candidate) => candidate.tractoredShipId === target.id,
-                ) &&
-                !hyperdriveActive &&
-                !targetHyperdriveActive,
+                systems.TRACTOR_BEAM != null,
               takeover:
                 target.kind === 'SHIP' &&
                 target.userId !== ship.userId &&

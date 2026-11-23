@@ -95,9 +95,6 @@ export class SpacecraftTractorService {
       manager.findOneBy(Spacecraft, { tractoredShipId: source.id }),
       manager.findOneBy(Spacecraft, { tractoredShipId: target.id }),
     ]);
-    if (sourceTractor) {
-      throw new BadRequestException('Das Schiff wird von einem Traktorstrahl gehalten');
-    }
     if (source.tractoredShipId || targetTractor || target.tractoredShipId) {
       throw new BadRequestException('Ein beteiligtes Schiff verwendet bereits einen Traktorstrahl');
     }
@@ -108,8 +105,20 @@ export class SpacecraftTractorService {
       throw new BadRequestException(afterThreat ? 'Der Traktorstrahl wurde bei dem Angriff zerstört' : 'Traktorstrahl zerstört');
     }
     if (tractor.cooldown > 0) throw new BadRequestException(`Cooldown ${tractor.cooldown}`);
-    if (systems.SHIELDS?.active) {
-      throw new BadRequestException('Die Schilde sind aktiviert');
+    // STU `TractorBeamShipSystem::checkActivationConditions`, in STU order.
+    const blocked = systems.CLOAK?.active
+      ? 'die Tarnung aktiviert ist'
+      : systems.SHIELDS?.active
+        ? 'die Schilde aktiviert sind'
+        : source.dockedAtId != null
+          ? 'das Schiff angedockt ist'
+          : sourceTractor
+            ? `das Schiff selbst von dem Traktorstrahl der ${sourceTractor.name} erfasst ist`
+            : null;
+    if (blocked) {
+      throw new BadRequestException(
+        `${source.name}: System Traktorstrahl konnte nicht aktiviert werden, weil ${blocked}`,
+      );
     }
     // STU checks the target shields only after the threat reaction.
     if (afterThreat && this.runtimeState.initialize(target).SHIELDS?.active) {

@@ -95,6 +95,29 @@ describe('SpacecraftTractorService', () => {
     );
   });
 
+  it.each([
+    ['shields', (s: ReturnType<typeof setup>) => { s.source.runtimeSystems.SHIELDS.active = true; }, 'die Schilde aktiviert sind'],
+    ['cloak', (s: ReturnType<typeof setup>) => { (s.source.runtimeSystems as Record<string, unknown>).CLOAK = { active: true, cooldown: 0, integrity: 100 }; }, 'die Tarnung aktiviert ist'],
+    ['docked', (s: ReturnType<typeof setup>) => { (s.source as Record<string, unknown>).dockedAtId = 5; }, 'das Schiff angedockt ist'],
+  ])('reports STU activation failure when the source has %s', async (_name, arrange, reason) => {
+    const ctx = setup();
+    arrange(ctx);
+
+    await expect(ctx.service.activate(ctx.source.id, ctx.source.userId, ctx.target.id)).rejects.toThrow(
+      `Falcon: System Traktorstrahl konnte nicht aktiviert werden, weil ${reason}`,
+    );
+    expect(ctx.source.tractoredShipId).toBeNull();
+  });
+
+  it('reports STU activation failure when the source is held itself', async () => {
+    const { service, source, target, ships } = setup();
+    ships.push({ ...target, id: 3, name: 'Hunter', tractoredShipId: source.id } as never);
+
+    await expect(service.activate(source.id, source.userId, target.id)).rejects.toThrow(
+      'Falcon: System Traktorstrahl konnte nicht aktiviert werden, weil das Schiff selbst von dem Traktorstrahl der Hunter erfasst ist',
+    );
+  });
+
   it('rejects a target whose owner has effective vacation protection', async () => {
     const { service, source, target } = setup();
     target.userId = 8;
