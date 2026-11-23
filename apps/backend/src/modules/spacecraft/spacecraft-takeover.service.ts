@@ -34,7 +34,8 @@ export class SpacecraftTakeoverService {
       const ships = await manager.find(Spacecraft, {
         where: { id: In([attackerId, targetId]) },
         relations: { user: true, modules: true },
-        lock: { mode: 'pessimistic_write' },
+        // Postgres rejects FOR UPDATE on the nullable side of the relation joins.
+        lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
       });
       const attacker = ships.find((ship) => ship.id === attackerId);
       const target = ships.find((ship) => ship.id === targetId);
@@ -104,7 +105,7 @@ export class SpacecraftTakeoverService {
       if (!takeover) return null;
       takeover.ticksRemaining -= 1;
       if (takeover.ticksRemaining > 0) { await manager.save(takeover); return { takeover, completed: false, target: null as Spacecraft | null }; }
-      const target = await manager.findOne(Spacecraft, { where: { id: takeover.targetId }, relations: { location: true }, lock: { mode: 'pessimistic_write' } });
+      const target = await manager.findOne(Spacecraft, { where: { id: takeover.targetId }, relations: { location: true }, lock: { mode: 'pessimistic_write', tables: ['spacecraft'] } });
       const attacker = await manager.findOne(Spacecraft, { where: { id: takeover.attackerId }, lock: { mode: 'pessimistic_write' } });
       if (!target || !attacker) { await this.cancelInManager(manager, takeover); return { takeover, completed: false, target: null }; }
       target.userId = takeover.attackerUserId;

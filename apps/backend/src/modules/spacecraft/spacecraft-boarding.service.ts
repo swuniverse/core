@@ -106,7 +106,8 @@ export class SpacecraftBoardingService {
         modules: true,
         location: { galaxyField: true, systemField: true },
       },
-      lock: { mode: 'pessimistic_write' },
+      // Postgres rejects FOR UPDATE on the nullable side of the relation joins.
+      lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
     });
     const attacker = locked.find((ship) => ship.id === attackerId);
     const target = locked.find((ship) => ship.id === targetId);
@@ -148,7 +149,7 @@ export class SpacecraftBoardingService {
       where: { spacecraftId: In(ids) },
       relations: { crew: true },
       order: { crewId: 'ASC' },
-      lock: { mode: 'pessimistic_write' },
+      lock: { mode: 'pessimistic_write', tables: ['crew_assignments'] },
     });
     const attackerCrew = assignments.filter((entry) => entry.spacecraftId === attacker.id);
     const defenderCrew = assignments.filter((entry) => entry.spacecraftId === target.id);

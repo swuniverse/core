@@ -304,7 +304,8 @@ export class HolonetService {
         const request = await requests.findOne({
           where: { id: requestId },
           relations: ['post'],
-          lock: { mode: 'pessimistic_write' },
+          // Postgres rejects FOR UPDATE on the nullable side of the relation join.
+          lock: { mode: 'pessimistic_write', tables: ['plot_post_requests'] },
         });
         if (!request) throw new NotFoundException('Antrag nicht gefunden.');
         if (request.authorId !== authorId) {

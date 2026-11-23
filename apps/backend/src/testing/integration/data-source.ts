@@ -102,6 +102,11 @@ import { TradeDeal } from '../../modules/trade/entities/trade-deal.entity';
 import { AdminShipBuildplan } from '../../modules/spacecraft/entities/admin-ship-buildplan.entity';
 import { ColonyShipBuildplan } from '../../modules/colony/entities/colony-ship-buildplan.entity';
 import { BasicTradeRate } from '../../modules/trade/entities/basic-trade-rate.entity';
+import { HolonetPost } from '../../modules/holonet/entities/holonet-post.entity';
+import { PlotPostRequest } from '../../modules/holonet/entities/plot-post-request.entity';
+import { RpgPlot } from '../../modules/rpg/rpg-plot.entity';
+import { RpgPlotMember } from '../../modules/rpg/rpg-plot-member.entity';
+import { UserCharacter } from '../../modules/rpg/user-character.entity';
 
 /** Entities used by integration tests. Add more as suites need them. */
 export const INTEGRATION_ENTITIES = [
@@ -207,6 +212,11 @@ export const INTEGRATION_ENTITIES = [
   AdminShipBuildplan,
   ColonyShipBuildplan,
   ColonyShipBuildQueue,
+  HolonetPost,
+  PlotPostRequest,
+  RpgPlot,
+  RpgPlotMember,
+  UserCharacter,
 ];
 
 export function createIntegrationDataSource(url: string): DataSource {
