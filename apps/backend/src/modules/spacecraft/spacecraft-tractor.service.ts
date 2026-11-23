@@ -143,7 +143,7 @@ export class SpacecraftTractorService {
       const source = await manager.findOne(Spacecraft, {
         where: { tractoredShipId: target.id },
         relations: ['modules', 'user'],
-        lock: { mode: 'pessimistic_write' },
+        lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
       });
       if (!source) throw new BadRequestException('Das Schiff wird nicht festgehalten');
       if (target.energy < TRACTOR_ESCAPE_EPS) {
@@ -215,7 +215,8 @@ export class SpacecraftTractorService {
     return manager.findOne(Spacecraft, {
       where: { id },
       relations: ['modules', 'user'],
-      lock: { mode: 'pessimistic_write' },
+      // Postgres rejects FOR UPDATE on the nullable side of the relation joins.
+      lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
     });
   }
 }

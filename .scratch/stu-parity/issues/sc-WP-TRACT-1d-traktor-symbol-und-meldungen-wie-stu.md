@@ -33,3 +33,12 @@ Commit: `fix(spacecraft): STU tractor icon rule and activation messages (stu-par
 - Checks: Jest `spacecraft`, `combat`, `alert-reaction` (83 Suites, 927 Tests) ✓; PostgreSQL-Integrationstests mit Traktorbezug (10 Suites, 256 Tests) ✓; `nx typecheck backend` ✓.
 - Modell: Claude Opus 5.5 direkt.
 - Ausstehend: gesammelter Verifikationslauf.
+
+### 2026-11-23 — Nachtrag: Internal Server Error beim Aktivieren behoben
+
+Commit: `fix(spacecraft): lock only spacecraft rows for tractor actions (stu-parity sc-WP-TRACT-1d)`
+
+- Ursache: `lock()` und der Fluchtversuch luden `modules` und `user` per LEFT JOIN mit `FOR UPDATE`; Postgres meldet „FOR UPDATE cannot be applied to the nullable side of an outer join“ → HTTP 500. Der Fehler bestand seit sc-WP-TRACT-1a, war aber ohne Traktorsystem nie erreichbar; die Unit-Tests mocken die Datenbank.
+- Fix: Sperre nur auf `spacecraft` (`tables: ['spacecraft']`), wie in `ship-colony-context.service.ts`.
+- Neu: `spacecraft-tractor.int-spec.ts` (PostgreSQL): Erfassen, Fluchtversuch, Schild-Meldung der Quelle. Erfassen und Schild-Meldung vor dem Fix rot reproduziert, danach 3/3 grün; Unit 23/23; `nx typecheck backend` ✓.
+- Gleiches Sperrmuster ohne Tabelleneinschränkung noch in `holonet.service.ts`, `spacecraft-boarding.service.ts`, `spacecraft-takeover.service.ts` — nicht geprüft, separat klären.
