@@ -4,6 +4,7 @@ import type {
   SpacecraftReactorTransferTargetDto,
 } from '@swuniverse/shared';
 import { api } from '../../services/api';
+import { SignatureMaskRow } from './SignatureMaskRow';
 
 interface ReactorPanelProps {
   shipId: number;
@@ -221,34 +222,34 @@ export function ReactorPanel({
 
       <div className="overflow-hidden rounded-md border border-swu-border/60 divide-y divide-swu-border/60">
         {hasReactor && (
-        <div className="flex flex-wrap items-center gap-2 p-2">
-          <img
-            src="/assets/buttons/fusrkt.png"
-            alt=""
-            aria-hidden="true"
-            className="size-4"
-          />
-          <span className="flex-1 font-mono text-swu-primary">
-            Reaktortreibstoff {reactorFuel}/{reactorFuelMax}
-          </span>
-          <EngineeringControls
-            label="aufladen"
-            amountLabel="Reaktor laden Menge"
-            pending={engineering === 'reactor'}
-            amount={amount}
-            onAmount={setAmount}
-            onSubmit={(value) => transferEngineering('reactor/load', value)}
-          />
-          {canTransferReactorCharge && (
-            <button
-              type="button"
-              onClick={() => void openReactorTransfer()}
-              className="border border-swu-border bg-swu-surface px-2 py-0.5 text-[10px] hover:bg-white/5"
-            >
-              Reaktorladung übertragen
-            </button>
-          )}
-        </div>
+          <div className="flex flex-wrap items-center gap-2 p-2">
+            <img
+              src="/assets/buttons/fusrkt.png"
+              alt=""
+              aria-hidden="true"
+              className="size-4"
+            />
+            <span className="flex-1 font-mono text-swu-primary">
+              Reaktortreibstoff {reactorFuel}/{reactorFuelMax}
+            </span>
+            <EngineeringControls
+              label="aufladen"
+              amountLabel="Reaktor laden Menge"
+              pending={engineering === 'reactor'}
+              amount={amount}
+              onAmount={setAmount}
+              onSubmit={(value) => transferEngineering('reactor/load', value)}
+            />
+            {canTransferReactorCharge && (
+              <button
+                type="button"
+                onClick={() => void openReactorTransfer()}
+                className="border border-swu-border bg-swu-surface px-2 py-0.5 text-[10px] hover:bg-white/5"
+              >
+                Reaktorladung übertragen
+              </button>
+            )}
+          </div>
         )}
 
         {transferTargets && (
@@ -292,78 +293,78 @@ export function ReactorPanel({
         )}
 
         {hasWarpdrive && (
-        <div className="space-y-2 p-2">
-          <div className="flex items-center gap-1">
-            <img
-              src="/assets/buttons/wkp2.png"
-              alt=""
-              aria-hidden="true"
-              className="size-5"
-            />
-            <span className="w-6 font-mono text-swu-primary">
-              {warpProduction}
-            </span>
-            <button
-              type="button"
-              onClick={() => updateDistribution(split - 5, autoCarryOver)}
-              disabled={savingSplit}
-              aria-label="Hyperantriebsaufladung erhöhen"
-              className="rounded border border-swu-border bg-black/40 px-1 text-[10px] text-swu-primary hover:border-swu-accent disabled:opacity-40"
+          <div className="space-y-2 p-2">
+            <div className="flex items-center gap-1">
+              <img
+                src="/assets/buttons/wkp2.png"
+                alt=""
+                aria-hidden="true"
+                className="size-5"
+              />
+              <span className="w-6 font-mono text-swu-primary">
+                {warpProduction}
+              </span>
+              <button
+                type="button"
+                onClick={() => updateDistribution(split - 5, autoCarryOver)}
+                disabled={savingSplit}
+                aria-label="Hyperantriebsaufladung erhöhen"
+                className="rounded border border-swu-border bg-black/40 px-1 text-[10px] text-swu-primary hover:border-swu-accent disabled:opacity-40"
+              >
+                −
+              </button>
+              <input
+                aria-label="Reaktorverteilung EPS-Anteil"
+                type="range"
+                min={0}
+                max={100}
+                value={split}
+                onChange={(event) =>
+                  updateDistribution(Number(event.target.value), autoCarryOver)
+                }
+                className="h-2 min-w-20 flex-1 cursor-pointer appearance-none rounded bg-swu-border accent-swu-accent"
+              />
+              <button
+                type="button"
+                onClick={() => updateDistribution(split + 5, autoCarryOver)}
+                disabled={savingSplit}
+                aria-label="EPS-Anteil erhöhen"
+                className="rounded border border-swu-border bg-black/40 px-1 text-[10px] text-swu-primary hover:border-swu-accent disabled:opacity-40"
+              >
+                +
+              </button>
+              <img
+                src="/assets/buttons/battp2.png"
+                alt=""
+                aria-hidden="true"
+                className="size-5"
+              />
+              <span className="w-6 font-mono text-swu-primary">
+                +{epsProduction}
+              </span>
+            </div>
+            <label
+              title="Überschüssige Energie wird in andere Speicher übertragen"
+              className="inline-flex items-center gap-1 text-[10px] text-swu-muted"
             >
-              −
-            </button>
-            <input
-              aria-label="Reaktorverteilung EPS-Anteil"
-              type="range"
-              min={0}
-              max={100}
-              value={split}
-              onChange={(event) =>
-                updateDistribution(Number(event.target.value), autoCarryOver)
-              }
-              className="h-2 min-w-20 flex-1 cursor-pointer appearance-none rounded bg-swu-border accent-swu-accent"
-            />
-            <button
-              type="button"
-              onClick={() => updateDistribution(split + 5, autoCarryOver)}
-              disabled={savingSplit}
-              aria-label="EPS-Anteil erhöhen"
-              className="rounded border border-swu-border bg-black/40 px-1 text-[10px] text-swu-primary hover:border-swu-accent disabled:opacity-40"
-            >
-              +
-            </button>
-            <img
-              src="/assets/buttons/battp2.png"
-              alt=""
-              aria-hidden="true"
-              className="size-5"
-            />
-            <span className="w-6 font-mono text-swu-primary">
-              +{epsProduction}
-            </span>
+              <img
+                src="/assets/buttons/transfer.png"
+                alt=""
+                aria-hidden="true"
+                className="h-5 w-auto"
+              />
+              <input
+                type="checkbox"
+                checked={autoCarryOver}
+                disabled={savingSplit}
+                onChange={(event) =>
+                  updateDistribution(split, event.target.checked, false)
+                }
+                aria-label="Überschüssige Energie übertragen"
+                className="accent-swu-accent"
+              />
+            </label>
           </div>
-          <label
-            title="Überschüssige Energie wird in andere Speicher übertragen"
-            className="inline-flex items-center gap-1 text-[10px] text-swu-muted"
-          >
-            <img
-              src="/assets/buttons/transfer.png"
-              alt=""
-              aria-hidden="true"
-              className="h-5 w-auto"
-            />
-            <input
-              type="checkbox"
-              checked={autoCarryOver}
-              disabled={savingSplit}
-              onChange={(event) =>
-                updateDistribution(split, event.target.checked, false)
-              }
-              aria-label="Überschüssige Energie übertragen"
-              className="accent-swu-accent"
-            />
-          </label>
-        </div>
         )}
 
         {hasWarpdrive && !inSystem && (
@@ -381,28 +382,33 @@ export function ReactorPanel({
           </div>
         )}
 
+        {/* STU isWarpPossible: warp drive present and outside a system. */}
+        {hasWarpdrive && !inSystem && (
+          <SignatureMaskRow shipId={shipId} onRefresh={onUpdate} />
+        )}
+
         {batteryMax > 0 && (
-        <div className="flex flex-wrap items-center gap-2 p-2">
-          <img
-            src="/assets/buttons/batt.png"
-            alt=""
-            aria-hidden="true"
-            className="size-4"
-          />
-          <span className="flex-1 font-mono text-swu-primary">
-            Ersatzbatterie {battery}/{batteryMax}
-          </span>
-          <EngineeringControls
-            label="entladen"
-            amountLabel="Batterie entladen Menge"
-            pending={engineering === 'battery'}
-            amount={amount}
-            onAmount={setAmount}
-            onSubmit={(value) =>
-              transferEngineering('battery/discharge', value)
-            }
-          />
-        </div>
+          <div className="flex flex-wrap items-center gap-2 p-2">
+            <img
+              src="/assets/buttons/batt.png"
+              alt=""
+              aria-hidden="true"
+              className="size-4"
+            />
+            <span className="flex-1 font-mono text-swu-primary">
+              Ersatzbatterie {battery}/{batteryMax}
+            </span>
+            <EngineeringControls
+              label="entladen"
+              amountLabel="Batterie entladen Menge"
+              pending={engineering === 'battery'}
+              amount={amount}
+              onAmount={setAmount}
+              onSubmit={(value) =>
+                transferEngineering('battery/discharge', value)
+              }
+            />
+          </div>
         )}
       </div>
       {error && (

@@ -188,7 +188,7 @@ describe('SpacecraftDetailPage', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Entkommen' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Fluchtversuch' }));
 
     await waitFor(() =>
       expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/tractor/escape', {}),
@@ -223,8 +223,8 @@ describe('SpacecraftDetailPage', () => {
       renderHolder({ ...ship, tractor: holding });
 
       const box = await screen.findByRole('region', { name: 'Traktorstrahl' });
-      expect(within(box).getByText('Traktorstrahl: hält Beute')).toBeTruthy();
-      expect(within(box).queryByRole('button', { name: 'Entkommen' })).toBeNull();
+      expect(within(box).getByText('Gerichtet auf: Beute')).toBeTruthy();
+      expect(within(box).queryByRole('button', { name: 'Fluchtversuch' })).toBeNull();
       expect(within(box).queryByRole('button', { name: 'Gehaltenes Schiff andocken' })).toBeNull();
       fireEvent.click(within(box).getByRole('button', { name: 'deaktivieren' }));
 

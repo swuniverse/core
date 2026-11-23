@@ -10,6 +10,7 @@ import { StationLssPanel } from '../components/spacecraft/StationLssPanel';
 import { ShipHeaderTable } from '../components/spacecraft/ShipHeaderTable';
 import { ShipControlCenter } from '../components/spacecraft/ShipControlCenter';
 import { ReactorPanel } from '../components/spacecraft/ReactorPanel';
+import { TractorBeamPanel } from '../components/spacecraft/TractorBeamPanel';
 import { SpacecraftMessageBar } from '../components/spacecraft/SpacecraftMessageBar';
 import { ShipStoragePanel } from '../components/spacecraft/ShipStoragePanel';
 import { NearbySensorPanel } from '../components/spacecraft/NearbySensorPanel';
@@ -73,11 +74,15 @@ export function SpacecraftDetailPage() {
     setShipRefreshVersion((version) => version + 1);
   }, [fetchShip]);
 
-  const runTractorAction = async (action: () => Promise<{ message: string }>) => {
+  const runTractorAction = async (
+    action: () => Promise<{ message: string }>,
+  ) => {
     try {
       setTractorMessage((await action()).message);
     } catch (err: unknown) {
-      setTractorMessage(err instanceof Error ? err.message : 'Aktion fehlgeschlagen');
+      setTractorMessage(
+        err instanceof Error ? err.message : 'Aktion fehlgeschlagen',
+      );
     }
     await refreshShipAndStorage();
   };
@@ -130,11 +135,14 @@ export function SpacecraftDetailPage() {
     };
   }, [ship?.id, locationKey, shipRefreshVersion]);
 
-  useSocket(WsEventType.SPACECRAFT_VISIBILITY_CHANGED, payload => {
-    const event = payload as import('@swuniverse/shared').SpacecraftVisibilityPayload;
+  useSocket(WsEventType.SPACECRAFT_VISIBILITY_CHANGED, (payload) => {
+    const event =
+      payload as import('@swuniverse/shared').SpacecraftVisibilityPayload;
     if (event.shipId !== Number(id)) return;
-    if (event.type === 'REMOVED') { setShip(null); navigate('/spacecraft'); }
-    else void fetchShip();
+    if (event.type === 'REMOVED') {
+      setShip(null);
+      navigate('/spacecraft');
+    } else void fetchShip();
   });
 
   useSocket(WsEventType.SHIP_MOVED, (payload) => {
@@ -146,10 +154,7 @@ export function SpacecraftDetailPage() {
 
   useSocket(WsEventType.SPACECRAFT_EVENT, (payload) => {
     const event = payload as { type?: string; shipId?: number };
-    if (
-      event.type !== 'SHIELDS_REGENERATED' ||
-      event.shipId !== Number(id)
-    )
+    if (event.type !== 'SHIELDS_REGENERATED' || event.shipId !== Number(id))
       return;
     void refreshShipAndStorage();
   });
@@ -179,65 +184,6 @@ export function SpacecraftDetailPage() {
       </Link>
 
       <SpacecraftMessageBar shipId={ship.id} />
-      {ship.tractor?.heldBy && (
-        <section className="mb-2 flex items-center gap-3 border border-swu-accent bg-swu-surface p-2 text-xs">
-          <span className="flex-1">
-            Traktorstrahl: festgehalten von {ship.tractor.heldBy.name}
-          </span>
-          <button
-            type="button"
-            disabled={!ship.tractor.canEscape}
-            onClick={async () => {
-              const result = await api.post<{ message: string }>(
-                `/spacecraft/${ship.id}/tractor/escape`,
-                {},
-              );
-              setTractorMessage(result.message);
-              await fetchShip();
-            }}
-            className="border border-swu-accent px-2 py-1 disabled:opacity-50"
-          >
-            Entkommen
-          </button>
-        </section>
-      )}
-      {ship.tractor?.holding && (
-        <section aria-label="Traktorstrahl" className="mb-2 flex flex-wrap items-center gap-3 border border-swu-accent bg-swu-surface p-2 text-xs">
-          <span className="flex-1">
-            Traktorstrahl: hält {ship.tractor.holding.name}
-          </span>
-          {ship.kind === 'STATION' && (
-            <button
-              type="button"
-              onClick={() =>
-                void runTractorAction(() =>
-                  api.post<{ message: string }>(`/spacecraft/${ship.id}/tractor/dock`, {}),
-                )
-              }
-              className="border border-swu-accent px-2 py-1"
-            >
-              Gehaltenes Schiff andocken
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() =>
-              void runTractorAction(async () => {
-                await api.delete(`/spacecraft/${ship.id}/tractor`);
-                return { message: 'Traktorstrahl deaktiviert' };
-              })
-            }
-            className="border border-swu-accent px-2 py-1"
-          >
-            deaktivieren
-          </button>
-        </section>
-      )}
-      {tractorMessage && (
-        <p role="status" className="mb-2 text-xs text-swu-primary">
-          {tractorMessage}
-        </p>
-      )}
       {ship.kind === 'STATION' && ship.stationRole === 'CONSTRUCTION' && (
         <div className="mb-2">
           <StationExpansionPanel
@@ -343,6 +289,43 @@ export function SpacecraftDetailPage() {
               onUpdate={refreshShipAndStorage}
             />
           </div>
+          <div className="mt-2">
+            <TractorBeamPanel
+              holding={ship.tractor?.holding ?? null}
+              heldBy={ship.tractor?.heldBy ?? null}
+              isStation={ship.kind === 'STATION'}
+              deflectorHealthy={
+                (ship.runtimeSystems?.SHIELDS?.integrity ?? 0) > 0
+              }
+              onDock={() =>
+                void runTractorAction(() =>
+                  api.post<{ message: string }>(
+                    `/spacecraft/${ship.id}/tractor/dock`,
+                    {},
+                  ),
+                )
+              }
+              onDeactivate={() =>
+                void runTractorAction(async () => {
+                  await api.delete(`/spacecraft/${ship.id}/tractor`);
+                  return { message: 'Traktorstrahl deaktiviert' };
+                })
+              }
+              onEscape={() =>
+                void runTractorAction(() =>
+                  api.post<{ message: string }>(
+                    `/spacecraft/${ship.id}/tractor/escape`,
+                    {},
+                  ),
+                )
+              }
+            />
+            {tractorMessage && (
+              <p role="status" className="mt-1 text-xs text-swu-primary">
+                {tractorMessage}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -368,15 +351,22 @@ export function SpacecraftDetailPage() {
         onDestroyed={() => navigate('/spacecraft')}
       />
 
-      {ship.kind === 'STATION' && <StationScrappingPanel
-        stationId={ship.id}
-        refreshKey={shipRefreshVersion}
-        onChanged={refreshShipAndStorage}
-        onRemoved={() => navigate('/spacecraft')}
-      />}
-      {ship.kind === 'STATION' && ['DEPOT_SMALL', 'DEPOT_LARGE'].includes(ship.stationRole ?? '') && <AllianceDepotPanel
-        stationId={ship.id} refreshKey={shipRefreshVersion} onChanged={refreshShipAndStorage}
-      />}
+      {ship.kind === 'STATION' && (
+        <StationScrappingPanel
+          stationId={ship.id}
+          refreshKey={shipRefreshVersion}
+          onChanged={refreshShipAndStorage}
+          onRemoved={() => navigate('/spacecraft')}
+        />
+      )}
+      {ship.kind === 'STATION' &&
+        ['DEPOT_SMALL', 'DEPOT_LARGE'].includes(ship.stationRole ?? '') && (
+          <AllianceDepotPanel
+            stationId={ship.id}
+            refreshKey={shipRefreshVersion}
+            onChanged={refreshShipAndStorage}
+          />
+        )}
 
       <NearbySensorPanel
         shipId={ship.id}
@@ -388,12 +378,21 @@ export function SpacecraftDetailPage() {
       <DockingPanel ship={ship} onChanged={refreshShipAndStorage} />
       <StationShipManagementPanel ship={ship} />
       {ship.kind === 'STATION' && ship.stationRole === 'SHIPYARD' && (
-        <div className="mb-2"><StationShipyardPanel stationId={ship.id} onChanged={refreshShipAndStorage} /></div>
+        <div className="mb-2">
+          <StationShipyardPanel
+            stationId={ship.id}
+            onChanged={refreshShipAndStorage}
+          />
+        </div>
       )}
       <StationRepairPanel ship={ship} onChanged={refreshShipAndStorage} />
       <StationTradePostPanel ship={ship} />
-      {ship.kind === 'STATION' && <DockingPrivilegesPanel stationId={ship.id} />}
-      {ship.kind === 'STATION' && <WormholeRestrictionsPanel stationId={ship.id} />}
+      {ship.kind === 'STATION' && (
+        <DockingPrivilegesPanel stationId={ship.id} />
+      )}
+      {ship.kind === 'STATION' && (
+        <WormholeRestrictionsPanel stationId={ship.id} />
+      )}
       <div className="mt-2">
         <div id="ship-storage">
           <ShipStoragePanel

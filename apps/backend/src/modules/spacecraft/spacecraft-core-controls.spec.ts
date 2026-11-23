@@ -94,6 +94,7 @@ function createService() {
   const shipRepo = {
     save: jest.fn(async (value) => value),
     findOneBy: jest.fn(async () => null),
+    findOne: jest.fn(async () => null),
   };
   const runtime = {
     initialize: jest.fn((value) => {

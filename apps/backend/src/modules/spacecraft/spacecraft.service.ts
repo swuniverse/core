@@ -206,6 +206,13 @@ export interface SpacecraftMovement {
   movement: MovementResultDto;
 }
 
+const tractorPeer = (peer: Spacecraft) => ({
+  id: peer.id,
+  name: peer.name,
+  shipClassId: peer.shipClassId,
+  shipClassKey: peer.shipClass?.key ?? null,
+});
+
 @Injectable()
 export class SpacecraftService {
   constructor(
@@ -548,8 +555,10 @@ export class SpacecraftService {
     const mapLayerId =
       ship.location?.galaxyField?.layerId ?? ship.location?.systemField?.starSystem?.layerId;
     const [tractoringShip, holdingShip, storedBuoy, knownLayer] = await Promise.all([
-      this.shipRepo.findOneBy({ tractoredShipId: ship.id }),
-      ship.tractoredShipId ? this.shipRepo.findOneBy({ id: ship.tractoredShipId }) : null,
+      this.shipRepo.findOne({ where: { tractoredShipId: ship.id }, relations: ['shipClass'] }),
+      ship.tractoredShipId
+        ? this.shipRepo.findOne({ where: { id: ship.tractoredShipId }, relations: ['shipClass'] })
+        : null,
       this.cargoRepo.findOneBy({ spacecraftId: ship.id, commodityId: 88 }),
       mapLayerId ? this.layerKnowledgeService.get(userId, mapLayerId) : null,
     ]);
@@ -589,10 +598,8 @@ export class SpacecraftService {
           : null,
       runtimeSystems: this.spacecraftRuntimeStateService.initialize(ship),
       tractor: {
-        heldBy: tractoringShip
-          ? { id: tractoringShip.id, name: tractoringShip.name }
-          : null,
-        holding: holdingShip ? { id: holdingShip.id, name: holdingShip.name } : null,
+        heldBy: tractoringShip ? tractorPeer(tractoringShip) : null,
+        holding: holdingShip ? tractorPeer(holdingShip) : null,
         canEscape:
           tractoringShip != null &&
           ship.energy >= 20 &&

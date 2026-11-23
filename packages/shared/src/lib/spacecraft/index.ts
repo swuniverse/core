@@ -513,6 +513,13 @@ export interface StationExpansionOptionDto {
   canStart: boolean;
 }
 
+export interface SpacecraftTractorPeerDto {
+  id: number;
+  name: string;
+  shipClassId: number;
+  shipClassKey: string | null;
+}
+
 export interface SpacecraftDetailDto {
   /** Current free shield gain when regeneration is eligible and due. */
   shieldRegeneration?: number;
@@ -568,9 +575,9 @@ export interface SpacecraftDetailDto {
   reactorAutoCarryOver: boolean;
   runtimeSystems: SpacecraftRuntimeSystemsDto;
   tractor?: {
-    heldBy: { id: number; name: string } | null;
+    heldBy: SpacecraftTractorPeerDto | null;
     /** The ship this spacecraft holds with its own tractor beam. */
-    holding: { id: number; name: string } | null;
+    holding: SpacecraftTractorPeerDto | null;
     canEscape: boolean;
   };
   location: SpaceLocationDto;
