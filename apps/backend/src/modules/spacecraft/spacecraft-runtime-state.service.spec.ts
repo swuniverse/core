@@ -233,6 +233,21 @@ describe('SpacecraftRuntimeStateService', () => {
     expect(systems.TRACTOR_BEAM).toMatchObject({ active: false, integrity: 100 });
   });
 
+  it('gives every non-small craft an inactive default tractor beam like STU', () => {
+    const service = new SpacecraftRuntimeStateService();
+    const init = (extra: Record<string, unknown>) =>
+      service.initialize({ modules: [], runtimeSystems: {}, ...extra } as never);
+
+    expect(init({ shipClass: { role: 'ESCORT' } }).TRACTOR_BEAM).toMatchObject({
+      active: false,
+      integrity: 100,
+    });
+    expect(init({ kind: 'STATION', shipClass: { role: 'STATION' } }).TRACTOR_BEAM).toBeDefined();
+    expect(init({ shipClass: { role: 'SHUTTLE' } }).TRACTOR_BEAM).toBeUndefined();
+    expect(init({ shipClass: { role: 'WORKBEE' } }).TRACTOR_BEAM).toBeUndefined();
+    expect(init({ shuttleCommodityId: 7 }).TRACTOR_BEAM).toBeUndefined();
+  });
+
   it('maps the Tarnvorrichtung module to an initially inactive CLOAK system', () => {
     const service = new SpacecraftRuntimeStateService();
     const ship = {

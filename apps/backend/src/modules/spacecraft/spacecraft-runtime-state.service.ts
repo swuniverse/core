@@ -234,9 +234,12 @@ function getAvailableSystems(
   smallCraft = false,
 ): Set<SpacecraftRuntimeSystemKey> {
   // STU getDefaultSystems: life support is universal; small craft have no
-  // default deflector. Other systems require installed modules.
+  // default deflector or tractor beam. Other systems require installed modules.
   const systems = new Set<SpacecraftRuntimeSystemKey>(['LIFE_SUPPORT']);
-  if (!smallCraft) systems.add('DEFLECTOR');
+  if (!smallCraft) {
+    systems.add('DEFLECTOR');
+    systems.add('TRACTOR_BEAM');
+  }
   if (!modules) {
     for (const key of SPACECRAFT_RUNTIME_SYSTEM_KEYS) {
       if (
