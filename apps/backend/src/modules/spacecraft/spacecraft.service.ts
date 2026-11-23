@@ -1278,6 +1278,17 @@ export class SpacecraftService {
         );
       }
     }
+    // STU Energy/ProjectileWeaponShipSystem: weapons stay off while unalerted
+    // (green alert or no computer), after the cloak check like STU.
+    if (
+      active &&
+      (systemKey === 'WEAPONS' || systemKey === 'TORPEDO_BANK') &&
+      (ship.alertState === AlertState.GREEN || !systems.COMPUTER)
+    ) {
+      throw new BadRequestException(
+        `${ship.name}: System ${systemKey === 'WEAPONS' ? 'Strahlenwaffe' : 'Projektilwaffe'} konnte nicht aktiviert werden, weil die Alarmstufe Grün ist`,
+      );
+    }
     if (active && systemKey === 'CLOAK') {
       const cloakBlock = this.cloakActivationBlock(ship);
       if (cloakBlock) {

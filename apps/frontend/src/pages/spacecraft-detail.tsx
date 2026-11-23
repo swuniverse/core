@@ -288,6 +288,7 @@ export function SpacecraftDetailPage() {
             shipId={ship.id}
             systems={ship.runtimeSystems}
             onUpdate={refreshShipAndStorage}
+            alertState={ship.alertState}
           />
           <FieldContextPanel
             shipId={ship.id}

@@ -320,4 +320,29 @@ describe('ShipControlCenter', () => {
     );
     expect(await screen.findByText('keine Torpedos geladen')).toBeTruthy();
   });
+  it('replaces weapon toggles with the STU hint while unalerted', () => {
+    const systems = {
+      WEAPONS: { active: false, cooldown: 0, integrity: 100 },
+      TORPEDO_BANK: { active: false, cooldown: 0, integrity: 100 },
+      COMPUTER: { active: true, cooldown: 0, integrity: 100 },
+    };
+    const { rerender } = render(
+      <ShipControlCenter shipId={2} onUpdate={vi.fn()} systems={systems} alertState="GREEN" />,
+    );
+    expect(screen.getByText('Strahlenwaffen bei Alarmstufe deaktiviert')).toBeTruthy();
+    expect(screen.getByText('Projektilwaffe bei Alarmstufe deaktiviert')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Strahlenwaffen aktivieren/ })).toBeNull();
+
+    rerender(
+      <ShipControlCenter shipId={2} onUpdate={vi.fn()} systems={systems} alertState="YELLOW" />,
+    );
+    expect(screen.getByRole('button', { name: /Strahlenwaffen aktivieren/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Projektilwaffe aktivieren/ })).toBeTruthy();
+
+    const { COMPUTER: _computer, ...withoutComputer } = systems;
+    rerender(
+      <ShipControlCenter shipId={2} onUpdate={vi.fn()} systems={withoutComputer} alertState="YELLOW" />,
+    );
+    expect(screen.getByText('Strahlenwaffen bei Alarmstufe deaktiviert')).toBeTruthy();
+  });
 });

@@ -337,6 +337,54 @@ describe('spacecraft core detail controls', () => {
     expect((ship.runtimeSystems as any).ASTROMETRY_LAB.active).toBe(true);
   });
 
+  describe('weapons while unalerted (STU isUnalerted)', () => {
+    const armed = (withComputer: boolean) => {
+      const ctx = createService();
+      const off = () => ({ active: false, cooldown: 0, integrity: 100 });
+      ctx.ship.runtimeSystems = {
+        WEAPONS: off(),
+        TORPEDO_BANK: off(),
+        ...(withComputer ? { COMPUTER: { ...off(), active: true } } : {}),
+      };
+      // The fixture's runtime mock always adds a computer; use the stored systems as-is.
+      (ctx.service as any).spacecraftRuntimeStateService.initialize = jest.fn(
+        (value: { runtimeSystems: object }) => value.runtimeSystems,
+      );
+      (ctx.service as any).spacecraftCrewService.getAssignedCrewCount.mockResolvedValue(1);
+      return ctx;
+    };
+
+    it.each([
+      ['WEAPONS', 'Strahlenwaffe'],
+      ['TORPEDO_BANK', 'Projektilwaffe'],
+    ] as const)('rejects %s on green alert with the STU message', async (key, label) => {
+      const { service, ship } = armed(true);
+
+      await expect(service.toggleSystem(2, 1, key, true)).rejects.toThrow(
+        `Falke: System ${label} konnte nicht aktiviert werden, weil die Alarmstufe Grün ist`,
+      );
+      expect((ship.runtimeSystems as any)[key]?.active).not.toBe(true);
+    });
+
+    it('rejects weapons without a computer even on yellow alert', async () => {
+      const { service, ship } = armed(false);
+      ship.alertState = AlertState.YELLOW;
+
+      await expect(service.toggleSystem(2, 1, 'WEAPONS', true)).rejects.toThrow(
+        'weil die Alarmstufe Grün ist',
+      );
+    });
+
+    it('activates weapons on yellow alert with a computer', async () => {
+      const { service, ship } = armed(true);
+      ship.alertState = AlertState.YELLOW;
+
+      await service.toggleSystem(2, 1, 'WEAPONS', true);
+
+      expect((ship.runtimeSystems as any).WEAPONS.active).toBe(true);
+    });
+  });
+
   it('charges 30 EPS to activate the Hyperraumfeldscanner and blocks it while cloaked', async () => {
     const { service, ship } = createService();
     ship.energy = 100;

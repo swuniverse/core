@@ -14,6 +14,8 @@ interface ShipControlCenterProps {
   shipId: number;
   systems: Record<string, RuntimeSystemState> | undefined;
   onUpdate: () => void;
+  /** STU `isUnalerted` hides weapon toggles on green alert or without a computer. */
+  alertState?: string;
 }
 type Torpedo = {
   torpedoTypeId: number;
@@ -51,7 +53,10 @@ export function ShipControlCenter({
   onLanded,
   systems,
   onUpdate,
+  alertState,
 }: ShipControlCenterProps) {
+  const unalerted =
+    alertState != null && (alertState === 'GREEN' || !systems?.COMPUTER);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const toggleRequest = useRef<number | null>(null);
@@ -127,6 +132,7 @@ export function ShipControlCenter({
     const state = systems?.[key];
     if (!state) return null;
     const label = key === 'SHIELDS' ? 'Schilde' : 'Strahlenwaffen';
+    if (key === 'WEAPONS' && unalerted) return <UnalertedRow key={key} systemKey={key} label={label} />;
     return (
       <button
         key={key}
@@ -249,6 +255,9 @@ export function ShipControlCenter({
         )}
         {torpedoState && (
           <div className="grid grid-cols-2 border-b border-swu-border">
+            {unalerted ? (
+              <UnalertedRow systemKey="TORPEDO_BANK" label="Projektilwaffe" bordered />
+            ) : (
             <button
               type="button"
               disabled={pending !== null}
@@ -263,6 +272,7 @@ export function ShipControlCenter({
               Projektilwaffe{' '}
               {torpedoState.active ? 'deaktivieren' : 'aktivieren'}
             </button>
+            )}
             <div className="p-1 text-swu-primary">
               {torpedoes?.fireable.length ? (
                 torpedoes.fireable.map((torpedo) => (
@@ -385,5 +395,25 @@ export function ShipControlCenter({
         )}
       </div>
     </section>
+  );
+}
+
+/** STU `PHASER.twig` / `torpedoAndStorage.twig`: no toggle while unalerted. */
+function UnalertedRow({
+  systemKey,
+  label,
+  bordered,
+}: {
+  systemKey: 'WEAPONS' | 'TORPEDO_BANK';
+  label: string;
+  bordered?: boolean;
+}) {
+  return (
+    <div
+      className={`flex w-full items-center gap-2 px-2 py-1.5 text-swu-muted ${bordered ? 'border-r' : 'border-b'} border-swu-border`}
+    >
+      <img src={`/assets/system/${SYSTEM_ASSETS[systemKey]}`} alt="" className="size-5 opacity-50" />
+      {label} bei Alarmstufe deaktiviert
+    </div>
   );
 }
