@@ -1254,16 +1254,23 @@ export interface SpacecraftSelfDestructResultDto {
   alreadyDestroyed: boolean;
 }
 
+/**
+ * Active distress call on the Maindesk. `details` only for the viewer's own
+ * ships and ships of friends (STU `EmergencyWrapper#showDetails`); everyone
+ * else sees the sector only.
+ */
 export interface SpacecraftDistressSignalDto {
   id: number;
-  spacecraftId: number;
-  shipName: string;
-  ownerId: number;
   message: string;
-  active: boolean;
   startedAt: string;
-  stoppedAt: string | null;
-  locationLabel: string;
+  sectorLabel: string;
+  details: {
+    spacecraftId: number;
+    shipName: string;
+    ownerId: number;
+    ownerName: string;
+    locationLabel: string;
+  } | null;
 }
 export * from './movement-result.js';
 

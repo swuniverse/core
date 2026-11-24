@@ -1,4 +1,8 @@
-import type { DashboardForumTopicDto, GameEventDto } from '@swuniverse/shared';
+import type {
+  DashboardForumTopicDto,
+  GameEventDto,
+  SpacecraftDistressSignalDto,
+} from '@swuniverse/shared';
 
 export interface ActiveResearch {
   name: string;
@@ -132,17 +136,7 @@ export interface TickStatus {
   totalTicks: number;
 }
 
-export interface DistressSignal {
-  id: number;
-  spacecraftId: number;
-  shipName: string;
-  ownerId: number;
-  message: string;
-  active: boolean;
-  startedAt: string;
-  stoppedAt: string | null;
-  locationLabel: string;
-}
+export type DistressSignal = SpacecraftDistressSignalDto;
 
 export interface DashboardProcess {
   id: string;

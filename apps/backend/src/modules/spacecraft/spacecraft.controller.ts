@@ -1357,8 +1357,8 @@ export class SpacecraftController {
   }
 
   @Get('distress-signals/active')
-  getActiveDistressSignals() {
-    return this.communicationService.listActiveDistress();
+  getActiveDistressSignals(@Request() req: { user: { sub: number } }) {
+    return this.communicationService.listActiveDistress(req.user.sub);
   }
 
   @Post(':id/nearby/:targetId/scan')

@@ -40,7 +40,12 @@ function serviceFixture() {
   const messaging = { send: jest.fn() };
   const gateway = { emitToAll: jest.fn() };
   const runtimeState = { initialize: jest.fn(() => ({})) };
-  const relationships = { resolve: jest.fn(async () => ({ isFriend: false })) };
+  const relationships = {
+    resolve: jest.fn(async () => ({ isFriend: false })),
+    resolveMany: jest.fn<Promise<Map<number, { isFriend: boolean }>>, any[]>(
+      async () => new Map(),
+    ),
+  };
   const crewEnhancement = { enhanceSpacecraft: jest.fn() };
   const service = new SpacecraftCommunicationService(
     shipRepo as never,
@@ -68,6 +73,74 @@ function serviceFixture() {
 }
 
 describe('SpacecraftCommunicationService', () => {
+  describe('listActiveDistress', () => {
+    const layer = { name: 'Galaxis', width: 100, sectorSize: 20 };
+    function signal(id: number, userId: number, extra: object = {}) {
+      return {
+        id,
+        message: `Notruf ${id}`,
+        startedAt: new Date('2026-11-24T10:00:00Z'),
+        spacecraft: {
+          id: id * 10,
+          name: `Schiff ${id}`,
+          userId,
+          user: { id: userId, username: `spieler${userId}`, displayName: null },
+          location: {
+            kind: 'GALAXY_FIELD',
+            galaxyField: { layerId: 1, cx: 45, cy: 21, layer },
+            systemField: null,
+          },
+          ...extra,
+        },
+      };
+    }
+
+    it('shows details for own and friend ships only and reduces foreign ones to the sector', async () => {
+      const { service, distressRepo, relationships } = serviceFixture();
+      distressRepo.find.mockResolvedValue([
+        signal(1, 5),
+        signal(2, 6),
+        signal(3, 7),
+      ] as never);
+      relationships.resolveMany.mockResolvedValue(
+        new Map([
+          [6, { isFriend: true }],
+          [7, { isFriend: false }],
+        ]),
+      );
+
+      const result = await service.listActiveDistress(5);
+
+      expect(relationships.resolveMany).toHaveBeenCalledWith(5, [6, 7]);
+      expect(result[0].details).toMatchObject({
+        spacecraftId: 10,
+        shipName: 'Schiff 1',
+        ownerId: 5,
+        ownerName: 'spieler5',
+      });
+      expect(result[1].details).toMatchObject({ shipName: 'Schiff 2', ownerId: 6 });
+      // 45|21 with sector size 20 on a 100 wide layer: column 2, row 1 -> 1*5+2+1
+      expect(result[2]).toEqual({
+        id: 3,
+        message: 'Notruf 3',
+        startedAt: '2026-11-24T10:00:00.000Z',
+        sectorLabel: 'Galaxis · Sektor 8',
+        details: null,
+      });
+      expect(JSON.stringify(result[2])).not.toMatch(/Schiff 3|spieler7|45/);
+    });
+
+    it('keeps RPG-hidden ships out of the list', async () => {
+      const { service, distressRepo } = serviceFixture();
+      distressRepo.find.mockResolvedValue([
+        signal(1, 5, { rpgPlotId: 3, rpgHidden: true }),
+        signal(2, 5),
+      ] as never);
+      const result = await service.listActiveDistress(5);
+      expect(result.map((entry) => entry.id)).toEqual([2]);
+    });
+  });
+
   it('enforces distress limit and makes repeated starts idempotent', async () => {
     const { service, shipRepo, distressRepo } = serviceFixture();
     shipRepo.findOne.mockResolvedValue({ id: 7, userId: 1, status: 'IDLE' });

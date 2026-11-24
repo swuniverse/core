@@ -426,35 +426,56 @@ export class SpacecraftCommunicationService {
     await repository.save(active);
   }
 
-  async listActiveDistress(): Promise<SpacecraftDistressSignalDto[]> {
-    const signals = await this.distressRepo.find({
-      where: { active: true },
-      relations: [
-        'spacecraft',
-        'spacecraft.location',
-        'spacecraft.location.galaxyField',
-        'spacecraft.location.systemField',
-      ],
-      order: { startedAt: 'DESC' },
-      take: 100,
-    });
-    return signals.filter(signal => !isRpgHidden(signal.spacecraft)).map((signal) => {
-      const location = resolveSpacecraftLocation(signal.spacecraft);
+  async listActiveDistress(
+    viewerId: number,
+  ): Promise<SpacecraftDistressSignalDto[]> {
+    const signals = (
+      await this.distressRepo.find({
+        where: { active: true },
+        relations: [
+          'spacecraft',
+          'spacecraft.user',
+          'spacecraft.location',
+          'spacecraft.location.galaxyField',
+          'spacecraft.location.galaxyField.layer',
+          'spacecraft.location.systemField',
+          'spacecraft.location.systemField.starSystem',
+          'spacecraft.location.systemField.starSystem.layer',
+        ],
+        order: { startedAt: 'DESC' },
+        take: 100,
+      })
+    ).filter((signal) => !isRpgHidden(signal.spacecraft));
+    const stances = await this.relationships.resolveMany(
+      viewerId,
+      signals
+        .map((signal) => signal.spacecraft.userId)
+        .filter((ownerId) => ownerId !== viewerId),
+    );
+    return signals.map((signal) => {
+      const ship = signal.spacecraft;
+      const location = resolveSpacecraftLocation(ship);
+      const showDetails =
+        ship.userId === viewerId || !!stances.get(ship.userId)?.isFriend;
       return {
         id: signal.id,
-        spacecraftId: signal.spacecraftId,
-        shipName: signal.spacecraft.name,
-        ownerId: signal.ownerId,
         message: signal.message,
-        active: signal.active,
         startedAt: signal.startedAt.toISOString(),
-        stoppedAt: signal.stoppedAt?.toISOString() ?? null,
-        locationLabel:
-          location?.scope === 'SYSTEM'
-            ? `System ${location.systemId} [${location.x},${location.y}]`
-            : location
-              ? `[${location.x},${location.y}]`
-              : '[?,?]',
+        sectorLabel: distressSectorLabel(ship),
+        details: showDetails
+          ? {
+              spacecraftId: ship.id,
+              shipName: ship.name,
+              ownerId: ship.userId,
+              ownerName: ship.user?.displayName || ship.user?.username || '',
+              locationLabel:
+                location?.scope === 'SYSTEM'
+                  ? `System ${location.systemId} [${location.x},${location.y}]`
+                  : location
+                    ? `[${location.x},${location.y}]`
+                    : '[?,?]',
+            }
+          : null,
       };
     });
   }
@@ -478,4 +499,18 @@ export class SpacecraftCommunicationService {
       message: colony.changeable?.colonyMessage ?? null,
     };
   }
+}
+
+/** Coarse position for foreign distress calls: layer and sector, never the field. */
+function distressSectorLabel(ship: Spacecraft): string {
+  const galaxyField = ship.location?.galaxyField;
+  const system = ship.location?.systemField?.starSystem;
+  const point = galaxyField ?? system;
+  const layer = galaxyField?.layer ?? system?.layer;
+  if (!point || !layer) return 'Unbekannter Sektor';
+  const sectorX = Math.floor((point.cx - 1) / layer.sectorSize);
+  const sectorY = Math.floor((point.cy - 1) / layer.sectorSize);
+  const sector =
+    sectorY * Math.ceil(layer.width / layer.sectorSize) + sectorX + 1;
+  return `${layer.name} · Sektor ${sector}`;
 }

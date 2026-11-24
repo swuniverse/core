@@ -659,14 +659,14 @@ describe('RPG transponder (production HTTP/PostgreSQL)', () => {
     });
     const communications = app.get(SpacecraftCommunicationService);
     expect(
-      (await communications.listActiveDistress()).map(
-        (signal) => signal.spacecraftId,
+      (await communications.listActiveDistress(admin)).map(
+        (signal) => signal.details?.spacecraftId,
       ),
     ).toContain(scene.id);
     await hide();
     expect(
-      (await communications.listActiveDistress()).map(
-        (signal) => signal.spacecraftId,
+      (await communications.listActiveDistress(admin)).map(
+        (signal) => signal.details?.spacecraftId,
       ),
     ).not.toContain(scene.id);
     expect(

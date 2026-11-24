@@ -15,6 +15,7 @@ import { DashboardColonies } from './dashboard/DashboardColonies';
 import { DashboardForum } from './dashboard/DashboardForum';
 import { DashboardProcesses } from './dashboard/DashboardProcesses';
 import {
+  DashboardDistressSignals,
   RecentEvents,
   DashboardMessages,
   DashboardLimits,
@@ -460,6 +461,7 @@ export function DashboardPage() {
           <DashboardFleet data={data} />
           <DashboardMessages data={data} />
           <DashboardForum data={data} />
+          <DashboardDistressSignals data={data} />
           <RecentEvents data={data} />
         </div>
         <aside className="space-y-3">

@@ -1,6 +1,6 @@
 # Notrufbox im Maindesk anzeigen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -30,12 +30,12 @@ STU zeigt in der linken Maindesk-Spalte eine Box „Notrufe“ (nur wenn Notrufe
 
 ## Akzeptanzkriterien
 
-- [ ] Box „Notrufe“ in der linken Maindesk-Spalte, Position wie STU (nach Allianzforum, vor Ereignissen). Ohne aktive Notrufe wird sie nicht angezeigt.
-- [ ] Spalten: Koordinaten, Info, Notrufsignal, Zeitpunkt (In-Universe-Datumsformat wie übrige Maindesk-Zeitangaben).
-- [ ] Detailrecht wie STU: Für eigene Schiffe und Schiffe von Freunden (Beziehungsauflösung aus Sicht des Betrachters) Koordinaten sowie „<Schiff> von <Spieler>“ mit Profillink. Für alle anderen nur Sektor/Region und Notruftext, ohne Schiffs- und Spielernamen. Die Filterung passiert serverseitig; das DTO enthält für fremde Notrufe keinen Schiffsnamen, keine Besitzer-ID und keine genauen Koordinaten.
+- [x] Box „Notrufe“ in der linken Maindesk-Spalte, Position wie STU (nach Allianzforum, vor Ereignissen). Ohne aktive Notrufe wird sie nicht angezeigt.
+- [x] Spalten: Koordinaten, Info, Notrufsignal, Zeitpunkt (In-Universe-Datumsformat wie übrige Maindesk-Zeitangaben).
+- [x] Detailrecht wie STU: Für eigene Schiffe und Schiffe von Freunden (Beziehungsauflösung aus Sicht des Betrachters) Koordinaten sowie „<Schiff> von <Spieler>“ mit Profillink. Für alle anderen nur Sektor/Region und Notruftext, ohne Schiffs- und Spielernamen. Die Filterung passiert serverseitig; das DTO enthält für fremde Notrufe keinen Schiffsnamen, keine Besitzer-ID und keine genauen Koordinaten.
 - [ ] RPG-verborgene Schiffe bleiben ausgeblendet (bestehender Filter).
 - [ ] Backend-Tests: Detail für eigenes und Freundes-Schiff, reduziertes DTO für Fremde, RPG-Filter.
-- [ ] Frontend-Tests: Box erscheint mit Daten, fehlt ohne Daten, zeigt reduzierte Zeile ohne Details.
+- [x] Frontend-Tests: Box erscheint mit Daten, fehlt ohne Daten, zeigt reduzierte Zeile ohne Details.
 
 ## Herkunft
 
@@ -44,3 +44,13 @@ STU zeigt in der linken Maindesk-Spalte eine Box „Notrufe“ (nur wenn Notrufe
 - PO-Linie 2026-11-17 „wie STU“. Kein bisheriges Ticket; sh-AP-18 (resolved) hatte Notrufe nicht im Scope.
 
 ## Comments
+
+### 2026-11-24 – umgesetzt, Prüfung ausstehend
+
+Commit „feat(maindesk): STU distress box with viewer-filtered details (stu-parity sh-AUD-08)“.
+
+- `GET /spacecraft/distress-signals/active` filtert jetzt pro Betrachter (`listActiveDistress(viewerId)`). Eigene Schiffe und Schiffe von Freunden (`RelationshipResolverService.resolveMany`, `isFriend`, Besitzer = aktueller `spacecraft.userId`) bekommen `details` (Schiff-ID, Name, Besitzer-ID/-Name, genaue Koordinaten). Für fremde Notrufe ist `details: null`; dann stehen dort nur `sectorLabel` („<Ebene> · Sektor N“, gleiche Sektorformel wie der Kartenkontext), Text und Zeitpunkt. `active` und `stoppedAt` sind aus dem DTO entfernt, weil der Endpoint nur aktive Notrufe liefert und einzig vom Maindesk genutzt wird.
+- Frontend: `DashboardDistressSignals` zwischen Allianzforum und Ereignissen. Die Box wird ohne Notrufe nicht angezeigt. Spalten: Koordinaten, Info, Notrufsignal, Zeitpunkt (`formatGameDateTime`). Der Profillink erscheint nur mit Details.
+- Bereits gelaufen: `spacecraft-communication.service.spec.ts` (12/12, darunter eigen/Freund/fremd und RPG-Filter), `DashboardLowerSections.spec.tsx` (9/9), `nx run-many -t typecheck -p backend frontend` grün.
+- Noch offen für die gesammelte Verifikation: `rpg-transponder.int-spec.ts` (angepasst auf `listActiveDistress(admin)` / `details?.spacecraftId`, braucht Integrations-DB) und der Diff-Review. AC „Backend-Tests“ und „RPG-verborgene Schiffe“ bleiben bis dahin offen.
+- Modell: Opus 5.5 direkt (Sol/Luna in dieser Sitzung nicht verfügbar; Ticket berührt Informationsfreigabe, daher keine Delegation).

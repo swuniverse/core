@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import {
+  DashboardDistressSignals,
   DashboardLimits,
   DashboardMessages,
   RecentEvents,
@@ -220,5 +221,50 @@ describe('STU-style Maindesk overview', () => {
     );
 
     expect(screen.getByText('Keine aktuellen Ereignisse.')).toBeTruthy();
+  });
+});
+
+describe('Maindesk distress box', () => {
+  const renderBox = (distressSignals: DashboardData['distressSignals']) =>
+    render(
+      <MemoryRouter>
+        <DashboardDistressSignals data={{ ...emptyDashboard, distressSignals }} />
+      </MemoryRouter>,
+    );
+
+  it('is hidden without active distress calls', () => {
+    const { container } = renderBox([]);
+    expect(container.innerHTML).toBe('');
+  });
+
+  it('shows details for visible ships and only the sector for foreign ones', () => {
+    renderBox([
+      {
+        id: 1,
+        message: 'Lebenserhaltung fällt aus',
+        startedAt: '2026-11-24T10:00:00.000Z',
+        sectorLabel: 'Galaxis · Sektor 8',
+        details: {
+          spacecraftId: 10,
+          shipName: 'Rasender Falke',
+          ownerId: 6,
+          ownerName: 'Han',
+          locationLabel: '[45,21]',
+        },
+      },
+      {
+        id: 2,
+        message: 'Hüllenbruch',
+        startedAt: '2026-11-24T11:00:00.000Z',
+        sectorLabel: 'Galaxis · Sektor 3',
+        details: null,
+      },
+    ]);
+    screen.getByText('Notrufe');
+    screen.getByText('[45,21]');
+    expect(screen.getByRole('link', { name: 'Han' }).getAttribute('href')).toBe('/players/6');
+    const foreignRow = screen.getByText('Hüllenbruch').closest('tr')!;
+    expect(foreignRow.textContent).toContain('Galaxis · Sektor 3');
+    expect(foreignRow.querySelector('a')).toBeNull();
   });
 });

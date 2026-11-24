@@ -40,6 +40,59 @@ export function DashboardProfileVisitors({
   );
 }
 
+/** STU `maindesk/emergencies.twig`; hidden while no distress call is active. */
+export function DashboardDistressSignals({ data }: { data: DashboardData }) {
+  const signals = data.distressSignals ?? [];
+  if (!signals.length) return null;
+  return (
+    <section className="border border-swu-border bg-swu-surface/70">
+      <header className="border-b border-swu-border px-3 py-1.5 text-xs font-bold text-swu-primary">
+        Notrufe
+      </header>
+      <div className="overflow-x-auto">
+        <table className="swu-table">
+          <thead>
+            <tr>
+              <th>Koordinaten</th>
+              <th>Info</th>
+              <th>Notrufsignal</th>
+              <th>Zeitpunkt</th>
+            </tr>
+          </thead>
+          <tbody>
+            {signals.map((signal) => (
+              <tr key={signal.id}>
+                <td className="font-mono">
+                  {signal.details?.locationLabel ?? signal.sectorLabel}
+                </td>
+                <td>
+                  {signal.details ? (
+                    <>
+                      {signal.details.shipName} von{' '}
+                      <Link
+                        to={`/players/${signal.details.ownerId}`}
+                        className="text-swu-primary hover:text-swu-accent"
+                      >
+                        <PlayerName name={signal.details.ownerName} />
+                      </Link>
+                    </>
+                  ) : (
+                    '—'
+                  )}
+                </td>
+                <td>{signal.message}</td>
+                <td className="font-mono text-swu-muted">
+                  {formatGameDateTime(signal.startedAt)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 export function RecentEvents({ data }: { data: DashboardData }) {
   return (
     <section className="border border-swu-border bg-swu-surface/70">
