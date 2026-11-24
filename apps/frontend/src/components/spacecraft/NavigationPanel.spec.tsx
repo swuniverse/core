@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { NavigationPanel } from './NavigationPanel';
 
 const apiMocks = vi.hoisted(() => ({
@@ -53,74 +59,50 @@ const ship = {
 };
 
 describe('NavigationPanel', () => {
-  it('shows destination effects, energy, and damage before flight', async () => {
-    apiMocks.get.mockResolvedValueOnce({
-      ...map,
-      fields: map.fields.map((field) =>
-        field.cx === 6 && field.cy === 5
-          ? {
-              ...field,
-              effects: ['EPS_LEAK'],
-              energyCost: 3,
-              damage: 7,
-            }
-          : field,
-      ),
-    });
-    render(<NavigationPanel ship={ship} onShipUpdate={vi.fn()} />);
-
-    fireEvent.click(await screen.findByRole('button', { name: /Feld 6,5/ }));
-
-    expect(screen.getByText(/Gefährliches Feld \[6\|5\]/)).toBeTruthy();
-    expect(screen.getByText('Energie: 3 · Schaden: 7')).toBeTruthy();
-    expect(screen.getByText(/EPS-Energie ableiten/)).toBeTruthy();
-    expect(apiMocks.post).not.toHaveBeenCalled();
-  });
   beforeEach(() => {
     apiMocks.get.mockReset();
     apiMocks.post.mockReset();
     apiMocks.patch.mockReset();
   });
 
-  it('warns when the destination lies in an ion storm', async () => {
-    apiMocks.get.mockResolvedValueOnce({
-      ...map,
-      fields: map.fields.map((field) =>
-        field.cx === 6 && field.cy === 5
-          ? {
-              ...field,
-              anomalies: [
-                { type: 'ION_STORM', name: 'Ionensturm', remainingTicks: 40, intensity: 130 },
-              ],
-            }
-          : field,
-      ),
-    });
+  it('flies to a clicked straight-line field at once like STU', async () => {
+    apiMocks.get.mockResolvedValue(map);
+    apiMocks.post.mockResolvedValue({});
     render(<NavigationPanel ship={ship} onShipUpdate={vi.fn()} />);
 
     fireEvent.click(await screen.findByRole('button', { name: /Feld 6,5/ }));
 
-    expect(
-      screen.getByText(
-        'Das Ziel liegt in einem gefährlichen Ionensturm: Ionensturm (Intensität 130, noch 40 Ticks)',
-      ),
-    ).toBeTruthy();
-    expect(apiMocks.post).not.toHaveBeenCalled();
-  });
-
-  it('confirms an accessible field before flying', async () => {
-    apiMocks.get.mockResolvedValue(map);
-    apiMocks.post.mockResolvedValue({});
-    render(<NavigationPanel ship={ship} onShipUpdate={vi.fn()} />);
-    const field = await screen.findByRole('button', { name: /Feld 6,5/ });
-    fireEvent.click(field);
-    fireEvent.click(screen.getByRole('button', { name: 'Flug starten' }));
     await waitFor(() =>
       expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/fly', {
         targetX: 6,
         targetY: 5,
       }),
     );
+    expect(screen.queryByRole('button', { name: 'Flug starten' })).toBeNull();
+  });
+
+  it('starts only one flight on a double click', async () => {
+    apiMocks.get.mockResolvedValue(map);
+    apiMocks.post.mockReturnValue(new Promise(() => undefined));
+    render(<NavigationPanel ship={ship} onShipUpdate={vi.fn()} />);
+    const field = await screen.findByRole('button', { name: /Feld 6,5/ });
+
+    fireEvent.click(field);
+    fireEvent.click(field);
+
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledTimes(1));
+  });
+
+  it('rejects a diagonal field without flying', async () => {
+    apiMocks.get.mockResolvedValue(map);
+    render(<NavigationPanel ship={ship} onShipUpdate={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Feld 6,6/ }));
+
+    expect(
+      await screen.findByText('Nur geradlinige Flugrouten sind möglich'),
+    ).toBeTruthy();
+    expect(apiMocks.post).not.toHaveBeenCalled();
   });
 
   it('shows every alert battle report in turn and refreshes the reached state', async () => {
@@ -130,7 +112,16 @@ describe('NavigationPanel', () => {
         defender: [{ id: 2, name: 'X-Wing', destroyed: false }],
       },
       rounds: [
-        { number: 1, lines: [{ kind: 'ENERGY_HIT', text: `${attacker} feuert auf X-Wing`, emphasis: 'warning' }] },
+        {
+          number: 1,
+          lines: [
+            {
+              kind: 'ENERGY_HIT',
+              text: `${attacker} feuert auf X-Wing`,
+              emphasis: 'warning',
+            },
+          ],
+        },
       ],
       outcome: { winner: 'ATTACKER', destroyedShipIds: [] },
     });
@@ -148,19 +139,23 @@ describe('NavigationPanel', () => {
     });
     const onShipUpdate = vi.fn();
     render(<NavigationPanel ship={ship} onShipUpdate={onShipUpdate} />);
-    fireEvent.click(await screen.findByRole('button', { name: /Feld 6,5/ }));
+    await screen.findByRole('button', { name: /Feld 6,5/ });
     const mapLoads = apiMocks.get.mock.calls.length;
-    fireEvent.click(screen.getByRole('button', { name: 'Flug starten' }));
+    fireEvent.click(screen.getByRole('button', { name: /Feld 6,5/ }));
 
     const first = await screen.findByRole('dialog', { name: 'Kampfbericht' });
     expect(within(first).getByText(/Wache feuert auf X-Wing/)).toBeTruthy();
-    expect(screen.getByRole('status').textContent).toBe('Alarmreaktion: 2 Kämpfe · Position aktualisiert');
+    expect(screen.getByRole('status').textContent).toBe(
+      'Alarmreaktion: 2 Kämpfe · Position aktualisiert',
+    );
     await waitFor(() => expect(onShipUpdate).toHaveBeenCalled());
     expect(apiMocks.get.mock.calls.length).toBeGreaterThan(mapLoads);
 
     fireEvent.click(within(first).getByRole('button', { name: /Schlie/ }));
     const second = await screen.findByRole('dialog', { name: 'Kampfbericht' });
-    expect(within(second).getByText(/Patrouille feuert auf X-Wing/)).toBeTruthy();
+    expect(
+      within(second).getByText(/Patrouille feuert auf X-Wing/),
+    ).toBeTruthy();
   });
 
   it('draws the class cursor graphic on the ship field when one exists', async () => {
@@ -307,9 +302,15 @@ describe('NavigationPanel', () => {
     );
 
     expect(
-      await screen.findByRole('button', { name: /Feld 6,5.*verbleibender Messpunkt/ }),
+      await screen.findByRole('button', {
+        name: /Feld 6,5.*verbleibender Messpunkt/,
+      }),
     ).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Feld 4,4/ }).getAttribute('aria-label')).not.toContain('Messpunkt');
+    expect(
+      screen
+        .getByRole('button', { name: /Feld 4,4/ })
+        .getAttribute('aria-label'),
+    ).not.toContain('Messpunkt');
   });
 
   it('uses blind navigation until long-range sensors are activated', async () => {
@@ -319,7 +320,10 @@ describe('NavigationPanel', () => {
       <NavigationPanel
         ship={{
           ...ship,
-          runtimeSystems: { ...ship.runtimeSystems, LONG_RANGE_SENSORS: { active: false } },
+          runtimeSystems: {
+            ...ship.runtimeSystems,
+            LONG_RANGE_SENSORS: { active: false },
+          },
         }}
         onShipUpdate={vi.fn()}
       />,
@@ -355,7 +359,10 @@ describe('NavigationPanel', () => {
         ship={{
           ...ship,
           location: { scope: 'SYSTEM', systemId: 8, x: 20, y: 30 },
-          runtimeSystems: { ...ship.runtimeSystems, LONG_RANGE_SENSORS: { active: false } },
+          runtimeSystems: {
+            ...ship.runtimeSystems,
+            LONG_RANGE_SENSORS: { active: false },
+          },
         }}
         onShipUpdate={vi.fn()}
       />,
@@ -413,7 +420,9 @@ describe('NavigationPanel', () => {
         onShipUpdate={vi.fn()}
       />,
     );
-    expect(screen.queryByRole('button', { name: /Langstreckensensoren aktivieren/ })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /Langstreckensensoren aktivieren/ }),
+    ).toBeNull();
     expect(screen.queryByRole('button', { name: /Blindflug nach/ })).toBeNull();
     expect(screen.getByText('Navigation')).toBeTruthy();
   });

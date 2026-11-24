@@ -144,15 +144,15 @@ describe('tutorial targets', () => {
     render(<MemoryRouter initialEntries={['/spacecraft/2']}><Routes><Route path="/spacecraft/:id" element={<SpacecraftDetailPage />} /></Routes></MemoryRouter>);
     await screen.findByText('Korvette');
     await screen.findByText('Ziel wählen');
-    fireEvent.click(screen.getByText('Ziel wählen'));
-    await screen.findByRole('button', { name: 'Flug starten' });
+    // STU: the field click flies at once.
     apiMocks.post.mockRejectedValueOnce(new Error('Flug fehlgeschlagen'));
-    fireEvent.click(screen.getByRole('button', { name: 'Flug starten' }));
+    fireEvent.click(screen.getByText('Ziel wählen'));
     await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/fly', { targetX: 6, targetY: 6 }));
     expect(tutorialMocks.event).not.toHaveBeenCalledWith('spacecraft.flight.started');
 
     apiMocks.post.mockResolvedValueOnce({});
-    fireEvent.click(screen.getByRole('button', { name: 'Flug starten' }));
+    await waitFor(() => expect(screen.getByText('Ziel wählen')).toBeTruthy());
+    fireEvent.click(screen.getByText('Ziel wählen'));
     await waitFor(() => expect(tutorialMocks.event).toHaveBeenCalledWith('spacecraft.flight.started'));
   });
 

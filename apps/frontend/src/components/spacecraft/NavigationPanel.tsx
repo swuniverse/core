@@ -1,8 +1,6 @@
 import { NavicomputerJumpPanel } from './NavicomputerJumpPanel';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  fieldEffectDefinition,
-  knownFieldEffects,
   type CartographyPlanDto,
   type CombatReportDto,
   type MovementResultDto,
@@ -15,7 +13,6 @@ import { CombatReportDialog } from './CombatReportDialog';
 import { tutorialEvent } from '../tutorial/useTutorial';
 import { DirectionalControls } from './DirectionalControls';
 import { LssMap } from './LssMap';
-import { formatAnomaly } from '../starmap/AnomalyMarker';
 import type { LocalMapResponse } from './LssMap';
 
 interface Ship {
@@ -27,7 +24,15 @@ interface Ship {
   energy: number;
   energyMax: number;
   location: SpaceLocationDto;
-  runtimeSystems?: Record<string, { active: boolean; lastScanAt?: number; integrity?: number; cooldown?: number }>;
+  runtimeSystems?: Record<
+    string,
+    {
+      active: boolean;
+      lastScanAt?: number;
+      integrity?: number;
+      cooldown?: number;
+    }
+  >;
   lssMode?: 'DISABLED' | 'TERRITORY' | 'IMPASSABLE' | 'CARTOGRAPHY';
   navigationBounds?: { minX: number; maxX: number; minY: number; maxY: number };
 }
@@ -53,9 +58,6 @@ export function NavigationPanel({
   onLocalMapChange,
 }: NavigationPanelProps) {
   const [localMap, setLocalMap] = useState<LocalMapResponse | null>(null);
-  const [navTarget, setNavTarget] = useState<{ x: number; y: number } | null>(
-    null,
-  );
   const [navMessage, setNavMessage] = useState<string | null>(null);
   const [combatReports, setCombatReports] = useState<CombatReportDto[]>([]);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -121,7 +123,6 @@ export function NavigationPanel({
     setLoading(true);
     setLocalMap(null);
     onLocalMapChange?.(null);
-    setNavTarget(null);
     setNavMessage(null);
     void fetchLocalMap();
   }, [
@@ -145,13 +146,14 @@ export function NavigationPanel({
         localMap?.mode === 'system' || inSystem
           ? `/spacecraft/${ship.id}/navigate`
           : `/spacecraft/${ship.id}/fly`;
-      const response = await api.post<{ movement?: MovementResultDto } | undefined>(path, {
+      const response = await api.post<
+        { movement?: MovementResultDto } | undefined
+      >(path, {
         targetX,
         targetY,
       });
       const movement = response?.movement;
       await tutorialEvent('spacecraft.flight.started');
-      setNavTarget(null);
       const reports = movement?.combatReports ?? [];
       const stop = STOP_MESSAGES[movement?.stopReason ?? 'ARRIVED'];
       setNavMessage(
@@ -176,29 +178,15 @@ export function NavigationPanel({
   };
 
   const handleFieldClick = (x: number, y: number) => {
-    if (ship.status !== 'IDLE' || !localMap || changingSystem) return;
+    if (ship.status !== 'IDLE' || !localMap || changingSystem || moving) return;
     if (x === localMap.shipX && y === localMap.shipY) return;
     if (x !== localMap.shipX && y !== localMap.shipY) {
       setNavMessage('Nur geradlinige Flugrouten sind möglich');
       return;
     }
-    setNavTarget({ x, y });
+    // STU: a click on the LSS flies at once, hints live in the field tooltip.
+    void handleFly(x, y);
   };
-
-  const targetField = navTarget
-    ? localMap?.fields.find((field) =>
-        localMap.mode === 'system'
-          ? 'sx' in field && field.sx === navTarget.x && field.sy === navTarget.y
-          : 'cx' in field && field.cx === navTarget.x && field.cy === navTarget.y,
-      )
-    : undefined;
-  const targetEffects = targetField?.fieldType
-    ? knownFieldEffects(targetField.effects ?? targetField.fieldType.effects)
-    : [];
-  const targetEnergy = targetField?.energyCost ?? targetField?.fieldType?.energyCost ?? 0;
-  const targetDamage = targetField?.damage ?? targetField?.fieldType?.damage ?? 0;
-  const targetStorms =
-    targetField?.anomalies?.filter((anomaly) => anomaly.type === 'ION_STORM') ?? [];
 
   const handleEnterSystem = async () => {
     setChangingSystem(true);
@@ -207,7 +195,6 @@ export function NavigationPanel({
     onLocalMapChange?.(null);
     try {
       await api.post(`/spacecraft/${ship.id}/enter-system`, {});
-      setNavTarget(null);
       await onShipUpdate();
     } catch (err: unknown) {
       setNavMessage(err instanceof Error ? err.message : 'Fehler');
@@ -220,7 +207,8 @@ export function NavigationPanel({
   // movement needs a warp or impulse drive (`canMove`).
   const hasLss = ship.runtimeSystems?.LONG_RANGE_SENSORS != null;
   const canMove =
-    ship.runtimeSystems?.WARPDRIVE != null || ship.runtimeSystems?.SUBLIGHT_DRIVE != null;
+    ship.runtimeSystems?.WARPDRIVE != null ||
+    ship.runtimeSystems?.SUBLIGHT_DRIVE != null;
   const cartographyPoints =
     ship.lssMode === 'CARTOGRAPHY' &&
     cartography?.status === 'PLANNED' &&
@@ -276,41 +264,52 @@ export function NavigationPanel({
       aria-labelledby="navigation-panel-heading"
       data-tutorial="ship-navigation"
     >
-      {!inSystem && ship.runtimeSystems?.HYPERSPACE_COIL && (ship.runtimeSystems.HYPERSPACE_COIL.integrity ?? 0) > 0 && (
-        <NavicomputerJumpPanel
-          shipId={ship.id}
-          cooldown={ship.runtimeSystems.HYPERSPACE_COIL.cooldown}
-          disabled={moving || changingSystem || ship.status !== 'IDLE' || ship.energy < 55 || !ship.runtimeSystems?.WARPDRIVE?.active}
-          onJump={async () => { await onShipUpdate(); await fetchLocalMap(); }}
-        />
-      )}
+      {!inSystem &&
+        ship.runtimeSystems?.HYPERSPACE_COIL &&
+        (ship.runtimeSystems.HYPERSPACE_COIL.integrity ?? 0) > 0 && (
+          <NavicomputerJumpPanel
+            shipId={ship.id}
+            cooldown={ship.runtimeSystems.HYPERSPACE_COIL.cooldown}
+            disabled={
+              moving ||
+              changingSystem ||
+              ship.status !== 'IDLE' ||
+              ship.energy < 55 ||
+              !ship.runtimeSystems?.WARPDRIVE?.active
+            }
+            onJump={async () => {
+              await onShipUpdate();
+              await fetchLocalMap();
+            }}
+          />
+        )}
       <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-swu-border/60 pb-1">
         <h3
           id="navigation-panel-heading"
           className="flex items-center gap-1 text-xs font-bold tracking-wide text-swu-primary"
         >
           {hasLss && (
-          <button
-            type="button"
-            onClick={() => void toggleLss()}
-            title={
-              lssActive
-                ? 'Langstreckensensoren deaktivieren'
-                : 'Langstreckensensoren aktivieren'
-            }
-            aria-label={
-              lssActive
-                ? 'Langstreckensensoren deaktivieren'
-                : 'Langstreckensensoren aktivieren'
-            }
-            className="border border-swu-border p-0.5"
-          >
-            <img
-              src={`/assets/buttons/${lssActive ? 'lss1.png' : 'lss2.png'}`}
-              alt=""
-              className="size-5 object-contain"
-            />
-          </button>
+            <button
+              type="button"
+              onClick={() => void toggleLss()}
+              title={
+                lssActive
+                  ? 'Langstreckensensoren deaktivieren'
+                  : 'Langstreckensensoren aktivieren'
+              }
+              aria-label={
+                lssActive
+                  ? 'Langstreckensensoren deaktivieren'
+                  : 'Langstreckensensoren aktivieren'
+              }
+              className="border border-swu-border p-0.5"
+            >
+              <img
+                src={`/assets/buttons/${lssActive ? 'lss1.png' : 'lss2.png'}`}
+                alt=""
+                className="size-5 object-contain"
+              />
+            </button>
           )}
           {lssActive && localMap
             ? `LSS · ${localMap.mode === 'system' ? localMap.systemName : 'Galaxie'} · R${localMap.sensorRange}`
@@ -338,41 +337,41 @@ export function NavigationPanel({
 
       {!lssActive ? (
         canMove && (
-        <div className="border border-swu-border/50 bg-black/20 p-3 text-xs">
-          <div className="mx-auto grid w-fit grid-cols-3 place-items-center gap-2 font-mono">
-            <BlindFlightTarget
-              x={blindX}
-              y={blindY - 1}
-              onFly={handleFly}
-              disabled={!isDocked || moving || blindY <= blindBounds.minY}
-              className="col-start-2 row-start-1"
-            />
-            <BlindFlightTarget
-              x={blindX - 1}
-              y={blindY}
-              onFly={handleFly}
-              disabled={!isDocked || moving || blindX <= blindBounds.minX}
-              className="col-start-1 row-start-2"
-            />
-            <span className="col-start-2 row-start-2 border border-swu-accent bg-swu-accent/10 px-3 py-1 text-swu-primary">
-              {blindX}|{blindY}
-            </span>
-            <BlindFlightTarget
-              x={blindX + 1}
-              y={blindY}
-              onFly={handleFly}
-              disabled={!isDocked || moving || blindX >= blindBounds.maxX}
-              className="col-start-3 row-start-2"
-            />
-            <BlindFlightTarget
-              x={blindX}
-              y={blindY + 1}
-              onFly={handleFly}
-              disabled={!isDocked || moving || blindY >= blindBounds.maxY}
-              className="col-start-2 row-start-3"
-            />
+          <div className="border border-swu-border/50 bg-black/20 p-3 text-xs">
+            <div className="mx-auto grid w-fit grid-cols-3 place-items-center gap-2 font-mono">
+              <BlindFlightTarget
+                x={blindX}
+                y={blindY - 1}
+                onFly={handleFly}
+                disabled={!isDocked || moving || blindY <= blindBounds.minY}
+                className="col-start-2 row-start-1"
+              />
+              <BlindFlightTarget
+                x={blindX - 1}
+                y={blindY}
+                onFly={handleFly}
+                disabled={!isDocked || moving || blindX <= blindBounds.minX}
+                className="col-start-1 row-start-2"
+              />
+              <span className="col-start-2 row-start-2 border border-swu-accent bg-swu-accent/10 px-3 py-1 text-swu-primary">
+                {blindX}|{blindY}
+              </span>
+              <BlindFlightTarget
+                x={blindX + 1}
+                y={blindY}
+                onFly={handleFly}
+                disabled={!isDocked || moving || blindX >= blindBounds.maxX}
+                className="col-start-3 row-start-2"
+              />
+              <BlindFlightTarget
+                x={blindX}
+                y={blindY + 1}
+                onFly={handleFly}
+                disabled={!isDocked || moving || blindY >= blindBounds.maxY}
+                className="col-start-2 row-start-3"
+              />
+            </div>
           </div>
-        </div>
         )
       ) : !localMap ? (
         <div className="rounded border border-red-500/40 bg-red-500/5 p-3">
@@ -386,7 +385,7 @@ export function NavigationPanel({
           <LssMap
             onScanExpired={fetchLocalMap}
             localMap={localMap}
-            navTarget={navTarget}
+            navTarget={null}
             cartographyPoints={cartographyPoints}
             shipCursorUrl={shipCursorImage(
               ship.fleetFlagshipClassKey ?? ship.shipClassKey,
@@ -396,28 +395,6 @@ export function NavigationPanel({
           />
 
           <div className="flex w-full flex-col items-center gap-2 sm:min-w-[150px] sm:w-auto sm:pt-4">
-            {navTarget && targetField && (
-              <div className="w-full border border-amber-500/50 bg-amber-500/10 p-2 text-[11px] text-amber-100">
-                <strong>Gefährliches Feld [{navTarget.x}|{navTarget.y}]</strong>
-                <div>Energie: {targetEnergy} · Schaden: {targetDamage}</div>
-                {targetEffects.map((effect) => (
-                  <div key={effect}>{fieldEffectDefinition(effect).destinationInfo}</div>
-                ))}
-                {targetStorms.map((storm, index) => (
-                  <div key={`storm-${index}`} className="font-bold text-red-200">
-                    Das Ziel liegt in einem gefährlichen Ionensturm: {formatAnomaly(storm)}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  disabled={moving}
-                  onClick={() => void handleFly(navTarget.x, navTarget.y)}
-                  className="mt-1 border border-amber-400 px-2 py-0.5 font-bold hover:bg-amber-400/10 disabled:opacity-40"
-                >
-                  Flug starten
-                </button>
-              </div>
-            )}
             {canMove && (
               <DirectionalControls
                 onMove={handleDirectionalMove}
