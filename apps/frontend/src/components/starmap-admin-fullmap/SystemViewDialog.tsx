@@ -1,7 +1,9 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Application, Container, Sprite, Graphics, Assets } from 'pixi.js';
 import { useFullmapEditorStore } from '../../stores/fullmap-editor.store';
-import { spaceBackgroundTile, starTileImage } from '../../lib/assets';
+import { starTileImage } from '../../lib/assets';
+import { terrainAppearance, isNebulaTerrain } from '../../lib/map-terrain';
+import { featherNebulaSprite } from '../../lib/map-terrain-pixi';
 import {
   buildStarTileLayers,
   getStarTileIdAt,
@@ -95,17 +97,22 @@ export function SystemViewDialog() {
       const px = (field.sx - 1) * CELL;
       const py = (field.sy - 1) * CELL;
       try {
-        const url = spaceBackgroundTile(field.sx, field.sy);
-        const texture = await Assets.load(url);
+        const appearance = terrainAppearance(field.fieldType, field.sx, field.sy);
+        if (!appearance.image) continue;
+        const texture = await Assets.load(appearance.image);
+        if (signal.aborted) return;
         const sprite = new Sprite(texture);
+        sprite.alpha = appearance.alpha;
+        sprite.tint = appearance.tint;
         sprite.position.set(px, py);
         sprite.width = CELL;
         sprite.height = CELL;
         tileLayer.addChild(sprite);
+        featherNebulaSprite(sprite, tileLayer, field.fieldType, [fieldMap.get(`${field.sx},${field.sy - 1}`)?.fieldType, fieldMap.get(`${field.sx + 1},${field.sy}`)?.fieldType, fieldMap.get(`${field.sx},${field.sy + 1}`)?.fieldType, fieldMap.get(`${field.sx - 1},${field.sy}`)?.fieldType]);
       } catch { /* skip */ }
 
       // Field type overlay
-      if (field.fieldType.key !== 'EMPTY_SPACE') {
+      if (field.fieldType.key !== 'EMPTY_SPACE' && !isNebulaTerrain(field.fieldType)) {
         const colors: Record<string, number> = {
           STAR_CORE: 0xf59e0b,
           PLANET_ORBIT: 0x0ea5e9,
@@ -134,6 +141,7 @@ export function SystemViewDialog() {
           try {
             const url = starTileImage(tileId);
             const texture = await Assets.load(url);
+            if (signal.aborted) return;
             const sprite = new Sprite(texture);
             sprite.position.set((sx - 1) * CELL, (sy - 1) * CELL);
             sprite.width = CELL;
@@ -144,6 +152,7 @@ export function SystemViewDialog() {
       }
     }
 
+    if (signal.aborted) return;
     // Celestial objects
     for (const obj of systemGrid.celestialObjects ?? []) {
       if (obj.classId && obj.classId >= 9001) continue; // stars handled above

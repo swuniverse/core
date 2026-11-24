@@ -310,4 +310,21 @@ describe('LssMap', () => {
       'Subraumellipse (noch 2 Ticks)',
     );
   });
+  it('shows persisted nebula terrain in sensors without revealing redacted neighbors', () => {
+    const localMap = systemMap(201);
+    localMap.systemTypeId = 0;
+    localMap.stars = [];
+    localMap.bounds = { minX: 1, maxX: 2, minY: 14, maxY: 14 };
+    localMap.fields = [
+      { id: 1, sx: 1, sy: 14, fieldType: { id: 120, key: 'neon_nebel_120', name: 'Neon-Nebel' } },
+      { id: 2, sx: 2, sy: 14, redacted: true, fieldType: { id: 121, key: 'neon_nebel_121', name: 'Geheimer Nebel' } },
+    ];
+    render(<LssMap localMap={localMap} navTarget={null} onFieldClick={vi.fn()} />);
+    const cloud = screen.getByRole('button', { name: /Feld 1,14: Neon-Nebel/ });
+    expect(cloud.querySelector('img')?.getAttribute('src')).toBe('/star-120.png');
+    const redacted = screen.getByLabelText('Feld 2,14: Sensordaten blockiert');
+    expect(redacted.querySelector('img')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Geheimer Nebel/ })).toBeNull();
+  });
+
 });

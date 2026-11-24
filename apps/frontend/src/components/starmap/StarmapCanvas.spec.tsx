@@ -1,12 +1,14 @@
 import { act, render, waitFor } from '@testing-library/react';
 import { StarmapCanvas } from './StarmapCanvas';
+import { Assets } from 'pixi.js';
 import type { StarmapGalaxyFieldDto } from '@swuniverse/shared';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const pixiControl = vi.hoisted(() => ({
-  pendingLoads: [] as Array<{ resolve: (asset: object) => void }>,
+  pendingLoads: [] as Array<{ resolve: (asset: object) => void; reject: () => void }>,
   resolveInit: null as null | (() => void),
+  destroyedInsertions: 0,
 }));
 
 vi.mock('pixi.js', () => {
@@ -17,13 +19,17 @@ vi.mock('pixi.js', () => {
     scale = { set: vi.fn() };
     visible = true;
     addChild(...children: unknown[]) {
+      if (this.destroyed) pixiControl.destroyedInsertions++;
       this.children.push(...children);
     }
     removeChildren() {
+      const removed = this.children;
       this.children = [];
+      return removed;
     }
     destroy() {
       this.destroyed = true;
+      for (const child of this.children) (child as { destroy?: () => void }).destroy?.();
     }
   }
   class Graphics {
@@ -62,6 +68,7 @@ vi.mock('pixi.js', () => {
       });
     }
     destroy() {
+      this.stage.destroy();
       pixiControl.pendingLoads = [];
     }
   }
@@ -70,8 +77,8 @@ vi.mock('pixi.js', () => {
     Assets: {
       load: vi.fn(
         () =>
-          new Promise<object>((resolve) => {
-            pixiControl.pendingLoads.push({ resolve });
+          new Promise<object>((resolve, reject) => {
+            pixiControl.pendingLoads.push({ resolve, reject });
           }),
       ),
     },
@@ -122,6 +129,8 @@ describe('StarmapCanvas arrival focus', () => {
   beforeEach(() => {
     pixiControl.pendingLoads = [];
     pixiControl.resolveInit = null;
+    pixiControl.destroyedInsertions = 0;
+    vi.mocked(Assets.load).mockClear();
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
       setTransform: vi.fn(),
       clearRect: vi.fn(),
@@ -169,7 +178,7 @@ describe('StarmapCanvas arrival focus', () => {
 
     await act(async () => {
       let resolvedCount = 0;
-      while (resolvedCount < 2) {
+      for (let flush = 0; flush < 4; flush++) {
         while (resolvedCount < pixiControl.pendingLoads.length) {
           pixiControl.pendingLoads[resolvedCount].resolve({ width: 1, height: 1 });
           resolvedCount += 1;
@@ -179,8 +188,36 @@ describe('StarmapCanvas arrival focus', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
 
+    expect(vi.mocked(Assets.load).mock.calls.every(([url]) => !String(url).includes('galactic-star-map-background'))).toBe(true);
+    expect(view.queryByRole('status')).toBeNull();
     expect(worldOverlay.style.transform).toContain('scale(1.5)');
     expect(worldOverlay.style.transform).toMatch(/^translate\(-50\.4\d+px, -240\.5px\) scale\(1\.5\)$/);
     unmount();
   });
+  const basicProps = { layer, fields, routes, selectedSystem: null, openedSystemIds: [], systemGrids, wormholes,
+    onSelectSystem: vi.fn(), onOpenSystem: vi.fn(), influence, contacts };
+
+  it('loads the real nebula terrain, hides unknown fields and finishes on an asset failure', async () => {
+    const nebula = { ...fields[0], fieldTypeId: 120, fieldType: { ...fields[0].fieldType, id: 120, key: 'neon_nebel_120', category: 'nebula' } };
+    const unknown = { ...fields[0], id: 2, cx: 13, fieldType: { ...fields[0].fieldType, key: 'UNKNOWN' } };
+    const view = render(<StarmapCanvas {...basicProps} fields={[nebula, unknown]} />);
+    expect(view.getByRole('status').textContent).toContain('geladen');
+    await act(async () => { pixiControl.resolveInit?.(); await Promise.resolve(); });
+    expect(Assets.load).toHaveBeenCalledTimes(1);
+    expect(String(vi.mocked(Assets.load).mock.calls[0][0])).toContain('/map/120.png');
+    await act(async () => { pixiControl.pendingLoads[0].reject(); await Promise.resolve(); });
+    await waitFor(() => expect(view.queryByRole('status')).toBeNull());
+    view.unmount();
+  });
+
+  it('does not insert late asset results into a destroyed map', async () => {
+    const view = render(<StarmapCanvas {...basicProps} />);
+    await act(async () => { pixiControl.resolveInit?.(); await Promise.resolve(); });
+    const loads = [...pixiControl.pendingLoads];
+    expect(loads.length).toBeGreaterThan(0);
+    view.unmount();
+    await act(async () => { await Promise.resolve(); loads.forEach((load) => load.resolve({})); await Promise.resolve(); });
+    expect(pixiControl.destroyedInsertions).toBe(0);
+  });
+
 });

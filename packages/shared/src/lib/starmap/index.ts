@@ -106,6 +106,7 @@ export interface StarmapFieldTypeDto {
 }
 
 export * from './field-effects.js';
+export * from './nebula.js';
 
 export type StarmapFactionZone =
   'REBEL' | 'EMPIRE' | 'CONTESTED' | 'UNKNOWN' | 'NEUTRAL';

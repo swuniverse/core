@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { NebulaController } from './nebula.controller';
+import { NebulaService } from './nebula.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminFlightSignatureController } from './admin-flight-signature.controller';
 import { AdminFlightSignatureService } from './admin-flight-signature.service';
@@ -84,8 +86,9 @@ import { LayerAccessGuard } from './layer-access.guard';
     PrestigeModule,
     AwardsModule,
   ],
-  controllers: [StarmapController, PlanetSurfacesController, AdminFlightSignatureController],
+  controllers: [StarmapController, PlanetSurfacesController, AdminFlightSignatureController, NebulaController],
   providers: [
+    NebulaService,
     AdminFlightSignatureService,
     StarmapService,
     RegionDiscoveryService,

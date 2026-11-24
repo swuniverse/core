@@ -14,11 +14,11 @@ import { PlanetImg } from '../PlanetImg';
 import { AnomalyMarkers, formatAnomaly } from '../starmap/AnomalyMarker';
 import {
   planetThumbnail,
-  spaceBackgroundTile,
   starTileImage,
   systemTypeImage,
 } from '../../lib/assets';
 import { isStarObject } from '../../lib/starmap-render';
+import { terrainAppearance, nebulaEdgeMask } from '../../lib/map-terrain';
 import { getStarTileConfig, getStarTileIdAt } from '../../lib/star-tiles';
 
 interface FieldType {
@@ -275,6 +275,13 @@ export function LssMap({
     (_, index) => bounds.minY + index,
   );
 
+  const visibleTerrain = new Map(localMap.fields.filter((field) => !field.redacted && field.fieldType).map((field) => [
+    'cx' in field ? `${field.cx},${field.cy}` : `${field.sx},${field.sy}`, field.fieldType,
+  ]));
+  const terrainMask = (x: number, y: number, type: FieldType) => nebulaEdgeMask(type, {
+    top: visibleTerrain.get(`${x},${y - 1}`), right: visibleTerrain.get(`${x + 1},${y}`),
+    bottom: visibleTerrain.get(`${x},${y + 1}`), left: visibleTerrain.get(`${x - 1},${y}`),
+  });
   const tracesByPosition = new Map<string, SubspaceTraceOverlay[]>();
   for (const trace of localMap.overlays?.subspaceTraces ?? []) {
     const key = `${trace.x},${trace.y}`;
@@ -359,10 +366,8 @@ export function LssMap({
                       />
                     );
                   }
-                  const fieldTileImage =
-                    field.fieldType.key === 'EMPTY_SPACE'
-                      ? spaceBackgroundTile(x, y)
-                      : starTileImage(field.fieldType.id);
+                  const terrain = terrainAppearance(field.fieldType, x, y);
+                  const fieldTileImage = terrain.image;
                   const systemAsset = field.systemTypeId
                     ? systemTypeImage(field.systemTypeId)
                     : null;
@@ -398,9 +403,10 @@ export function LssMap({
                         />
                       ) : (
                         <img
-                          src={fieldTileImage}
+                          src={fieldTileImage ?? undefined}
                           alt=""
-                          className="absolute inset-0 h-full w-full object-cover opacity-90"
+                          className="absolute inset-0 h-full w-full object-cover"
+                          style={{ opacity: terrain.alpha, filter: terrain.filter, ...terrainMask(x, y, field.fieldType) }}
                           onError={(event) => {
                             event.currentTarget.style.display = 'none';
                           }}
@@ -502,11 +508,8 @@ export function LssMap({
                     : null;
                 const objectAsset =
                   obj?.classId != null ? planetThumbnail(obj.classId) : null;
-                const fieldTileImage =
-                  field.fieldType.key === 'EMPTY_SPACE' ||
-                  field.fieldType.key === 'DEEP_SPACE'
-                    ? spaceBackgroundTile(x, y)
-                    : starTileImage(field.fieldType.id);
+                const terrain = terrainAppearance(field.fieldType, x, y);
+                const fieldTileImage = terrain.image;
                 const fallbackLabel = obj
                   ? OBJECT_TYPE_EMOJI[obj.objectType] || '●'
                   : field.fieldType.key === 'STAR_CORE'
@@ -539,20 +542,8 @@ export function LssMap({
                         : '',
                     ].join(' ')}
                   >
-                    {!showStarTile && !objectAsset && (
-                      <img
-                        src={fieldTileImage}
-                        alt=""
-                        className="absolute inset-0 h-full w-full object-cover opacity-90"
-                        onError={(event) => {
-                          event.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    )}
                     {obj?.isColonizable && !isShip && (
-                      <span className="absolute right-0.5 top-0.5 z-10 rounded bg-emerald-500/80 px-0.5 text-[7px] leading-none text-black">
-                        K
-                      </span>
+                      <span className="absolute right-0.5 top-0.5 z-10 rounded bg-emerald-500/80 px-0.5 text-[7px] leading-none text-black">K</span>
                     )}
                     {starTileAsset ? (
                       <img
@@ -567,11 +558,12 @@ export function LssMap({
                         objectType={obj!.objectType}
                         shielded={obj!.shielded}
                         thumbnail
-                        className="h-full w-full object-contain"
+                        className="relative z-10 h-full w-full object-contain"
                       />
                     ) : (
                       fallbackLabel
                     )}
+                    {!starTileAsset && fieldTileImage && <img src={fieldTileImage} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ opacity: terrain.alpha, filter: terrain.filter, ...terrainMask(x, y, field.fieldType) }} />}
                     <AnomalyMarkers anomalies={field.anomalies} />
                     <SubspaceTraces traces={subspaceTraces} />
                     {isShip && shipCursorUrl && (
