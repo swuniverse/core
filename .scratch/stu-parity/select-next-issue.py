@@ -20,7 +20,7 @@ STATUSES = {
     "ready-for-human",
 }
 PRIORITIES = {"P1": 1, "P2": 2, "P3": 3}
-SIZES = {"S", "M"}
+SIZES = {"XS", "S", "M"}
 FIELDS = ("Status", "Priority", "Size", "Blocked by")
 
 
