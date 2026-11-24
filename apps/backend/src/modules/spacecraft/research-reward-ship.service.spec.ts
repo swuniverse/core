@@ -32,6 +32,9 @@ jest.mock('./spacecraft-crew.service', () => ({
 jest.mock('./spacecraft-runtime-state.service', () => ({
   SpacecraftRuntimeStateService: class SpacecraftRuntimeStateService {},
 }));
+jest.mock('./ship-class-discovery.service', () => ({
+  ShipClassDiscoveryService: class ShipClassDiscoveryService {},
+}));
 jest.mock('./spacecraft-stats.service', () => ({
   SpacecraftStatsService: class SpacecraftStatsService {},
 }));
@@ -92,6 +95,7 @@ function setup(opts: {
   const manager = { getRepository: (cls: any) => repos.get(cls) };
   let committed = true;
   const dataSource = {
+    getRepository: (cls: any) => repos.get(cls),
     transaction: async (fn: any) => {
       try {
         return await fn(manager);
@@ -124,6 +128,7 @@ function setup(opts: {
       SHIELDS: { active: false, integrity: 5, cooldown: 2 },
     })),
   };
+  const discovery = { discover: jest.fn(async () => ({ discovered: true })) };
   const service = new ResearchRewardShipService(
     dataSource as any,
     gameData as any,
@@ -131,8 +136,9 @@ function setup(opts: {
     stats as any,
     crew as any,
     runtime as any,
+    discovery as any,
   );
-  return { service, saved, grants, committed: () => committed };
+  return { service, saved, grants, discovery, committed: () => committed };
 }
 
 const reward = {
@@ -144,6 +150,29 @@ const reward = {
 };
 
 describe('ResearchRewardShipService', () => {
+  it('files the reward hull as a research database entry, even without a colony', async () => {
+    for (const colony of [{ id: 1, systemFieldId: 5 }, undefined]) {
+      const { service, discovery } = setup({ colony });
+      await service.grantShipReward(1, 7);
+      expect(discovery.discover).toHaveBeenCalledWith({
+        userId: 1,
+        shipClassId: 3,
+        sourceSpacecraftId: null,
+        targetSpacecraftId: null,
+        source: 'RESEARCH',
+      });
+    }
+  });
+
+  it('files no hull for research without ship reward', async () => {
+    const { service, discovery } = setup({
+      reserve: { outcome: 'no-mapping' },
+      tech: { id: 7 },
+    });
+    await service.grantShipReward(1, 7);
+    expect(discovery.discover).not.toHaveBeenCalled();
+  });
+
   it('spawns a configured ship with modules and crew and completes the grant', async () => {
     const { service, saved, grants } = setup({
       colony: { id: 1, systemFieldId: 5 },

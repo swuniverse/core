@@ -31,7 +31,7 @@ function createService(raw: Array<{ id: number }>) {
     {} as never,
     prestigeService as never,
   );
-  return { service, manager, prestigeService };
+  return { service, manager, prestigeService, query };
 }
 
 describe('ShipClassDiscoveryService', () => {
@@ -74,5 +74,22 @@ describe('ShipClassDiscoveryService', () => {
       name: 'Ikarus',
     });
     expect(prestigeService.change).not.toHaveBeenCalled();
+  });
+
+  it('records research discoveries without a scanning ship', async () => {
+    const { service, query, prestigeService } = createService([{ id: 1 }]);
+
+    await service.discover({
+      userId: 1,
+      shipClassId: 4,
+      sourceSpacecraftId: null,
+      targetSpacecraftId: null,
+      source: 'RESEARCH',
+    });
+
+    expect(query.values).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceSpacecraftId: null, source: 'RESEARCH' }),
+    );
+    expect(prestigeService.change).toHaveBeenCalledTimes(1);
   });
 });

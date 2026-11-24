@@ -3,6 +3,7 @@ import {
   BadRequestException,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
@@ -45,6 +46,7 @@ import {
 import { TutorialService } from '../tutorial/tutorial.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { LayerKnowledgeService } from '../starmap/layer-knowledge.service';
+import { CelestialClassDiscoveryService } from '../starmap/celestial-class-discovery.service';
 
 const INVALID_STARTER_PLANET_MESSAGE =
   'Only colonizable planets with biome C or E can be claimed as homeworld (STU M, L or O class only if no SWU starter planet is free)';
@@ -84,6 +86,8 @@ export class OnboardingService {
     private readonly tutorialService: TutorialService,
     private readonly messagingService: MessagingService,
     private readonly layerKnowledgeService: LayerKnowledgeService,
+    @Optional()
+    private readonly celestialClassDiscovery?: CelestialClassDiscoveryService,
   ) {}
 
   async getOrCreateSelection(userId: number): Promise<OnboardingSelection> {
@@ -491,6 +495,13 @@ export class OnboardingService {
     user.factionId = factionId;
     await this.userRepo.save(user);
     await this.layerKnowledgeService.markKnown(user.id, system.layerId);
+    // STU `FirstColony`: database entry of the colony class with prestige, once.
+    await this.celestialClassDiscovery?.discover({
+      userId: user.id,
+      object,
+      spacecraftId: null,
+      source: 'FIRST_COLONY',
+    });
     await this.ensureBaseResearchCompleted(user.id, factionId);
     await this.tutorialService.activateForNewPlayer(user.id);
     await this.deliverWelcomeMessage(user.id, faction.key as Faction);

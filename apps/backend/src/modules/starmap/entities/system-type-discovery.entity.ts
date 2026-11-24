@@ -19,7 +19,7 @@ export class SystemTypeDiscovery {
   systemTypeId: number;
 
   @Column({ type: 'varchar', length: 32 })
-  source: 'SECTOR_SCAN' | 'SYSTEM_ENTRY';
+  source: 'SECTOR_SCAN' | 'SYSTEM_ENTRY' | 'AIRFIELD_START';
 
   @Column({ type: 'int', nullable: true })
   spacecraftId: number | null;

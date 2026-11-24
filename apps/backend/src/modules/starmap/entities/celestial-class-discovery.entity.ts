@@ -26,11 +26,11 @@ export class CelestialClassDiscovery {
   @Column()
   celestialObjectId: number;
 
-  @Column()
-  spacecraftId: number;
+  @Column({ type: 'int', nullable: true })
+  spacecraftId: number | null;
 
   @Column({ type: 'varchar', length: 32 })
-  source: 'SECTOR_SCAN' | 'COLONIZATION';
+  source: 'SECTOR_SCAN' | 'COLONIZATION' | 'FIRST_COLONY';
 
   @CreateDateColumn()
   discoveredAt: Date;

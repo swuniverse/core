@@ -31,6 +31,10 @@ export function AdminUsersPage() {
   const [reason, setReason] = useState('');
   const [deleteUser, setDeleteUser] = useState<UserEntry | null>(null);
   const [blockUser, setBlockUser] = useState<UserEntry | null>(null);
+  const [prestigeUser, setPrestigeUser] = useState<UserEntry | null>(null);
+  const [prestigeAmount, setPrestigeAmount] = useState('');
+  const [prestigeReason, setPrestigeReason] = useState('');
+  const [prestigeError, setPrestigeError] = useState('');
 
   useEffect(() => {
     api.get<UserEntry[]>('/auth/admin/users').then((data) => {
@@ -82,6 +86,17 @@ export function AdminUsersPage() {
     setUsers((previous) => previous.map((item) => item.id === user.id ? { ...item, deletionMark } : item));
   }
 
+  async function submitPrestige() {
+    if (!prestigeUser) return;
+    setPrestigeError('');
+    try {
+      await api.post('/admin/prestige/correction', { playerId: prestigeUser.id, amount: Number(prestigeAmount), description: prestigeReason.trim() });
+      setPrestigeUser(null);
+    } catch (error) {
+      setPrestigeError(error instanceof Error ? error.message : 'Prestige konnte nicht gebucht werden');
+    }
+  }
+
   async function unlock(user: UserEntry) {
     await api.delete(`/auth/admin/users/${user.id}/lock`);
     setUsers((previous) => previous.map((item) => item.id === user.id ? { ...item, lock: null } : item));
@@ -114,12 +129,13 @@ export function AdminUsersPage() {
               <td className="border border-swu-border px-1.5 py-1">{user.lastActiveAt ? formatDateTime(user.lastActiveAt) : '—'}</td>
               <td className="border border-swu-border px-1.5 py-1">{user.isAdmin ? 'Admin' : user.isNpc ? 'NPC' : user.lock ? `Gesperrt (${user.lock.remainingTicks}): ${user.lock.reason}` : user.blocked ? 'Blockiert, zur Löschung freigegeben' : user.vacationMode ? 'Urlaub' : user.deletionMark === AccountDeletionMark.Forbidden ? 'Löschverbot' : user.deletionMark ? `Löschmarke ${user.deletionMark}` : 'Aktiv'}</td>
               {AVAILABLE_PERMISSIONS.map((permission) => <td key={permission} className="border border-swu-border px-1.5 py-1 text-center"><input type="checkbox" aria-label={`${permission} für ${user.username}`} checked={user.isAdmin || user.permissions.includes(permission)} disabled={user.isAdmin} onChange={() => void togglePermission(user, permission)} /></td>)}
-              <td className="border border-swu-border px-1.5 py-1 text-center">{!user.isAdmin && <div className="flex justify-center gap-2">{user.lock ? <button type="button" onClick={() => void unlock(user)}>Entsperren</button> : <button type="button" onClick={() => { setLockUser(user); setTicks('1'); setReason(''); }}>Sperren</button>}<label className="flex items-center gap-1"><input type="checkbox" checked={user.deletionMark === AccountDeletionMark.Forbidden} onChange={() => void toggleDeletionForbidden(user)} />Löschverbot</label>{!user.blocked && <button type="button" className="border border-red-500 px-1 text-red-400" onClick={() => setBlockUser(user)}>Blockieren</button>}<button type="button" onClick={() => setDeleteUser(user)}>Sofort löschen</button></div>}</td>
+              <td className="border border-swu-border px-1.5 py-1 text-center">{!user.isAdmin && <div className="flex justify-center gap-2">{user.lock ? <button type="button" onClick={() => void unlock(user)}>Entsperren</button> : <button type="button" onClick={() => { setLockUser(user); setTicks('1'); setReason(''); }}>Sperren</button>}<label className="flex items-center gap-1"><input type="checkbox" checked={user.deletionMark === AccountDeletionMark.Forbidden} onChange={() => void toggleDeletionForbidden(user)} />Löschverbot</label>{!user.blocked && <button type="button" className="border border-red-500 px-1 text-red-400" onClick={() => setBlockUser(user)}>Blockieren</button>}{!user.isNpc && <button type="button" onClick={() => { setPrestigeUser(user); setPrestigeAmount(''); setPrestigeReason(''); setPrestigeError(''); }}>Prestige</button>}<button type="button" onClick={() => setDeleteUser(user)}>Sofort löschen</button></div>}</td>
             </tr>
           ))}</tbody>
         </table>
       </div>
       {lockUser && <div role="dialog" aria-modal="true" className="fixed inset-0 grid place-items-center bg-black/70"><div className="w-96 border border-swu-border bg-swu-surface p-4"><h2 className="mb-3 text-swu-primary"><PlayerName name={lockUser.username} /> sperren</h2><label className="block text-xs">Anzahl Ticks<input aria-label="Anzahl Ticks" type="number" min="1" className="mt-1 w-full border border-swu-border bg-swu-bg p-2" value={ticks} onChange={(event) => setTicks(event.target.value)} /></label><label className="mt-3 block text-xs">Begründung<textarea aria-label="Begründung" maxLength={500} className="mt-1 h-28 w-full border border-swu-border bg-swu-bg p-2" value={reason} onChange={(event) => setReason(event.target.value)} /></label><div className="mt-3 flex justify-end gap-2"><button type="button" onClick={() => setLockUser(null)}>Abbrechen</button><button type="button" disabled={Number(ticks) < 1 || !reason.trim()} onClick={() => void submitLock()}>Sperre setzen</button></div></div></div>}
+      {prestigeUser && <div role="dialog" aria-modal="true" className="fixed inset-0 grid place-items-center bg-black/70"><div className="w-96 border border-swu-border bg-swu-surface p-4"><h2 className="mb-3 text-swu-primary">Prestige für <PlayerName name={prestigeUser.username} /> korrigieren</h2><label className="block text-xs">Betrag (negativ zieht ab)<input aria-label="Prestige-Betrag" type="number" step="1" className="mt-1 w-full border border-swu-border bg-swu-bg p-2" value={prestigeAmount} onChange={(event) => setPrestigeAmount(event.target.value)} /></label><label className="mt-3 block text-xs">Beschreibung<textarea aria-label="Prestige-Beschreibung" maxLength={500} className="mt-1 h-28 w-full border border-swu-border bg-swu-bg p-2" value={prestigeReason} onChange={(event) => setPrestigeReason(event.target.value)} /></label>{prestigeError && <p role="alert" className="mt-2 text-xs text-red-400">{prestigeError}</p>}<div className="mt-3 flex justify-end gap-2"><button type="button" onClick={() => setPrestigeUser(null)}>Abbrechen</button><button type="button" disabled={!Number.isInteger(Number(prestigeAmount)) || Number(prestigeAmount) === 0 || !prestigeReason.trim()} onClick={() => void submitPrestige()}>Prestige buchen</button></div></div></div>}
       {blockUser && <div role="dialog" aria-modal="true" className="fixed inset-0 grid place-items-center bg-black/70"><div className="w-96 border border-red-500 bg-swu-surface p-4"><h2 className="text-swu-primary"><PlayerName name={blockUser.username} /> blockieren?</h2><p className="my-3 text-sm text-swu-muted">Die E-Mail-Adresse wird für Registrierungen gesperrt und das Konto zur Löschung freigegeben.</p><div className="flex justify-end gap-2"><button type="button" onClick={() => setBlockUser(null)}>Abbrechen</button><button type="button" className="border border-red-500 px-2 text-red-400" onClick={() => void submitBlock()}>Spieler blockieren</button></div></div></div>}
       {deleteUser && <div role="dialog" aria-modal="true" className="fixed inset-0 grid place-items-center bg-black/70"><div className="w-96 border border-red-500 bg-swu-surface p-4"><h2 className="text-swu-primary"><PlayerName name={deleteUser.username} /> endgültig löschen?</h2><p className="my-3 text-sm text-swu-muted">Diese Aktion kann nicht rückgängig gemacht werden.</p><div className="flex justify-end gap-2"><button type="button" onClick={() => setDeleteUser(null)}>Abbrechen</button><button type="button" onClick={() => void deleteNow()}>Konto endgültig löschen</button></div></div></div>}
     </div>

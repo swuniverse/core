@@ -330,6 +330,7 @@ describe('OnboardingService', () => {
     };
     const messagingService = { sendSystem: jest.fn(async () => ({})) };
     const layerKnowledgeService = { markKnown: jest.fn(async () => undefined) };
+    const celestialClassDiscovery = { discover: jest.fn(async () => null) };
     const service = new OnboardingService(
       onboardingRepo as never,
       userRepo as never,
@@ -343,11 +344,19 @@ describe('OnboardingService', () => {
       tutorialService as never,
       messagingService as never,
       layerKnowledgeService as never,
+      celestialClassDiscovery as never,
     );
 
     await service.claimHomeworld(7, 23);
 
     expect(layerKnowledgeService.markKnown).toHaveBeenCalledWith(7, 3);
+    // STU `FirstColony`: colony class database entry through the shared discovery path.
+    expect(celestialClassDiscovery.discover).toHaveBeenCalledWith({
+      userId: 7,
+      object,
+      spacecraftId: null,
+      source: 'FIRST_COLONY',
+    });
   });
 
   it('does not allow changing a retained faction while claiming a new homeworld', async () => {

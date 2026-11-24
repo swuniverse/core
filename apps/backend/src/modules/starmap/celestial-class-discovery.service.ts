@@ -29,8 +29,8 @@ export class CelestialClassDiscoveryService {
   async discover(input: {
     userId: number;
     object: SwuTypeSource & { id: number };
-    spacecraftId: number;
-    source?: 'SECTOR_SCAN' | 'COLONIZATION';
+    spacecraftId: number | null;
+    source?: 'SECTOR_SCAN' | 'COLONIZATION' | 'FIRST_COLONY';
   }): Promise<{ discovered: boolean; prestigeAwarded: number; name: string } | null> {
     const definition = resolveSwuPlanetType(input.object);
     if (!definition) return null;

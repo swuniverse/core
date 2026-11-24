@@ -1,6 +1,6 @@
 # Fehlende Prestigequellen wie STU
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -35,13 +35,13 @@ Drei STU-Prestigequellen fehlen in SWU:
 
 ## Akzeptanzkriterien
 
-- [ ] Selbstzerstörung bucht dem Besitzer `-abs(Prestigewert der Klasse)` mit Prestige-Log „<n> Prestige erhalten für die Selbstzerstörung von: <Klasse>“, in derselben Transaktion; Klassen mit Wert 0 buchen nichts. Gilt für Schiffe und Stationen mit Prestigewert.
-- [ ] Kolonisierung und Startkolonie (Onboarding) entdecken die Kolonieklasse über denselben Pfad wie der Sektorscan (`celestial-class-discovery`) inkl. Prestige und Award-Prüfung; bereits entdeckte Klassen buchen nichts erneut.
-- [ ] Forschungsabschluss entdeckt die durch die Forschung freigeschaltete Schiffsklasse (`shipReward`) als Rumpf-Datenbankeintrag mit Prestige (STU `createDatabaseEntries`). Falls weitere Forschungs→Datenbank-Zuordnungen in `game-data` fehlen, wird nur `shipReward` umgesetzt und die Lücke im Kommentar dokumentiert.
-- [ ] Flugfeld-/Hangarstart entdeckt System, Systemtyp und Schiffsklasse wie STU `StartAirfieldShip`.
-- [ ] Admin-Prestigekorrektur: Endpunkt und Admin-UI (Spielerliste) mit Spieler, Betrag ≠ 0, Pflichtbeschreibung; Prestige-Log mit der Beschreibung; der Spieler erhält eine Systemnachricht. Nur Admins (NPC-Konten haben in SWU keine eigene Oberfläche).
-- [ ] `sc-WP-COMBAT-3`-Akzeptanz „Selbstzerstörung ohne Zerstörer gibt keinen Gewinn“ bleibt gültig (kein Gewinn), ergänzt um den Abzug.
-- [ ] Backend-Tests je Quelle (inkl. Idempotenz der Entdeckung und Transaktion bei Selbstzerstörung); Frontend-Test für das Admin-Formular.
+- [x] Selbstzerstörung bucht dem Besitzer `-abs(Prestigewert der Klasse)` mit Prestige-Log „<n> Prestige erhalten für die Selbstzerstörung von: <Klasse>“, in derselben Transaktion; Klassen mit Wert 0 buchen nichts. Gilt für Schiffe und Stationen mit Prestigewert.
+- [x] Kolonisierung und Startkolonie (Onboarding) entdecken die Kolonieklasse über denselben Pfad wie der Sektorscan (`celestial-class-discovery`) inkl. Prestige und Award-Prüfung; bereits entdeckte Klassen buchen nichts erneut.
+- [x] Forschungsabschluss entdeckt die durch die Forschung freigeschaltete Schiffsklasse (`shipReward`) als Rumpf-Datenbankeintrag mit Prestige (STU `createDatabaseEntries`). Falls weitere Forschungs→Datenbank-Zuordnungen in `game-data` fehlen, wird nur `shipReward` umgesetzt und die Lücke im Kommentar dokumentiert.
+- [x] Flugfeld-/Hangarstart entdeckt System, Systemtyp und Schiffsklasse wie STU `StartAirfieldShip`.
+- [x] Admin-Prestigekorrektur: Endpunkt und Admin-UI (Spielerliste) mit Spieler, Betrag ≠ 0, Pflichtbeschreibung; Prestige-Log mit der Beschreibung; der Spieler erhält eine Systemnachricht. Nur Admins (NPC-Konten haben in SWU keine eigene Oberfläche).
+- [x] `sc-WP-COMBAT-3`-Akzeptanz „Selbstzerstörung ohne Zerstörer gibt keinen Gewinn“ bleibt gültig (kein Gewinn), ergänzt um den Abzug.
+- [x] Backend-Tests je Quelle (inkl. Idempotenz der Entdeckung und Transaktion bei Selbstzerstörung); Frontend-Test für das Admin-Formular.
 
 ## Herkunft
 
@@ -50,3 +50,19 @@ Drei STU-Prestigequellen fehlen in SWU:
 - `map.md`-Duplikattabelle verschiebt „fehlende Prestigequellen“ als soc-G3 ins jeweilige Fachissue; für diese Quellen gibt es keines. Handelsposten-Entdeckung: tmw-AUD-13 (PO N4, 2026-11-17).
 
 ## Comments
+
+### 2026-11-24 – umgesetzt, Prüfung ausstehend
+
+Commit: `feat(prestige): STU prestige sources for self-destruct, database entries and admin correction (stu-parity soc-AUD-08)`. Modell: Opus 5.5 (Claude Code) statt Sol, direkt umgesetzt (Transaktion/Admin-Rechte); keine Delegation.
+
+- Selbstzerstörung: `SpacecraftDestructionService.selfDestruct` lädt die Klasse, bucht `-abs(prestige)` mit „<n> Prestige erhalten für die Selbstzerstörung von: <Klasse>“ im selben `manager`; Wert 0 bucht nichts; kein Gewinn für Dritte.
+- Kolonisierung war schon angebunden (`source: 'COLONIZATION'`); Startkolonie: `OnboardingService.claimHomeworld` → `CelestialClassDiscoveryService.discover` mit `source: 'FIRST_COLONY'`, `spacecraftId: null`.
+- Forschung: `ResearchRewardShipService.grantShipReward` entdeckt nach dem Spawn-Versuch (auch ohne Kolonie) den `shipReward`-Rumpf (`source: 'RESEARCH'`). Lücke: game-data kennt keine weiteren Forschung→Datenbank-Zuordnungen; nur `shipReward` umgesetzt (`shortcut:`-Kommentar).
+- Hangarstart: `ColonyService.startHangarShip` → `ExplorationService.discoverCatalogSystem` (nur Katalogsysteme, `system_explorations` + 10 Prestige + `SYSTEMS`-Meldung/Award), Systemtyp und Rumpf mit `source: 'AIRFIELD_START'`.
+- Admin: `POST /admin/prestige/correction` (`AdminPrestigeModule`, JWT + `AdminGuard`), Betrag ganzzahlig ≠ 0 (±1 000 000), Pflichtbeschreibung 1–500 Zeichen, NPC → 400; Prestige-Log mit Beschreibung, Systemnachricht nach Commit. UI: Schaltfläche „Prestige“ in der Spielerliste (nicht für NPC).
+- Migration `20261124200000-discoveries-without-spacecraft`: `celestial_class_discoveries.spacecraftId`, `ship_class_discoveries.source/targetSpacecraftId` nullable.
+
+Gelaufen: Jest-Specs `spacecraft-destruction` (19), `research-reward-ship` + `onboarding` (17), `colony-tick` (250), `exploration` (3), `ship-class-discovery`/`celestial-class-discovery` (5), `admin-prestige.controller` (4); Vitest `admin-users` (7); `nx typecheck` backend+frontend; ESLint 0 Fehler.
+
+Ausstehend (Sammelprüfung): Migration gegen PostgreSQL (up/down) und Integrationstests der Entdeckungspfade (Idempotenz unter echtem Unique-Index), volle Backend-/Frontend-Suites.
+

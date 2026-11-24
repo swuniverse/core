@@ -26,8 +26,9 @@ export class ShipClassDiscoveryService {
   async discover(input: {
     userId: number;
     shipClassId: number;
-    sourceSpacecraftId: number;
-    targetSpacecraftId: number;
+    sourceSpacecraftId: number | null;
+    targetSpacecraftId: number | null;
+    source?: 'TARGET_SCAN' | 'RESEARCH' | 'AIRFIELD_START';
   }) {
     const outcome = await this.dataSource.transaction(async (manager) => {
       const shipClass = await manager.findOneByOrFail(ShipClassDef, {
@@ -37,7 +38,7 @@ export class ShipClassDiscoveryService {
         .createQueryBuilder()
         .insert()
         .into(ShipClassDiscovery)
-        .values({ ...input, source: 'TARGET_SCAN' })
+        .values({ ...input, source: input.source ?? 'TARGET_SCAN' })
         .orIgnore()
         .returning('id')
         .execute();

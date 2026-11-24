@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
 import { Crew, CrewType } from '../colony/entities/crew.entity';
@@ -15,6 +15,7 @@ import {
   SpacecraftStatus,
 } from './entities/spacecraft.entity';
 import { SpacecraftCrewService } from './spacecraft-crew.service';
+import { ShipClassDiscoveryService } from './ship-class-discovery.service';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 import { SpacecraftStatsService } from './spacecraft-stats.service';
 
@@ -37,9 +38,40 @@ export class ResearchRewardShipService {
     private readonly statsService: SpacecraftStatsService,
     private readonly crewService: SpacecraftCrewService,
     private readonly runtimeStateService: SpacecraftRuntimeStateService,
+    @Optional() private readonly shipClassDiscovery?: ShipClassDiscoveryService,
   ) {}
 
   async grantShipReward(
+    userId: number,
+    techId: number,
+  ): Promise<ResearchRewardShipResult> {
+    const result = await this.spawnRewardShip(userId, techId);
+    await this.discoverRewardHull(userId, techId);
+    return result;
+  }
+
+  /**
+   * STU `ResearchState::createDatabaseEntries`: completing the research files
+   * the unlocked hull in the database, independent of the ship spawn.
+   * shortcut: only `shipReward` hulls; game-data maps no other research→database entries yet.
+   */
+  private async discoverRewardHull(userId: number, techId: number): Promise<void> {
+    const key = this.gameData.getTech(techId)?.shipReward?.shipClassKey;
+    if (!key || !this.shipClassDiscovery) return;
+    const shipClass = await this.dataSource
+      .getRepository(ShipClassDef)
+      .findOneBy({ key });
+    if (!shipClass) return;
+    await this.shipClassDiscovery.discover({
+      userId,
+      shipClassId: shipClass.id,
+      sourceSpacecraftId: null,
+      targetSpacecraftId: null,
+      source: 'RESEARCH',
+    });
+  }
+
+  private spawnRewardShip(
     userId: number,
     techId: number,
   ): Promise<ResearchRewardShipResult> {

@@ -26,7 +26,7 @@ export class SystemTypeDiscoveryService {
   async discover(input: {
     userId: number;
     systemTypeId: number;
-    source: 'SECTOR_SCAN' | 'SYSTEM_ENTRY';
+    source: 'SECTOR_SCAN' | 'SYSTEM_ENTRY' | 'AIRFIELD_START';
     spacecraftId?: number | null;
     layerId?: number | null;
     x?: number | null;

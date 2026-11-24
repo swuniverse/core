@@ -136,6 +136,7 @@ import { ForumTopic } from './modules/alliance/entities/forum-topic.entity';
 import { ForumPost } from './modules/alliance/entities/forum-post.entity';
 import { validateGameTimezone } from './modules/tick/maintenance.service';
 import { AwardsModule } from './modules/awards/awards.module';
+import { AdminPrestigeModule } from './modules/prestige/admin-prestige.module';
 import { Award } from './modules/awards/entities/award.entity';
 import { UserAward } from './modules/awards/entities/user-award.entity';
 import { NewsModule } from './modules/news/news.module';
@@ -344,6 +345,7 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
     EventsModule,
     PrestigeModule,
     AwardsModule,
+    AdminPrestigeModule,
     TradeModule,
     TutorialModule,
     RpgModule,

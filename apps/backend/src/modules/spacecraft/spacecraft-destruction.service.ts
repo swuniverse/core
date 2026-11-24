@@ -89,7 +89,9 @@ export class SpacecraftDestructionService {
     const result = await this.dataSource.transaction(async (manager) => {
       const ship = await manager.findOne(Spacecraft, {
         where: { id: shipId, userId },
-        lock: { mode: 'pessimistic_write' },
+        relations: ['shipClass'],
+        // Lock the ship row only; Postgres refuses FOR UPDATE on the outer join.
+        lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
       });
       if (!ship) throw new NotFoundException('Spacecraft not found');
       if (ship.status === SpacecraftStatus.DESTROYED) {
@@ -109,6 +111,16 @@ export class SpacecraftDestructionService {
         );
       }
       const finalized = await this.finalizeInManager(manager, ship, 'SELF_DESTRUCT');
+      // STU `SelfDestruct::createNegativePrestigeLog`: the owner loses the hull's prestige.
+      const loss = -Math.abs(ship.shipClass.prestige);
+      if (loss !== 0) {
+        await this.prestige.change(
+          userId,
+          loss,
+          `${loss} Prestige erhalten für die Selbstzerstörung von: ${ship.shipClass.name}`,
+          manager,
+        );
+      }
       evacuatedCrew = finalized.evacuatedCrew;
       afterCommit = finalized.notifyAfterCommit;
       return {

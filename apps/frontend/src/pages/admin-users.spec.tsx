@@ -96,4 +96,26 @@ describe('AdminUsersPage', () => {
     await waitFor(() => expect(apiMocks.patch).toHaveBeenCalledWith('/auth/admin/users/9/deletion-forbidden', { forbidden: true }));
     expect((screen.getByRole('checkbox', { name: 'Löschverbot' }) as HTMLInputElement).checked).toBe(true);
   });
+
+  it('books a prestige correction with mandatory description for players only', async () => {
+    apiMocks.get.mockResolvedValue([
+      { id: 9, username: 'Hutten-Kartell', description: '', isNpc: true, isAdmin: false, permissions: [], faction: null, createdAt: '2026-01-01T12:00:00.000Z', lastActiveAt: null, vacationMode: false, deletionMark: 0, blocked: false, lock: null },
+      { id: 12, username: 'Leia', description: null, isNpc: false, isAdmin: false, permissions: [], faction: null, createdAt: '2026-01-01T12:00:00.000Z', lastActiveAt: null, vacationMode: false, deletionMark: 0, blocked: false, lock: null },
+    ]);
+    render(<AdminUsersPage />);
+    await screen.findByText('NPC');
+    // NPC accounts carry no prestige.
+    expect(screen.getAllByRole('button', { name: 'Prestige' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Prestige' }));
+    const submit = screen.getByRole('button', { name: 'Prestige buchen' }) as HTMLButtonElement;
+    fireEvent.change(screen.getByLabelText('Prestige-Betrag'), { target: { value: '-25' } });
+    expect(submit.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Prestige-Beschreibung'), { target: { value: '  Bugausnutzung  ' } });
+    expect(submit.disabled).toBe(false);
+    fireEvent.click(submit);
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith('/admin/prestige/correction', { playerId: 12, amount: -25, description: 'Bugausnutzung' }),
+    );
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Prestige buchen' })).toBeNull());
+  });
 });

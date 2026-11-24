@@ -57,6 +57,10 @@ import { ColonyDefenseService } from './colony-defense.service';
 import { ColonyEventService } from '../messaging/colony-event.service';
 import { recoverableReactorFuel } from '../spacecraft/reactor-fuel-profile';
 import { SpacecraftTorpedoService } from '../spacecraft/spacecraft-torpedo.service';
+import { ShipClassDiscoveryService } from '../spacecraft/ship-class-discovery.service';
+import { ExplorationService } from '../starmap/exploration.service';
+import { SystemTypeDiscoveryService } from '../starmap/system-type-discovery.service';
+import { SYSTEM_TYPE_BY_ID } from '../starmap/starmap-system-types';
 import { ColonyOwnershipService } from './colony-ownership.service';
 import { ColonyAbandonmentService } from './colony-abandonment.service';
 import { ColonySettingsService } from './colony-settings.service';
@@ -146,6 +150,10 @@ export class ColonyService {
     @Optional() private readonly shuttles?: ShuttleService,
     @Optional() private readonly flightSignatures?: FlightSignatureService,
     @Optional() private readonly timing?: ColonyTimingService,
+    @Optional() private readonly exploration?: ExplorationService,
+    @Optional()
+    private readonly systemTypeDiscovery?: SystemTypeDiscoveryService,
+    @Optional() private readonly shipClassDiscovery?: ShipClassDiscoveryService,
   ) {}
 
   giveUpColony(colonyId: number, userId: number, confirmation: string) {
@@ -1324,7 +1332,51 @@ export class ColonyService {
     }
     initializeSpacecraftRuntimeSystems(savedShip);
     await this.shipRepo.save(savedShip);
+    await this.recordAirfieldStartEntries(
+      userId,
+      colony,
+      shipClass.id,
+      savedShip.id,
+    );
     return this.findOne(colonyId, userId);
+  }
+
+  /** STU `StartAirfieldShip`: database entries for system, system type and hull. */
+  private async recordAirfieldStartEntries(
+    userId: number,
+    colony: Colony,
+    shipClassId: number,
+    spacecraftId: number,
+  ): Promise<void> {
+    const field = colony.systemFieldId
+      ? await this.systemFieldRepo.findOne({
+          where: { id: colony.systemFieldId },
+          relations: ['starSystem'],
+        })
+      : null;
+    const system = field?.starSystem;
+    if (system) {
+      await this.exploration?.discoverCatalogSystem(
+        userId,
+        system,
+        'AIRFIELD_START',
+      );
+      // Unknown legacy system types have no database entry.
+      if (SYSTEM_TYPE_BY_ID[system.systemTypeId])
+        await this.systemTypeDiscovery?.discover({
+          userId,
+          systemTypeId: system.systemTypeId,
+          source: 'AIRFIELD_START',
+          spacecraftId,
+        });
+    }
+    await this.shipClassDiscovery?.discover({
+      userId,
+      shipClassId,
+      sourceSpacecraftId: spacecraftId,
+      targetSpacecraftId: spacecraftId,
+      source: 'AIRFIELD_START',
+    });
   }
 
   private async createDefaultModulesForHangarShip(

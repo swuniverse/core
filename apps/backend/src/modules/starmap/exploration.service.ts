@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import {
@@ -6,6 +6,14 @@ import {
   ExplorationLevel,
 } from './entities/exploration-state.entity';
 import { SystemExploration } from './entities/system-exploration.entity';
+import { StarSystem } from './entities/star-system.entity';
+import { isNpcUser } from '../auth/non-npc-users';
+import {
+  DATABASE_DISCOVERY,
+  type DatabaseDiscoveryPort,
+} from '../database/database-discovery.port';
+import { STU_PRESTIGE } from '../prestige/prestige.constants';
+import { PrestigeService } from '../prestige/prestige.service';
 
 export interface DiscoverFieldsInput {
   userId: number;
@@ -30,7 +38,56 @@ export class ExplorationService {
     private readonly explorationRepo: Repository<ExplorationState>,
     @InjectRepository(SystemExploration)
     private readonly systemExplorationRepo: Repository<SystemExploration>,
+    @Optional() private readonly prestigeService?: PrestigeService,
+    @Optional()
+    @Inject(DATABASE_DISCOVERY)
+    private readonly databaseDiscovery?: DatabaseDiscoveryPort,
   ) {}
+
+  /**
+   * STU `checkDatabaseItem` for a star system outside cartography (e.g.
+   * airfield start): a catalog system becomes a database entry with the
+   * cartography prestige, once per player.
+   */
+  async discoverCatalogSystem(
+    userId: number,
+    system: Pick<StarSystem, 'id' | 'name' | 'layerId' | 'inDatabaseCatalog'>,
+    source: string,
+  ): Promise<boolean> {
+    if (!system.inDatabaseCatalog) return false;
+    const prestige = STU_PRESTIGE.CARTOGRAPHY_STARMAP;
+    const awarded = await this.systemExplorationRepo.manager.transaction(
+      async (manager) => {
+        const result = await manager
+          .createQueryBuilder()
+          .insert()
+          .into(SystemExploration)
+          .values({ userId, starSystemId: system.id, discoverySource: source })
+          .orIgnore()
+          .returning('id')
+          .execute();
+        if (!result.raw.length || (await isNpcUser(manager, userId)))
+          return false;
+        await this.prestigeService?.change(
+          userId,
+          prestige,
+          `${prestige} Prestige erhalten für den Datenbankeintrag des Sternensystems „${system.name}“`,
+          manager,
+        );
+        return true;
+      },
+    );
+    if (awarded) {
+      await this.databaseDiscovery?.notify?.({
+        userId,
+        category: 'SYSTEMS',
+        layerId: system.layerId,
+        name: system.name,
+        prestige,
+      });
+    }
+    return awarded;
+  }
 
   async discoverArea(input: DiscoverFieldsInput, manager?: EntityManager): Promise<number> {
     return this.discoverField(input, manager);

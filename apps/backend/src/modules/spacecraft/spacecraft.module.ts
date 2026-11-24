@@ -347,6 +347,7 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     InteractionContextService,
     SpacecraftTakeoverService,
     SpacecraftTrackerService,
+    ShipClassDiscoveryService,
   ],
 })
 export class SpacecraftModule implements OnModuleInit {

@@ -360,9 +360,26 @@ describe('SpacecraftDestructionService', () => {
     );
   });
 
-  it('does not award prestige for self-destruction', async () => {
-    const { service, prestige } = setup({
+  it('deducts the hull prestige from the owner in the destruction transaction', async () => {
+    const { service, manager, prestige } = setup({
       shipClass: { name: 'X-Wing Jäger', prestige: 6 },
+    });
+
+    await service.selfDestruct(2, 1);
+
+    // STU: no gain for anyone, only the owner's loss.
+    expect(prestige.change).toHaveBeenCalledTimes(1);
+    expect(prestige.change).toHaveBeenCalledWith(
+      1,
+      -6,
+      '-6 Prestige erhalten für die Selbstzerstörung von: X-Wing Jäger',
+      manager,
+    );
+  });
+
+  it('books nothing for a hull without prestige', async () => {
+    const { service, prestige } = setup({
+      shipClass: { name: 'Shuttle', prestige: 0 },
     });
 
     await service.selfDestruct(2, 1);
@@ -370,14 +387,15 @@ describe('SpacecraftDestructionService', () => {
     expect(prestige.change).not.toHaveBeenCalled();
   });
 
-  it('locks the ship without loading nullable location relations', async () => {
+  it('locks the ship row without loading nullable location relations', async () => {
     const { service, manager } = setup();
 
     await service.selfDestruct(2, 1);
 
     expect(manager.findOne).toHaveBeenCalledWith(expect.anything(), {
       where: { id: 2, userId: 1 },
-      lock: { mode: 'pessimistic_write' },
+      relations: ['shipClass'],
+      lock: { mode: 'pessimistic_write', tables: ['spacecraft'] },
     });
   });
 

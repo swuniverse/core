@@ -103,7 +103,11 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
   };
   const systemFieldRepo = {
     findOneByOrFail: jest.fn(async () => ({ id: 301 })),
+    findOne: jest.fn<Promise<any>, any[]>(async () => null),
   };
+  const exploration = { discoverCatalogSystem: jest.fn(async () => false) };
+  const systemTypeDiscovery = { discover: jest.fn(async () => ({})) };
+  const shipClassDiscovery = { discover: jest.fn(async () => ({})) };
   const locationRepo = {
     findOneByOrFail: jest.fn(async () => ({ id: 401, systemFieldId: 301 })),
   };
@@ -1517,6 +1521,10 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
     tickProcessorService as any,
     undefined,
     flightSignatures as any,
+    undefined,
+    exploration as any,
+    systemTypeDiscovery as any,
+    shipClassDiscovery as any,
   );
 
   return Object.assign(
@@ -1529,6 +1537,9 @@ function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
       userRepo,
       shipRepo,
       systemFieldRepo,
+      exploration,
+      systemTypeDiscovery,
+      shipClassDiscovery,
       locationRepo,
       cargoRepo,
       shipClassRepo,
@@ -9559,6 +9570,61 @@ describe('airfield hangar loop', () => {
     expect(spacecraftStatsService.fillResources).toHaveBeenCalledWith(
       expect.objectContaining({ id: 77 }),
     );
+  });
+
+  it('files system, system type and hull database entries on airfield start', async () => {
+    const {
+      service,
+      colonyRepo,
+      shipClassRepo,
+      storageRepo,
+      shipRepo,
+      systemFieldRepo,
+      exploration,
+      systemTypeDiscovery,
+      shipClassDiscovery,
+    } = createColonyService();
+    const colony = { ...airfieldColony(), systemFieldId: 301 };
+    colonyRepo.findOne.mockResolvedValue(colony);
+    shipClassRepo.findOneBy.mockResolvedValue(hangarShipClass);
+    storageRepo.findOne.mockResolvedValue({
+      colonyId: 1,
+      commodityId: 21401,
+      amount: 1,
+    });
+    shipRepo.save.mockImplementation(async (value: any) => ({
+      id: 77,
+      ...value,
+    }));
+    const starSystem = {
+      id: 12,
+      name: 'Yavin',
+      layerId: 2,
+      systemTypeId: 1001,
+      inDatabaseCatalog: true,
+    };
+    systemFieldRepo.findOne.mockResolvedValue({ id: 301, starSystem });
+
+    await service.startHangarShip(1, 1, 1, 'Icarus');
+
+    expect(exploration.discoverCatalogSystem).toHaveBeenCalledWith(
+      1,
+      starSystem,
+      'AIRFIELD_START',
+    );
+    expect(systemTypeDiscovery.discover).toHaveBeenCalledWith({
+      userId: 1,
+      systemTypeId: 1001,
+      source: 'AIRFIELD_START',
+      spacecraftId: 77,
+    });
+    expect(shipClassDiscovery.discover).toHaveBeenCalledWith({
+      userId: 1,
+      shipClassId: hangarShipClass.id,
+      sourceSpacecraftId: 77,
+      targetSpacecraftId: 77,
+      source: 'AIRFIELD_START',
+    });
   });
 
   it('lands ships into the hangar and returns the rump commodity', async () => {

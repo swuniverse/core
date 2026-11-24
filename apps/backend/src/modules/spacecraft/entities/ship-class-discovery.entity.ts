@@ -19,13 +19,13 @@ export class ShipClassDiscovery {
   shipClassId: number;
 
   @Column({ type: 'varchar', length: 32 })
-  source: 'TARGET_SCAN';
+  source: 'TARGET_SCAN' | 'RESEARCH' | 'AIRFIELD_START';
 
-  @Column()
-  sourceSpacecraftId: number;
+  @Column({ type: 'int', nullable: true })
+  sourceSpacecraftId: number | null;
 
-  @Column()
-  targetSpacecraftId: number;
+  @Column({ type: 'int', nullable: true })
+  targetSpacecraftId: number | null;
 
   @CreateDateColumn()
   discoveredAt: Date;
