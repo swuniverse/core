@@ -285,6 +285,99 @@ describe('HolonetService edit window', () => {
     ).rejects.toThrow('Der Text muss mindestens 10 Zeichen lang sein.');
   });
 
+  it('stamps editedAt on every successful edit', async () => {
+    const before = Date.now();
+    await service.update(post.id, userId, 'Neuer Titel', 'Neuer Text');
+
+    const saved = postRepo.save.mock.calls[0][0] as { editedAt: Date };
+    expect(saved.editedAt).toBeInstanceOf(Date);
+    expect(saved.editedAt.getTime()).toBeGreaterThanOrEqual(before);
+  });
+
+  describe('plot change on edit (STU editKn)', () => {
+    let plotPostRequestRepo: { update: jest.Mock };
+    let editService: HolonetService;
+
+    beforeEach(() => {
+      plotPostRequestRepo = { update: jest.fn().mockResolvedValue(undefined) };
+      editService = new HolonetService(
+        postRepo as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        userRepo as never,
+        messagingService as never,
+        {} as never,
+        plotRepo as never,
+        plotMemberRepo as never,
+        {} as never,
+        plotPostRequestRepo as never,
+      );
+    });
+
+    it('moves the post into an own active plot as ROLEPLAY and cancels pending requests', async () => {
+      plotRepo.findOne.mockResolvedValue({ id: 11, title: 'Echo Base', endedAt: null });
+      plotMemberRepo.findOneBy.mockResolvedValue({ plotId: 11, userId });
+
+      await editService.update(post.id, userId, 'Neuer Titel', 'Neuer Text', false, undefined, 11);
+
+      expect(plotMemberRepo.findOneBy).toHaveBeenCalledWith({ plotId: 11, userId });
+      expect(postRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ plotId: 11, category: 'ROLEPLAY' }),
+      );
+      expect(plotPostRequestRepo.update).toHaveBeenCalledWith(
+        { postId: post.id, status: 'PENDING' },
+        { status: 'CANCELLED' },
+      );
+    });
+
+    it('removes the plot with null and keeps it unchanged when omitted', async () => {
+      Object.assign(post, { plotId: 11, category: 'ROLEPLAY' });
+
+      await editService.update(post.id, userId, 'Neuer Titel', 'Neuer Text');
+      expect(postRepo.save).toHaveBeenLastCalledWith(expect.objectContaining({ plotId: 11 }));
+
+      await editService.update(post.id, userId, 'Neuer Titel', 'Neuer Text', false, undefined, null);
+      expect(postRepo.save).toHaveBeenLastCalledWith(expect.objectContaining({ plotId: null }));
+      expect(plotRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('rejects plots the editor does not write for, ended plots and invalid ids', async () => {
+      plotRepo.findOne.mockResolvedValue({ id: 11, title: 'Echo Base', endedAt: null });
+      plotMemberRepo.findOneBy.mockResolvedValue(null);
+      await expect(
+        editService.update(post.id, userId, 'Neuer Titel', 'Neuer Text', false, undefined, 11),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+
+      plotRepo.findOne.mockResolvedValue({ id: 11, title: 'Ended', endedAt: new Date() });
+      plotMemberRepo.findOneBy.mockResolvedValue({ plotId: 11, userId });
+      await expect(
+        editService.update(post.id, userId, 'Neuer Titel', 'Neuer Text', false, undefined, 11),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      await expect(
+        editService.update(post.id, userId, 'Neuer Titel', 'Neuer Text', false, undefined, 'x' as never),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(postRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  it('passes the plot change and sort order through the controller', async () => {
+    const holonetService = {
+      update: jest.fn().mockResolvedValue({}),
+      findAll: jest.fn().mockResolvedValue({}),
+    };
+    const controller = new HolonetController(holonetService as never);
+
+    await controller.update(1, { user: { sub: userId } }, 'Titel', 'Text', undefined, null);
+    expect(holonetService.update).toHaveBeenCalledWith(1, userId, 'Titel', 'Text', false, undefined, null);
+
+    await controller.findAll({ user: { sub: userId } }, undefined, '2', undefined, undefined, undefined, undefined, 'asc');
+    expect(holonetService.findAll).toHaveBeenLastCalledWith(userId, undefined, 2, 20, expect.any(Object), 'ASC');
+    await controller.findAll({ user: { sub: userId } }, undefined, undefined, undefined, undefined, undefined, undefined, 'bogus');
+    expect(holonetService.findAll).toHaveBeenLastCalledWith(userId, undefined, 1, 20, expect.any(Object), 'DESC');
+  });
+
   it('hides soft-deleted posts from permalink lookup', async () => {
     postRepo.findOne.mockResolvedValue(null);
     await expect(service.findOne(post.id, userId)).rejects.toBeInstanceOf(

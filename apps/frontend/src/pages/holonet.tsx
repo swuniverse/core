@@ -7,7 +7,9 @@ import { api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 import { useHolonetUnreadStore } from '../stores/holonet-unread.store';
 import { PmLink } from '../components/PmLink';
-import type { RpgPlotDto, RpgPlotListDto, UserCharacterDto } from '@swuniverse/shared';
+import { PlayerAvatar } from '../components/PlayerAvatar';
+import { factionAvatarImage } from '../lib/assets';
+import { Faction, type RpgPlotDto, type RpgPlotListDto, type UserCharacterDto } from '@swuniverse/shared';
 import { tutorialEvent } from '../components/tutorial/useTutorial';
 
 type Character = Pick<UserCharacterDto, 'id' | 'userId' | 'name' | 'avatar' | 'description'>;
@@ -79,9 +81,15 @@ interface HolonetPost {
   positiveCount: number;
   totalCount: number;
   createdAt: string;
+  editedAt?: string | null;
   /** `null` once the author deleted the account ("Gelöschter Siedler"). */
   authorId: number | null;
-  author: { username: string };
+  author: {
+    username: string;
+    avatar?: string | null;
+    faction?: Faction | null;
+    isNpc?: boolean;
+  };
   plotId?: number | null;
   plot?: { id: number; title: string } | null;
   characters?: TaggedCharacter[];
@@ -122,6 +130,9 @@ interface PlotPostRequest {
   requester: { username: string };
 }
 
+/** Mirrors the server's author edit/delete window (STU EDIT_TIME = 600). */
+const HOLONET_EDIT_WINDOW_MS = 10 * 60 * 1000;
+
 const CATEGORIES = ['NEWS', 'ROLEPLAY', 'TRADE', 'RECRUITMENT'] as const;
 
 const CATEGORY_STYLES: Record<string, string> = {
@@ -146,6 +157,10 @@ export function HolonetPage() {
   const { id: routePostId } = useParams<{ id: string }>();
   const [posts, setPosts] = useState<HolonetPost[]>([]);
   const [filter, setFilter] = useState<string>('');
+  const [sort, setSort] = useState<'asc' | 'desc'>('desc');
+  const [now, setNow] = useState(() => Date.now());
+  const [editPlotId, setEditPlotId] = useState<number | null>(null);
+  const [actionError, setActionError] = useState('');
   const [openPostIds, setOpenPostIds] = useState<Set<number>>(() => new Set());
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -209,6 +224,7 @@ export function HolonetPage() {
       if (trimmedAuthorSearch) params.set('authorId', trimmedAuthorSearch);
       if (trimmedPostSearch) params.set('postId', trimmedPostSearch);
       params.set('page', String(p));
+      if (sort === 'asc') params.set('sort', 'asc');
       const res = await api.get<PostsResponse>(`/holonet?${params.toString()}`);
       const filteredPosts = filter
         ? res.data.filter((post) => post.category === filter)
@@ -243,7 +259,7 @@ export function HolonetPage() {
         });
       }
     },
-    [authorSearch, filter, openPost, page, postSearch, selectedPostId, textSearch],
+    [authorSearch, filter, openPost, page, postSearch, selectedPostId, sort, textSearch],
   );
 
   const loadPlotWorkflow = useCallback(async () => {
@@ -265,7 +281,13 @@ export function HolonetPage() {
     if (user?.id) void loadPlotWorkflow();
   }, [load, loadPlotWorkflow, refreshHolonetUnread, user?.id]);
 
-  const togglePost = (post: HolonetPost) => {
+  useEffect(() => {
+    // Hides the author's edit/delete buttons once the window has passed.
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const toggleDiscussion = (post: HolonetPost) => {
     if (openPostIds.has(post.id)) {
       setOpenPostIds((prev) => {
         const next = new Set(prev);
@@ -378,7 +400,20 @@ export function HolonetPage() {
     setEditTitle(post.title);
     setEditBody(post.body);
     setEditCharacters(post.characters ?? []);
+    setEditPlotId(post.plotId ?? null);
     setEditError('');
+  };
+
+  const deleteOwnPost = async (post: HolonetPost) => {
+    if (!window.confirm(`Beitrag #${post.id} wirklich löschen?`)) return;
+    setActionError('');
+    try {
+      await api.delete(`/holonet/${post.id}`);
+      setPosts((prev) => prev.filter((item) => item.id !== post.id));
+      setTotal((value) => Math.max(0, value - 1));
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause.message : 'Beitrag konnte nicht gelöscht werden.');
+    }
   };
 
   const saveEdit = async (post: HolonetPost) => {
@@ -388,11 +423,23 @@ export function HolonetPage() {
         title: editTitle,
         body: editBody,
         characterIds: editCharacters.map((character) => character.id),
+        ...(editPlotId !== (post.plotId ?? null) ? { plotId: editPlotId } : {}),
       });
       setPosts((prev) =>
         prev.map((item) =>
           item.id === post.id
-            ? { ...item, title: updated.title, body: updated.body, characters: updated.characters }
+            ? {
+                ...item,
+                title: updated.title,
+                body: updated.body,
+                characters: updated.characters,
+                editedAt: updated.editedAt,
+                category: updated.category,
+                plotId: updated.plotId ?? null,
+                plot: updated.plotId
+                  ? myPlots.find((plot) => plot.id === updated.plotId) ?? item.plot
+                  : null,
+              }
             : item,
         ),
       );
@@ -501,6 +548,7 @@ export function HolonetPage() {
             </aside>
           )}
           <main data-tutorial="holonet-archive" className="min-w-0 flex-1 space-y-2">
+            {actionError && <p role="alert" className="text-xs text-swu-danger">{actionError}</p>}
             {loading ? (
               <div className="border border-swu-border bg-swu-surface/40 p-4 text-sm">
                 Archivdaten werden geladen...
@@ -510,163 +558,180 @@ export function HolonetPage() {
                 Keine Beitraege.
               </div>
             ) : (
-              posts.map((post) => {
+posts.map((post) => {
                 const isOpen = openPostIds.has(post.id);
                 const comments = commentsByPost[post.id] ?? [];
                 const myRating = ratingsByPost[post.id] ?? 0;
                 const commentDraft = commentDrafts[post.id] ?? '';
+                const isOwn = post.authorId != null && post.authorId === user?.id;
+                const withinWindow = now - Date.parse(post.createdAt) <= HOLONET_EDIT_WINDOW_MS;
+                const canEdit = (isOwn && withinWindow) || !!user?.isAdmin;
+                const faction = post.author.faction ?? null;
+                const editPlotOptions = post.plot && !myPlots.some((plot) => plot.id === post.plot?.id)
+                  ? [post.plot, ...myPlots]
+                  : myPlots;
                 return (
                   <article
                     key={post.id}
-                    className="border border-swu-border bg-swu-surface/70"
+                    aria-label={`Beitrag #${post.id}`}
+                    className="border border-swu-border bg-swu-surface/70 md:grid md:grid-cols-[minmax(0,1fr)_132px]"
                   >
-                    <button
-                      onClick={() => togglePost(post)}
-                      className="w-full px-3 py-2 text-left transition-colors hover:bg-swu-bg/50"
-                    >
-                      <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                        <div className="flex min-w-0 flex-wrap items-center gap-2">
-                          {lastReadPostId === post.id && (
-                            <span className="border border-swu-accent/50 bg-swu-accent/10 px-1.5 py-0.5 text-[10px] text-swu-accent">
-                              LESEZEICHEN
-                            </span>
+                    <div className="min-w-0 p-3">
+                      {post.plot && (
+                        <p className="mb-1 text-[11px] text-swu-muted">
+                          Plot: <span className="text-swu-primary">{post.plot.title}</span>{' '}
+                          <Link to={`/holonet/plots/${post.plot.id}`} className="text-swu-accent hover:underline">
+                            Zum Plot
+                          </Link>
+                        </p>
+                      )}
+                      {editingPostId === post.id ? (
+                        <div className="space-y-2">
+                          <input
+                            aria-label="Titel"
+                            value={editTitle}
+                            onChange={(e) => setEditTitle(e.target.value)}
+                            className="w-full border border-swu-border bg-swu-bg px-2 py-1 text-sm text-swu-primary"
+                          />
+                          <label className="block text-xs">
+                            Plot
+                            <select
+                              aria-label="Plot"
+                              value={editPlotId ?? ''}
+                              onChange={(event) => setEditPlotId(event.target.value ? Number(event.target.value) : null)}
+                              className="ml-2 border border-swu-border bg-swu-bg px-2 py-1 text-swu-primary"
+                            >
+                              <option value="">Kein Plot</option>
+                              {editPlotOptions.map((plot) => <option key={plot.id} value={plot.id}>{plot.title}</option>)}
+                            </select>
+                          </label>
+                          <textarea
+                            aria-label="Text"
+                            value={editBody}
+                            onChange={(e) => setEditBody(e.target.value)}
+                            rows={6}
+                            className="w-full resize-y border border-swu-border bg-swu-bg px-2 py-1 text-sm text-swu-primary"
+                          />
+                          <CharacterSelector selected={editCharacters} onChange={setEditCharacters} />
+                          {editError && <p role="alert" className="text-xs text-swu-danger">{editError}</p>}
+                          <div className="flex gap-2 text-xs">
+                            <button
+                              onClick={() => saveEdit(post)}
+                              className="border border-swu-accent bg-swu-accent/10 px-3 py-1 text-swu-accent"
+                            >
+                              Speichern
+                            </button>
+                            <button
+                              onClick={() => setEditingPostId(null)}
+                              className="border border-swu-border px-3 py-1 text-swu-muted hover:text-swu-primary"
+                            >
+                              Abbrechen
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                              {lastReadPostId === post.id && (
+                                <span className="border border-swu-accent/50 bg-swu-accent/10 px-1.5 py-0.5 text-[10px] text-swu-accent">
+                                  LESEZEICHEN
+                                </span>
+                              )}
+                              <span
+                                className={`border px-1.5 py-0.5 text-[10px] ${CATEGORY_STYLES[post.category] || 'border-swu-border text-swu-muted'}`}
+                              >
+                                {post.category}
+                              </span>
+                              {post.title && (
+                                <h2 className="text-base font-bold text-swu-primary">{post.title}</h2>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              {user && myPlots.length > 0 && post.plotId == null && (isOwn || post.category === 'ROLEPLAY') && (
+                                <button type="button" onClick={() => { setAssigningPost(post.id); setSelectedPlotId(''); setPlotRequestError(''); }} className="text-[10px] text-swu-accent hover:underline">
+                                  Zu Plot hinzufügen
+                                </button>
+                              )}
+                              {canEdit && (
+                                <button
+                                  onClick={() => startEdit(post)}
+                                  className="text-[10px] text-swu-muted hover:text-swu-accent"
+                                >
+                                  Bearbeiten
+                                </button>
+                              )}
+                              {isOwn && withinWindow && (
+                                <button
+                                  onClick={() => void deleteOwnPost(post)}
+                                  className="text-[10px] text-red-400 hover:text-red-300"
+                                >
+                                  Löschen
+                                </button>
+                              )}
+                              {user?.isAdmin && !isOwn && (
+                                <button
+                                  onClick={() => setAdminDeletePost(post)}
+                                  className="text-[10px] text-red-400 hover:text-red-300"
+                                >
+                                  Löschen (Admin)
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <BbCodeText
+                            text={post.body}
+                            allowExternalImages
+                            className="whitespace-pre-wrap text-sm leading-relaxed text-swu-muted"
+                          />
+                          {assigningPost === post.id && (
+                            <div className="mt-3 flex flex-wrap items-end gap-2 border border-swu-border p-2 text-xs">
+                              <label>Plot auswählen
+                                <select aria-label="Plot auswählen" value={selectedPlotId} onChange={(event) => setSelectedPlotId(event.target.value)} className="ml-2 border border-swu-border bg-swu-bg px-2 py-1 text-swu-primary">
+                                  <option value="">Plot wählen</option>
+                                  {myPlots.map((plot) => <option key={plot.id} value={plot.id}>{plot.title}</option>)}
+                                </select>
+                              </label>
+                              <button type="button" disabled={!selectedPlotId} onClick={() => void addPostToPlot(post)} className="border border-swu-accent px-2 py-1 text-swu-accent disabled:opacity-40">{isOwn ? 'Zuordnen' : 'Antrag stellen'}</button>
+                              <button type="button" onClick={() => setAssigningPost(null)} className="border border-swu-border px-2 py-1 text-swu-muted">Abbrechen</button>
+                              {plotRequestError && <p role="alert" className="w-full text-swu-danger">{plotRequestError}</p>}
+                            </div>
                           )}
-                          <span
-                            className={`border px-1.5 py-0.5 text-[10px] ${CATEGORY_STYLES[post.category] || 'border-swu-border text-swu-muted'}`}
-                          >
-                            {post.category}
-                          </span>
-                          <h2 className="truncate text-sm font-bold text-swu-primary">
-                            {post.title}
-                          </h2>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2 text-[10px] text-swu-muted">
-                          <span><PlayerName name={post.author.username} /></span>
-                          <span className="text-red-400">
-                            {formatGameDate(post.createdAt)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="mt-1 flex flex-wrap gap-3 text-[10px] text-swu-muted">
+                          {!!post.characters?.length && <section className="mt-3 space-y-2">
+                            <h4 className="text-xs font-bold text-swu-primary">Markierte Charaktere</h4>
+                            <div className="flex flex-wrap gap-2">{post.characters.map((character) => (
+                              <button key={character.id} type="button" aria-label={character.name} onClick={() => setViewCharacter(character)} className="flex items-center gap-2 border border-swu-border px-2 py-1 text-xs text-swu-accent">
+                                <CharacterAvatar character={character} />{character.name}
+                              </button>
+                            ))}</div>
+                          </section>}
+                        </>
+                      )}
+
+                      <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-swu-border/50 pt-2 text-[10px] text-swu-muted">
                         <span>Beitrag #{post.id}</span>
-                        <span>{post.commentCount} Kommentare</span>
                         {post.totalCount > 0 && (
                           <span>Bewertung {post.positiveCount}/{post.totalCount}</span>
                         )}
+                        {post.editedAt && <span>Bearbeitet: {formatGameDateTime(post.editedAt)}</span>}
+                        <button
+                          type="button"
+                          aria-expanded={isOpen}
+                          onClick={() => toggleDiscussion(post)}
+                          className="ml-auto text-swu-accent hover:underline"
+                        >
+                          Kommentare ({post.commentCount})
+                        </button>
                       </div>
-                    </button>
 
-                    {isOpen && (
-                      <div className="border-t border-swu-border/70 md:grid md:grid-cols-[minmax(0,1fr)_132px]">
-                        <div className="min-w-0 p-3">
-                          {editingPostId === post.id ? (
-                            <div className="space-y-2">
-                              <input
-                                value={editTitle}
-                                onChange={(e) => setEditTitle(e.target.value)}
-                                className="w-full border border-swu-border bg-swu-bg px-2 py-1 text-sm text-swu-primary"
-                              />
-                              <textarea
-                                value={editBody}
-                                onChange={(e) => setEditBody(e.target.value)}
-                                rows={6}
-                                className="w-full resize-y border border-swu-border bg-swu-bg px-2 py-1 text-sm text-swu-primary"
-                              />
-                              <CharacterSelector selected={editCharacters} onChange={setEditCharacters} />
-                              {editError && <p role="alert" className="text-xs text-swu-danger">{editError}</p>}
-                              <div className="flex gap-2 text-xs">
-                                <button
-                                  onClick={() => saveEdit(post)}
-                                  className="border border-swu-accent bg-swu-accent/10 px-3 py-1 text-swu-accent"
-                                >
-                                  Speichern
-                                </button>
-                                <button
-                                  onClick={() => setEditingPostId(null)}
-                                  className="border border-swu-border px-3 py-1 text-swu-muted hover:text-swu-primary"
-                                >
-                                  Abbrechen
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              <div className="mb-3 flex items-start justify-between gap-3">
-                                <div>
-                                  <h3 className="text-base font-bold text-swu-primary">
-                                    {post.title}
-                                  </h3>
-                                  <p className="text-[10px] text-swu-muted">
-                                    Gesendet über HoloNet-Kanal {post.category}
-                                  </p>
-                                  {post.plot && (
-                                    <Link
-                                      to={`/holonet/plots/${post.plot.id}`}
-                                      className="text-[11px] text-swu-accent hover:underline"
-                                    >
-                                      Plot: {post.plot.title}
-                                    </Link>
-                                  )}
-                                </div>
-                                <div className="flex gap-2">
-                                  {user && myPlots.length > 0 && post.plotId == null && (post.authorId === user.id || post.category === 'ROLEPLAY') && (
-                                    <button type="button" onClick={() => { setAssigningPost(post.id); setSelectedPlotId(''); setPlotRequestError(''); }} className="text-[10px] text-swu-accent hover:underline">
-                                      Zu Plot hinzufügen
-                                    </button>
-                                  )}
-                                  {post.authorId === user?.id && (
-                                    <button
-                                      onClick={() => startEdit(post)}
-                                      className="text-[10px] text-swu-muted hover:text-swu-accent"
-                                    >
-                                      Bearbeiten
-                                    </button>
-                                  )}
-                                  {user?.isAdmin && post.authorId !== user.id && (
-                                    <button
-                                      onClick={() => setAdminDeletePost(post)}
-                                      className="text-[10px] text-red-400 hover:text-red-300"
-                                    >
-                                      Löschen (Admin)
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                              <BbCodeText
-                                text={post.body}
-                                allowExternalImages
-                                className="whitespace-pre-wrap text-sm leading-relaxed text-swu-muted"
-                              />
-                              {assigningPost === post.id && (
-                                <div className="mt-3 flex flex-wrap items-end gap-2 border border-swu-border p-2 text-xs">
-                                  <label>Plot auswählen
-                                    <select aria-label="Plot auswählen" value={selectedPlotId} onChange={(event) => setSelectedPlotId(event.target.value)} className="ml-2 border border-swu-border bg-swu-bg px-2 py-1 text-swu-primary">
-                                      <option value="">Plot wählen</option>
-                                      {myPlots.map((plot) => <option key={plot.id} value={plot.id}>{plot.title}</option>)}
-                                    </select>
-                                  </label>
-                                  <button type="button" disabled={!selectedPlotId} onClick={() => void addPostToPlot(post)} className="border border-swu-accent px-2 py-1 text-swu-accent disabled:opacity-40">{post.authorId === user?.id ? 'Zuordnen' : 'Antrag stellen'}</button>
-                                  <button type="button" onClick={() => setAssigningPost(null)} className="border border-swu-border px-2 py-1 text-swu-muted">Abbrechen</button>
-                                  {plotRequestError && <p role="alert" className="w-full text-swu-danger">{plotRequestError}</p>}
-                                </div>
-                              )}
-                              {!!post.characters?.length && <section className="mt-3 space-y-2">
-                                <h4 className="text-xs font-bold text-swu-primary">Markierte Charaktere</h4>
-                                <div className="flex flex-wrap gap-2">{post.characters.map((character) => (
-                                  <button key={character.id} type="button" aria-label={character.name} onClick={() => setViewCharacter(character)} className="flex items-center gap-2 border border-swu-border px-2 py-1 text-xs text-swu-accent">
-                                    <CharacterAvatar character={character} />{character.name}
-                                  </button>
-                                ))}</div>
-                              </section>}
-                            </>
-                          )}
-
-                          {post.authorId === user?.id ? (
-                            <div className="mt-4 border-y border-swu-border/50 py-2 text-xs text-swu-muted">
+                      {isOpen && (
+                        <>
+                          {isOwn ? (
+                            <div className="mt-3 border-y border-swu-border/50 py-2 text-xs text-swu-muted">
                               Eigene Beiträge können nicht bewertet werden.
                             </div>
                           ) : (
-                            <div className="mt-4 flex flex-wrap items-center gap-2 border-y border-swu-border/50 py-2 text-xs">
+                            <div className="mt-3 flex flex-wrap items-center gap-2 border-y border-swu-border/50 py-2 text-xs">
                               <button
                                 onClick={() => rate(post, -1)}
                                 disabled={myRating !== 0}
@@ -707,9 +772,6 @@ export function HolonetPage() {
                               >
                                 +
                               </button>
-                              <span className="ml-auto text-[10px] text-swu-muted">
-                                {post.commentCount} Kommentare
-                              </span>
                             </div>
                           )}
 
@@ -779,47 +841,63 @@ export function HolonetPage() {
                               Kommentieren
                             </button>
                           </section>
-                        </div>
+                        </>
+                      )}
+                    </div>
 
-                        <aside className="border-t border-swu-border/70 bg-black/30 p-3 text-center md:border-l md:border-t-0">
-                          <p className="mb-3 text-[11px] font-bold text-red-400">
-                            {formatGameDateTime(post.createdAt)}
-                          </p>
-                          <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center border border-swu-border bg-swu-bg text-lg font-bold text-swu-primary">
-                            {post.author.username.slice(0, 2).toUpperCase()}
-                          </div>
-                          <p className="text-xs text-swu-primary"><PlayerName name={post.author.username} /></p>
-                          {post.authorId !== null && (
-                            <p className="text-[10px] text-swu-muted">Siedler #{post.authorId}</p>
-                          )}
-                          <div className="mt-3 flex justify-center gap-1">
-                            {post.authorId !== null && (
-                              <>
-                                <PmLink
-                                  playerId={post.authorId}
-                                  playerName={post.author.username}
-                                  className="border border-swu-border p-1 text-swu-primary hover:border-swu-accent"
-                                />
-                                <Link
-                                  to={`/players/${post.authorId}`}
-                                  className="border border-swu-border p-1 text-swu-primary hover:border-swu-accent"
-                                  title={`Profil von ${post.author.username} öffnen`}
-                                  aria-label={`Profil von ${post.author.username} öffnen`}
-                                >
-                                  <img src="/assets/buttons/info1.png" alt="" className="size-4" />
-                                </Link>
-                              </>
-                            )}
-                            <button
-                              onClick={() => setBookmark(post)}
-                              className="border border-swu-accent/60 px-1.5 py-0.5 text-[10px] text-swu-accent hover:bg-swu-accent/10"
+                    <aside className="border-t border-swu-border/70 bg-black/30 p-3 text-center md:border-l md:border-t-0">
+                      <p className={`mb-3 text-[11px] font-bold ${post.id > lastReadPostId ? 'text-red-400' : 'text-swu-muted'}`}>
+                        {formatGameDateTime(post.createdAt)}
+                      </p>
+                      <PlayerAvatar
+                        name={post.author.username}
+                        avatar={post.author.avatar}
+                        faction={faction}
+                        className="mx-auto mb-2 size-14 text-lg"
+                      />
+                      <p className="flex items-center justify-center gap-1 text-xs text-swu-primary">
+                        {factionAvatarImage(faction) && (
+                          <img
+                            src={factionAvatarImage(faction) ?? undefined}
+                            alt={faction === Faction.REBEL_ALLIANCE ? 'Rebellenallianz' : 'Imperium'}
+                            title={faction === Faction.REBEL_ALLIANCE ? 'Rebellenallianz' : 'Imperium'}
+                            className="size-4"
+                          />
+                        )}
+                        <PlayerName name={post.author.username} />
+                      </p>
+                      {post.author.isNpc && (
+                        <p className="text-[10px] font-bold text-yellow-300">NPC</p>
+                      )}
+                      {post.authorId !== null && (
+                        <p className="text-[10px] text-swu-muted">Siedler #{post.authorId}</p>
+                      )}
+                      <div className="mt-3 flex justify-center gap-1">
+                        {post.authorId !== null && (
+                          <>
+                            <PmLink
+                              playerId={post.authorId}
+                              playerName={post.author.username}
+                              className="border border-swu-border p-1 text-swu-primary hover:border-swu-accent"
+                            />
+                            <Link
+                              to={`/players/${post.authorId}`}
+                              className="border border-swu-border p-1 text-swu-primary hover:border-swu-accent"
+                              title={`Profil von ${post.author.username} öffnen`}
+                              aria-label={`Profil von ${post.author.username} öffnen`}
                             >
-                              Lesezeichen
-                            </button>
-                          </div>
-                        </aside>
+                              <img src="/assets/buttons/info1.png" alt="" className="size-4" />
+                            </Link>
+                          </>
+                        )}
+                        <button
+                          onClick={() => setBookmark(post)}
+                          className="border border-swu-accent/60 px-1.5 py-0.5 text-[10px] text-swu-accent hover:bg-swu-accent/10"
+                        >
+                          Lesezeichen
+                        </button>
                       </div>
-                    )}
+                    </aside>
                   </article>
                 );
               })
@@ -857,11 +935,22 @@ export function HolonetPage() {
                   <button
                     onClick={() => {
                       setFilter('');
+                      setSort('desc');
                       setPage(1);
                     }}
-                    className={`block text-left ${!filter ? 'text-swu-accent' : 'hover:text-swu-primary'}`}
+                    className={`block text-left ${!filter && sort === 'desc' ? 'text-swu-accent' : 'hover:text-swu-primary'}`}
                   >
                     &gt; Alle
+                  </button>
+                  <button
+                    onClick={() => {
+                      setFilter('');
+                      setSort('asc');
+                      setPage(1);
+                    }}
+                    className={`block text-left ${!filter && sort === 'asc' ? 'text-swu-accent' : 'hover:text-swu-primary'}`}
+                  >
+                    &gt; Alle Beiträge (aufsteigend)
                   </button>
                   {CATEGORIES.map((cat) => (
                     <button

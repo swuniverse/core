@@ -22,7 +22,22 @@ import { RpgPlotMember } from '../rpg/rpg-plot-member.entity';
 import { UserCharacter } from '../rpg/user-character.entity';
 
 type PublicCharacter = Omit<UserCharacter, 'user'> & { user: Pick<User, 'id' | 'username'> };
-type PublicHolonetPost = Omit<HolonetPost, 'characters'> & { characters: PublicCharacter[] };
+type PublicAuthor = Pick<User, 'username' | 'avatar' | 'faction' | 'isNpc'> & { id: number | null };
+type PublicHolonetPost = Omit<HolonetPost, 'characters' | 'author'> & {
+  characters: PublicCharacter[];
+  author: PublicAuthor;
+};
+
+/** Only these user fields may leave the server with HoloNet content. */
+function publicAuthor(author: User | null): PublicAuthor {
+  return {
+    id: author?.id ?? null,
+    username: author?.username ?? '',
+    avatar: author?.avatar ?? null,
+    faction: author?.faction ?? null,
+    isNpc: author?.isNpc ?? false,
+  };
+}
 
 interface HolonetSearchFilters {
   text?: string;
@@ -65,6 +80,7 @@ export class HolonetService {
     page = 1,
     limit = 20,
     filters: HolonetSearchFilters = {},
+    sort: 'ASC' | 'DESC' = 'DESC',
   ) {
     const baseWhere: FindOptionsWhere<HolonetPost> = { deletedAt: IsNull() };
     if (category) baseWhere.category = category;
@@ -82,7 +98,7 @@ export class HolonetService {
     const [data, total] = await this.postRepo.findAndCount({
       where,
       relations: ['author', 'plot', 'characters', 'characters.user'],
-      order: { createdAt: 'DESC' },
+      order: { createdAt: sort, id: sort },
       skip: (page - 1) * limit,
       take: limit,
     });
@@ -360,7 +376,12 @@ export class HolonetService {
     body: string,
     isAdmin = false,
     characterIds?: number[],
+    /** `undefined` keeps the plot, `null` removes it (STU editKn). */
+    plotId?: number | null,
   ): Promise<PublicHolonetPost> {
+    if (plotId != null && (!Number.isInteger(plotId) || plotId <= 0)) {
+      throw new BadRequestException('Ungültiger RPG-Plot.');
+    }
     const post = await this.postRepo.findOne({
       where: isAdmin
         ? { id, deletedAt: IsNull() }
@@ -373,7 +394,9 @@ export class HolonetService {
     }
     const normalizedTitle = title?.trim() ?? '';
     const normalizedBody = body?.trim() ?? '';
-    this.validateTitle(normalizedTitle);
+    const nextPlotId = plotId === undefined ? post.plotId : plotId;
+    // Plot posts may stay untitled, as on create.
+    if (nextPlotId === null || normalizedTitle) this.validateTitle(normalizedTitle);
     const bodyLength = codePointLength(normalizedBody);
     if (bodyLength < 10) {
       throw new BadRequestException('Der Text muss mindestens 10 Zeichen lang sein.');
@@ -381,12 +404,25 @@ export class HolonetService {
     if (bodyLength > HOLONET_BODY_MAX_LENGTH) {
       throw new BadRequestException('Der Text darf höchstens 20000 Zeichen lang sein.');
     }
+    const plotChanged = plotId !== undefined && plotId !== post.plotId;
+    const plot = plotChanged && plotId !== null ? await this.requireActivePlotMember(plotId, userId) : null;
     const previousIds = new Set((post.characters ?? []).map((character) => character.id));
     const characters = characterIds === undefined ? undefined : await this.resolveCharacters(characterIds);
     post.title = normalizedTitle;
     post.body = normalizedBody;
+    post.editedAt = new Date();
+    if (plotChanged) {
+      post.plotId = plot?.id ?? null;
+      if (plot) post.category = PostCategory.ROLEPLAY;
+    }
     if (characters) post.characters = characters;
     const saved = await this.postRepo.save(post);
+    if (plot) {
+      await this.plotPostRequestRepo.update(
+        { postId: saved.id, status: PlotPostRequestStatus.PENDING },
+        { status: PlotPostRequestStatus.CANCELLED },
+      );
+    }
     if (characters) await this.notifyCharacterOwners(saved, characters.filter((character) => !previousIds.has(character.id)));
     return this.publicCharacters(saved);
   }
@@ -441,7 +477,12 @@ export class HolonetService {
       skip: (page - 1) * limit,
       take: limit,
     });
-    return { data: withDeletedAuthor(data, 'author', 'authorId'), total, page, limit };
+    return {
+      data: data.map((comment) => ({ ...comment, author: publicAuthor(comment.author) })),
+      total,
+      page,
+      limit,
+    };
   }
 
   async addComment(
@@ -588,6 +629,7 @@ export class HolonetService {
     withDeletedAuthor([post], 'author', 'authorId');
     return {
       ...post,
+      author: publicAuthor(post.author),
       characters: (post.characters ?? []).map((character) => ({
         ...character,
         user: { id: character.user.id, username: character.user.username },

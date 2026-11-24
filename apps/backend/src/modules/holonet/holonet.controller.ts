@@ -32,6 +32,7 @@ export class HolonetController {
     @Query('authorId') authorId?: string,
     @Query('postId') postId?: string,
     @Query('plotId') plotId?: string,
+    @Query('sort') sort?: string,
   ) {
     return this.holonetService.findAll(
       req.user.sub,
@@ -53,6 +54,7 @@ export class HolonetController {
             ? Number(plotId)
             : undefined,
       },
+      sort === 'asc' ? 'ASC' : 'DESC',
     );
   }
 
@@ -126,6 +128,7 @@ export class HolonetController {
     @Body('title') title: string,
     @Body('body') body: string,
     @Body('characterIds') characterIds?: number[],
+    @Body('plotId') plotId?: number | null,
   ) {
     return this.holonetService.update(
       id,
@@ -134,6 +137,7 @@ export class HolonetController {
       body,
       req.user.isAdmin === true,
       characterIds,
+      plotId,
     );
   }
 

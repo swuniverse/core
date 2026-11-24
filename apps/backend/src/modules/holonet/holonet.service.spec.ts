@@ -157,6 +157,48 @@ describe('HolonetService public behavior', () => {
     );
   });
 
+  it('lists posts ascending on request and exposes only public author fields', async () => {
+    const author = {
+      id: authorId,
+      username: 'Vader',
+      avatar: '/a.png',
+      faction: 'GALACTIC_EMPIRE',
+      isNpc: true,
+      email: 'vader@example.test',
+      passwordHash: 'secret',
+    };
+    Object.assign(postRepo, {
+      findAndCount: jest.fn().mockResolvedValue([[{ id: 3, authorId, author, characters: [] }], 1]),
+      count: jest.fn().mockResolvedValue(0),
+    });
+
+    const result = await service.findAll(voterId, undefined, 2, 20, {}, 'ASC');
+
+    expect((postRepo as unknown as { findAndCount: jest.Mock }).findAndCount).toHaveBeenCalledWith(
+      expect.objectContaining({ order: { createdAt: 'ASC', id: 'ASC' }, skip: 20, take: 20 }),
+    );
+    expect(result.data[0].author).toEqual({
+      id: authorId,
+      username: 'Vader',
+      avatar: '/a.png',
+      faction: 'GALACTIC_EMPIRE',
+      isNpc: true,
+    });
+  });
+
+  it('exposes only public comment author fields', async () => {
+    commentRepo.findAndCount.mockResolvedValue([[{
+      id: 1,
+      authorId,
+      author: { id: authorId, username: 'Vader', avatar: null, faction: null, isNpc: false, passwordHash: 'secret' },
+    }], 1]);
+
+    const result = await service.getComments(1);
+
+    expect(result.data[0].author).not.toHaveProperty('passwordHash');
+    expect(result.data[0].author).toMatchObject({ id: authorId, username: 'Vader' });
+  });
+
   it('converts a member’s own post to ROLEPLAY when assigning it to a plot', async () => {
     const ownPost = {
       id: 1,

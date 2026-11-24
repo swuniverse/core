@@ -71,6 +71,10 @@ export class HolonetPost {
   @CreateDateColumn()
   createdAt: Date;
 
+  /** STU `kn_post.edit_date`: last successful edit. */
+  @Column({ type: 'timestamp', nullable: true })
+  editedAt: Date | null;
+
   @DeleteDateColumn({ nullable: true })
   deletedAt: Date | null;
 }

@@ -134,7 +134,7 @@ describe('HolonetPage routing', () => {
     );
 
     expect(await screen.findByText('Route-selected body')).toBeTruthy();
-    expect(screen.getAllByText('Widget Report')).toHaveLength(2);
+    expect(screen.getAllByText('Widget Report')).toHaveLength(1);
     expect(screen.queryByText('NEU')).toBeNull();
     expect(
       screen.getByRole('button', { name: 'Nachricht an rebel schreiben' }),
@@ -172,7 +172,7 @@ describe('HolonetPage routing', () => {
   it('preserves and changes tagged characters while editing a post', async () => {
     const own = { id: 101, userId: 7, name: 'Leia', description: '', avatar: null, user: { id: 7, username: 'tester' } };
     const foreign = { id: 202, userId: 8, name: 'Han', description: '', avatar: null, user: { id: 8, username: 'rebel' } };
-    const post = { ...postFixture, authorId: 7, author: { username: 'tester' }, characters: [foreign] };
+    const post = { ...postFixture, createdAt: new Date().toISOString(), authorId: 7, author: { username: 'tester' }, characters: [foreign] };
     apiMocks.get.mockImplementation((url: string) => {
       if (url === '/holonet?page=1') return Promise.resolve(listResponse([post]));
       if (url === '/holonet/1/comments') return Promise.resolve(emptyCommentsResponse);
@@ -200,7 +200,7 @@ describe('HolonetPage routing', () => {
 
   it('allows restoring a previously tagged foreign character during editing', async () => {
     const foreign = { id: 202, userId: 8, name: 'Han', description: '', avatar: null, user: { id: 8, username: 'rebel' } };
-    const post = { ...postFixture, authorId: 7, author: { username: 'tester' }, characters: [foreign] };
+    const post = { ...postFixture, createdAt: new Date().toISOString(), authorId: 7, author: { username: 'tester' }, characters: [foreign] };
     apiMocks.get.mockImplementation((url: string) => {
       if (url === '/holonet?page=1') return Promise.resolve(listResponse([post]));
       if (url === '/holonet/1/comments') return Promise.resolve(emptyCommentsResponse);
@@ -328,7 +328,7 @@ describe('HolonetPage routing', () => {
     expect(screen.queryByText('Route-selected body')).toBeNull();
   });
 
-  it('keeps multiple archive entries open at once', async () => {
+  it('shows every archive entry expanded without clicking', async () => {
     apiMocks.get.mockImplementation((url: string) => {
       if (url === '/holonet?page=1') {
         return Promise.resolve(listResponse([postFixture, secondPostFixture]));
@@ -351,8 +351,6 @@ describe('HolonetPage routing', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByText('Widget Report'));
-    fireEvent.click(await screen.findByText('Second Transmission'));
 
     expect(await screen.findByText('Route-selected body')).toBeTruthy();
     expect(screen.getByText('Second body')).toBeTruthy();
@@ -485,8 +483,8 @@ describe('HolonetPage routing', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByText('Widget Report'));
-    fireEvent.click(await screen.findByRole('button', { name: 'Lesezeichen' }));
+    const first = await screen.findByRole('article', { name: 'Beitrag #1' });
+    fireEvent.click(within(first).getByRole('button', { name: 'Lesezeichen' }));
 
     await waitFor(() => {
       expect(apiMocks.post).toHaveBeenCalledWith('/holonet/checkpoint', {
@@ -527,7 +525,7 @@ describe('HolonetPage routing', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByText('Widget Report'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Kommentare (0)' }));
     const plusButton = await screen.findByRole('button', { name: '+' });
     const minusButton = await screen.findByRole('button', { name: '-' });
     fireEvent.click(plusButton);
@@ -563,10 +561,123 @@ describe('HolonetPage routing', () => {
     );
 
     expect(screen.queryByRole('progressbar', { name: 'Bewertung 3 von 5' })).toBeNull();
-    fireEvent.click(await screen.findByText('Widget Report'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Kommentare (0)' }));
     const bar = await screen.findByRole('progressbar', { name: 'Bewertung 3 von 5' });
     expect(bar.textContent).toContain('3 / 5');
     expect(bar.className).toContain('yellow');
+  });
+
+  const renderArchive = (entry = '/holonet') =>
+    render(
+      <MemoryRouter initialEntries={[entry]}>
+        <Routes>
+          <Route path="/holonet" element={<HolonetPage />} />
+          <Route path="/holonet/:id" element={<HolonetPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+  const mockArchive = (posts: ArchivePostFixture[], extra: Record<string, unknown> = {}) =>
+    apiMocks.get.mockImplementation((url: string) => {
+      if (url.startsWith('/holonet?')) return Promise.resolve(listResponse(posts));
+      if (url in extra) return Promise.resolve(extra[url]);
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+  it('shows the expanded STU card with avatar, faction, NPC mark, plot link and edit date', async () => {
+    mockArchive([{
+      ...postFixture,
+      author: { username: 'rebel', avatar: '/avatars/rebel.png', faction: 'REBEL_ALLIANCE', isNpc: true },
+      plotId: 4,
+      plot: { id: 4, title: 'Echo Base' },
+      editedAt: '2026-08-05T10:05:00.000Z',
+    } as ArchivePostFixture]);
+
+    renderArchive();
+
+    const card = await screen.findByRole('article', { name: 'Beitrag #1' });
+    expect(within(card).getByText('Route-selected body')).toBeTruthy();
+    expect(within(card).getByRole('img', { name: 'rebel Avatar' }).getAttribute('src')).toBe('/avatars/rebel.png');
+    expect(within(card).getByRole('img', { name: 'Rebellenallianz' })).toBeTruthy();
+    expect(within(card).getByText('NPC')).toBeTruthy();
+    expect(within(card).getByText(/^Bearbeitet:/)).toBeTruthy();
+    expect(within(card).getByRole('link', { name: 'Zum Plot' }).getAttribute('href')).toBe('/holonet/plots/4');
+    expect(within(card).getByText('Beitrag #1')).toBeTruthy();
+    expect(apiMocks.get).not.toHaveBeenCalledWith('/holonet/1/comments');
+  });
+
+  it('lets the author delete an own post within ten minutes after confirmation', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mockArchive([{ ...postFixture, createdAt: new Date().toISOString(), authorId: 7, author: { username: 'tester' } }]);
+    apiMocks.delete.mockResolvedValue(undefined);
+
+    renderArchive();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Löschen' }));
+    await waitFor(() => expect(apiMocks.delete).toHaveBeenCalledWith('/holonet/1'));
+    expect(confirm).toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByText('Widget Report')).toBeNull());
+    confirm.mockRestore();
+  });
+
+  it('hides author edit and delete once the ten-minute window has passed', async () => {
+    mockArchive([{
+      ...postFixture,
+      createdAt: new Date(Date.now() - 11 * 60 * 1000).toISOString(),
+      authorId: 7,
+      author: { username: 'tester' },
+    }]);
+
+    renderArchive();
+
+    await screen.findByRole('article', { name: 'Beitrag #1' });
+    expect(screen.queryByRole('button', { name: 'Bearbeiten' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Löschen' })).toBeNull();
+  });
+
+  it('lets admins edit foreign posts at any time and keeps the admin deletion', async () => {
+    useAuthStore.setState({ user: { ...user, isAdmin: true } });
+    mockArchive([postFixture], { '/rpg/characters/player/7': [] });
+    apiMocks.patch.mockResolvedValue({ ...postFixture, title: 'Admin Titel', editedAt: '2026-08-05T11:00:00.000Z' });
+
+    renderArchive();
+
+    expect(await screen.findByRole('button', { name: 'Löschen (Admin)' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Löschen' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Bearbeiten' }));
+    fireEvent.change(screen.getByLabelText('Titel'), { target: { value: 'Admin Titel' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
+    await waitFor(() => expect(apiMocks.patch).toHaveBeenCalledWith('/holonet/1', expect.objectContaining({ title: 'Admin Titel' })));
+    expect(await screen.findByText(/^Bearbeitet:/)).toBeTruthy();
+  });
+
+  it('changes the plot of an own post in the edit dialog', async () => {
+    const own = { ...postFixture, createdAt: new Date().toISOString(), authorId: 7, author: { username: 'tester' } };
+    mockArchive([own], {
+      '/rpg/plots/mine?page=1': { data: [{ id: 4, title: 'Echo Base', endedAt: null }] },
+      '/holonet/plot-post-requests': [],
+      '/rpg/characters/player/7': [],
+    });
+    apiMocks.patch.mockResolvedValue({ ...own, plotId: 4, category: 'ROLEPLAY' });
+
+    renderArchive();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Bearbeiten' }));
+    await screen.findByRole('option', { name: 'Echo Base' });
+    fireEvent.change(screen.getByLabelText('Plot'), { target: { value: '4' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
+
+    await waitFor(() => expect(apiMocks.patch).toHaveBeenCalledWith('/holonet/1', expect.objectContaining({ plotId: 4 })));
+    expect(await screen.findByRole('link', { name: 'Zum Plot' })).toBeTruthy();
+  });
+
+  it('lists all posts ascending from the rail', async () => {
+    mockArchive([postFixture]);
+
+    renderArchive();
+
+    fireEvent.click(await screen.findByRole('button', { name: '> Alle Beiträge (aufsteigend)' }));
+    await waitFor(() => expect(apiMocks.get).toHaveBeenCalledWith('/holonet?page=1&sort=asc'));
   });
 
   it('renders a BBCode preview without creating a post', async () => {
@@ -880,7 +991,7 @@ describe('HolonetPage routing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mehr' }));
     expect(screen.getAllByLabelText('3 neue HoloNet-Beiträge')).toHaveLength(2);
 
-    fireEvent.click(await screen.findByText('Widget Report'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Kommentare (0)' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Lesezeichen' }));
 
     await waitFor(() => {
