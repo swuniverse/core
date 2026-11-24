@@ -83,7 +83,6 @@ export class ColonyAbandonmentService {
         userId,
         type: ColonyEventType.COLONY_ABANDONED,
         severity: ColonyEventSeverity.WARNING,
-        title: 'Kolonie aufgegeben',
         message: asteroid
           ? `${colony.name} wurde aufgegeben. Der Asteroid bleibt für diesen Account erschöpft.`
           : `${colony.name} wurde aufgegeben. Gebäude und Storage bleiben zurück.`,

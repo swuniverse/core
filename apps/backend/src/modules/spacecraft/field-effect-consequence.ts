@@ -112,9 +112,9 @@ export class FieldEffectConsequence implements FlightConsequence {
     for (const detail of messages) {
       const positive = detail.startsWith('Energetische Regeneration');
       if (transaction) {
-        await this.messaging.sendSystem(ship.userId, positive ? 'Feldregeneration' : 'Feldeffekt', `${ship.name}: ${detail}`, undefined, MessageFolder.SHIP, undefined, false, transaction);
+        await this.messaging.sendSystem(ship.userId, `${ship.name}: ${detail}`, undefined, MessageFolder.SHIP, undefined, false, transaction);
       } else {
-        await this.messaging.sendSystem(ship.userId, positive ? 'Feldregeneration' : 'Feldeffekt', `${ship.name}: ${detail}`, undefined, MessageFolder.SHIP);
+        await this.messaging.sendSystem(ship.userId, `${ship.name}: ${detail}`, undefined, MessageFolder.SHIP);
       }
       const notify = () => this.gateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, { shipId: ship.id, type: 'FIELD_EFFECT', severity: positive ? 'SUCCESS' : 'WARNING', detail });
       if (transaction) transaction.afterCommit.push(notify);

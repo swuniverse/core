@@ -333,7 +333,6 @@ export class ResourceConversionService {
   ) {
     return this.messaging.sendSystem(
       ship.userId,
-      'Ressourcenumwandlung',
       `${ship.name}: ${text}`,
       undefined,
       MessageFolder.SHIP,

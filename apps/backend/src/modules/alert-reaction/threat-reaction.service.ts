@@ -83,7 +83,6 @@ export class ThreatReactionService implements ThreatReaction, OnModuleInit {
     const cause = INTERACTION_TEXT[interaction](source.name, target.name, field ? `${field.x}|${field.y}` : '?');
     await this.messaging.sendSystem(
       target.userId,
-      'Bedrohungsreaktion',
       `${cause}\nFolgende Aktionen wurden ausgeführt:\n${log.join('\n')}`,
       undefined,
       target.kind === SpacecraftKind.STATION ? MessageFolder.STATION : MessageFolder.SHIP,

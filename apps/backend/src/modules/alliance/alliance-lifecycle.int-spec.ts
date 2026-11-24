@@ -260,7 +260,6 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
       expect(sendSystem).toHaveBeenCalledTimes(1);
       expect(sendSystem).toHaveBeenCalledWith(
         han.id,
-        'Allianz',
         'Die Allianz Rogue Squadron wurde aufgelöst',
         expect.any(String),
       );

@@ -84,7 +84,7 @@ describe('DeflectorConsequence', () => {
     expect(target).toMatchObject({ energy: 0, shields: 0, hull: 920 });
     expect(messages[0]).toBe('Nicht genug Energie für den Deflektor.: Die Falcon wurde in Sektor 3|4 beschädigt');
     expect(messages).toContain('- Hüllenschaden: 80 - Status: 920');
-    expect(messaging.sendSystem).toHaveBeenCalledWith(3, 'Feldschaden', expect.stringContaining('Sektor 3|4'), undefined, expect.anything());
+    expect(messaging.sendSystem).toHaveBeenCalledWith(3, expect.stringContaining('Sektor 3|4'), undefined, expect.anything());
     expect(crew.enhanceSpacecraft).not.toHaveBeenCalled();
   });
 

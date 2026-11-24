@@ -96,7 +96,7 @@ describe('taking and searching trade offers (PostgreSQL)', () => {
       { tradePostId: postId, buyerId: takerId, sellerId, wantedCommodityId: DURASTAHL, wantedAmount: 12, offeredCommodityId: AURODIUM, offeredAmount: 30 },
     ]);
     const [message] = await source.getRepository('Message').find();
-    expect(message).toMatchObject({ recipientId: sellerId, folder: 'TRADE', subject: 'Angebot angenommen' });
+    expect(message).toMatchObject({ recipientId: sellerId, folder: 'TRADE', body: expect.stringContaining('hat dein Angebot') });
     expect(message.body).toContain('3-mal angenommen: Am Mos Eisley wurden insgesamt 30 Aurodium gegen 12 Durastahl getauscht.');
   });
 

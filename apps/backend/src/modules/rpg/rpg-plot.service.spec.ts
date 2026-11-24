@@ -210,13 +210,11 @@ describe('RpgPlotService', () => {
     expect(messages.sendSystem).toHaveBeenNthCalledWith(
       1,
       writer.id,
-      'RPG-Plot',
       "Du wurdest dem RPG-Plot 'Echo Base Rescue' als Schreiber hinzugefügt",
     );
     expect(messages.sendSystem).toHaveBeenNthCalledWith(
       2,
       writer.id,
-      'RPG-Plot',
       "Du wurdest aus dem RPG-Plot 'Echo Base Rescue' als Schreiber entfernt",
     );
   });

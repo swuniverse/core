@@ -216,7 +216,6 @@ export class ContactService {
   private notify(recipientId: number, mode: ContactMode): Promise<unknown> {
     return this.messaging.sendSystem(
       recipientId,
-      'Kontaktstatus geändert',
       `Der Siedler betrachtet Dich von nun an als ${MODE_LABELS[mode]}`,
     );
   }

@@ -496,9 +496,9 @@ describe('database statistics (Postgres, HTTP)', () => {
       { getManyBoolean: async (ids: number[]) => new Map(ids.map((id) => [id, true])) } as never,
     );
     const other = await createUser(dataSource, { username: 'other' });
-    const first = await messaging.send(player.id, other.id, 's1', 'b');
-    await messaging.send(other.id, player.id, 's2', 'b');
-    await messaging.sendSystem(other.id, 'system', 'b');
+    const first = await messaging.send(player.id, other.id, 'b');
+    await messaging.send(other.id, player.id, 'b');
+    await messaging.sendSystem(other.id, 'b');
     await messaging.delete(first.id, player.id);
     await messaging.delete(first.id, other.id);
     await statistics.recordSnapshots(new Date(Date.now() + HOUR));

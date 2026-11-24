@@ -62,7 +62,7 @@ import { SpacecraftStatus } from './entities/spacecraft.entity';
 import { ExplorationState } from '../starmap/entities/exploration-state.entity';
 import { LayerKnowledge } from '../starmap/entities/layer-knowledge.entity';
 import { FieldEffect } from '@swuniverse/shared';
-import { DataSource, type EntitySubscriberInterface } from 'typeorm';
+import { DataSource, Like, type EntitySubscriberInterface } from 'typeorm';
 import {
   connectIntegrationDatabase,
   createUser,
@@ -2181,7 +2181,6 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
         });
         expect(fixture.messaging.sendSystem).toHaveBeenCalledWith(
           ship.userId,
-          'Feldschaden',
           expect.stringContaining('Nicht genug Energie für den Deflektor.'),
           undefined,
           expect.anything(),
@@ -2315,7 +2314,6 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       );
       expect(fixture.messaging.sendSystem).toHaveBeenCalledWith(
         ship.userId,
-        'Kartographie',
         'Ein Messpunkt der Regionskartographie wurde erreicht.',
         expect.stringContaining('cartography-region-measurement'),
       );
@@ -2365,7 +2363,6 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
       );
       expect(fixture.messaging.sendSystem).toHaveBeenCalledWith(
         ship.userId,
-        'Kartographie',
         'Die Kartographie der Region Corellia-Sektor wurde erfolgreich abgeschlossen.',
         `cartography-region-completed:${ship.userId}:${regionId}`,
         undefined,
@@ -2625,7 +2622,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
         expect(
           await dataSource
             .getRepository(Message)
-            .count({ where: { subject: 'Ionensturm' } }),
+            .count({ where: { body: Like('%Ionensturm%') } }),
         ).toBe(expected.length);
       },
     );
@@ -2692,7 +2689,7 @@ describe('Movement original-state persistence (PostgreSQL)', () => {
         expect(
           await dataSource
             .getRepository(Message)
-            .count({ where: { subject: 'Ionensturm' } }),
+            .count({ where: { body: Like('%Ionensturm%') } }),
         ).toBe(5);
       },
     );

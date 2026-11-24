@@ -31,7 +31,6 @@ const { NONE, PRESIDENT, VICE, DIPLOMAT } = AllianceRole;
 
 interface SentMessage {
   to: number;
-  subject: string;
   body: string;
 }
 
@@ -45,8 +44,8 @@ function setup() {
   const store = new InMemoryAllianceStore();
   const sent: SentMessage[] = [];
   const messaging = {
-    sendSystem: jest.fn(async (to: number, subject: string, body: string) => {
-      sent.push({ to, subject, body });
+    sendSystem: jest.fn(async (to: number, body: string) => {
+      sent.push({ to, body });
     }),
   };
   const service = new AllianceService(store, messaging as never);
@@ -1229,8 +1228,8 @@ describe('AllianceService', () => {
       ]);
 
       failingMessaging.sendSystem.mockImplementation(
-        async (to: number, subject: string, body: string) => {
-          sent.push({ to, subject, body });
+        async (to: number, body: string) => {
+          sent.push({ to, body });
         },
       );
       await retryingService.retryDiplomacyNotifications();
@@ -1249,12 +1248,11 @@ describe('AllianceService', () => {
         sendSystem: jest.fn(
           async (
             to: number,
-            subject: string,
             body: string,
             deliveryKey: string,
           ) => {
             if (!delivered.has(deliveryKey)) {
-              delivered.set(deliveryKey, { to, subject, body });
+              delivered.set(deliveryKey, { to, body });
             }
           },
         ),
@@ -1278,7 +1276,7 @@ describe('AllianceService', () => {
       expect(delivered.size).toBe(1);
       expect(messaging.sendSystem).toHaveBeenCalledTimes(2);
       const [firstCall, secondCall] = messaging.sendSystem.mock.calls;
-      expect(firstCall[3]).toBe(secondCall[3]);
+      expect(firstCall[2]).toBe(secondCall[2]);
       expect(markDelivered).toHaveBeenCalledTimes(2);
       expect(await store.listPendingDiplomacyNotifications()).toEqual([]);
     });
@@ -2818,11 +2816,10 @@ describe('AllianceService', () => {
             .mockImplementation(
               async (
                 to: number,
-                subject: string,
                 body: string,
                 key: string,
               ) => {
-                delivered.set(key, { to, subject, body });
+                delivered.set(key, { to, body });
               },
             ),
         };

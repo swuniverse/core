@@ -19,12 +19,13 @@ import {
 } from '@swuniverse/shared';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { tutorialEvent } from '../components/tutorial/useTutorial';
+import { messagePreview } from '../components/messaging/message-preview';
 
 type OriginSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 
 interface MessageSummary {
   id: number;
-  subject: string;
+  body: string;
   isRead?: boolean;
   readReceipt?: boolean;
   isSystem: boolean;
@@ -35,7 +36,6 @@ interface MessageSummary {
 }
 
 interface MessageDetail extends MessageSummary {
-  body: string;
   /** `null` once the sender deleted the account. */
   senderId: number | null;
   recipientId: number;
@@ -377,7 +377,6 @@ interface InboxResponse {
 interface Conversation {
   partnerId: number;
   partner: { username: string; avatar: string | null; faction: Faction | null };
-  subject: string;
   body: string;
   createdAt: string;
   unread: number;
@@ -441,18 +440,16 @@ export function MessagesPage() {
 
   const [compose, setCompose] = useState({
     recipientName: startsCompose ? (searchParams.get('name') ?? '') : '',
-    subject: '',
     body: '',
   });
+  const [recipientIdInput, setRecipientIdInput] = useState(
+    startsCompose ? String(initialRecipientId) : '',
+  );
   const [recipientId, setRecipientId] = useState<number | null>(
     startsCompose ? initialRecipientId : null,
   );
   const [correspondence, setCorrespondence] = useState<MessageDetail[]>([]);
   const [sendError, setSendError] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<
-    { id: number; username: string }[]
-  >([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [contacts, setContacts] = useState<ContactDto[]>([]);
   const [receivedContacts, setReceivedContacts] = useState<ReceivedContactDto[]>([]);
   const [selectedContactIds, setSelectedContactIds] = useState<Set<number>>(new Set());
@@ -668,14 +665,8 @@ export function MessagesPage() {
       .get<MessageDetail[]>(`/messages/correspondence/${selected.senderId}`)
       .then(setCorrespondence)
       .catch(() => setCorrespondence([]));
-    setCompose({
-      recipientName: selected.sender?.username || '',
-      subject: selected.subject.startsWith('Re: ')
-        ? selected.subject
-        : `Re: ${selected.subject}`,
-      body: '',
-    });
-    setRecipientId(selected.senderId);
+    selectRecipient({ id: selected.senderId, username: selected.sender?.username || '' });
+    setCompose((c) => ({ ...c, body: '' }));
     switchToCompose();
   };
 
@@ -684,39 +675,38 @@ export function MessagesPage() {
       .get<MessageDetail[]>(`/messages/correspondence/${conversation.partnerId}`)
       .then(setCorrespondence)
       .catch(() => setCorrespondence([]));
-    setCompose({
-      recipientName: conversation.partner.username,
-      subject: conversation.subject.startsWith('Re: ')
-        ? conversation.subject
-        : `Re: ${conversation.subject}`,
-      body: '',
-    });
-    setRecipientId(conversation.partnerId);
+    selectRecipient({ id: conversation.partnerId, username: conversation.partner.username });
+    setCompose((c) => ({ ...c, body: '' }));
     switchToCompose();
   };
 
-  const searchUser = (query: string) => {
-    setCompose((c) => ({ ...c, recipientName: query }));
-    setRecipientId(null);
+  // STU writePm: the recipient is chosen by settler id (or contact list), not by name search.
+  const enterRecipientId = (value: string) => {
+    setRecipientIdInput(value);
+    setCompose((c) => ({ ...c, recipientName: '' }));
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
-    if (query.length < 2) {
-      setSuggestions([]);
-      setShowSuggestions(false);
+    const id = Number(value);
+    if (!Number.isInteger(id) || id <= 0) {
+      setRecipientId(null);
       return;
     }
-    searchTimeout.current = setTimeout(async () => {
-      const results = await api.get<{ id: number; username: string }[]>(
-        `/user/search?q=${encodeURIComponent(query)}`,
-      );
-      setSuggestions(results);
-      setShowSuggestions(true);
+    setRecipientId(id);
+    searchTimeout.current = setTimeout(() => {
+      void api
+        .get<{ username: string }>(`/database/settlers/${id}`)
+        .then((player) => setCompose((c) => ({ ...c, recipientName: player.username })))
+        .catch(() => undefined);
     }, 300);
   };
+
+  useEffect(() => {
+    if (startsCompose && !searchParams.get('name')) enterRecipientId(String(initialRecipientId));
+  }, []);
 
   const selectRecipient = (user: { id: number; username: string }) => {
     setCompose((c) => ({ ...c, recipientName: user.username }));
     setRecipientId(user.id);
-    setShowSuggestions(false);
+    setRecipientIdInput(String(user.id));
   };
 
   const updateContactMode = async (contact: ContactDto, mode: ContactMode) => {
@@ -805,12 +795,12 @@ export function MessagesPage() {
     try {
       await api.post('/messages', {
         recipientId,
-        subject: compose.subject,
         body: compose.body,
       });
       await tutorialEvent('messages.sent');
-      setCompose({ recipientName: '', subject: '', body: '' });
+      setCompose({ recipientName: '', body: '' });
       setRecipientId(null);
+      setRecipientIdInput('');
       setCorrespondence([]);
       setSendError(null);
       switchFolder('OUTBOX');
@@ -957,40 +947,18 @@ export function MessagesPage() {
               {sendError}
             </p>
           )}
-          <div className="relative">
-            <label className="text-xs text-swu-muted">Empfaenger</label>
-            <input
-              value={compose.recipientName}
-              onChange={(e) => searchUser(e.target.value)}
-              onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-              className="w-full bg-swu-bg border border-swu-border rounded px-3 py-1.5 text-sm text-swu-primary mt-1"
-              placeholder="Username eingeben..."
-            />
-            {showSuggestions && suggestions.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full bg-swu-surface border border-swu-border rounded shadow-lg max-h-40 overflow-y-auto">
-                {suggestions.map((u) => (
-                  <button
-                    key={u.id}
-                    onMouseDown={() => selectRecipient(u)}
-                    className="w-full text-left px-3 py-2 text-sm text-swu-primary hover:bg-swu-bg transition-colors"
-                  >
-                    <PlayerName name={u.username} />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
           <div>
-            <label htmlFor="pm-subject" className="text-xs text-swu-muted">Betreff</label>
-            <input
-              id="pm-subject"
-              value={compose.subject}
-              onChange={(e) =>
-                setCompose({ ...compose, subject: e.target.value })
-              }
-              className="w-full bg-swu-bg border border-swu-border rounded px-3 py-1.5 text-sm text-swu-primary mt-1"
-            />
+            <label htmlFor="pm-recipient-id" className="text-xs text-swu-muted">Empfänger (Siedler-ID)</label>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                id="pm-recipient-id"
+                inputMode="numeric"
+                value={recipientIdInput}
+                onChange={(e) => enterRecipientId(e.target.value.trim())}
+                className="w-28 bg-swu-bg border border-swu-border rounded px-3 py-1.5 text-sm text-swu-primary"
+              />
+              {compose.recipientName && <PlayerName name={compose.recipientName} />}
+            </div>
           </div>
           <div>
             <label htmlFor="pm-body" className="text-xs text-swu-muted">Nachricht</label>
@@ -1086,7 +1054,7 @@ export function MessagesPage() {
                           </span>
                         </span>
                         <span className="block truncate text-xs text-swu-muted">
-                          {conversation.body}
+                          {messagePreview(conversation.body)}
                         </span>
                       </span>
                       {conversation.unread > 0 && (
@@ -1117,7 +1085,7 @@ export function MessagesPage() {
                           type="checkbox"
                           checked={selectedIds.has(msg.id)}
                           onChange={() => toggleSelection(msg.id)}
-                          aria-label={`Nachricht ${msg.subject} auswählen`}
+                          aria-label={`Nachricht ${messagePreview(msg.body)} auswählen`}
                         />
                       </label>
                     )}
@@ -1134,7 +1102,7 @@ export function MessagesPage() {
                               : 'text-swu-muted'
                           }`}
                         >
-                          {msg.subject}
+                          {folder === 'OUTBOX' ? <>An: <PlayerName name={msg.recipient?.username} /></> : msg.isSystem ? 'System' : <PlayerName name={msg.sender?.username || 'System'} />}
                         </span>
                         <div className="flex shrink-0 items-center gap-2">
                           {folder === 'OUTBOX' && msg.readReceipt && (
@@ -1152,8 +1120,8 @@ export function MessagesPage() {
                           </span>
                         </div>
                       </div>
-                      <p className="text-[10px] text-swu-muted mt-0.5">
-                        {folder === 'OUTBOX' ? <>An: <PlayerName name={msg.recipient?.username} /></> : msg.isSystem ? 'System' : <>Von: <PlayerName name={msg.sender?.username || 'System'} /></>}
+                      <p className="text-xs text-swu-muted mt-0.5 break-words">
+                        {messagePreview(msg.body)}
                       </p>
                     </button>
                     <button
@@ -1197,12 +1165,11 @@ export function MessagesPage() {
             <div className="w-full bg-swu-surface border border-swu-border rounded-lg p-4 md:w-96">
               <div className="mb-1 flex items-center gap-2">
                 <h3 className="font-bold text-swu-primary">
-                  {selected.subject}
+                  <PlayerName name={selected.sender?.username || 'System'} />
                 </h3>
                 <OriginSeverityBadge severity={selected.originSeverity} />
               </div>
               <p className="text-[10px] text-swu-muted mb-3">
-                <PlayerName name={selected.sender?.username || 'System'} /> ·{' '}
                 {timeAgo(selected.createdAt)}
               </p>
               <BbCodeText

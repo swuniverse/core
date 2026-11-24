@@ -229,7 +229,6 @@ describe('SpacecraftTractorService', () => {
 
     expect(messaging.sendSystem).toHaveBeenCalledWith(
       8,
-      'Traktorstrahl',
       'Ghost wurde vom Traktorstrahl der Falcon erfasst.',
     );
   });

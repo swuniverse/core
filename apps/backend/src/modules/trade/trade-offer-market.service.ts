@@ -102,7 +102,6 @@ export class TradeOfferMarketService {
       );
       await this.messaging.sendSystem(
         offer.userId,
-        'Angebot angenommen',
         `${taker?.username ?? 'Ein Siedler'} hat dein Angebot ${amount}-mal angenommen: Am ${post.name} wurden insgesamt ${amount * offer.offeredAmount} ${this.commodityName(offer.offeredCommodityId)} gegen ${amount * offer.wantedAmount} ${wantedName} getauscht.`,
         undefined,
         MessageFolder.TRADE,

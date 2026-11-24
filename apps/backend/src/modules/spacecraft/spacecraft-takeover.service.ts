@@ -55,7 +55,7 @@ export class SpacecraftTakeoverService {
         ticksRemaining: TAKEOVER_TICKS, prestigeCost,
       }));
     });
-    await this.notify(result, 'Übernahme gestartet', `Die Übernahme läuft über ${TAKEOVER_TICKS} Hauptticks.`);
+    await this.notify(result, `Die Übernahme läuft über ${TAKEOVER_TICKS} Hauptticks.`);
     return this.toDto(result);
   }
 
@@ -66,7 +66,7 @@ export class SpacecraftTakeoverService {
       await this.cancelInManager(manager, takeover);
       return takeover;
     });
-    await this.notify(result, 'Übernahme abgebrochen', 'Die Übernahme wurde abgebrochen; das eingesetzte Prestige wurde erstattet.');
+    await this.notify(result, 'Die Übernahme wurde abgebrochen; das eingesetzte Prestige wurde erstattet.');
     return this.toDto(result);
   }
 
@@ -78,7 +78,7 @@ export class SpacecraftTakeoverService {
       return takeover;
     });
     if (!result) return false;
-    await this.notify(result, 'Übernahme abgebrochen', `Die Übernahme wurde abgebrochen: ${reason}. Das eingesetzte Prestige wurde erstattet.`);
+    await this.notify(result, `Die Übernahme wurde abgebrochen: ${reason}. Das eingesetzte Prestige wurde erstattet.`);
     return true;
   }
 
@@ -94,7 +94,7 @@ export class SpacecraftTakeoverService {
     });
     for (const takeover of takeovers) {
       await this.cancelInManager(transaction.manager, takeover);
-      await this.notify(takeover, 'Übernahme abgebrochen', `Die Übernahme wurde abgebrochen: ${reason}. Das eingesetzte Prestige wurde erstattet.`, transaction);
+      await this.notify(takeover, `Die Übernahme wurde abgebrochen: ${reason}. Das eingesetzte Prestige wurde erstattet.`, transaction);
     }
   }
 
@@ -131,7 +131,7 @@ export class SpacecraftTakeoverService {
     if (!outcome) return null;
     if (outcome.completed && outcome.target) {
       await this.gameEvents.recordSpacecraft(`${outcome.target.name} wurde übernommen.`, outcome.target);
-      await this.notify(outcome.takeover, 'Übernahme abgeschlossen', `${outcome.target.name} wurde erfolgreich übernommen.`);
+      await this.notify(outcome.takeover, `${outcome.target.name} wurde erfolgreich übernommen.`);
     }
     return this.toDto(outcome.takeover, outcome.completed);
   }
@@ -150,10 +150,10 @@ export class SpacecraftTakeoverService {
     await manager.remove(takeover);
   }
 
-  private async notify(takeover: SpacecraftTakeover, subject: string, body: string, transaction?: TransactionalNotifications) {
+  private async notify(takeover: SpacecraftTakeover, body: string, transaction?: TransactionalNotifications) {
     await Promise.all([
-      this.messaging.sendSystem(takeover.attackerUserId, subject, body, undefined, MessageFolder.SHIP, undefined, false, transaction),
-      this.messaging.sendSystem(takeover.targetUserId, subject, body, undefined, MessageFolder.SHIP, undefined, false, transaction),
+      this.messaging.sendSystem(takeover.attackerUserId, body, undefined, MessageFolder.SHIP, undefined, false, transaction),
+      this.messaging.sendSystem(takeover.targetUserId, body, undefined, MessageFolder.SHIP, undefined, false, transaction),
     ]);
   }
 

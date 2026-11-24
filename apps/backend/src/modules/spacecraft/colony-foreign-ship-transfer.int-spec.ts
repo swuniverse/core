@@ -151,7 +151,6 @@ describe('colony beaming with foreign orbit ships (PostgreSQL)', () => {
     expect(messaging.sendSystem).toHaveBeenCalledTimes(2);
     expect(messaging.sendSystem).toHaveBeenCalledWith(
       captain.id,
-      'Warentransfer im Orbit',
       'Die Kolonie Wolkenstadt hat folgende Waren zur Rasender Falke gebeamt: 10 Tibanna',
       undefined,
       'TRADE',

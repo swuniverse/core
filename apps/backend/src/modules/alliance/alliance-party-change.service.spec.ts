@@ -24,7 +24,7 @@ function world() {
   const store = new InMemoryAllianceStore();
   const sent: Array<{ to: number; body: string }> = [];
   const messaging = {
-    sendSystem: jest.fn(async (to: number, _subject: string, body: string) => {
+    sendSystem: jest.fn(async (to: number, body: string) => {
       sent.push({ to, body });
     }),
   };

@@ -827,7 +827,6 @@ export class SpacecraftService {
     const isSystem = target.type === CartographyTargetType.SYSTEM;
     await this.messagingService.sendSystem(
       userId,
-      'Kartographie',
       isSystem
         ? 'Die Finalisierung der Systemkartographie hat begonnen.'
         : 'Die Finalisierung der Regionskartographie hat begonnen.',
@@ -2467,14 +2466,12 @@ export class SpacecraftService {
     );
     await this.messagingService.sendSystem(
       ship.userId,
-      'Kartographie',
       'Ein Messpunkt der Systemkartographie wurde erreicht.',
       `cartography-measurement:${ship.userId}:${starSystemId}:${fieldId}`,
     );
     if (result.completed) {
       await this.messagingService.sendSystem(
         ship.userId,
-        'Kartographie',
         'Alle Messpunkte wurden erreicht. Die Kartographie kann finalisiert werden.',
         `cartography-measured:${ship.userId}:${starSystemId}`,
       );
@@ -2506,14 +2503,12 @@ export class SpacecraftService {
     );
     await this.messagingService.sendSystem(
       ship.userId,
-      'Kartographie',
       'Ein Messpunkt der Regionskartographie wurde erreicht.',
       `cartography-region-measurement:${ship.userId}:${mapRegionId}:${fieldId}`,
     );
     if (result.completed) {
       await this.messagingService.sendSystem(
         ship.userId,
-        'Kartographie',
         'Alle Messpunkte wurden erreicht. Die Kartographie kann finalisiert werden.',
         `cartography-region-measured:${ship.userId}:${mapRegionId}`,
       );
@@ -4096,7 +4091,7 @@ export class SpacecraftService {
       return current;
     });
     if (result.userId !== userId) {
-      await this.messagingService.sendSystem(result.userId, 'Sondenboje aufgenommen', `Deine Boje "${result.text}" wurde von Schiff #${ship.id} aufgenommen.`);
+      await this.messagingService.sendSystem(result.userId, `Deine Boje "${result.text}" wurde von Schiff #${ship.id} aufgenommen.`);
     }
     return { pickedUp: true, buoy: result };
   }
@@ -5153,7 +5148,6 @@ export class SpacecraftService {
     );
     await this.messagingService.sendSystem(
       charted.userId,
-      'Kartographie',
       `Die Kartographie der Region ${name} wurde erfolgreich abgeschlossen.`,
       `cartography-region-completed:${charted.userId}:${charted.mapRegionId}`,
       undefined,
@@ -5173,7 +5167,6 @@ export class SpacecraftService {
     await this.cartographyPlanService.resetFinishingForSpacecraft(ship.id);
     await this.messagingService.sendSystem(
       ship.userId,
-      'Kartographie',
       message,
       `cartography-finalization-aborted:${ship.id}`,
     );
@@ -5207,7 +5200,6 @@ export class SpacecraftService {
     if (construction.completed) {
       await this.messagingService.sendSystem(
         ship.userId,
-        'Stationsbau abgeschlossen',
         `${construction.station?.name ?? ship.name} wurde fertiggestellt.`,
         `station-construction-completed:${ship.id}`,
         MessageFolder.STATION,
@@ -5217,7 +5209,6 @@ export class SpacecraftService {
     if (construction.paused) {
       await this.messagingService.sendSystem(
         ship.userId,
-        'Stationsbau pausiert',
         `Der Bau von ${ship.name} wurde wegen unzureichender angedockter Workbees pausiert.`,
         `station-construction-paused:${ship.id}:${ship.constructionTicksRemaining}`,
         MessageFolder.STATION,
@@ -5256,7 +5247,6 @@ export class SpacecraftService {
       const detail = `Wegen Energiemangels abgeschaltet: ${resourceFlow.deactivatedSystems.join(', ')}.`;
       await this.messagingService.sendSystem(
         ship.userId,
-        'Systemabschaltung wegen Energiemangels',
         `${ship.name}: ${detail}`,
         undefined,
         MessageFolder.SHIP,
@@ -5285,7 +5275,6 @@ export class SpacecraftService {
       if (evacuated > 0) {
         await this.messagingService.sendSystem(
           ship.userId,
-          'Lebenserhaltung ausgefallen',
           `Die Lebenserhaltung der ${ship.name} ist ausgefallen. ${evacuated} Crewmitglieder haben das Schiff in Rettungskapseln verlassen.`,
         );
       }
@@ -5333,7 +5322,6 @@ export class SpacecraftService {
         );
         await this.messagingService.sendSystem(
           finalization.userId!,
-          'Kartographie',
           'Die Systemkartographie wurde erfolgreich abgeschlossen.',
           `cartography-completed:${finalization.userId}:${finalization.starSystemId}`,
         );

@@ -75,7 +75,7 @@ describe('MessagingService', () => {
       .mockResolvedValueOnce({ id: 9, isNpc: true })
       .mockResolvedValueOnce({ id: 2, isNpc: false });
 
-    await service.sendNpcTrade(9, 2, 'Handel', 'Die Ware ist da.');
+    await service.sendNpcTrade(9, 2, 'Die Ware ist da.');
 
     expect(messageRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -91,14 +91,14 @@ describe('MessagingService', () => {
     userRepo.findOneBy.mockResolvedValue(null);
 
     await expect(
-      service.send(1, 99, 'Hallo', 'Lange Nachricht'),
+      service.send(1, 99, 'Lange Nachricht'),
     ).rejects.toThrow(new NotFoundException('Dieser Siedler existiert nicht'));
     expect(messageRepo.save).not.toHaveBeenCalled();
   });
 
   it('rejects a message to the sender', async () => {
     await expect(
-      service.send(1, 1, 'Hallo', 'Lange Nachricht'),
+      service.send(1, 1, 'Lange Nachricht'),
     ).rejects.toThrow(
       new BadRequestException('Du kannst Dir keine Nachricht schicken'),
     );
@@ -110,7 +110,7 @@ describe('MessagingService', () => {
     service.setIgnoreCheck(ignored);
 
     await expect(
-      service.send(1, 2, 'Hallo', 'Lange Nachricht'),
+      service.send(1, 2, 'Lange Nachricht'),
     ).rejects.toThrow(new ForbiddenException('Der Siedler ignoriert Dich'));
     expect(ignored).toHaveBeenCalledWith(2, 1);
   });
@@ -118,13 +118,12 @@ describe('MessagingService', () => {
   it('trims and sends a valid personal message', async () => {
     userRepo.findOneBy.mockResolvedValue({ id: 2 });
 
-    await service.send(1, 2, '  Hallo  ', '  Lange Nachricht  ');
+    await service.send(1, 2, '  Lange Nachricht  ');
 
     expect(messageRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
         senderId: 1,
         recipientId: 2,
-        subject: 'Hallo',
         body: 'Lange Nachricht',
         folder: MessageFolder.PERSONAL,
       }),
@@ -134,7 +133,7 @@ describe('MessagingService', () => {
   it('notifies the recipient after persisting a personal message', async () => {
     userRepo.findOneBy.mockResolvedValue({ id: 2 });
 
-    await service.send(1, 2, 'Hallo', 'Lange Nachricht');
+    await service.send(1, 2, 'Lange Nachricht');
 
     expect(gateway.emitToUser).toHaveBeenCalledWith(2, 'MESSAGE_RECEIVED', {
       folder: MessageFolder.PERSONAL,
@@ -144,7 +143,6 @@ describe('MessagingService', () => {
   it('persists an optional target for a system message', async () => {
     await service.sendSystem(
       2,
-      'System',
       'Meldung',
       undefined,
       MessageFolder.SYSTEM,

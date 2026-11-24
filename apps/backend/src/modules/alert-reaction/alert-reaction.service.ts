@@ -199,15 +199,13 @@ export class AlertReactionService implements MovementReaction, OnModuleInit {
     const body = `Kampf in Sektor ${sector}\n${log}`;
     await this.messaging.sendSystem(
       alerted.userId,
-      `Eigene Schiffe auf ${alert}`,
-      body,
+      `Eigene Schiffe auf ${alert}\n${body}`,
       undefined,
       alerted.kind === SpacecraftKind.STATION ? MessageFolder.STATION : MessageFolder.SHIP,
     );
     await this.messaging.sendSystem(
       incomingUserId,
-      `Fremde Schiffe auf ${alert}`,
-      body,
+      `Fremde Schiffe auf ${alert}\n${body}`,
       undefined,
       MessageFolder.SHIP,
     );

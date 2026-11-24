@@ -137,7 +137,6 @@ export class SpacecraftDestructionService {
       this.emitDestroyed(userId, shipId, 'Selbstzerstörung ausgeführt');
       await this.messagingService.sendSystem(
         userId,
-        'Schiff zerstört',
         `Schiff #${shipId} wurde durch Selbstzerstörung vernichtet.${this.evacuationNote(evacuatedCrew)}`,
       );
     }
@@ -242,7 +241,6 @@ export class SpacecraftDestructionService {
       if (!result.ship.rpgHidden) this.emitDestroyed(result.ownerId, shipId, 'Im Kampf zerstört');
       await this.messagingService.sendSystem(
         result.ownerId,
-        'Schiff zerstört',
         `Schiff #${shipId} wurde im Kampf zerstört.${this.evacuationNote(result.evacuatedCrew)}`,
       );
     }

@@ -172,7 +172,6 @@ export class TradeLotteryService implements MaintenanceHandler {
       await creditAurodium(manager, post.id, winner.id, jackpot);
       await this.messaging.sendSystem(
         winner.id,
-        'Lotteriegewinn',
         `Du hast ${jackpot} Aurodium in der Lotterie gewonnen.\nEs waren ${tickets.length} Lose im Topf.\nDer Gewinn wartet auf dich am Handelsposten '${post.name}'`,
         undefined, MessageFolder.TRADE, undefined, false, transaction,
       );
@@ -182,7 +181,6 @@ export class TradeLotteryService implements MaintenanceHandler {
         if (loserId === winner.id) continue;
         await this.messaging.sendSystem(
           loserId,
-          'Lotterieziehung',
           `${winner.username} hat ${jackpot} Aurodium in der Lotterie gewonnen.\nEs waren ${tickets.length} Lose im Topf.\nViel Glück beim nächsten Mal!`,
           undefined, MessageFolder.TRADE, undefined, false, transaction,
         );
@@ -251,7 +249,6 @@ export class TradeLotteryService implements MaintenanceHandler {
     });
     await this.messaging.sendSystem(
       winner.id,
-      'Lotteriegewinn: Schiff',
       `Als zusätzlicher Lotteriegewinn wurde dir ein Schiff der ${shipClass?.name ?? 'unbekannten'}-Klasse am Handelsposten '${post.name}' überstellt.`,
       undefined, MessageFolder.TRADE, undefined, false, transaction,
     );
@@ -274,7 +271,6 @@ export class TradeLotteryService implements MaintenanceHandler {
       await manager.insert(LotteryTicket, { userId: player.id, period, isWinner: null });
       await this.messaging.sendSystem(
         player.id,
-        'Gratislos',
         'Du hast ein Gratislos für den aktuellen Lotteriezeitraum erhalten. Möge das Glück mit dir sein!',
         undefined, MessageFolder.TRADE, undefined, false, transaction,
       );

@@ -106,7 +106,6 @@ export class RpgPlotService {
     await this.members.save(this.members.create({ plotId: id, userId: memberId }));
     await this.messages.sendSystem(
       memberId,
-      'RPG-Plot',
       `Du wurdest dem RPG-Plot '${plot.title}' als Schreiber hinzugefügt`,
     );
   }
@@ -122,7 +121,6 @@ export class RpgPlotService {
     await this.members.delete({ plotId: id, userId: memberId });
     await this.messages.sendSystem(
       memberId,
-      'RPG-Plot',
       `Du wurdest aus dem RPG-Plot '${plot.title}' als Schreiber entfernt`,
     );
   }

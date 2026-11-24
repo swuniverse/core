@@ -165,10 +165,10 @@ describe('tutorial targets', () => {
 
   it('dispatches the message tutorial event only after a successful send', async () => {
     render(<MemoryRouter initialEntries={['/messages?tab=compose&to=2']}><MessagesPage /></MemoryRouter>);
-    await screen.findByText('Betreff');
+    await screen.findByText('Empfänger (Siedler-ID)');
     apiMocks.post.mockRejectedValueOnce(new Error('Senden fehlgeschlagen'));
     fireEvent.click(screen.getByRole('button', { name: 'Senden' }));
-    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/messages', { recipientId: 2, subject: '', body: '' }));
+    await waitFor(() => expect(apiMocks.post).toHaveBeenCalledWith('/messages', { recipientId: 2, body: '' }));
     expect(tutorialMocks.event).not.toHaveBeenCalledWith('messages.sent');
 
     apiMocks.post.mockResolvedValueOnce({});
@@ -183,7 +183,7 @@ describe('tutorial targets', () => {
     inbox.unmount();
 
     render(<MemoryRouter initialEntries={['/messages?tab=compose&to=2']}><MessagesPage /></MemoryRouter>);
-    await screen.findByText('Betreff');
+    await screen.findByText('Empfänger (Siedler-ID)');
     expectTargets(['message-compose', 'message-send']);
   });
 

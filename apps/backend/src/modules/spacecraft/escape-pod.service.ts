@@ -325,7 +325,6 @@ export class EscapePodService {
         ).length;
         await this.messagingService.sendSystem(
           ownerId,
-          'Crew an Handelsposten überstellt',
           `Die ${ship.name} hat ${count} deiner Crewmitglieder geborgen und an den Handelsposten "${destination.post.name}" (Sektor ${destination.point.x}|${destination.point.y}, Ebene ${destination.point.layerId}) überstellt.`,
           undefined,
           MessageFolder.SYSTEM,
@@ -462,7 +461,6 @@ export class EscapePodService {
       const withdrawn = userId === assignment.userId;
       await this.messagingService.sendSystem(
         withdrawn ? ship.userId : assignment.userId,
-        withdrawn ? 'Fremde Crew abgezogen' : 'Crew in Rettungskapsel abgelegt',
         `Crewmitglied ${crew?.name ?? crewId} hat die ${ship.name} in einer Rettungskapsel verlassen${withdrawn ? ' (vom Crew-Eigner abgezogen)' : ' (vom Schiffseigner abgelegt)'}.`,
         undefined,
         MessageFolder.SHIP,
@@ -505,7 +503,6 @@ export class EscapePodService {
         .join(', ');
       await this.messagingService.sendSystem(
         userId,
-        'Rettungskapseln gelandet',
         `${total} deiner Crewmitglieder sind aus Rettungskapseln gelandet: ${detail}.`,
         undefined,
         MessageFolder.COLONY,

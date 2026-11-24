@@ -583,7 +583,6 @@ export class ColonyShipyardService {
     const savedQueue = await this.shipBuildQueueRepo.save(queue);
     await this.messagingService.sendSystem(
       ship.userId,
-      'Schiffsreparatur gestartet',
       `Die Reparatur von ${ship.name} wurde auf ${colony.name} gestartet.`,
       `colony-ship-repair-started:${savedQueue.id}`,
       MessageFolder.SHIP,
@@ -899,7 +898,6 @@ export class ColonyShipyardService {
       userId,
       type: ColonyEventType.SHIP_REPAIR_REACTIVATED,
       severity: ColonyEventSeverity.INFO,
-      title: 'Reparatur reaktiviert',
       message: `${queue.name} wurde reaktiviert.`,
       payload: { queueId: queue.id, spacecraftId: queue.spacecraftId },
     });
@@ -1449,7 +1447,6 @@ export class ColonyShipyardService {
     if (repaired) {
       await this.messagingService.sendSystem(
         repaired.userId,
-        'Schiffsreparatur abgeschlossen',
         `Die Reparatur von ${repaired.name} wurde abgeschlossen.`,
         `colony-ship-repair-completed:${job.id}`,
         MessageFolder.SHIP,

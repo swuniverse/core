@@ -38,7 +38,6 @@ describe('QuickPmDialog', () => {
     await screen.findByText('Die Nachricht wurde verschickt');
     expect(api.post).toHaveBeenCalledWith('/messages', {
       recipientId: 8,
-      subject: '',
       body: 'Hallo Leia',
     });
   });

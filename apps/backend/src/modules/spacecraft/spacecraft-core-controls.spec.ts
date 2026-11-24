@@ -505,7 +505,6 @@ describe('spacecraft core detail controls', () => {
       ).toHaveBeenCalledWith(2);
       expect((service as any).messagingService.sendSystem).toHaveBeenCalledWith(
         1,
-        'Kartographie',
         expect.stringContaining('abgebrochen'),
         'cartography-finalization-aborted:2',
       );

@@ -458,7 +458,6 @@ export class ResourceCollectionService implements FlightConsequence {
   ) {
     return this.messaging.sendSystem(
       ship.userId,
-      'Ressourcensammeln',
       `${ship.name}: ${text}`,
       undefined,
       MessageFolder.SHIP,

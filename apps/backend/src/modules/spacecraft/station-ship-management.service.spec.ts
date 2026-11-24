@@ -138,7 +138,6 @@ describe('StationShipManagementService', () => {
     expect(results[0].applied).toEqual(['Batterie: +5']);
     expect(open.messaging.sendSystem).toHaveBeenCalledWith(
       2,
-      'Versorgung an Station',
       expect.stringContaining('Batterie: +5'),
       undefined,
       'STATION',

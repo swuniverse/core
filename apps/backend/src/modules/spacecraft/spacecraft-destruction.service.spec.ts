@@ -216,7 +216,6 @@ describe('SpacecraftDestructionService', () => {
     expect(manager.remove).not.toHaveBeenCalledWith([{ crewId: 9 }]);
     expect(messaging.sendSystem).toHaveBeenCalledWith(
       1,
-      'Schiff zerstört',
       expect.stringContaining('1 Crewmitglieder konnten sich in Rettungskapseln retten'),
     );
     expect(manager.save).toHaveBeenCalledWith(

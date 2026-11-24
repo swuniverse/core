@@ -224,9 +224,6 @@ export class SpacecraftRepairService {
     await this.messagingService.sendSystem(
       ship.userId,
       outcome.cancelled
-        ? 'Schiffsreparatur abgebrochen'
-        : 'Schiffsreparatur abgeschlossen',
-      outcome.cancelled
         ? `Die Reparatur der ${ship.name} wurde wegen unzureichender Crew abgebrochen.`
         : outcome.repaired
           ? `Die Crew der ${ship.name} hat das Zielsystem auf ${outcome.targetIntegrity} % repariert.`
@@ -299,11 +296,10 @@ export class SpacecraftRepairService {
   ): Promise<void> {
     await Promise.all(
       cancelled.map(({ userId, name }) => {
-        const subject = 'Schiffsreparatur abgebrochen';
         const body = `${cause} der ${name} hat die laufende Reparatur abgebrochen. Die eingesetzten Teile wurden zurückerstattet.`;
         return transaction
-          ? this.messagingService.sendSystem(userId, subject, body, undefined, undefined, undefined, false, transaction)
-          : this.messagingService.sendSystem(userId, subject, body);
+          ? this.messagingService.sendSystem(userId, body, undefined, undefined, undefined, false, transaction)
+          : this.messagingService.sendSystem(userId, body);
       }),
     );
   }

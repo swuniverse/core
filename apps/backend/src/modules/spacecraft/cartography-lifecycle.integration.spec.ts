@@ -512,7 +512,6 @@ describe('cartography lifecycle integration (in-process)', () => {
     );
     expect(harness.messages.sendSystem).toHaveBeenCalledWith(
       11,
-      'Kartographie',
       expect.stringContaining('abgebrochen'),
       'cartography-finalization-aborted:1',
     );
@@ -562,7 +561,6 @@ describe('cartography lifecycle integration (in-process)', () => {
 
     expect(harness.messages.sendSystem).toHaveBeenCalledWith(
       11,
-      'Kartographie',
       expect.stringContaining('abgebrochen'),
       'cartography-finalization-aborted:1',
     );

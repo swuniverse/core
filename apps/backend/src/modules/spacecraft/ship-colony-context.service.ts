@@ -154,7 +154,6 @@ export class ShipColonyContextService {
       this.gameData.getCommodity(commodityId)?.name ?? `Ware #${commodityId}`;
     await this.messaging?.sendSystem(
       ship.userId,
-      'Warentransfer im Orbit',
       `Die Kolonie ${colony.name} hat folgende Waren ${direction === 'TO_SHIP' ? 'zur' : 'von der'} ${ship.name} gebeamt: ${amount} ${commodity}`,
       undefined,
       MessageFolder.TRADE,

@@ -117,7 +117,7 @@ export function AdminMassMessagePage() {
         <div>
           <h2 className="mb-2 text-xs font-bold text-swu-primary">Vorschau</h2>
           <div className="min-h-48 border border-swu-border bg-swu-bg p-3 text-sm">
-            <p className="mb-2 font-bold">{subject || 'Betreff'}</p>
+            <p className="mb-2 font-bold">{medium === 'PM' ? `Betreff: ${subject}` : subject || 'Betreff'}</p>
             <BbCodeText text={body} />
           </div>
         </div>

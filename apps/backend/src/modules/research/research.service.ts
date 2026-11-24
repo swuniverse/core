@@ -770,7 +770,6 @@ export class ResearchService {
     await this.messagingService.sendSystem(
       userId,
       message,
-      message,
       `research-completed:${researchId}`,
       MessageFolder.COLONY,
     );
@@ -793,7 +792,6 @@ export class ResearchService {
       const message = `Als Belohnung für den Abschluss der Forschung wurde dir ein Schiff vom Typ ${shipClassName} überstellt`;
       await this.messagingService.sendSystem(
         userId,
-        message,
         message,
         `research-reward-ship:${userId}:${tech.id}`,
         MessageFolder.SHIP,

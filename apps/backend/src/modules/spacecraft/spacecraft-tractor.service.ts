@@ -43,7 +43,6 @@ export class SpacecraftTractorService {
         await manager.save(source);
         await this.messaging.sendSystem(
           target.userId,
-          'Traktorstrahl',
           `${target.name} wurde vom Traktorstrahl der ${source.name} erfasst.`,
         );
         return { message: `Der Traktorstrahl wurde auf die ${target.name} gerichtet`, threatReport };
@@ -187,7 +186,6 @@ export class SpacecraftTractorService {
       await manager.save(target);
       await this.messaging.sendSystem(
         source.userId,
-        'Traktorstrahl',
         outcome === 'ESCAPED'
           ? `${target.name} ist dem Traktorstrahl der ${source.name} entkommen.`
           : `Der Fluchtversuch der ${target.name} ist gescheitert.`,

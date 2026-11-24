@@ -45,7 +45,7 @@ describe('player trade post destruction and abandonment (PostgreSQL)', () => {
   let shipClassId: number;
 
   const messagesOf = (recipientId: number) =>
-    source.getRepository('Message').find({ where: { recipientId }, order: { id: 'ASC' } }) as Promise<Array<{ subject: string; body: string }>>;
+    source.getRepository('Message').find({ where: { recipientId }, order: { id: 'ASC' } }) as Promise<Array<{ body: string }>>;
 
   beforeEach(async () => {
     owner = await createUser(source, { username: 'Lando' });
@@ -122,7 +122,6 @@ describe('player trade post destruction and abandonment (PostgreSQL)', () => {
       for (const user of [owner, trader]) {
         expect(await messagesOf(user.id)).toEqual([
           expect.objectContaining({
-            subject: 'Handelsposten zerstört',
             body: 'Der Handelsposten "Wolkenhafen" bei 1|1 wurde zerstört. Deine Waren und Angebote dort sind verloren.',
           }),
         ]);
@@ -165,7 +164,6 @@ describe('player trade post destruction and abandonment (PostgreSQL)', () => {
       expect(await source.getRepository('TradeLicense').countBy({ tradePostId: postId, userId: trader.id })).toBe(1);
       expect(await messagesOf(trader.id)).toEqual([
         expect.objectContaining({
-          subject: 'Handelsposten verlassen',
           body: 'Der Handelsposten "Wolkenhafen" bei den Koordinaten 1|1 wurde verlassen. Du solltest deine Waren hier schleunigst abholen, sonst gehen sie verloren.',
         }),
       ]);

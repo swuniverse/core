@@ -53,7 +53,7 @@ function fixture() {
   const stationShipyard = { completeJob: jest.fn() };
   const messaging = {
     sendSystem: jest.fn(async (...args: unknown[]) => {
-      const transaction = args[7] as
+      const transaction = args[6] as
         | { manager: object; afterCommit: Array<() => void> }
         | undefined;
       transaction?.afterCommit.push(deferredMessageNotification);
@@ -151,7 +151,6 @@ describe('ShipyardCompletionService', () => {
     expect(f.messaging.sendSystem).toHaveBeenNthCalledWith(
       1,
       colonyBuild.userId,
-      'Schiff fertiggestellt',
       'Kolonieschiff wurde fertiggestellt.',
       'shipyard-completed:1',
       MessageFolder.SHIP,
@@ -165,7 +164,6 @@ describe('ShipyardCompletionService', () => {
     expect(f.messaging.sendSystem).toHaveBeenNthCalledWith(
       2,
       colonyRetrofit.userId,
-      'Schiffsumrüstung abgeschlossen',
       'Die Umrüstung von Umgerüstetes Schiff wurde abgeschlossen.',
       'shipyard-completed:2',
       MessageFolder.SHIP,
@@ -179,7 +177,6 @@ describe('ShipyardCompletionService', () => {
     expect(f.messaging.sendSystem).toHaveBeenNthCalledWith(
       3,
       stationBuild.userId,
-      'Schiff fertiggestellt',
       'Stationsschiff wurde fertiggestellt.',
       'shipyard-completed:3',
       MessageFolder.SHIP,

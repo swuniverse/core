@@ -1,12 +1,10 @@
 export interface SendMessageDto {
   recipientId: number;
-  subject: string;
   body: string;
 }
 
 export interface MessageCorrespondenceDto {
   id: number;
-  subject: string;
   body: string;
   isRead: boolean;
   isSystem: false;

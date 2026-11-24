@@ -125,9 +125,9 @@ export class DeflectorConsequence implements FlightConsequence {
     if (!lines.length) return;
     const text = lines.join('\n');
     if (transaction) {
-      await this.messaging.sendSystem(ship.userId, 'Feldschaden', text, undefined, MessageFolder.SHIP, undefined, false, transaction);
+      await this.messaging.sendSystem(ship.userId, text, undefined, MessageFolder.SHIP, undefined, false, transaction);
     } else {
-      await this.messaging.sendSystem(ship.userId, 'Feldschaden', text, undefined, MessageFolder.SHIP);
+      await this.messaging.sendSystem(ship.userId, text, undefined, MessageFolder.SHIP);
     }
     const emit = () => this.gateway.emitToUser(ship.userId, WsEventType.SPACECRAFT_EVENT, {
       shipId: ship.id,

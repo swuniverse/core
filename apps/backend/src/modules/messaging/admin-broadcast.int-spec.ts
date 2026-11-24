@@ -131,8 +131,7 @@ describe('admin broadcast (Postgres, HTTP)', () => {
     const messages = await systemMessages();
     expect(messages.map((message) => message.recipientId)).toEqual([admin.id, rebel.id, muted.id, imperial.id]);
     expect(messages[1]).toMatchObject({
-      subject: 'Wartung',
-      body: 'Morgen ab 20 Uhr ist [b]Wartung[/b].',
+      body: '[b]Betreff: Wartung[/b]\n\nMorgen ab 20 Uhr ist [b]Wartung[/b].',
       folder: 'SYSTEM',
       deliveryKey: `broadcast:${request.broadcastId}:${rebel.id}`,
     });

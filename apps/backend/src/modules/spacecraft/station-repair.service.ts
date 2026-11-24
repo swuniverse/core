@@ -146,7 +146,6 @@ export class StationRepairService {
     if (ship.userId !== userId || !queued) {
       await this.messaging.sendSystem(
         ship.userId,
-        'Schiffsreparatur gestartet',
         queued
           ? `Die ${ship.name} wurde bei ${station.name} in die Reparaturwarteschlange aufgenommen.`
           : `Die ${ship.name} wird bei ${station.name} repariert. Voraussichtliche Fertigstellung: ${estimate}`,
@@ -175,7 +174,6 @@ export class StationRepairService {
     });
     await this.messaging.sendSystem(
       ship.userId,
-      'Schiffsreparatur abgebrochen',
       `Die Reparatur der ${ship.name} wurde abgebrochen.`,
       undefined,
       MessageFolder.SHIP,
@@ -242,7 +240,7 @@ export class StationRepairService {
   }
 
   private async runStep(stationId: number, part: 'self' | 'queue'): Promise<void> {
-    const notices: Array<{ userId: number; subject: string; body: string; folder: MessageFolder }> = [];
+    const notices: Array<{ userId: number; body: string; folder: MessageFolder }> = [];
     const experience: number[] = [];
     await this.dataSource.transaction(async (manager) => {
       const station = await manager.findOne(Spacecraft, {
@@ -257,7 +255,7 @@ export class StationRepairService {
       }
     });
     for (const notice of notices) {
-      await this.messaging.sendSystem(notice.userId, notice.subject, notice.body, undefined, notice.folder);
+      await this.messaging.sendSystem(notice.userId, notice.body, undefined, notice.folder);
     }
     for (const shipId of experience) {
       await this.crewEnhancement.enhanceSpacecraft(shipId, CrewEnhancementEvent.REPAIR_COMPLETED);
@@ -267,7 +265,7 @@ export class StationRepairService {
   private async selfRepairStep(
     manager: EntityManager,
     station: Spacecraft,
-    notices: Array<{ userId: number; subject: string; body: string; folder: MessageFolder }>,
+    notices: Array<{ userId: number; body: string; folder: MessageFolder }>,
     experience: number[],
   ): Promise<void> {
     const modules = await manager.find(SpacecraftModule, { where: { spacecraftId: station.id } });
@@ -288,7 +286,6 @@ export class StationRepairService {
       experience.push(station.id);
       notices.push({
         userId: station.userId,
-        subject: 'Stationsreparatur abgeschlossen',
         body: `Die Reparatur der ${station.name} wurde fertiggestellt.`,
         folder: MessageFolder.STATION,
       });
@@ -299,7 +296,7 @@ export class StationRepairService {
   private async queueStep(
     manager: EntityManager,
     station: Spacecraft,
-    notices: Array<{ userId: number; subject: string; body: string; folder: MessageFolder }>,
+    notices: Array<{ userId: number; body: string; folder: MessageFolder }>,
     experience: number[],
   ): Promise<void> {
     const jobs = await manager.find(StationShipRepair, {
@@ -354,7 +351,6 @@ export class StationRepairService {
       await manager.save(live);
       notices.push({
         userId: station.userId,
-        subject: 'Reparatur angehalten',
         body: `Auf ${station.name} fehlen Ersatzteile oder Systemkomponenten für die Reparatur der ${ship.name}. Die Warteschlange wurde angehalten.`,
         folder: MessageFolder.STATION,
       });
@@ -374,7 +370,6 @@ export class StationRepairService {
     experience.push(ship.id);
     notices.push({
       userId: ship.userId,
-      subject: 'Schiffsreparatur abgeschlossen',
       body: `Die Reparatur der ${ship.name} wurde bei ${station.name} fertiggestellt.`,
       folder: MessageFolder.SHIP,
     });

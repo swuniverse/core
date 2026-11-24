@@ -829,7 +829,6 @@ export class ColonizationService {
         ? ColonyEventType.COLONY_RECLAIMED
         : ColonyEventType.COLONY_FOUNDED,
       severity: ColonyEventSeverity.INFO,
-      title: abandonedColony ? 'Kolonie übernommen' : 'Kolonie gegründet',
       message: abandonedColony
         ? `${colony.name} wurde übernommen. Das Kolonieschiff ${ship.name} wurde verbraucht.`
         : `${colony.name} wurde gegründet. Das Kolonieschiff ${ship.name} wurde verbraucht.`,

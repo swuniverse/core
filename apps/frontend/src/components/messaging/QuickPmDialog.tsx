@@ -50,7 +50,6 @@ export function QuickPmDialog({
       } else {
         await api.post('/messages', {
           recipientId: recipient.id,
-          subject: '',
           body,
         });
       }

@@ -30,7 +30,7 @@ export class AdminBroadcastService {
     const recipients = await this.recipients(dto.target);
     if (dto.medium === 'PM') {
       await this.messagingService.sendSystemToMany(
-        recipients.map(user => user.id), dto.subject, dto.body,
+        recipients.map(user => user.id), `[b]Betreff: ${dto.subject}[/b]\n\n${dto.body}`,
         userId => `broadcast:${dto.broadcastId}:${userId}`,
       );
       return { recipients: recipients.length, emailsSent: 0 };

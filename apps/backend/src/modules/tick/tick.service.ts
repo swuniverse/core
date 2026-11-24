@@ -281,7 +281,6 @@ export class TickService {
           if (removed > 0) {
             await this.messagingService?.sendSystem(
               user.id,
-              'Globales Crewlimit überschritten',
               `${removed} Crewmitglieder haben wegen Überschreitung des globalen Crewlimits ihren Dienst quittiert.`,
               undefined,
               MessageFolder.COLONY,

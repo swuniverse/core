@@ -48,7 +48,7 @@ describe('HoloNet character mentions', () => {
     expect(posts.save).toHaveBeenCalledWith(expect.objectContaining({ characters }));
     expect(messages.sendSystem).toHaveBeenCalledTimes(1);
     expect(messages.sendSystem).toHaveBeenCalledWith(
-      8, expect.any(String), 'Dein Charakter Han wurde im HoloNet-Beitrag Ein Beitrag erwähnt',
+      8, 'Dein Charakter Han wurde im HoloNet-Beitrag Ein Beitrag erwähnt',
       expect.any(String), undefined, { kind: MessageTargetKind.HOLONET_POST, id: 42 },
     );
   });
@@ -61,7 +61,7 @@ describe('HoloNet character mentions', () => {
     const result = await controller.update(42, { user: { sub: 99, isAdmin: true } }, 'Neuer Titel', 'Neuer Beitrag', [1, 2, 3]);
     expect(result.characters.map((character) => character.id)).toEqual([1, 2, 3]);
     expect(messages.sendSystem).toHaveBeenCalledTimes(1);
-    expect(messages.sendSystem).toHaveBeenCalledWith(9, expect.any(String), expect.stringContaining('Luke'), expect.any(String), undefined, { kind: MessageTargetKind.HOLONET_POST, id: 42 });
+    expect(messages.sendSystem).toHaveBeenCalledWith(9, expect.stringContaining('Luke'), expect.any(String), undefined, { kind: MessageTargetKind.HOLONET_POST, id: 42 });
   });
 
   it.each([null, '2', [0], [1.5], Array(11).fill(1)])('rejects malformed or oversized character IDs on create and edit: %p', async (ids) => {
@@ -82,7 +82,7 @@ describe('HoloNet character mentions', () => {
     characterRepo.find.mockResolvedValue([characters[1], { ...characters[1], id: 3, name: 'Chewie' }]);
     await controller.create({ user: { sub: 7 } }, 'Ein Beitrag', 'x'.repeat(50), 'NEWS' as never, undefined, [2, 2, 3]);
     expect(messages.sendSystem).toHaveBeenCalledTimes(1);
-    expect(messages.sendSystem).toHaveBeenCalledWith(8, expect.any(String), expect.any(String), 'holonet-character:42:8', undefined, expect.anything());
+    expect(messages.sendSystem).toHaveBeenCalledWith(8, expect.any(String), 'holonet-character:42:8', undefined, expect.anything());
   });
 
   it('preserves mentions when characterIds is omitted on edit', async () => {

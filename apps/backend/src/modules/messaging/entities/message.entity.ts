@@ -38,9 +38,6 @@ export class Message {
   @JoinColumn({ name: 'recipientId' })
   recipient: User;
 
-  @Column({ length: 255 })
-  subject: string;
-
   @Column({ type: 'text' })
   body: string;
 

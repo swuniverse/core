@@ -139,7 +139,6 @@ describe('HolonetService edit window', () => {
     expect(userRepo.findOneBy).toHaveBeenCalledWith({ id: 99 });
     expect(messagingService.sendSystem).toHaveBeenCalledWith(
       userId,
-      'HoloNet-Beitrag gelöscht',
       body,
     );
   });
@@ -251,13 +250,11 @@ describe('HolonetService edit window', () => {
     });
     expect(messagingService.sendSystem).toHaveBeenCalledWith(
       8,
-      'Neuer RPG-Plot-Beitrag',
       'Der Spieler Leia hat einen neuen Beitrag zum Plot "Echo Base Rescue" hinzugefügt.',
       'rpg-plot-post:5:8',
     );
     expect(messagingService.sendSystem).not.toHaveBeenCalledWith(
       userId,
-      expect.anything(),
       expect.anything(),
     );
   });

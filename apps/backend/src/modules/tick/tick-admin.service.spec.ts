@@ -96,7 +96,6 @@ describe('TickAdminService', () => {
     expect(messagingService.sendSystem).toHaveBeenCalledTimes(2);
     expect(messagingService.sendSystem).toHaveBeenCalledWith(
       7,
-      'Tick fehlgeschlagen',
       expect.stringContaining('handler failed'),
       'tick-failed:MAINTENANCE:20261027:7',
     );

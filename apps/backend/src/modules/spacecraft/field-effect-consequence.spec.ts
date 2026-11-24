@@ -77,7 +77,7 @@ describe('FieldEffectConsequence', () => {
     expect(target.energy).toBe(45);
     expect((target.runtimeSystems.CLOAK as { active: boolean }).active).toBe(false);
     expect(target.shortRangeSensorsCooldownUntil).toEqual(new Date('2026-10-30T12:10:00Z'));
-    expect(messages.sendSystem).toHaveBeenCalledWith(3, expect.any(String), expect.stringContaining('Falcon'), undefined, 'SHIP');
+    expect(messages.sendSystem).toHaveBeenCalledWith(3, expect.stringContaining('Falcon'), undefined, 'SHIP');
     expect(gateway.emitToUser).toHaveBeenCalled();
   });
 

@@ -130,8 +130,8 @@ describe('Account deletion with game content (PostgreSQL, AppModule)', () => {
   describe('account and communication (sh-AP-05b)', () => {
     it('keeps what others see under "Gelöschter Siedler" and removes personal data', async () => {
       const messaging = app.get(MessagingService);
-      await messaging.send(doomed.id, other.id, 'Hallo', 'von Doomed');
-      await messaging.send(other.id, doomed.id, 'Antwort', 'an Doomed');
+      await messaging.send(doomed.id, other.id, 'von Doomed');
+      await messaging.send(other.id, doomed.id, 'an Doomed');
 
       const holonet = app.get(HolonetService);
       const post = await source.getRepository('HolonetPost').save({ authorId: doomed.id, title: 'Bericht', body: 'Text' }) as unknown as { id: number };
@@ -164,7 +164,7 @@ describe('Account deletion with game content (PostgreSQL, AppModule)', () => {
       expect(await count('AdminBroadcastDelivery', { userId: doomed.id })).toBe(0);
       expect(await count('AdminBroadcastDelivery', { userId: other.id })).toBe(1);
       const inbox = await messaging.getInbox(other.id);
-      expect(inbox.data.find((message) => message.subject === 'Hallo')).toMatchObject({
+      expect(inbox.data.find((message) => message.body === 'von Doomed')).toMatchObject({
         senderId: null, sender: { username: FORUM_DELETED_AUTHOR_NAME },
       });
       // The alliance announced the departure before the account went.

@@ -210,7 +210,6 @@ export class SpacecraftCommunicationService {
     await this.messaging.send(
       userId,
       target.userId,
-      `Nachricht von ${source.name}`,
       `${source.name} sendet an ${target.name} in Sektor ${coordinates}:\n\n${text}`,
     );
     await this.logRepo.save(
@@ -269,8 +268,7 @@ export class SpacecraftCommunicationService {
         this.messaging.send(
           userId,
           recipient.userId,
-          `Broadcast von ${ship.name}`,
-          text,
+          `Broadcast von ${ship.name}:\n${text}`,
         ),
       ),
     );

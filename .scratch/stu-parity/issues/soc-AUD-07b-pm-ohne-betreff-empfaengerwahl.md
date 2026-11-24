@@ -1,6 +1,6 @@
 # PMs ohne Betreff, Empfänger per Siedler-ID oder Kontaktliste
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** soc-AUD-07a
@@ -28,14 +28,14 @@ STU-Privatnachrichten haben keinen Betreff (`PrivateMessage` hat kein Betrefffel
 
 ## Akzeptanzkriterien
 
-- [ ] Spalte `subject` entfällt per Migration. Bestehende Nachrichten verlieren keine Information: Ein nicht leerer Betreff wird in der Migration als fett gesetzte erste Zeile (`[b]…[/b]`) vor den Text gestellt, sofern der Text ihn nicht schon enthält.
-- [ ] DTOs, Controller, Service-Signaturen und alle `sendSystem`-Aufrufer haben keinen Betreff mehr. Wo der Betreff bisher Information trug, die im Text fehlt, wird der Text ergänzt (Prüfung je Aufrufer; Tests der Fachmodule angepasst).
-- [ ] Massenmail als PM setzt wie STU „[b]Betreff: …[/b]“ vor den Text; als E-Mail bleibt der Mailbetreff erhalten.
-- [ ] Listen, Messenger-Vorschau, Postausgang und Dashboard zeigen statt Betreff den Absender und den Textanfang (BBCode entfernt, gekürzt auf 200 Zeichen wie STU `conversations.twig`).
-- [ ] Compose (normale PM): Empfänger per Eingabe der Siedler-ID (mit Anzeige des aufgelösten Namens) oder Auswahl aus der Kontaktliste; die Namenssuche entfällt (Frontend und ggf. Such-Endpunkt, wenn sonst ungenutzt). Antwort zeigt den Korrespondenzverlauf (max. 10) wie heute.
-- [ ] Deep-Link `/messages?tab=compose&to=<id>` bleibt für Antworten funktionsfähig.
-- [ ] Backend-Tests: Migration (Betreff in Text übernommen), Versand ohne Betreff, Massenmail-PM-Format. Frontend-Tests: Compose mit Siedler-ID und Kontaktauswahl, Liste ohne Betreffspalte.
-- [ ] `grep -rn "subject"` im Messaging-Pfad (ohne Mail-Betreff und historische Migrationen) liefert nichts mehr.
+- [x] Spalte `subject` entfällt per Migration. Bestehende Nachrichten verlieren keine Information: Ein nicht leerer Betreff wird in der Migration als fett gesetzte erste Zeile (`[b]…[/b]`) vor den Text gestellt, sofern der Text ihn nicht schon enthält.
+- [x] DTOs, Controller, Service-Signaturen und alle `sendSystem`-Aufrufer haben keinen Betreff mehr. Wo der Betreff bisher Information trug, die im Text fehlt, wird der Text ergänzt (Prüfung je Aufrufer; Tests der Fachmodule angepasst).
+- [x] Massenmail als PM setzt wie STU „[b]Betreff: …[/b]“ vor den Text; als E-Mail bleibt der Mailbetreff erhalten.
+- [x] Listen, Messenger-Vorschau, Postausgang und Dashboard zeigen statt Betreff den Absender und den Textanfang (BBCode entfernt, gekürzt auf 200 Zeichen wie STU `conversations.twig`).
+- [x] Compose (normale PM): Empfänger per Eingabe der Siedler-ID (mit Anzeige des aufgelösten Namens) oder Auswahl aus der Kontaktliste; die Namenssuche entfällt (Frontend und ggf. Such-Endpunkt, wenn sonst ungenutzt). Antwort zeigt den Korrespondenzverlauf (max. 10) wie heute.
+- [x] Deep-Link `/messages?tab=compose&to=<id>` bleibt für Antworten funktionsfähig.
+- [x] Backend-Tests: Migration (Betreff in Text übernommen), Versand ohne Betreff, Massenmail-PM-Format. Frontend-Tests: Compose mit Siedler-ID und Kontaktauswahl, Liste ohne Betreffspalte.
+- [x] `grep -rn "subject"` im Messaging-Pfad (ohne Mail-Betreff und historische Migrationen) liefert nichts mehr.
 
 ## Herkunft
 
@@ -44,3 +44,12 @@ STU-Privatnachrichten haben keinen Betreff (`PrivateMessage` hat kein Betrefffel
 - soc-AUD-01 (PM-Ordner) baut darauf auf.
 
 ## Comments
+
+- 2026-11-24 (Claude Opus 5.5, direkt umgesetzt; Ticket-Routing: Migration/Datenintegrität → keine Delegation): umgesetzt, Prüfung ausstehend. Commit „feat(messaging): STU private messages without subject, recipient by settler id (stu-parity soc-AUD-07b)“.
+  - Migration `20261124180000-drop-message-subject`: nicht leerer Betreff → `[b]…[/b]\n` vor den Text, sofern der Text ihn nicht enthält; Spalte entfällt (down legt sie leer wieder an).
+  - `send`/`sendNpcTrade`/`sendSystem`/`sendSystemToMany` ohne Betreff, alle ~100 Aufrufer angepasst. Text ergänzt, wo der Betreff Information trug: Subraumellipse (Sektor-Kopfzeile), Alarmreaktion („Eigene/Fremde Schiffe auf …“), HoloNet-Kommentar (Beitragstitel), Schiffs-Broadcast („Broadcast von …“), Andocken per Traktorstrahl, Tick-Fehler. Kolonie-Ereignis-`title` (nur Betreff) entfernt.
+  - Massen-PM: `[b]Betreff: …[/b]\n\n` + Text wie STU; E-Mail behält Mailbetreff.
+  - Frontend: Liste/Postausgang/Messenger zeigen Absender bzw. Empfänger und `messagePreview` (BBCode entfernt, 200 Zeichen); Compose mit Siedler-ID (Name über `/database/settlers/:id`) oder Kontaktliste, Namenssuche und Betrefffeld entfernt. `/user/search` bleibt, da „Kontakt hinzufügen“ ihn nutzt.
+  - Checks: `nx typecheck` backend/shared/frontend grün; `backend:test` 2757/2757; Integration (Migration, Messaging-Ordner, Admin-Broadcast, Handel, Ionensturm, Subraumellipse, Alarmreaktion, Wurmloch, Bewegung, Allianz-Lifecycle, Kolonie-Orbit u. a.) grün; vitest messages/QuickPm/tutorial-targets/admin-mass-message/message-preview grün; eslint ohne Fehler.
+  - Vorbestehend, nicht durch dieses Ticket: `account-deletion.int-spec` „keeps what others see …“ (HoloNet-Kommentarautor) schlägt auch auf HEAD fehl.
+  - Ausstehend: gesammelter Verifikationslauf (volle `test-integration`, Workspace-Build).

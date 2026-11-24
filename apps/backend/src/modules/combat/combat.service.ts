@@ -375,7 +375,6 @@ export class CombatService {
         attacker.hull <= 0
           ? ColonyEventSeverity.WARNING
           : ColonyEventSeverity.CRITICAL,
-      title: 'Kolonie angegriffen',
       message: `Die Kolonie wurde von Schiff #${attacker.id} angegriffen.`,
       payload: {
         attackerId: attacker.id,

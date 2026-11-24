@@ -985,7 +985,6 @@ export class ColonyConstructionService {
       userId,
       type: ColonyEventType.BUILDING_REPAIRED,
       severity: ColonyEventSeverity.INFO,
-      title: 'Gebäude repariert',
       message: `${repairPlan.buildingName} auf Feld ${field.fieldIndex} wurde repariert.`,
       payload: { fieldIndex: field.fieldIndex, buildingId: field.buildingId },
     });
@@ -1023,7 +1022,6 @@ export class ColonyConstructionService {
         result.skipped.length > 0
           ? ColonyEventSeverity.WARNING
           : ColonyEventSeverity.INFO,
-      title: 'Gebäudereparatur abgeschlossen',
       message: `${result.repaired.length} Gebäude repariert, ${result.skipped.length} übersprungen.`,
       payload: result as unknown as Record<string, unknown>,
     });

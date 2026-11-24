@@ -435,7 +435,6 @@ describe('ResearchService – completion notifications', () => {
     expect(context.messaging.sendSystem).toHaveBeenCalledWith(
       42,
       "Forschung 'Tech 10' wurde abgeschlossen",
-      "Forschung 'Tech 10' wurde abgeschlossen",
       'research-completed:91',
       expect.anything(),
     );
@@ -522,7 +521,6 @@ describe('ResearchService – completion notifications', () => {
     expect(context.messaging.sendSystem).toHaveBeenCalledTimes(1);
     expect(context.messaging.sendSystem).toHaveBeenCalledWith(
       42,
-      expect.any(String),
       expect.any(String),
       'research-completed:91',
       expect.anything(),
@@ -667,13 +665,13 @@ describe('ResearchService – ship reward completion', () => {
     await ctx.service.processTick(42, 0, production);
     expect(ctx.granter).toHaveBeenCalledWith(42, 10);
     const calls = ctx.messaging.sendSystem.mock.calls.filter(
-      (c: any[]) => c[4] === 'SHIP',
+      (c: any[]) => c[3] === 'SHIP',
     );
     expect(calls).toHaveLength(1);
-    expect(calls[0][2]).toBe(
+    expect(calls[0][1]).toBe(
       'Als Belohnung für den Abschluss der Forschung wurde dir ein Schiff vom Typ Frigate überstellt',
     );
-    expect(calls[0][3]).toBe('research-reward-ship:42:10');
+    expect(calls[0][2]).toBe('research-reward-ship:42:10');
   });
 
   it.each(['no-mapping', 'no-colony', 'already-granted'])(
@@ -683,7 +681,7 @@ describe('ResearchService – ship reward completion', () => {
       await ctx.service.processTick(42, 0, production);
       expect(
         ctx.messaging.sendSystem.mock.calls.filter(
-          (c: any[]) => c[4] === 'SHIP',
+          (c: any[]) => c[3] === 'SHIP',
         ),
       ).toHaveLength(0);
     },

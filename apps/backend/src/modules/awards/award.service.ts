@@ -63,7 +63,6 @@ export class AwardService {
       if (inserted) {
         await this.messagingService.sendSystem(
           userId,
-          'Award erhalten',
           `Du hast den Award ${award.description} erhalten`,
           `award:${award.key}:${userId}`,
         );

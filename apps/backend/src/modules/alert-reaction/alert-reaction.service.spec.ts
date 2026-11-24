@@ -270,14 +270,12 @@ describe('AlertReactionService', () => {
 
     expect(sendSystem).toHaveBeenCalledWith(
       2,
-      'Eigene Schiffe auf Alarm-Rot',
       expect.stringContaining('Kampf in Sektor 2|1'),
       undefined,
       'STATION',
     );
     expect(sendSystem).toHaveBeenCalledWith(
       INCOMING,
-      'Fremde Schiffe auf Alarm-Rot',
       expect.stringContaining('Kampf in Sektor 2|1'),
       undefined,
       'SHIP',

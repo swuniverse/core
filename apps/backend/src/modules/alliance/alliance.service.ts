@@ -117,7 +117,6 @@ const ROLE_CHANGE_ACTION = {
   [NONE]: 'dismiss',
 } as const satisfies Partial<Record<AllianceRole, AllianceMemberAction>>;
 
-const MESSAGE_SUBJECT = 'Allianz';
 const UNKNOWN_NAME = 'Unbekannt';
 
 const ERR = {
@@ -2212,7 +2211,6 @@ export class AllianceService {
       try {
         await this.messaging.sendSystem(
           notification.recipientUserId,
-          MESSAGE_SUBJECT,
           notification.body,
           notification.deliveryKey,
         );
@@ -2602,7 +2600,6 @@ export class AllianceService {
     for (const message of messages) {
       await this.messaging.sendSystem(
         message.to,
-        MESSAGE_SUBJECT,
         message.body,
       );
     }

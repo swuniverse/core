@@ -67,7 +67,6 @@ export class ShipyardCompletionService {
     const onCompleted = async (manager: EntityManager, ship: Spacecraft) => {
       await this.messaging.sendSystem(
         job.userId,
-        retrofit ? 'Schiffsumrüstung abgeschlossen' : 'Schiff fertiggestellt',
         retrofit
           ? `Die Umrüstung von ${ship.name} wurde abgeschlossen.`
           : `${ship.name} wurde fertiggestellt.`,

@@ -92,7 +92,7 @@ describe('trade license renewal, expiry and queries (PostgreSQL)', () => {
       expect(await stock(posts.sameNetwork, buyerId)).toBe(5);
       expect(await stock(posts.licensed, ownerId)).toBe(10);
       expect(await source.getRepository('Message').find()).toMatchObject([
-        { recipientId: ownerId, folder: 'TRADE', subject: 'Handelslizenz verlängert' },
+        { recipientId: ownerId, folder: 'TRADE', body: expect.stringContaining('Handelslizenz verlängert') },
       ]);
     });
 

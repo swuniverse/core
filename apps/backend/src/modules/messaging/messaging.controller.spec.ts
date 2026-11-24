@@ -11,16 +11,12 @@ describe('MessagingController', () => {
 
   it.each([
     [
-      { recipientId: 0, subject: 'Hallo', body: 'Lange Nachricht' },
+      { recipientId: 0, body: 'Lange Nachricht' },
       'Empfänger',
     ],
+    [{ recipientId: 2, body: 'kurz' }, 'Nachricht'],
     [
-      { recipientId: 2, subject: 'x'.repeat(256), body: 'Lange Nachricht' },
-      'Betreff',
-    ],
-    [{ recipientId: 2, subject: 'Hallo', body: 'kurz' }, 'Nachricht'],
-    [
-      { recipientId: 2, subject: 'Hallo', body: 'x'.repeat(10_001) },
+      { recipientId: 2, body: 'x'.repeat(10_001) },
       'Nachricht',
     ],
   ])('validates rejected send input %#', async (input, expectedMessage) => {
@@ -34,7 +30,6 @@ describe('MessagingController', () => {
   it('delegates sending a validated DTO', () => {
     const dto = Object.assign(new SendMessageDto(), {
       recipientId: 2,
-      subject: ' Hallo ',
       body: ' Lange Nachricht ',
     });
 
@@ -43,7 +38,6 @@ describe('MessagingController', () => {
     expect(service.send).toHaveBeenCalledWith(
       1,
       2,
-      ' Hallo ',
       ' Lange Nachricht ',
     );
   });

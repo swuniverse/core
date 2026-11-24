@@ -95,7 +95,6 @@ describe('ThreatReactionService', () => {
       );
       expect(sendSystem).toHaveBeenCalledWith(
         OWNER,
-        'Bedrohungsreaktion',
         expect.stringContaining('Die Schiff 10 versucht die Schiff 20 in Sektor 3|4'),
         undefined,
         'SHIP',

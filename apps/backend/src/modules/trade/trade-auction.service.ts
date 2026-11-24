@@ -70,7 +70,6 @@ export class TradeAuctionService {
         await manager.update(TradeDeal, { id: deal.id }, { auctionAmount: amount });
         await this.messaging.sendSystem(
           highest.userId,
-          'Auktion des Hutten-Kartells',
           `Ein Spieler hat auf eine Auktion des Hutten-Kartells geboten, aber dein Maximalgebot nicht überschritten. Dein Höchstgebot liegt nun bei ${amount} ${this.currencyName(deal)}`,
           undefined, MessageFolder.TRADE, undefined, false, transaction,
         );
@@ -80,7 +79,6 @@ export class TradeAuctionService {
       await this.refund(manager, deal, post, highest.userId, highest.maxAmount, PRESTIGE_TEXT.REVISE_OLD(highest.maxAmount));
       await this.messaging.sendSystem(
         highest.userId,
-        'Auktion des Hutten-Kartells',
         `Du wurdest bei einer Auktion des Hutten-Kartells von ${user.username} überboten und hast ${highest.maxAmount} ${this.currencyName(deal)} zurück bekommen. Das aktuelle Gebot liegt bei: ${highest.maxAmount + 1} ${this.currencyName(deal)}`,
         undefined, MessageFolder.TRADE, undefined, false, transaction,
       );

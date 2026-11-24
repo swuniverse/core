@@ -51,7 +51,6 @@ export interface CreateColonyEventInput {
   userId: number;
   type: ColonyEventType;
   severity?: ColonyEventSeverity;
-  title: string;
   message: string;
   payload?: Record<string, unknown>;
   tickId?: number | null;

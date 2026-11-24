@@ -154,7 +154,7 @@ describe('StationRepairService queue', () => {
     );
     await ctx.service.cancel(100, 1, 7);
     expect(ctx.jobs).toHaveLength(0);
-    expect(ctx.messaging.sendSystem).toHaveBeenCalledWith(2, 'Schiffsreparatur abgebrochen', expect.any(String), undefined, 'SHIP');
+    expect(ctx.messaging.sendSystem).toHaveBeenCalledWith(2, expect.any(String), undefined, 'SHIP');
   });
 
   it('reactivates a stopped queue and shifts the running job by the pause time', async () => {
@@ -200,7 +200,7 @@ describe('StationRepairService tick', () => {
     expect(ctx.ships[7].hull).toBe(400);
     expect(ctx.jobs.map((job) => job.shipId)).toEqual([8]);
     expect(ctx.jobs[0].finishesAt).toBeInstanceOf(Date);
-    expect(ctx.messaging.sendSystem).toHaveBeenCalledWith(2, 'Schiffsreparatur abgeschlossen', expect.any(String), undefined, 'SHIP');
+    expect(ctx.messaging.sendSystem).toHaveBeenCalledWith(2, expect.any(String), undefined, 'SHIP');
     expect(ctx.crewEnhancement.enhanceSpacecraft).toHaveBeenCalledWith(7, 'REPAIR_COMPLETED');
   });
 
@@ -210,7 +210,7 @@ describe('StationRepairService tick', () => {
     await run(ctx);
     expect(ctx.ships[7].hull).toBe(100);
     expect(ctx.jobs.every((job) => job.isStopped && job.stoppedAt)).toBe(true);
-    expect(ctx.messaging.sendSystem).toHaveBeenCalledWith(1, 'Reparatur angehalten', expect.any(String), undefined, 'STATION');
+    expect(ctx.messaging.sendSystem).toHaveBeenCalledWith(1, expect.any(String), undefined, 'STATION');
   });
 
   it('drops a job whose ship has undocked', async () => {
@@ -245,7 +245,7 @@ describe('StationRepairService passive self-repair', () => {
     expect(ctx.station.passiveRepair).toBe(false);
     expect(ctx.cargo[10001].amount).toBe(4);
     expect(ctx.cargo[10002].amount).toBe(4);
-    expect(ctx.messaging.sendSystem).toHaveBeenCalledWith(1, 'Stationsreparatur abgeschlossen', expect.any(String), undefined, 'STATION');
+    expect(ctx.messaging.sendSystem).toHaveBeenCalledWith(1, expect.any(String), undefined, 'STATION');
   });
 
   it('waits without consuming parts when too few workbees are docked', async () => {

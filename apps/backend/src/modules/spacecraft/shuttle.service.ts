@@ -697,7 +697,6 @@ export class ShuttleService {
   ) {
     return this.messaging.sendSystem(
       ship.userId,
-      'Shuttle-Management',
       `${ship.name}: ${text}`,
       undefined,
       ship.kind === 'STATION' ? MessageFolder.STATION : MessageFolder.SHIP,

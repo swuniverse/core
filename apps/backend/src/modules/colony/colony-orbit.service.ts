@@ -207,7 +207,6 @@ export class ColonyOrbitService implements OnModuleInit {
             ? ColonyEventType.ORBIT_BLOCKADE_STOPPED
             : ColonyEventType.ORBIT_DEFENSE_STOPPED,
           severity: ColonyEventSeverity.INFO,
-          title: blockade ? 'Blockade beendet' : 'Verteidigung beendet',
           message: `Die Flotte ${fleetName} von Spieler ${fleet?.user?.username ?? 'Unbekannt'} hat die ${task} der Kolonie ${colonyName} aufgehoben`,
           payload: { fleetId, mode: order.mode },
         });
@@ -215,7 +214,6 @@ export class ColonyOrbitService implements OnModuleInit {
       if (tractor && fleet) {
         await this.messaging?.sendSystem(
           fleet.userId,
-          'Traktorstrahl',
           `Die ${tractor.towedShipName} wurde mit dem Traktorstrahl gezogen, daher hat die Flotte ${fleetName} die ${task} der Kolonie ${colonyName} eingestellt`,
           undefined,
           MessageFolder.SHIP,
@@ -478,7 +476,6 @@ export class ColonyOrbitService implements OnModuleInit {
       if (foreign && result.applied.length > 0) {
         await this.messaging?.sendSystem(
           ship.userId,
-          'Versorgung im Orbit',
           `Die Kolonie ${colony.name} versorgt die ${ship.name}: ${result.applied.join(', ')}`,
           undefined,
           MessageFolder.SHIP,
@@ -637,7 +634,6 @@ export class ColonyOrbitService implements OnModuleInit {
           ? ColonyEventType.ORBIT_BLOCKADE_STOPPED
           : ColonyEventType.ORBIT_DEFENSE_STOPPED,
         severity: ColonyEventSeverity.INFO,
-        title: stoppedBlockade ? 'Blockade beendet' : 'Verteidigung beendet',
         message,
         payload: {
           shipId: ship.id,
@@ -766,7 +762,6 @@ export class ColonyOrbitService implements OnModuleInit {
       severity: startedBlockade
         ? ColonyEventSeverity.WARNING
         : ColonyEventSeverity.INFO,
-      title: startedBlockade ? 'Blockade begonnen' : 'Verteidigung begonnen',
       message,
       payload: { shipId: ship.id, fleetId: fleet.id, mode },
     });
@@ -1056,7 +1051,6 @@ export class ColonyOrbitService implements OnModuleInit {
       userId,
       type: ColonyEventType.SHUTTLES_TRANSFERRED,
       severity: ColonyEventSeverity.INFO,
-      title: 'Shuttles transferiert',
       message: `${ship.name}: Shuttle-Transfer zwischen Kolonie und Schiff durchgeführt.`,
       payload: {
         shipId: ship.id,

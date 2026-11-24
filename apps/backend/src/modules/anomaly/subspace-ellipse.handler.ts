@@ -56,7 +56,6 @@ export class SubspaceEllipseHandler implements AnomalyHandler {
       for (const ownerId of owners) {
         await this.messaging.sendSystem(
           ownerId,
-          'Subraumellipse',
           `In Sektor ${this.sector(location)} ist aufgrund des immensen Energiepotentials eine Subraumellipse entstanden!`,
           undefined, MessageFolder.SYSTEM, undefined, false, transaction,
         );
@@ -107,9 +106,9 @@ export class SubspaceEllipseHandler implements AnomalyHandler {
       reports.set(key, report);
     }
     if (!reports.size) return;
-    const subject = `Subraumellipse in Sektor ${this.sector(await this.loadLocation(manager, anomaly.locationId))}`;
+    const heading = `Subraumellipse in Sektor ${this.sector(await this.loadLocation(manager, anomaly.locationId))}`;
     for (const report of reports.values()) {
-      await this.messaging.sendSystem(report.ownerId, subject, report.lines.join('\n'), undefined, report.folder, undefined, false, transaction);
+      await this.messaging.sendSystem(report.ownerId, [heading, ...report.lines].join('\n'), undefined, report.folder, undefined, false, transaction);
     }
   }
 

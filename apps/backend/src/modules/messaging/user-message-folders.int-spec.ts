@@ -33,7 +33,6 @@ describe('Custom message folders (PostgreSQL)', () => {
       .save({
         senderId: other,
         recipientId: owner,
-        subject: 'Test',
         body: 'Test',
         folder: MessageFolder.PERSONAL,
       });
@@ -63,7 +62,6 @@ describe('Custom message folders (PostgreSQL)', () => {
       .save({
         senderId: other,
         recipientId: owner,
-        subject: 'Two',
         body: 'Two',
       });
     const folder = await service.create(owner, 'Archiv');
@@ -109,7 +107,6 @@ describe('Custom message folders (PostgreSQL)', () => {
       .save({
         senderId: owner,
         recipientId: owner,
-        subject: 'System',
         body: 'System',
         folder: MessageFolder.SYSTEM,
         isSystem: true,
@@ -119,7 +116,6 @@ describe('Custom message folders (PostgreSQL)', () => {
       .save({
         senderId: owner,
         recipientId: other,
-        subject: 'Foreign',
         body: 'Foreign',
       });
     for (const bad of [system.id, foreign.id])

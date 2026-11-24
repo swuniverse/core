@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { Test } from '@nestjs/testing';
 import {
   DataSource,
+  Like,
   type EntitySubscriberInterface,
   type InsertEvent,
 } from 'typeorm';
@@ -809,7 +810,7 @@ describe('Atomic wormhole passage (PostgreSQL)', () => {
         effects: [FieldEffect.WARPDRIVE_LEAK],
       });
     await dataSource.query(
-      `CREATE FUNCTION k7a2_fail_fleet_message() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.subject = 'Schiffsreparatur abgebrochen' THEN RAISE EXCEPTION 'fleet downstream failure'; END IF; RETURN NEW; END $$`,
+      `CREATE FUNCTION k7a2_fail_fleet_message() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.body LIKE '%laufende Reparatur abgebrochen%' THEN RAISE EXCEPTION 'fleet downstream failure'; END IF; RETURN NEW; END $$`,
     );
     await dataSource.query(
       'CREATE TRIGGER k7a2_fail_fleet_message BEFORE INSERT ON messages FOR EACH ROW EXECUTE FUNCTION k7a2_fail_fleet_message()',
@@ -1030,7 +1031,7 @@ describe('Atomic wormhole passage (PostgreSQL)', () => {
     ).toMatchObject([{ layerId: wormhole.exitLayerId, cx: 3, cy: 4 }]);
     expect(await dataSource.getRepository(FlightSignature).count()).toBe(2);
     expect(await dataSource.getRepository(Message).find()).toMatchObject([
-      { subject: 'Wurmloch durchflogen' },
+      { body: expect.stringContaining('Wurmloch durchflogen') },
     ]);
     expect(await dataSource.getRepository(ShipLogEntry).count()).toBe(1);
     expect(gateway.emitToUser).toHaveBeenCalledTimes(1);
@@ -1377,7 +1378,7 @@ describe('Atomic wormhole passage (PostgreSQL)', () => {
     const subscriber: EntitySubscriberInterface<Message> = {
       listenTo: () => Message,
       afterInsert: async (event: InsertEvent<Message>) => {
-        if (event.entity.subject !== 'Wurmloch durchflogen') return;
+        if (!event.entity.body.endsWith('Wurmloch durchflogen')) return;
         reached();
         await barrier;
       },
@@ -1486,7 +1487,7 @@ describe('Atomic wormhole passage (PostgreSQL)', () => {
     expect(
       await dataSource
         .getRepository(Message)
-        .count({ where: { subject: 'Übernahme abgebrochen' } }),
+        .count({ where: { body: Like('Die Übernahme wurde abgebrochen%') } }),
     ).toBe(2);
     expect(
       (
@@ -1600,7 +1601,7 @@ describe('Atomic wormhole passage (PostgreSQL)', () => {
         completesAt: new Date(Date.now() + 60000),
       });
     await dataSource.query(
-      `CREATE FUNCTION k7a2_fail_message() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.subject = 'Schiffsreparatur abgebrochen' THEN RAISE EXCEPTION 'downstream cancellation failure'; END IF; RETURN NEW; END $$`,
+      `CREATE FUNCTION k7a2_fail_message() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.body LIKE '%laufende Reparatur abgebrochen%' THEN RAISE EXCEPTION 'downstream cancellation failure'; END IF; RETURN NEW; END $$`,
     );
     await dataSource.query(
       `CREATE TRIGGER k7a2_fail_message BEFORE INSERT ON messages FOR EACH ROW EXECUTE FUNCTION k7a2_fail_message()`,
@@ -1866,7 +1867,7 @@ describe('Atomic wormhole passage (PostgreSQL)', () => {
     expect(
       await dataSource
         .getRepository(Message)
-        .count({ where: { subject: 'Schiffsreparatur abgebrochen' } }),
+        .count({ where: { body: Like('%laufende Reparatur abgebrochen%') } }),
     ).toBe(1);
   });
 
@@ -1921,8 +1922,8 @@ describe('Atomic wormhole passage (PostgreSQL)', () => {
     expect(
       await dataSource.getRepository(Message).find({ order: { id: 'ASC' } }),
     ).toMatchObject([
-      { recipientId: ship.userId, subject: 'Feldeffekt' },
-      { recipientId: ship.userId, subject: 'Wurmloch durchflogen' },
+      { recipientId: ship.userId, body: expect.not.stringContaining('Wurmloch') },
+      { recipientId: ship.userId, body: expect.stringContaining('Wurmloch durchflogen') },
     ]);
   });
 

@@ -8489,7 +8489,6 @@ describe('ship repair queues', () => {
     expect(queue.mode).toBe('REPAIR');
     expect(messagingService.sendSystem).toHaveBeenCalledWith(
       1,
-      'Schiffsreparatur gestartet',
       expect.stringContaining('Damaged Corvette'),
       expect.stringMatching(/^colony-ship-repair-started:/),
       'SHIP',
@@ -8700,7 +8699,6 @@ describe('ship repair queues', () => {
     expect(spacecraftStatsService.applyStats).toHaveBeenCalled();
     expect(messagingService.sendSystem).not.toHaveBeenCalledWith(
       expect.anything(),
-      'Schiffsreparatur abgeschlossen',
       expect.anything(),
       expect.anything(),
       'SHIP',
@@ -8725,7 +8723,6 @@ describe('ship repair queues', () => {
     expect(ship.hull).toBe(250);
     expect(messagingService.sendSystem).toHaveBeenCalledWith(
       1,
-      'Schiffsreparatur abgeschlossen',
       expect.stringContaining('Damaged Corvette'),
       'colony-ship-repair-completed:99',
       'SHIP',

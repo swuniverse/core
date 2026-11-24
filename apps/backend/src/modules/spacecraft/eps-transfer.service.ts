@@ -103,7 +103,6 @@ export class EpsTransferService {
     if (result.foreign) {
       await this.messaging.sendSystem(
         result.recipientId,
-        'Energietransfer',
         result.text,
         undefined,
         MessageFolder.TRADE,

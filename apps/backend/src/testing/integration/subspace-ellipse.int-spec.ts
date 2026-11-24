@@ -244,7 +244,7 @@ describe('subspace ellipse in the main tick', () => {
     expect(await ships.findOneByOrFail({ id: drained.id })).toMatchObject({ shields: 0, runtimeSystems: { SHIELDS: { integrity: 30 } } });
     const messages = await source.getRepository('Message').find();
     expect(messages).toHaveLength(1);
-    expect(messages[0].body).toBe('Drained\n- der Schildemitter wurde um 10% beschädigt');
+    expect(messages[0].body).toBe('Subraumellipse in Sektor 1|1\nDrained\n- der Schildemitter wurde um 10% beschädigt');
   });
 
   it('bundles one ship report and one station report per owner', async () => {
@@ -267,8 +267,8 @@ describe('subspace ellipse in the main tick', () => {
     await new AnomalyService(source, registry).processTick(1);
     const messages = await source.getRepository('Message').find({ order: { folder: 'ASC' } });
     expect(messages).toMatchObject([
-      { folder: 'SHIP', subject: 'Subraumellipse in Sektor 2|3', body: 'One\n- die Schilde wurden entladen\n- der Schildemitter wurde um 5% beschädigt\nTwo\n- die Schilde wurden entladen\n- der Schildemitter wurde um 5% beschädigt' },
-      { folder: 'STATION', subject: 'Subraumellipse in Sektor 2|3', body: 'Base\n- die Schilde wurden entladen\n- der Schildemitter wurde um 5% beschädigt' },
+      { folder: 'SHIP', body: 'Subraumellipse in Sektor 2|3\nOne\n- die Schilde wurden entladen\n- der Schildemitter wurde um 5% beschädigt\nTwo\n- die Schilde wurden entladen\n- der Schildemitter wurde um 5% beschädigt' },
+      { folder: 'STATION', body: 'Subraumellipse in Sektor 2|3\nBase\n- die Schilde wurden entladen\n- der Schildemitter wurde um 5% beschädigt' },
     ]);
   });
 

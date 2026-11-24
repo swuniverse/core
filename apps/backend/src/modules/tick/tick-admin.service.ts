@@ -86,12 +86,11 @@ export class TickAdminService {
       where: { isAdmin: true },
       select: { id: true },
     });
-    const body = `Typ: ${run.tickType}\nTick: ${run.tickNumber}\nFehler: ${run.error ?? 'Unbekannter Fehler'}`;
+    const body = `Tick fehlgeschlagen\nTyp: ${run.tickType}\nTick: ${run.tickNumber}\nFehler: ${run.error ?? 'Unbekannter Fehler'}`;
     await Promise.all(
       admins.map((admin) =>
         this.messagingService.sendSystem(
           admin.id,
-          'Tick fehlgeschlagen',
           body,
           `tick-failed:${run.tickType}:${run.tickNumber}:${admin.id}`,
         ),

@@ -163,7 +163,6 @@ describe('SpacecraftEngineeringService', () => {
     expect(foreignTarget.reactorFuel).toBe(5);
     expect(messaging.sendSystem).toHaveBeenCalledWith(
       2,
-      'Reaktorladungstransfer',
       expect.stringContaining('Delta'),
       undefined,
       expect.anything(),

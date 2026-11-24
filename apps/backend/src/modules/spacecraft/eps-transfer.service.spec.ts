@@ -106,7 +106,6 @@ describe('EpsTransferService', () => {
     expect(manager.save).toHaveBeenCalledWith([source, target]);
     expect(messaging.sendSystem).toHaveBeenCalledWith(
       11,
-      'Energietransfer',
       expect.stringContaining('4 Energie in die Batterie der Beta'),
       undefined,
       'TRADE',

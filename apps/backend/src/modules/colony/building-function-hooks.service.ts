@@ -204,7 +204,6 @@ export class BuildingFunctionHooksService {
         userId: job.userId,
         type,
         severity: ColonyEventSeverity.WARNING,
-        title: 'Fabrikationsauftrag storniert',
         message: `${job.itemKey} (${job.amount}) wurde storniert. Erstattet: ${refunded.join(', ') || 'nichts'}.`,
         payload: { queueId: job.id, itemKey: job.itemKey, amount: job.amount },
       });
@@ -300,7 +299,6 @@ export class BuildingFunctionHooksService {
       userId: job.userId,
       type,
       severity: ColonyEventSeverity.WARNING,
-      title,
       message: `${job.name} wurde ${title.endsWith('pausiert') ? 'pausiert' : 'storniert'}.`,
       payload: { queueId: job.id, shipClassId: job.shipClassId, mode: job.mode },
     });

@@ -115,7 +115,7 @@ export interface RankingEntry {
 
 export interface InboxMessage {
   id: number;
-  subject: string;
+  body: string;
   isRead: boolean;
   isSystem: boolean;
   sender?: { username: string };

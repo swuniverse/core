@@ -98,7 +98,6 @@ export class TradeLicensePurchaseService {
       const buyer = await manager.findOneBy(User, { id: userId });
       await this.messaging.sendSystem(
         post.ownerId,
-        'Handelslizenz verkauft',
         free
           ? `${buyer?.username ?? 'Ein Siedler'} hat am ${post.name} über das Handelsabkommen eine Handelslizenz erhalten.`
           : `${buyer?.username ?? 'Ein Siedler'} hat am ${post.name} eine Handelslizenz gekauft.`,
@@ -164,7 +163,6 @@ export class TradeLicensePurchaseService {
       const buyer = await manager.findOneBy(User, { id: userId });
       await this.messaging.sendSystem(
         post.ownerId,
-        'Handelslizenz verlängert',
         `${buyer?.username ?? 'Ein Siedler'} hat am ${post.name} eine Handelslizenz verlängert.`,
         undefined,
         MessageFolder.TRADE,

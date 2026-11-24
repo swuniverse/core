@@ -137,7 +137,6 @@ export class StationShipManagementService {
     for (const notice of notices) {
       await this.messaging.sendSystem(
         notice.ownerId,
-        'Versorgung an Station',
         notice.text,
         undefined,
         MessageFolder.STATION,

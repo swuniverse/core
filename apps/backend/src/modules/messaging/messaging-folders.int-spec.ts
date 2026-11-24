@@ -138,29 +138,25 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
       messages.create({
         senderId: users.han.id,
         recipientId: users.leia.id,
-        subject: 'Ungelesen',
-        body: 'private Nachricht',
+        body: 'Ungelesen',
       }),
       messages.create({
         senderId: users.han.id,
         recipientId: users.leia.id,
-        subject: 'Gelesen',
-        body: 'private Nachricht',
+        body: 'Gelesen',
         isRead: true,
       }),
       messages.create({
         senderId: users.leia.id,
         recipientId: users.leia.id,
-        subject: 'System',
-        body: 'Systemmeldung',
+        body: 'System',
         isSystem: true,
         folder: MessageFolder.SYSTEM,
       }),
       messages.create({
         senderId: users.leia.id,
         recipientId: users.han.id,
-        subject: 'Gesendet',
-        body: 'Ausgang',
+        body: 'Gesendet',
       }),
     ]);
 
@@ -186,22 +182,19 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
       messages.create({
         senderId: users.han.id,
         recipientId: users.leia.id,
-        subject: 'Erste persönliche Nachricht',
-        body: 'one',
+        body: 'Erste persönliche Nachricht',
       }),
     );
     await messages.save([
       messages.create({
         senderId: users.han.id,
         recipientId: users.leia.id,
-        subject: 'Zweite persönliche Nachricht',
-        body: 'two',
+        body: 'Zweite persönliche Nachricht',
       }),
       messages.create({
         senderId: users.leia.id,
         recipientId: users.leia.id,
-        subject: 'Systemnachricht',
-        body: 'system',
+        body: 'Systemnachricht',
         isSystem: true,
         folder: MessageFolder.SYSTEM,
       }),
@@ -216,14 +209,14 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
         limit: 20,
       },
     });
-    expect(personal.body.data.map((message: Message) => message.subject)).toEqual([
+    expect(personal.body.data.map((message: Message) => message.body)).toEqual([
       'Zweite persönliche Nachricht',
       'Erste persönliche Nachricht',
     ]);
 
     const system = await call('leia', '/messages/folders/SYSTEM');
     expect(system).toMatchObject({ status: 200, body: { total: 1 } });
-    expect(system.body.data.map((message: Message) => message.subject)).toEqual([
+    expect(system.body.data.map((message: Message) => message.body)).toEqual([
       'Systemnachricht',
     ]);
 
@@ -234,8 +227,7 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
       messages.create({
         senderId: users.han.id,
         recipientId: users.han.id,
-        subject: 'Hans persönliche Nachricht',
-        body: 'private',
+        body: 'Hans persönliche Nachricht',
       }),
     );
     const leiaCannotOpenHansMessage = await call(
@@ -258,8 +250,7 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
         messages.create({
           senderId: users.han.id,
           recipientId: users.leia.id,
-          subject: `Persönlich ${index}`,
-          body: 'private Nachricht',
+          body: `Persönlich ${index}`,
         }),
       );
     }
@@ -267,8 +258,7 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
       messages.create({
         senderId: users.leia.id,
         recipientId: users.leia.id,
-        subject: 'Systemnachricht',
-        body: 'system',
+        body: 'Systemnachricht',
         isSystem: true,
         folder: MessageFolder.SYSTEM,
       }),
@@ -281,7 +271,7 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
       body: { total: 21, page: 2, limit: 20 },
     });
     expect(response.body.data).toHaveLength(1);
-    expect(response.body.data[0]).toMatchObject({ subject: 'Persönlich 1' });
+    expect(response.body.data[0]).toMatchObject({ body: 'Persönlich 1' });
   });
 
   it('requires authentication for folder summaries and folder messages', async () => {
@@ -297,20 +287,17 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
       messages.create({
         senderId: users.han.id,
         recipientId: users.leia.id,
-        subject: 'Erste persönliche Nachricht',
-        body: 'one',
+        body: 'Erste persönliche Nachricht',
       }),
       messages.create({
         senderId: users.han.id,
         recipientId: users.leia.id,
-        subject: 'Zweite persönliche Nachricht',
-        body: 'two',
+        body: 'Zweite persönliche Nachricht',
       }),
       messages.create({
         senderId: users.leia.id,
         recipientId: users.leia.id,
-        subject: 'Systemnachricht',
-        body: 'system',
+        body: 'Systemnachricht',
         isSystem: true,
         folder: MessageFolder.SYSTEM,
       }),
@@ -341,16 +328,14 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
       messages.create({
         senderId: users.han.id,
         recipientId: users.leia.id,
-        subject: 'Persönlich',
-        body: 'one',
+        body: 'Persönlich',
       }),
     );
     const system = await messages.save(
       messages.create({
         senderId: users.leia.id,
         recipientId: users.leia.id,
-        subject: 'System',
-        body: 'system',
+        body: 'System',
         isSystem: true,
         folder: MessageFolder.SYSTEM,
       }),
@@ -359,8 +344,7 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
       messages.create({
         senderId: users.han.id,
         recipientId: users.han.id,
-        subject: 'Hans Nachricht',
-        body: 'private',
+        body: 'Hans Nachricht',
       }),
     );
 
@@ -389,16 +373,14 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
       messages.create({
         senderId: users.han.id,
         recipientId: users.leia.id,
-        subject: 'Leias Nachricht',
-        body: 'one',
+        body: 'Leias Nachricht',
       }),
     );
     const otherUser = await messages.save(
       messages.create({
         senderId: users.han.id,
         recipientId: users.han.id,
-        subject: 'Hans Nachricht',
-        body: 'two',
+        body: 'Hans Nachricht',
       }),
     );
 

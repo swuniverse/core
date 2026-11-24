@@ -254,7 +254,6 @@ describe('HolonetService public behavior', () => {
     expect(requestRepo.save).not.toHaveBeenCalled();
     expect(messagingService.sendSystem).toHaveBeenCalledWith(
       authorId,
-      'Antrag auf RPG-Plot-Zuordnung',
       expect.stringContaining('Fremder Beitrag'),
       'holonet-plot-post-request:51:author',
       undefined,
@@ -311,7 +310,6 @@ describe('HolonetService public behavior', () => {
     expect(requestRepo.save).toHaveBeenCalledTimes(1);
     expect(messagingService.sendSystem).toHaveBeenCalledWith(
       authorId,
-      'Antrag auf RPG-Plot-Zuordnung',
       expect.stringContaining('Fremder Beitrag'),
       'holonet-plot-post-request:51:author',
       undefined,
@@ -365,7 +363,6 @@ describe('HolonetService public behavior', () => {
 
     expect(messagingService.sendSystem).toHaveBeenCalledWith(
       voterId,
-      'RPG-Plot-Antrag angenommen',
       expect.stringContaining('Fremder Beitrag'),
       'holonet-plot-post-request:51:requester',
       undefined,
@@ -435,7 +432,6 @@ describe('HolonetService public behavior', () => {
     expect(request.status).toBe('ACCEPTED');
     expect(messagingService.sendSystem).toHaveBeenCalledWith(
       voterId,
-      'RPG-Plot-Antrag angenommen',
       expect.stringContaining('Fremder Beitrag'),
       'holonet-plot-post-request:51:requester',
       undefined,
@@ -593,7 +589,6 @@ describe('HolonetService public behavior', () => {
     expect(messagingService.sendSystem).toHaveBeenCalledTimes(2);
     expect(messagingService.sendSystem).toHaveBeenCalledWith(
       authorId,
-      'Neuer Kommentar auf: Titel',
       expect.stringContaining('Kommentator'),
       undefined,
       undefined,
@@ -601,7 +596,6 @@ describe('HolonetService public behavior', () => {
     );
     expect(messagingService.sendSystem).toHaveBeenCalledWith(
       33,
-      'Neuer Kommentar auf: Titel',
       expect.stringContaining('ebenfalls kommentiert'),
       undefined,
       undefined,

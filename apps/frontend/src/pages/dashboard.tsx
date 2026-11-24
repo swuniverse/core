@@ -336,7 +336,7 @@ export function DashboardPage() {
       .get<{
         data: Array<{
           id: number;
-          subject: string;
+          body: string;
           isRead: boolean;
           isSystem: boolean;
           sender?: { username: string };

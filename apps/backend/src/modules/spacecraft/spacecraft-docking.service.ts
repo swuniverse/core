@@ -43,7 +43,7 @@ type Outcome = {
     ships: Array<Pick<Spacecraft, 'id' | 'userId' | 'name'>>;
   };
   /** System message to send after the commit. */
-  notice?: { userId: number; subject: string; body: string };
+  notice?: { userId: number; body: string };
   /** Per-ship result of a fleet action. */
   results?: SpacecraftDockShipResultDto[];
 };
@@ -188,8 +188,7 @@ export class SpacecraftDockingService {
         cancelled: await this.repairService.cancelTasks(manager, [target.id]),
         notice: {
           userId: target.userId,
-          subject: 'Traktorstrahl',
-          body: `Die ${target.name} wurde an der Station ${station.name} angedockt`,
+          body: `Die ${target.name} wurde per Traktorstrahl an der Station ${station.name} angedockt`,
         },
       };
     });
@@ -207,7 +206,7 @@ export class SpacecraftDockingService {
       );
     }
     if (outcome.notice) {
-      await this.messaging.sendSystem(outcome.notice.userId, outcome.notice.subject, outcome.notice.body);
+      await this.messaging.sendSystem(outcome.notice.userId, outcome.notice.body);
     }
     return {
       message: outcome.message,

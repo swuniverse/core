@@ -191,7 +191,6 @@ export class SpacecraftEngineeringService {
     for (const notice of outcome.notices) {
       await this.messaging.sendSystem(
         notice.userId,
-        'Reaktorladungstransfer',
         `Die ${outcome.source.name} hat in Sektor ${outcome.location ? `${outcome.location.x}|${outcome.location.y}` : '?'} den Reaktor der ${notice.targetName} aufgeladen`,
         undefined,
         MessageFolder.TRADE,

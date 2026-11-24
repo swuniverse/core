@@ -75,7 +75,6 @@ export class SpacecraftIonStormEffects implements IonStormEffects {
       const destroyed = isSpacecraftDestroyed(ship);
       await this.deps.messaging.sendSystem(
         ship.userId,
-        'Ionensturm',
         info.join('\n'),
         undefined,
         ship.kind === SpacecraftKind.STATION ? MessageFolder.STATION : MessageFolder.SHIP,
@@ -102,7 +101,6 @@ export class SpacecraftIonStormEffects implements IonStormEffects {
     messages.push(...info);
     await this.deps.messaging.sendSystem(
       ship.userId,
-      'Ionensturm',
       `${ship.name}: ${info.join('\n')}`,
       undefined,
       MessageFolder.SHIP,

@@ -45,7 +45,7 @@ describe('MessagesPage folders', () => {
           data: [
             {
               id: 11,
-              subject: 'Private Nachricht',
+              body: 'Private Nachricht',
               isRead: false,
               isSystem: false,
               createdAt: '2026-10-13T12:00:00.000Z',
@@ -63,7 +63,6 @@ describe('MessagesPage folders', () => {
       if (url === '/messages/11') {
         return Promise.resolve({
           id: 11,
-          subject: 'Private Nachricht',
           body: 'Bitte antworten.',
           isRead: false,
           isSystem: false,
@@ -81,6 +80,8 @@ describe('MessagesPage folders', () => {
     renderPage();
 
     expect(await screen.findByText('Private Nachricht')).toBeTruthy();
+    expect(screen.getAllByText('Leia').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Betreff/)).toBeNull();
     expect(
       screen.getByRole('button', { name: /Persönlich/ }).textContent,
     ).toContain('1/2');
@@ -101,8 +102,8 @@ describe('MessagesPage folders', () => {
       if (url === '/messages/folders/outbox?page=1') {
         return Promise.resolve({
           data: [
-            { id: 21, subject: 'Gelesen', isSystem: false, readReceipt: true, createdAt: '2026-10-13T12:00:00.000Z', recipient: { username: 'Leia' } },
-            { id: 22, subject: 'Offen', isSystem: false, readReceipt: false, createdAt: '2026-10-13T12:00:00.000Z', recipient: { username: 'Han' } },
+            { id: 21, body: 'Gelesen', isSystem: false, readReceipt: true, createdAt: '2026-10-13T12:00:00.000Z', recipient: { username: 'Leia' } },
+            { id: 22, body: 'Offen', isSystem: false, readReceipt: false, createdAt: '2026-10-13T12:00:00.000Z', recipient: { username: 'Han' } },
           ],
           total: 2,
           page: 1,
@@ -136,7 +137,7 @@ describe('MessagesPage folders', () => {
           data: [
             {
               id: 12,
-              subject: 'Schildgenerator ausgefallen',
+              body: 'Schildgenerator ausgefallen',
               isRead: false,
               isSystem: true,
               createdAt: '2026-10-13T12:00:00.000Z',
@@ -151,7 +152,6 @@ describe('MessagesPage folders', () => {
       if (url === '/messages/12') {
         return Promise.resolve({
           id: 12,
-          subject: 'Schildgenerator ausgefallen',
           body: 'Sofortiger Einsatz erforderlich.',
           isRead: false,
           isSystem: true,
@@ -182,7 +182,7 @@ describe('MessagesPage folders', () => {
       if (url === '/messages/folders') return Promise.resolve(folders);
       if (url === '/messages/folders/personal?page=1') {
         return Promise.resolve({
-          data: [{ id: 31, subject: 'Verlinkte Meldung', isRead: true, isSystem: true, createdAt: '2026-10-13T12:00:00.000Z' }],
+          data: [{ id: 31, body: 'Verlinkte Meldung', isRead: true, isSystem: true, createdAt: '2026-10-13T12:00:00.000Z' }],
           total: 1,
           page: 1,
           limit: 20,
@@ -191,7 +191,6 @@ describe('MessagesPage folders', () => {
       if (url === '/messages/31') {
         return Promise.resolve({
           id: 31,
-          subject: 'Verlinkte Meldung',
           body: 'Ziel öffnen.',
           isRead: true,
           isSystem: true,
@@ -236,7 +235,7 @@ describe('MessagesPage folders', () => {
           data: [
             {
               id: 11,
-              subject: 'Private Nachricht',
+              body: 'Private Nachricht',
               isRead: false,
               isSystem: false,
               createdAt: '2026-10-13T12:00:00.000Z',
@@ -251,7 +250,6 @@ describe('MessagesPage folders', () => {
       if (url === '/messages/11') {
         return Promise.resolve({
           id: 11,
-          subject: 'Private Nachricht',
           body: 'Bitte antworten.',
           isRead: false,
           isSystem: false,
@@ -292,7 +290,7 @@ describe('MessagesPage folders', () => {
           data: [
             {
               id: 11,
-              subject: 'Private Nachricht',
+              body: 'Private Nachricht',
               isRead: false,
               isSystem: false,
               createdAt: '2026-10-13T12:00:00.000Z',
@@ -341,7 +339,7 @@ describe('MessagesPage folders', () => {
           data: [
             {
               id: 13,
-              subject: 'Gesendete Nachricht',
+              body: 'Gesendete Nachricht',
               isRead: true,
               isSystem: false,
               createdAt: '2026-10-13T12:00:00.000Z',
@@ -378,7 +376,7 @@ describe('MessagesPage folders', () => {
           data: [
             {
               id: 11,
-              subject: 'Private Nachricht',
+              body: 'Private Nachricht',
               isRead: false,
               isSystem: false,
               createdAt: '2026-10-13T12:00:00.000Z',
@@ -386,7 +384,7 @@ describe('MessagesPage folders', () => {
             },
             {
               id: 12,
-              subject: 'Zweite Nachricht',
+              body: 'Zweite Nachricht',
               isRead: false,
               isSystem: false,
               createdAt: '2026-10-13T12:00:00.000Z',
@@ -459,7 +457,7 @@ describe('MessagesPage folders', () => {
         return Promise.resolve({
           data: [{
             id: 11,
-            subject: 'Private Nachricht',
+            body: 'Private Nachricht',
             isRead: false,
             isSystem: false,
             createdAt: '2026-10-13T12:00:00.000Z',
@@ -473,7 +471,6 @@ describe('MessagesPage folders', () => {
       if (url === '/messages/11') {
         return Promise.resolve({
           id: 11,
-          subject: 'Private Nachricht',
           body: 'Bitte antworten.',
           isRead: false,
           isSystem: false,
@@ -486,7 +483,6 @@ describe('MessagesPage folders', () => {
       if (url === '/messages/correspondence/7') {
         return Promise.resolve([{
           id: 10,
-          subject: 'Frühere Nachricht',
           body: '[b]Alter Verlauf[/b]',
           isRead: true,
           isSystem: false,
@@ -552,7 +548,8 @@ describe('MessagesPage folders', () => {
     fireEvent.change(await screen.findByLabelText('Kontakt wählen'), {
       target: { value: '7' },
     });
-    expect(screen.getByPlaceholderText('Username eingeben...')).toHaveProperty('value', 'Leia');
+    expect(screen.getByLabelText('Empfänger (Siedler-ID)')).toHaveProperty('value', '7');
+    expect(screen.getAllByText('Leia').length).toBeGreaterThan(0);
   });
 
   it('toggles both one-sided contact permissions independently and keeps failed changes closed', async () => {
@@ -629,9 +626,7 @@ describe('MessagesPage folders', () => {
     await waitFor(() => expect(api.get).toHaveBeenCalledWith('/messages/folders'));
     api.post.mockImplementationOnce(() => Promise.reject(new Error('Der Text ist zu kurz')));
 
-    fireEvent.change(screen.getByLabelText('Betreff'), {
-      target: { value: 'Status' },
-    });
+    expect(screen.queryByLabelText('Betreff')).toBeNull();
     fireEvent.change(screen.getByLabelText('Nachricht'), {
       target: { value: 'Entwurf bleibt erhalten' },
     });
@@ -639,11 +634,29 @@ describe('MessagesPage folders', () => {
 
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/messages', {
       recipientId: 7,
-      subject: 'Status',
       body: 'Entwurf bleibt erhalten',
     }));
     expect((await screen.findByRole('alert')).textContent).toContain('Der Text ist zu kurz');
     expect(screen.getByDisplayValue('Entwurf bleibt erhalten')).toBeTruthy();
+  });
+
+  it('resolves a typed settler id to the recipient name and sends to it', async () => {
+    api.post.mockResolvedValue(undefined);
+    api.get.mockImplementation((url: string) => {
+      if (url === '/messages/folders') return Promise.resolve(folders);
+      if (url === '/database/settlers/9') return Promise.resolve({ id: 9, username: 'Wedge' });
+      return Promise.resolve({ data: [], total: 0, page: 1, limit: 20 });
+    });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Nachricht verfassen' }));
+    fireEvent.change(await screen.findByLabelText('Empfänger (Siedler-ID)'), { target: { value: '9' } });
+    expect(await screen.findByText('Wedge')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Nachricht'), { target: { value: 'Hallo Wedge' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Senden' }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/messages', { recipientId: 9, body: 'Hallo Wedge' }));
+    expect(api.get).not.toHaveBeenCalledWith(expect.stringContaining('/user/search'));
   });
 
   it('refreshes the folder summary after sending a message', async () => {
@@ -666,8 +679,8 @@ describe('MessagesPage folders', () => {
     });
     renderPage('/messages?tab=compose&to=7&name=Leia');
 
-    fireEvent.change(screen.getByLabelText('Betreff'), {
-      target: { value: 'Status' },
+    fireEvent.change(screen.getByLabelText('Nachricht'), {
+      target: { value: 'Statusbericht' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Senden' }));
 
@@ -692,7 +705,7 @@ describe('MessagesPage messenger inbox', () => {
       if (url === '/messages/folders') return Promise.resolve(folders);
       if (url === '/messages/conversations?page=1') {
         return Promise.resolve({
-          data: [{ partnerId: 7, partner: { username: 'Leia', avatar: null, faction: null }, subject: 'Private Nachricht', body: 'Bitte antworten.', createdAt: '2026-10-13T12:00:00.000Z', unread: 1 }],
+          data: [{ partnerId: 7, partner: { username: 'Leia', avatar: null, faction: null }, body: 'Bitte antworten.', createdAt: '2026-10-13T12:00:00.000Z', unread: 1 }],
           total: 1,
           page: 1,
           limit: 20,
@@ -710,7 +723,7 @@ describe('MessagesPage messenger inbox', () => {
     expect(screen.getByText('Bitte antworten.')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Leia/ }));
 
-    expect((await screen.findByPlaceholderText('Username eingeben...') as HTMLInputElement).value).toBe('Leia');
+    expect((await screen.findByLabelText('Empfänger (Siedler-ID)') as HTMLInputElement).value).toBe('7');
     await waitFor(() =>
       expect(api.get).toHaveBeenCalledWith('/messages/correspondence/7'),
     );

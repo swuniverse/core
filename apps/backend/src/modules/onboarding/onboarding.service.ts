@@ -541,7 +541,6 @@ Viel Erfolg bei Deinen ersten Schritten.
 
     await this.messagingService.sendSystem(
       userId,
-      `Willkommen – ${commandName}`,
       body,
       `welcome:${userId}`,
     );

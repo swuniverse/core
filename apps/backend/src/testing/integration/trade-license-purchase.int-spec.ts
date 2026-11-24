@@ -89,7 +89,7 @@ describe('trade license purchase (PostgreSQL)', () => {
     expect(await source.getRepository('CargoItem').findOneByOrFail({ spacecraftId: payer.id })).toMatchObject({ amount: 15 });
     expect(await ownerCredit()).toBe(10);
     expect(await source.getRepository('Message').find()).toMatchObject([
-      { recipientId: ownerId, folder: 'TRADE', subject: 'Handelslizenz verkauft' },
+      { recipientId: ownerId, folder: 'TRADE', body: expect.stringContaining('eine Handelslizenz') },
     ]);
     expect(emitted).toEqual([[ownerId, expect.any(String)]]);
   });

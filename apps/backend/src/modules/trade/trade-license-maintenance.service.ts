@@ -54,7 +54,6 @@ export class TradeLicenseMaintenanceService implements MaintenanceHandler {
       for (const license of expired) {
         await this.messaging.sendSystem(
           license.userId,
-          'Handelslizenz abgelaufen',
           `Deine Lizenz am Handelsposten ${postNames.get(license.tradePostId) ?? license.tradePostId} ist abgelaufen.${offers.get(license.tradePostId) ?? ''}`,
           undefined,
           MessageFolder.SYSTEM,
@@ -69,7 +68,6 @@ export class TradeLicenseMaintenanceService implements MaintenanceHandler {
         const days = Math.floor((license.expiresAt.getTime() - now.getTime()) / DAY_MS) + 1;
         await this.messaging.sendSystem(
           license.userId,
-          'Handelslizenz läuft ab',
           `Deine Lizenz am Handelsposten ${postNames.get(license.tradePostId) ?? license.tradePostId} läuft in weniger als ${days} ${days === 1 ? 'Tag' : 'Tagen'} ab.${offers.get(license.tradePostId) ?? ''}`,
           undefined,
           MessageFolder.SYSTEM,

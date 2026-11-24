@@ -334,7 +334,6 @@ export class StationScrappingService {
   ) {
     return this.messaging.sendSystem(
       station.userId,
-      'Stationsdemontage',
       `${station.name}: ${text}`,
       undefined,
       MessageFolder.STATION,

@@ -166,7 +166,6 @@ describe('ColonyOrbitService orbital management (STU ShowOrbitManagement)', () =
     expect(friend.colony.changeable.energy).toBe(95);
     expect(friend.messaging.sendSystem).toHaveBeenCalledWith(
       2,
-      'Versorgung im Orbit',
       expect.stringContaining('Batterie: +5'),
       undefined,
       'SHIP',

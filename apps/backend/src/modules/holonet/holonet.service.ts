@@ -269,7 +269,6 @@ export class HolonetService {
     if (post.authorId === null) return;
     await this.messagingService.sendSystem(
       post.authorId,
-      'Antrag auf RPG-Plot-Zuordnung',
       `Spieler #${requesterId} möchte deinen Beitrag "${post.title}" dem Plot "${plot.title}" zuordnen.`,
       `holonet-plot-post-request:${requestId}:author`,
       undefined,
@@ -280,7 +279,6 @@ export class HolonetService {
   private async notifyPlotPostRequestRequester(request: PlotPostRequest): Promise<void> {
     await this.messagingService.sendSystem(
       request.requesterId,
-      'RPG-Plot-Antrag angenommen',
       `Dein Antrag für den Beitrag "${request.post.title}" wurde angenommen.`,
       `holonet-plot-post-request:${request.id}:requester`,
       undefined,
@@ -455,7 +453,6 @@ export class HolonetService {
     if (post.authorId === null) return;
     await this.messagingService.sendSystem(
       post.authorId,
-      'HoloNet-Beitrag gelöscht',
       `Der HoloNet-Beitrag mit der ID ${post.id} wurde vom Admin ${admin.username} gelöscht.${normalizedReason ? ` Begründung: ${normalizedReason}` : ''}`,
     );
   }
@@ -524,10 +521,9 @@ export class HolonetService {
       const isAuthor = recipientId === post.authorId;
       await this.messagingService.sendSystem(
         recipientId,
-        `Neuer Kommentar auf: ${post.title}`,
         isAuthor
-          ? `${commenter?.username || 'Unbekannt'} hat kommentiert: ${normalizedBody}`
-          : `${commenter?.username || 'Unbekannt'} hat einen HoloNet-Beitrag ebenfalls kommentiert: ${normalizedBody}`,
+          ? `${commenter?.username || 'Unbekannt'} hat deinen HoloNet-Beitrag "${post.title}" kommentiert: ${normalizedBody}`
+          : `${commenter?.username || 'Unbekannt'} hat den HoloNet-Beitrag "${post.title}" ebenfalls kommentiert: ${normalizedBody}`,
         undefined,
         undefined,
         { kind: MessageTargetKind.HOLONET_POST, id: post.id },
@@ -647,7 +643,6 @@ export class HolonetService {
     for (const [ownerId, character] of owners) {
       await this.messagingService.sendSystem(
         ownerId,
-        'Charakter im HoloNet erwähnt',
         `Dein Charakter ${character.name} wurde im HoloNet-Beitrag ${post.title} erwähnt`,
         `holonet-character:${post.id}:${ownerId}`,
         undefined,
@@ -682,7 +677,6 @@ export class HolonetService {
         .map((member) =>
           this.messagingService.sendSystem(
             member.userId,
-            'Neuer RPG-Plot-Beitrag',
             text,
             `rpg-plot-post:${post.id}:${member.userId}`,
           ),

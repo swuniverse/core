@@ -256,7 +256,7 @@ describe('Hutt Cartel deals (PostgreSQL)', () => {
       expect(await service.notifyStarted(now)).toEqual({ deals: 0, recipients: 0 });
 
       const messages = await source.getRepository('Message').find();
-      expect(messages).toMatchObject([{ recipientId: player.id, folder: 'TRADE', subject: 'Neue Deals beim Hutten-Kartell' }]);
+      expect(messages).toMatchObject([{ recipientId: player.id, folder: 'TRADE', body: expect.stringContaining('bietet neue Deals an') }]);
       expect(messages.map((message) => message.recipientId)).not.toContain(unlicensed.id);
 
       expect(await service.notifyStarted(new Date(now.getTime() + HOUR_MS + 1000))).toEqual({ deals: 1, recipients: 2 });

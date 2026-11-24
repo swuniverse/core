@@ -73,7 +73,6 @@ describe('AwardService', () => {
     );
     expect(messaging.sendSystem).toHaveBeenCalledWith(
       7,
-      'Award erhalten',
       'Du hast den Award Gewinner der Hutten-Lotterie erhalten',
       'award:LOTTERY_WINNER:7',
     );

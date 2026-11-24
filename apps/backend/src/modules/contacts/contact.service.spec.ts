@@ -68,7 +68,7 @@ describe('ContactService', () => {
 
     expect(created).toMatchObject({ userId: owner.id, contactUserId: target.id, contactUsername: 'Han', mode: ContactMode.FRIEND, comment: '' });
     expect(await service.list(owner.id)).toEqual([created]);
-    expect(messaging.sendSystem).toHaveBeenCalledWith(target.id, 'Kontaktstatus geändert', 'Der Siedler betrachtet Dich von nun an als Freund');
+    expect(messaging.sendSystem).toHaveBeenCalledWith(target.id, 'Der Siedler betrachtet Dich von nun an als Freund');
   });
 
   it.each([
@@ -86,7 +86,7 @@ describe('ContactService', () => {
   it('changes mode, edits comments, and validates both', async () => {
     const created = await service.create(owner.id, { playerId: target.id, mode: ContactMode.NEUTRAL });
     await service.updateMode(owner.id, created.id, ContactMode.ENEMY);
-    expect(messaging.sendSystem).toHaveBeenLastCalledWith(target.id, 'Kontaktstatus geändert', 'Der Siedler betrachtet Dich von nun an als Feind');
+    expect(messaging.sendSystem).toHaveBeenLastCalledWith(target.id, 'Der Siedler betrachtet Dich von nun an als Feind');
     expect((await service.updateComment(owner.id, created.id, ' smuggler ')).comment).toBe('smuggler');
     await expect(service.updateComment(owner.id, created.id, 'x'.repeat(256))).rejects.toThrow('Der Kommentar darf höchstens 255 Zeichen lang sein');
     await expect(service.updateMode(owner.id, created.id, 'ALLY' as ContactMode)).rejects.toThrow('Ungültiger Kontaktmodus');

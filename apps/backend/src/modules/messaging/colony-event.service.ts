@@ -52,7 +52,6 @@ export class ColonyEventService {
     const values = {
       senderId: input.userId,
       recipientId: input.userId,
-      subject: input.title,
       body: input.message,
       isSystem: true,
       folder: MessageFolder.COLONY,
@@ -97,7 +96,6 @@ export class ColonyEventService {
         return {
           type: ColonyEventType.BUILDING_DEACTIVATED,
           severity: ColonyEventSeverity.WARNING,
-          title: 'Gebäude deaktiviert',
           message: `${event.buildingName ?? 'Gebäude'} wurde deaktiviert (${event.reason ?? 'Mangel'}).`,
           payload: { ...event },
         };
@@ -105,7 +103,6 @@ export class ColonyEventService {
         return {
           type: ColonyEventType.STORAGE_FULL,
           severity: ColonyEventSeverity.WARNING,
-          title: 'Lager voll',
           message: 'Das Lager der Kolonie ist voll.',
           payload: { ...event },
         };
@@ -113,7 +110,6 @@ export class ColonyEventService {
         return {
           type: ColonyEventType.BUILDING_FINISHED,
           severity: ColonyEventSeverity.INFO,
-          title: 'Gebäude fertiggestellt',
           message:
             (event.activated
               ? `${event.buildingName ?? 'Gebäude'} wurde fertiggestellt und aktiviert.`
@@ -127,7 +123,6 @@ export class ColonyEventService {
         return {
           type: ColonyEventType.TERRAFORMING_FINISHED,
           severity: ColonyEventSeverity.INFO,
-          title: 'Geoengineering abgeschlossen',
           message: `Geoengineering auf Feld ${event.fieldIndex ?? '?'} wurde abgeschlossen.`,
           payload: { ...event },
         };
@@ -135,7 +130,6 @@ export class ColonyEventService {
         return {
           type: ColonyEventType.WRECK_REPAIRED,
           severity: ColonyEventSeverity.INFO,
-          title: 'Wrack repariert',
           message: `Das Wrack auf Feld ${event.fieldIndex ?? '?'} wurde repariert${event.reason ? `: ${event.reason} liegt im Inventar` : ''}.`,
           payload: { ...event },
         };
@@ -143,7 +137,6 @@ export class ColonyEventService {
         return {
           type: ColonyEventType.DOME_FINISHED,
           severity: ColonyEventSeverity.INFO,
-          title: 'Kuppel fertiggestellt',
           message: `Die Kuppel auf Feld ${event.fieldIndex ?? '?'} wurde fertiggestellt.`,
           payload: { ...event },
         };
@@ -151,7 +144,6 @@ export class ColonyEventService {
         return {
           type: ColonyEventType.CREW_LIMIT_EXCEEDED,
           severity: ColonyEventSeverity.WARNING,
-          title: 'Crewlimit überschritten',
           message: `${event.amount ?? 0} Crew hat die Kolonie wegen Limitüberschreitung verlassen.`,
           payload: { ...event },
         };
@@ -159,7 +151,6 @@ export class ColonyEventService {
         return {
           type: event.type as ColonyEventType,
           severity: ColonyEventSeverity.INFO,
-          title: event.type,
           message: event.reason ?? event.type,
           payload: { ...event },
         };

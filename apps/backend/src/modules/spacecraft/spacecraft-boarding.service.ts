@@ -74,14 +74,12 @@ export class SpacecraftBoardingService {
     await Promise.all([
       this.messaging.sendSystem(
         result.attackerUserId,
-        'Enterversuch',
         result.message,
         undefined,
         MessageFolder.SHIP,
       ),
       this.messaging.sendSystem(
         result.targetUserId,
-        'Enterversuch',
         result.message,
         undefined,
         MessageFolder.SHIP,

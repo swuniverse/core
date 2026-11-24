@@ -154,7 +154,6 @@ export class ColonySettingsService {
       userId,
       type: ColonyEventType.WASTE_DISCARDED,
       severity: ColonyEventSeverity.INFO,
-      title: 'Waren entsorgt',
       message: `Es wurden ${discarded
         .map((item) => `${item.amount} ${item.name}`)
         .join(', ')} entsorgt.`,

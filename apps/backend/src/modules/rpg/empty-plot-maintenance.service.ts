@@ -42,7 +42,6 @@ export class EmptyPlotMaintenanceService implements MaintenanceHandler {
           for (const member of members) {
             await this.messages.sendSystem(
               member.userId,
-              'Plot gelöscht',
               `Der Plot "${plot.title}" wurde gelöscht, da er veraltet ist und keine Beiträge enthält.`,
               undefined,
               undefined,

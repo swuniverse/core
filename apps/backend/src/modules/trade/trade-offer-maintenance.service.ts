@@ -70,7 +70,7 @@ export class TradeOfferMaintenanceService implements MaintenanceHandler {
       }
       await manager.delete(TradeOffer, { id: In(offers.map((offer) => offer.id)) });
       for (const [userId, text] of lines) {
-        await this.messaging.sendSystem(userId, 'Angebote verfallen', text.join('\n'), undefined, MessageFolder.TRADE, undefined, false, {
+        await this.messaging.sendSystem(userId, text.join('\n'), undefined, MessageFolder.TRADE, undefined, false, {
           manager,
           afterCommit,
         });

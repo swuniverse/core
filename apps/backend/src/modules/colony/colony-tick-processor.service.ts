@@ -112,7 +112,6 @@ export class ColonyTickProcessorService {
           userId: job.userId,
           type: ColonyEventType.CREW_TRAINING_CANCELLED,
           severity: ColonyEventSeverity.WARNING,
-          title: 'Crewausbildung abgebrochen',
           message:
             reason === 'LOCAL_CREW_LIMIT'
               ? 'Die Crewausbildung wurde wegen des lokalen Crewlimits abgebrochen.'
@@ -704,7 +703,6 @@ export class ColonyTickProcessorService {
       userId: colony.userId,
       type: ColonyEventType.EMIGRATION,
       severity: ColonyEventSeverity.INFO,
-      title: 'Auswanderung',
       message,
       payload: { amount, reason },
     });

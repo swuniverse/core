@@ -187,7 +187,6 @@ export class DockingPrivilegeService implements OnModuleInit {
     for (const ship of foreign) {
       await this.messagingService.sendSystem(
         station.userId,
-        `Fremdes Schiff angedockt: ${station.name}`,
         `Die ${ship.name} von ${ownerName(ship.userId)} hat an der Station ${station.name} angedockt.`,
         undefined,
         MessageFolder.STATION,

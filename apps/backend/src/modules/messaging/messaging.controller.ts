@@ -40,13 +40,6 @@ export class SendMessageDto implements SharedSendMessageDto {
   recipientId: number;
 
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  @IsString({ message: 'Der Betreff muss Text sein' })
-  @MaxLength(255, {
-    message: 'Der Betreff darf höchstens 255 Zeichen lang sein',
-  })
-  subject: string;
-
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'Die Nachricht muss Text sein' })
   @MinLength(5, {
     message: 'Die Nachricht muss mindestens 5 Zeichen lang sein',
@@ -220,7 +213,6 @@ export class MessagingController {
     return this.messagingService.send(
       req.user.sub,
       dto.recipientId,
-      dto.subject,
       dto.body,
     );
   }

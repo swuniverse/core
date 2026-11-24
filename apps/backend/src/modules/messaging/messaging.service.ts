@@ -261,7 +261,6 @@ export class MessagingService {
               avatar: partner.avatar,
               faction: partner.faction,
             },
-            subject: message.subject,
             body: message.body.slice(0, 255),
             createdAt: message.createdAt,
             unread: Number(row.unread),
@@ -277,7 +276,6 @@ export class MessagingService {
   async send(
     senderId: number,
     recipientId: number,
-    subject: string,
     body: string,
   ): Promise<Message> {
     if (senderId === recipientId) {
@@ -294,7 +292,6 @@ export class MessagingService {
     const message = this.messageRepo.create({
       senderId,
       recipientId,
-      subject: subject.trim(),
       body: body.trim(),
       folder: MessageFolder.PERSONAL,
     });
@@ -308,7 +305,6 @@ export class MessagingService {
   async sendNpcTrade(
     senderId: number,
     recipientId: number,
-    subject: string,
     body: string,
   ): Promise<Message> {
     const [sender, recipient] = await Promise.all([
@@ -322,8 +318,7 @@ export class MessagingService {
       this.messageRepo.create({
         senderId,
         recipientId,
-        subject: subject.trim(),
-        body: body.trim(),
+          body: body.trim(),
         folder: MessageFolder.TRADE,
       }),
     );
@@ -331,7 +326,6 @@ export class MessagingService {
 
   async sendSystem(
     recipientId: number,
-    subject: string,
     body: string,
     deliveryKey?: string,
     folder: MessageFolder = MessageFolder.SYSTEM,
@@ -350,7 +344,6 @@ export class MessagingService {
       const message = repository.create({
         senderId: recipientId,
         recipientId,
-        subject,
         body,
         isRead: markRead,
         isSystem: true,
@@ -370,7 +363,6 @@ export class MessagingService {
       .values({
         senderId: recipientId,
         recipientId,
-        subject,
         body,
         isSystem: true,
         folder,
@@ -401,7 +393,6 @@ export class MessagingService {
    */
   async sendSystemToMany(
     recipientIds: number[],
-    subject: string,
     body: string,
     deliveryKey: (recipientId: number) => string,
   ): Promise<number[]> {
@@ -417,7 +408,6 @@ export class MessagingService {
           chunk.map((recipientId) => ({
             senderId: recipientId,
             recipientId,
-            subject,
             body,
             isSystem: true,
             folder: MessageFolder.SYSTEM,

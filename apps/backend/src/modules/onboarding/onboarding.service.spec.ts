@@ -207,7 +207,6 @@ describe('OnboardingService', () => {
 
       expect(messagingService.sendSystem).toHaveBeenCalledWith(
         7,
-        `Willkommen – ${commandName}`,
         expect.stringMatching(/Kolonie[\s\S]*Forschung[\s\S]*HoloNet[\s\S]*Datenbank[\s\S]*Allianz/),
         'welcome:7',
       );

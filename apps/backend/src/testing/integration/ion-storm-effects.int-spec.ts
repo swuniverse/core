@@ -124,7 +124,7 @@ describe('ion storm effects on spacecraft (PostgreSQL)', () => {
 
     const messages = await source.getRepository('Message').find({ order: { id: 'ASC' } });
     expect(messages).toHaveLength(2);
-    expect(messages[0]).toMatchObject({ folder: 'SHIP', subject: 'Ionensturm', targetId: ship.id });
+    expect(messages[0]).toMatchObject({ folder: 'SHIP', body: expect.stringContaining('Ionensturm'), targetId: ship.id });
     expect(messages[0].body).toBe([
       'Die Falke in Sektor 3|2 befindet sich in einem gefährlichen Ionensturm.',
       '- Hüllenschaden: 12 - Status: 88',
@@ -177,7 +177,7 @@ describe('ion storm effects on spacecraft (PostgreSQL)', () => {
       'Der Hyperantrieb ist ausgefallen und kann vorerst nicht mehr aktiviert werden',
       '- Schildschaden: 14 - Status: 16',
     ]);
-    expect(await source.getRepository('Message').find()).toMatchObject([{ folder: 'SHIP', subject: 'Ionensturm', targetId: ship.id }]);
+    expect(await source.getRepository('Message').find()).toMatchObject([{ folder: 'SHIP', body: expect.stringContaining('Ionensturm'), targetId: ship.id }]);
   });
 
   it('destroys a ship whose hull does not survive the entry through the destruction service', async () => {

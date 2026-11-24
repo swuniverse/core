@@ -135,7 +135,7 @@ describe('SpacecraftRepairService', () => {
     await ctx.service.processTick(ctx.state.ship as any);
     expect(ctx.state.module.integrity).toBe(35);
     expect(ctx.state.task).toBeNull();
-    expect(ctx.messaging.sendSystem).toHaveBeenCalledWith(7, 'Schiffsreparatur abgeschlossen', expect.stringContaining('35'));
+    expect(ctx.messaging.sendSystem).toHaveBeenCalledWith(7, expect.stringContaining('35'));
   });
 
   it('aborts a due repair without enough crew (STU RepairTaskJobs)', async () => {
@@ -153,7 +153,7 @@ describe('SpacecraftRepairService', () => {
     await ctx.service.processTick(ctx.state.ship as any);
     expect(ctx.state.module.integrity).toBe(before);
     expect(ctx.state.task).toBeNull();
-    expect(ctx.messaging.sendSystem).toHaveBeenCalledWith(7, 'Schiffsreparatur abgebrochen', expect.stringContaining('Crew'));
+    expect(ctx.messaging.sendSystem).toHaveBeenCalledWith(7, expect.stringContaining('Crew'));
   });
 
   it('cancels all moving fleet members, refunds them transactionally and notifies', async () => {
@@ -185,6 +185,6 @@ describe('SpacecraftRepairService', () => {
     );
     await ctx.service.cancelForFlight(1);
     expect(ctx.manager.remove).toHaveBeenCalledWith(job);
-    expect(ctx.messaging.sendSystem).toHaveBeenCalledWith(7, 'Schiffsreparatur abgebrochen', expect.any(String));
+    expect(ctx.messaging.sendSystem).toHaveBeenCalledWith(7, expect.any(String));
   });
 });

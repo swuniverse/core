@@ -395,7 +395,7 @@ describe('SpacecraftDockingService', () => {
       expect(st.energy).toBe(2);
       expect(st.tractoredShipId).toBeNull();
       expect(st.runtimeSystems.TRACTOR_BEAM.active).toBe(false);
-      expect(messaging.sendSystem).toHaveBeenCalledWith(2, 'Traktorstrahl', 'Die Beute wurde an der Station Station angedockt');
+      expect(messaging.sendSystem).toHaveBeenCalledWith(2, 'Die Beute wurde per Traktorstrahl an der Station Station angedockt');
     });
 
     it.each([

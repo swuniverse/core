@@ -861,7 +861,6 @@ export class ColonyService {
       userId,
       type: ColonyEventType.SHIELDS_LOADED,
       severity: ColonyEventSeverity.INFO,
-      title: 'Schilde geladen',
       message: `Kolonieschilde wurden um ${loaded} Punkte geladen.`,
       payload: {
         amount: loaded,
@@ -1082,7 +1081,6 @@ export class ColonyService {
       userId,
       type: ColonyEventType.SHIP_LANDED,
       severity: ColonyEventSeverity.INFO,
-      title: 'Schiff gelandet',
       message: `${ship.name} ist auf der Kolonie gelandet.`,
       payload: {
         shipId: ship.id,
@@ -1278,7 +1276,6 @@ export class ColonyService {
       userId,
       type: ColonyEventType.HANGAR_SHIP_STARTED,
       severity: ColonyEventSeverity.INFO,
-      title: 'Hangarschiff gestartet',
       message: `${savedShip.name} wurde aus dem Hangar gestartet.`,
       payload: {
         shipId: savedShip.id,

@@ -56,7 +56,6 @@ export class TradeDealNotificationService {
       for (const user of recipients) {
         await this.messaging.sendSystem(
           user.id,
-          'Neue Deals beim Hutten-Kartell',
           'Das Hutten-Kartell bietet neue Deals an. Du findest sie im Handel unter „Hutten-Deals“.',
           undefined,
           MessageFolder.TRADE,

@@ -105,10 +105,10 @@ describe('DockingPrivilegeService', () => {
     expect(messaging.sendSystem).toHaveBeenCalledTimes(1);
     const args = (messaging.sendSystem.mock.calls[0] as unknown[]);
     expect(args[0]).toBe(1);
-    expect(args[2]).toContain('Falke');
-    expect(args[2]).toContain('Pilot');
-    expect(args[4]).toBe('STATION');
-    expect(args[6]).toBe(true);
+    expect(args[1]).toContain('Falke');
+    expect(args[1]).toContain('Pilot');
+    expect(args[3]).toBe('STATION');
+    expect(args[5]).toBe(true);
   });
 
   it('bulk-checks foreign stations for the nearby dock action', async () => {

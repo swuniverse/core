@@ -388,7 +388,6 @@ export class WormholePassageService {
           );
           await this.messaging.sendSystem(
             userId,
-            'Wurmloch durchflogen',
             `${ship.name}: Wurmloch durchflogen`,
             undefined,
             MessageFolder.SHIP,

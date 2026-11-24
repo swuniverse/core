@@ -268,7 +268,7 @@ describe('alert reactions during flight (PostgreSQL)', () => {
       energy: 48,
     });
     expect(await dataSource.getRepository(FlightSignature).count()).toBe(4);
-    expect(fixture.messages.sendSystem.mock.calls.map(([userId, subject]) => [userId, subject])).toEqual([
+    expect(fixture.messages.sendSystem.mock.calls.map(([userId, body]) => [userId, String(body).split('\n')[0]])).toEqual([
       [rival.id, 'Eigene Schiffe auf Alarm-Gelb'],
       [pilot.id, 'Fremde Schiffe auf Alarm-Gelb'],
     ]);

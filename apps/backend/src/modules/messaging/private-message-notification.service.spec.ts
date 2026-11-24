@@ -45,7 +45,7 @@ describe('Private message email', () => {
     const notify = jest.fn();
     const repo = { create: (v: unknown) => v, save: jest.fn(async (v) => ({ id: 42, ...v })) };
     const messaging = new MessagingService(repo as never, users as never, { countEvent: jest.fn() } as never, { emitToUser: jest.fn() } as never, settings as never, { notify } as never);
-    await messaging.send(1, 2, ' Betreff ', ' voller Text ');
+    await messaging.send(1, 2, ' voller Text ');
     expect(notify).toHaveBeenCalledWith(1, 2, 'voller Text');
   });
   it('removes name BBCode and never mails an NPC recipient', async () => {
@@ -81,7 +81,7 @@ describe('Private message email', () => {
       service,
     );
     await expect(
-      messaging.send(1, 2, 'secret subject', 'secret body'),
+      messaging.send(1, 2, 'secret body'),
     ).resolves.toMatchObject({ id: 42 });
     await Promise.resolve();
     rejectMail(new Error('SMTP failed'));
@@ -99,12 +99,12 @@ describe('Private message email', () => {
       settings as never,
       notification as never,
     );
-    await messaging.sendSystem(2, 'System', 'Text');
+    await messaging.sendSystem(2, 'Text');
     users.findOneBy.mockImplementation(async ({ id }) => ({
       id,
       isNpc: id === 1,
     }));
-    await messaging.sendNpcTrade(1, 2, 'Handel', 'Text');
+    await messaging.sendNpcTrade(1, 2, 'Text');
     expect(notification.notify).not.toHaveBeenCalled();
   });
 });

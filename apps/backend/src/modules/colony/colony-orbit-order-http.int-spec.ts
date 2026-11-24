@@ -9,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { DataSource, type DataSourceOptions } from 'typeorm';
+import { DataSource, Like, type DataSourceOptions } from 'typeorm';
 import { ContactMode } from '@swuniverse/shared';
 import { AppModule } from '../../app.module';
 import {
@@ -663,7 +663,7 @@ describe('Ship-based colony orbit orders through the production application (Pos
       expect(await orders()).toEqual([]);
       expect((await ownerEvents(target.id)).at(-1)).toMatchObject({ originEventType: 'ORBIT_DEFENSE_STOPPED' });
       const tractorMessages = await source.getRepository(Message).find({
-        where: { recipientId: actorId, subject: 'Traktorstrahl' },
+        where: { recipientId: actorId, body: Like('%Traktorstrahl%') },
       });
       expect(tractorMessages.map((message) => message.body)).toEqual([
         `Die ${leader.name} wurde mit dem Traktorstrahl gezogen, daher hat die Flotte ${fleet.name} die Verteidigung der Kolonie ${target.name} eingestellt`,

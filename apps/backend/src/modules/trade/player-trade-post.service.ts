@@ -156,7 +156,6 @@ export class PlayerTradePostService {
       )) {
         await this.messaging.sendSystem(
           ownerId,
-          'Crew aus Handelsposten evakuiert',
           `Deine Crew am Handelsposten "${post.name}" hat den zerstörten Posten in Rettungskapseln verlassen.`,
           undefined,
           MessageFolder.SYSTEM,
@@ -170,7 +169,6 @@ export class PlayerTradePostService {
     for (const userId of holders) {
       await this.messaging.sendSystem(
         userId,
-        'Handelsposten zerstört',
         `Der Handelsposten "${post.name}" bei ${coordinates} wurde zerstört. Deine Waren und Angebote dort sind verloren.`,
         undefined,
         MessageFolder.TRADE,
@@ -212,7 +210,6 @@ export class PlayerTradePostService {
       for (const holderId of holders) {
         await this.messaging.sendSystem(
           holderId,
-          'Handelsposten verlassen',
           `Der Handelsposten "${post.name}" bei den Koordinaten ${coordinates} wurde verlassen. Du solltest deine Waren hier schleunigst abholen, sonst gehen sie verloren.`,
           undefined,
           MessageFolder.TRADE,
