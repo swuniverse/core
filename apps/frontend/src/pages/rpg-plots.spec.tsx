@@ -145,3 +145,23 @@ it('shows plot details and lets the creator manage writers', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Han entfernen' }));
   await waitFor(() => expect(apiMocks.delete).toHaveBeenCalledWith('/rpg/plots/11/members/8'));
 });
+
+it('offers a quick PM to other writers but not to the own account', async () => {
+  apiMocks.get.mockImplementation((url: string) =>
+    url === '/rpg/plots/11'
+      ? Promise.resolve(plot)
+      : Promise.resolve({ data: [], total: 0, page: 1, limit: 20 }),
+  );
+
+  render(
+    <MemoryRouter initialEntries={['/holonet/plots/11']}>
+      <Routes>
+        <Route path="/holonet/plots/:id" element={<RpgPlotDetailPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Nachricht an Han schreiben' }));
+  expect(screen.getByText(/Empfänger:/).textContent).toContain('(8)');
+  expect(screen.queryByRole('button', { name: 'Nachricht an Leia schreiben' })).toBeNull();
+});

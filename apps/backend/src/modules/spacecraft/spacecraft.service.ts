@@ -4111,7 +4111,7 @@ export class SpacecraftService {
               posY: location.y,
               isAbandoned: false,
             },
-            relations: ['celestialObject', 'fields'],
+            relations: ['celestialObject', 'fields', 'user'],
           })
         : null;
     const shipClass = colony
@@ -4242,6 +4242,7 @@ export class SpacecraftService {
             planetName: colony.celestialObject?.name ?? colony.name,
             classId: colony.celestialObject?.classId ?? null,
             isOwn: colony.userId === userId,
+            owner: colony.user ? { id: colony.user.id, name: colony.user.username } : null,
             canLand,
             canSurfaceScan,
             canAttack,

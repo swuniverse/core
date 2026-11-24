@@ -14,7 +14,7 @@ export function QuickPmDialog({
   onClose,
 }: {
   recipient: { id?: number; name: string };
-  nearby?: { shipId: number; targetId: number; targetName: string };
+  nearby?: { shipId: number; targetId: number; targetName: string; targetType?: 'COLONY' };
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -45,7 +45,7 @@ export function QuickPmDialog({
       if (nearby) {
         await api.post(
           `/spacecraft/${nearby.shipId}/communications/nearby/${nearby.targetId}`,
-          { body },
+          { body, targetType: nearby.targetType },
         );
       } else {
         await api.post('/messages', {

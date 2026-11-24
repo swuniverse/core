@@ -24,6 +24,7 @@ import { ColonizationDialog } from './ColonizationDialog';
 import { TransferDialog } from './TransferDialog';
 import { ColonyScanDialog, type ColonyScan } from './ColonyScanDialog';
 import { CombatReportDialog } from './CombatReportDialog';
+import { QuickPmDialog } from '../messaging/QuickPmDialog';
 
 type SectorScanResult = {
   field: {
@@ -121,6 +122,7 @@ export function FieldContextPanel({
     message: string | null;
   } | null>(null);
   const [colonyScan, setColonyScan] = useState<ColonyScan | null>(null);
+  const [colonyPmOpen, setColonyPmOpen] = useState(false);
   const [attackSelection, setAttackSelection] = useState(false);
   const [combatReport, setCombatReport] = useState<any | null>(null);
   const [colonizationOpen, setColonizationOpen] = useState(false);
@@ -853,6 +855,19 @@ export function FieldContextPanel({
                     {context.colony.name}
                   </span>
                 )}
+                {!context.colony.isOwn && context.colony.owner && (
+                  <button
+                    type="button"
+                    onClick={() => setColonyPmOpen(true)}
+                    title={`Nachricht an ${context.colony.owner.name} verfassen`}
+                  >
+                    <img
+                      src="/assets/buttons/msg1.png"
+                      alt="Nachricht"
+                      className="inline size-4"
+                    />
+                  </button>
+                )}
               </div>
               <button
                 type="button"
@@ -1052,6 +1067,18 @@ export function FieldContextPanel({
             Besitzer: <span className="text-swu-primary">{analysedBuoy.ownerName}</span>
           </p>
         </Dialog>
+      )}
+      {colonyPmOpen && context?.colony?.owner && (
+        <QuickPmDialog
+          recipient={context.colony.owner}
+          nearby={{
+            shipId,
+            targetId: context.colony.id,
+            targetName: context.colony.name,
+            targetType: 'COLONY',
+          }}
+          onClose={() => setColonyPmOpen(false)}
+        />
       )}
       {colonyScan && (
         <ColonyScanDialog

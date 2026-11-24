@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import { TradePage } from './trade';
+import { useAuthStore } from '../stores/auth.store';
 import { formatDateTime } from '../lib/format';
 
 const apiMocks = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() }));
@@ -378,6 +379,37 @@ describe('TradePage', () => {
       expect(apiMocks.post).toHaveBeenCalledWith('/trade/posts/1/licenses/renewal', { accountPostId: 3 }),
     );
     expect(await screen.findByRole('status')).toHaveProperty('textContent', 'Handelslizenz wurde verlängert');
+  });
+
+  it('offers a quick PM to the post operator except for the own account', async () => {
+    useAuthStore.setState({ user: { id: 9 } as never });
+    const { unmount } = renderPage('/trade?tab=posts');
+    expect(await screen.findByText('Verborgener Posten')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Nachricht an Hutten-Kartell schreiben' })).toBeNull();
+    unmount();
+
+    useAuthStore.setState({ user: { id: 1 } as never });
+    renderPage('/trade?tab=posts');
+    fireEvent.click(await screen.findByRole('button', { name: 'Nachricht an Hutten-Kartell schreiben' }));
+    expect(screen.getByText(/Empfänger:/).textContent).toContain('(9)');
+    useAuthStore.setState({ user: null });
+  });
+
+  it('offers a quick PM to license holders except for the own account', async () => {
+    useAuthStore.setState({ user: { id: 5 } as never });
+    serveMenu({ isOwner: true }, {
+      '/trade/posts/1/licenses': [
+        { id: 9, userId: 4, username: 'Lando', startsAt: '2026-11-12T10:00:00.000Z', expiresAt: '2026-12-12T10:00:00.000Z' },
+        { id: 10, userId: 5, username: 'Selbst', startsAt: '2026-11-12T10:00:00.000Z', expiresAt: '2026-12-12T10:00:00.000Z' },
+      ],
+    });
+    renderPage('/trade?tab=posts&post=1');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Nachricht an Lando schreiben' }));
+    expect(screen.getByText(/Empfänger:/).textContent).toContain('(4)');
+    expect(screen.getByText('Selbst')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Nachricht an Selbst schreiben' })).toBeNull();
+    useAuthStore.setState({ user: null });
   });
 
   it('lets only the post owner manage the condition and see issued licenses', async () => {

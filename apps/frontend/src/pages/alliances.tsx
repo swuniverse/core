@@ -1,3 +1,4 @@
+import { PmLink } from '../components/PmLink';
 import { PlayerName } from '../components/PlayerName';
 import { AllianceDepotsPanel } from '../components/alliance/AllianceDepotsPanel';
 import {
@@ -499,6 +500,7 @@ function AllianceMembersSection({
                 />
                 <PlayerName name={member.name} playerId={member.userId} />
               </Link>
+              <PmLink playerId={member.userId} playerName={member.name} />
               {member.roleTitle && (
                 <span className="border border-swu-accent/50 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-swu-accent">
                   {member.roleTitle}

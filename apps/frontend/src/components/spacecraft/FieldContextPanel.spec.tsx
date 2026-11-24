@@ -127,6 +127,52 @@ describe('FieldContextPanel', () => {
     });
   });
 
+  describe('quick PM to the colony in orbit', () => {
+    const colonyContext = (colony: object) => ({
+      wormholePassages: [],
+      coordinates: { x: 3, y: 4 },
+      starSystem: null,
+      colony: {
+        id: 30, name: 'Kolonie', planetName: 'Planet', isOwn: false,
+        owner: { id: 2, name: 'Nachbar' }, canLand: false, canSurfaceScan: false,
+        ...colony,
+      },
+      information: { canSectorScan: false, cartographyKnown: false },
+    });
+    const renderColony = (colony: object) =>
+      render(
+        <MemoryRouter>
+          <FieldContextPanel shipId={7} context={colonyContext(colony)} onUpdate={vi.fn()} />
+        </MemoryRouter>,
+      );
+
+    it('sends from the ship to the foreign colony owner', async () => {
+      apiMocks.post.mockResolvedValue({ delivered: true });
+      renderColony({});
+
+      fireEvent.click(screen.getByTitle('Nachricht an Nachbar verfassen'));
+      expect(screen.getByText(/Empfänger:/).textContent).toContain('Nachbar');
+      fireEvent.change(screen.getByLabelText('Nachricht an Kolonie'), { target: { value: 'Hallo' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Absenden' }));
+
+      await waitFor(() =>
+        expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/7/communications/nearby/30', {
+          body: 'Hallo',
+          targetType: 'COLONY',
+        }),
+      );
+    });
+
+    it.each([
+      ['an own colony', { isOwn: true, owner: { id: 1, name: 'Ich' } }],
+      ['an ownerless colony', { owner: null }],
+    ])('offers no message for %s', (_label, colony) => {
+      renderColony(colony);
+
+      expect(screen.queryByTitle(/Nachricht an .* verfassen/)).toBeNull();
+    });
+  });
+
   it('shows active anomalies with name and remaining duration', () => {
     render(
       <MemoryRouter>

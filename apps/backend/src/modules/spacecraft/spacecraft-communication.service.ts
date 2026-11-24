@@ -162,43 +162,23 @@ export class SpacecraftCommunicationService {
     }));
   }
 
+  /**
+   * Quick PM with context: source = own ship/station (path id), target = a
+   * foreign ship/station or (`COLONY`) a foreign colony on the same field.
+   * The target owner becomes the recipient.
+   */
   async sendNearbyMessage(
     shipId: number,
     userId: number,
-    targetShipId: number,
+    targetId: number,
     body: string,
+    targetType: 'SPACECRAFT' | 'COLONY' = 'SPACECRAFT',
   ) {
-    const [source, target] = await Promise.all([
-      this.requireShip(shipId, userId, true),
-      this.shipRepo.findOne({
-        where: { id: targetShipId },
-        relations: ['location', 'location.galaxyField', 'location.systemField'],
-      }),
-    ]);
-    if (
-      !target ||
-      target.status === SpacecraftStatus.DESTROYED ||
-      target.userId === userId
-    ) {
-      throw new BadRequestException('Empfänger nicht verfügbar');
-    }
-    const sourceSystems = this.runtimeState.initialize(source);
-    const context = buildNearbyInteractionContext(
-      source,
-      sourceSystems,
-      target,
-      this.runtimeState.initialize(target),
-    );
-    const decision = decideNearbyInteraction('MESSAGE', context);
-    if (!decision.allowed) {
-      throw new BadRequestException(
-        !context.samePosition
-          ? 'Empfänger befindet sich nicht auf diesem Feld'
-          : context.sourceInHyperspace || context.targetInHyperspace
-            ? 'Nachrichten sind im Hyperraum nicht möglich'
-            : (decision.reason ?? 'Nachricht nicht möglich'),
-      );
-    }
+    const source = await this.requireShip(shipId, userId, true);
+    const target =
+      targetType === 'COLONY'
+        ? await this.requireNearbyColony(source, userId, targetId)
+        : await this.requireNearbySpacecraft(source, userId, targetId);
     const text = body.trim();
     if (!text || text.length > 1000) {
       throw new BadRequestException(
@@ -216,7 +196,7 @@ export class SpacecraftCommunicationService {
       this.logRepo.create({
         spacecraftId: source.id,
         authorId: userId,
-        body: `[DIRECT:${target.id}] ${text}`,
+        body: `[DIRECT:${target.logTag}] ${text}`,
         // A message to one player must not show up in other players' scans.
         isPrivate: true,
       }),
@@ -226,6 +206,52 @@ export class SpacecraftCommunicationService {
       new Logger(SpacecraftCommunicationService.name).error('Crew experience for nearby message failed', error),
     );
     return { delivered: true };
+  }
+
+  private async requireNearbySpacecraft(source: Spacecraft, userId: number, targetShipId: number) {
+    const target = await this.shipRepo.findOne({
+      where: { id: targetShipId },
+      relations: ['location', 'location.galaxyField', 'location.systemField'],
+    });
+    if (
+      !target ||
+      target.status === SpacecraftStatus.DESTROYED ||
+      target.userId === userId
+    ) {
+      throw new BadRequestException('Empfänger nicht verfügbar');
+    }
+    const context = buildNearbyInteractionContext(
+      source,
+      this.runtimeState.initialize(source),
+      target,
+      this.runtimeState.initialize(target),
+    );
+    const decision = decideNearbyInteraction('MESSAGE', context);
+    if (!decision.allowed) {
+      throw new BadRequestException(
+        !context.samePosition
+          ? 'Empfänger befindet sich nicht auf diesem Feld'
+          : context.sourceInHyperspace || context.targetInHyperspace
+            ? 'Nachrichten sind im Hyperraum nicht möglich'
+            : (decision.reason ?? 'Nachricht nicht möglich'),
+      );
+    }
+    return { userId: target.userId, name: target.name, logTag: `${target.id}` };
+  }
+
+  /** STU ship → colony PM: a foreign colony whose orbit is the source's field. */
+  private async requireNearbyColony(source: Spacecraft, userId: number, colonyId: number) {
+    const colony = await this.colonyRepo.findOne({
+      where: { id: colonyId },
+      relations: ['systemField'],
+    });
+    if (!colony || colony.userId == null || colony.userId === userId || colony.isAbandoned) {
+      throw new BadRequestException('Empfänger nicht verfügbar');
+    }
+    if (!sameSpaceLocation(resolveSpacecraftLocation(source), resolveColonyLocation(colony))) {
+      throw new BadRequestException('Empfänger befindet sich nicht auf diesem Feld');
+    }
+    return { userId: colony.userId, name: colony.name, logTag: `COLONY:${colony.id}` };
   }
 
   /**

@@ -1,3 +1,4 @@
+import { PmLink } from '../components/PmLink';
 import { PlayerName } from '../components/PlayerName';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -327,7 +328,10 @@ function PostsTab({
                 </button>
               </td>
               <td className="px-2 py-1">Netz {post.networkId}</td>
-              <td className="px-2 py-1"><PlayerName name={post.owner?.name ?? 'Verlassen'} /></td>
+              <td className="px-2 py-1">
+                <PlayerName name={post.owner?.name ?? 'Verlassen'} />
+                {post.owner && <PmLink playerId={post.owner.id} playerName={post.owner.name} className="ml-1 align-middle" />}
+              </td>
               <td className="px-2 py-1">
                 <PostLocation post={post} />
               </td>
@@ -373,7 +377,10 @@ function PostInfo({
         <dt className="text-swu-muted">Handelsnetz</dt>
         <dd>Netz {post.networkId}</dd>
         <dt className="text-swu-muted">Betreiber</dt>
-        <dd><PlayerName name={post.owner?.name ?? 'Verlassen'} /></dd>
+        <dd>
+          <PlayerName name={post.owner?.name ?? 'Verlassen'} />
+          {post.owner && <PmLink playerId={post.owner.id} playerName={post.owner.name} className="ml-1 align-middle" />}
+        </dd>
         <dt className="text-swu-muted">Ort</dt>
         <dd>
           <PostLocation post={post} />

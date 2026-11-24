@@ -6,6 +6,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
+import { useAuthStore } from '../stores/auth.store';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import {
   AllianceRelationshipType,
@@ -958,6 +959,18 @@ describe('AllianceDetailPage', () => {
     ).toContain('color: rgb(255, 0, 0)');
   });
 
+  it('offers a quick PM to every member except the own account', async () => {
+    useAuthStore.setState({ user: { id: 2 } as never });
+    routeGet({ '/alliances/1': detail() });
+
+    renderAt('/alliances/1');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Nachricht an Leia schreiben' }));
+    expect(screen.getByText(/Empfänger:/).textContent).toContain('(1)');
+    expect(screen.queryByRole('button', { name: 'Nachricht an Wedge schreiben' })).toBeNull();
+    useAuthStore.setState({ user: null });
+  });
+
   it('links members of the own alliance to the explicit alliance list', async () => {
     routeGet({
       '/alliances/1': withViewer(detail(), AllianceRole.NONE, {}),
@@ -1471,10 +1484,15 @@ describe('AllianceDetailPage', () => {
       expect(
         within(biggs)
           .getAllByRole('button')
+          .filter((b) => !b.getAttribute('aria-label')?.startsWith('Nachricht an'))
           .map((b) => b.textContent),
       ).toEqual(['Rauswerfen']);
       const leia = screen.getByRole('link', { name: 'Leia' }).closest('li')!;
-      expect(within(leia).queryAllByRole('button')).toHaveLength(0);
+      expect(
+        within(leia)
+          .queryAllByRole('button')
+          .filter((b) => !b.getAttribute('aria-label')?.startsWith('Nachricht an')),
+      ).toHaveLength(0);
     });
 
     it('appoints, dismisses and transfers via the role endpoints', async () => {

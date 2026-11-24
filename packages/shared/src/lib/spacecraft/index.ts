@@ -1033,6 +1033,8 @@ export interface SpacecraftFieldContextDto {
     planetName: string;
     classId?: number | null;
     isOwn: boolean;
+    /** Quick PM recipient; null for an ownerless colony. */
+    owner?: { id: number; name: string } | null;
     canLand: boolean;
     canSurfaceScan: boolean;
     canAttack?: boolean;

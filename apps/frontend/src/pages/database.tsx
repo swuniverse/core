@@ -1159,16 +1159,22 @@ function Settlers({ data }: { data: Settler[] }) {
         'Forschung',
       ]}
       rows={data.map((row) => [
-        <Link
-          key={row.id}
-          to={`/players/${row.id}`}
-          className="text-swu-primary hover:text-swu-accent"
-        >
-          <PlayerName name={row.displayName || row.username} />
-          {row.onVacation && (
-            <span className="ml-1 text-swu-warning">(Urlaub)</span>
-          )}
-        </Link>,
+        <span key={row.id}>
+          <Link
+            to={`/players/${row.id}`}
+            className="text-swu-primary hover:text-swu-accent"
+          >
+            <PlayerName name={row.displayName || row.username} />
+            {row.onVacation && (
+              <span className="ml-1 text-swu-warning">(Urlaub)</span>
+            )}
+          </Link>
+          <PmLink
+            playerId={row.id}
+            playerName={row.displayName || row.username}
+            className="ml-1 align-middle"
+          />
+        </span>,
         row.factionName,
         row.prestige,
         row.colonies,
@@ -1206,7 +1212,20 @@ function RankingView({ data }: { data: RankingDetail }) {
         rows={data.entries.map((entry) =>
           data.anonymous
             ? [entry.rank, entry.faction ?? 'Unbekannt', entry.score, entry.shipCount ?? 0]
-            : [entry.rank, <PlayerName name={entry.username} />, entry.score],
+            : [
+                entry.rank,
+                <span>
+                  <PlayerName name={entry.username} />
+                  {entry.userId != null && (
+                    <PmLink
+                      playerId={entry.userId}
+                      playerName={entry.username ?? ''}
+                      className="ml-1 align-middle"
+                    />
+                  )}
+                </span>,
+                entry.score,
+              ],
         )}
       />
       {!data.anonymous && (

@@ -298,6 +298,12 @@ class CommunicationTextDto {
   body: string;
 }
 
+class NearbyMessageDto extends CommunicationTextDto {
+  @IsOptional()
+  @IsIn(['SPACECRAFT', 'COLONY'])
+  targetType?: 'SPACECRAFT' | 'COLONY';
+}
+
 class LogEntryDto extends CommunicationTextDto {
   @IsOptional()
   @IsBoolean()
@@ -1439,13 +1445,14 @@ export class SpacecraftController {
     @Param('id', ParseIntPipe) id: number,
     @Param('targetId', ParseIntPipe) targetId: number,
     @Request() req: { user: { sub: number } },
-    @Body() dto: CommunicationTextDto,
+    @Body() dto: NearbyMessageDto,
   ) {
     return this.communicationService.sendNearbyMessage(
       id,
       req.user.sub,
       targetId,
       dto.body,
+      dto.targetType,
     );
   }
 

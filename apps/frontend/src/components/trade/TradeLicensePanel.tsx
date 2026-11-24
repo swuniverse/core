@@ -1,3 +1,4 @@
+import { PmLink } from '../PmLink';
 import { PlayerName } from '../PlayerName';
 import { useCallback, useEffect, useState } from 'react';
 import type {
@@ -338,7 +339,10 @@ function OwnerLicenseAdmin({ menu }: { menu: TradeLicenseMenuDto }) {
           <tbody>
             {issued.map((license) => (
               <tr key={license.id} className="border-t border-swu-border/60">
-                <td className="px-2 py-1"><PlayerName name={license.username} /></td>
+                <td className="px-2 py-1">
+                  <PlayerName name={license.username} />
+                  <PmLink playerId={license.userId} playerName={license.username} className="ml-1 align-middle" />
+                </td>
                 <td className="px-2 py-1 text-right font-mono">bis {formatDateTime(license.expiresAt)}</td>
               </tr>
             ))}

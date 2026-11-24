@@ -1,3 +1,4 @@
+import { PmLink } from '../components/PmLink';
 import { PlayerName } from '../components/PlayerName';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -217,7 +218,7 @@ export function RpgPlotDetailPage() {
             <section className={panel}>
               <h2 className={heading}>Schreiber</h2>
               <div className="divide-y divide-swu-border/60">
-                {plot.members.map((member) => <div key={member.userId} className="flex items-center justify-between p-2 text-xs"><Link to={`/players/${member.userId}`} className="text-swu-primary"><PlayerName name={member.username} /> (#{member.userId})</Link>{manages && active && member.userId !== plot.creatorId && <button className={button} aria-label={`${member.username} entfernen`} onClick={() => void removeMember(member.userId)}>Entfernen</button>}</div>)}
+                {plot.members.map((member) => <div key={member.userId} className="flex items-center justify-between p-2 text-xs"><span><Link to={`/players/${member.userId}`} className="text-swu-primary"><PlayerName name={member.username} /> (#{member.userId})</Link><PmLink playerId={member.userId} playerName={member.username} className="ml-1 align-middle" /></span>{manages && active && member.userId !== plot.creatorId && <button className={button} aria-label={`${member.username} entfernen`} onClick={() => void removeMember(member.userId)}>Entfernen</button>}</div>)}
               </div>
             </section>
           </main>

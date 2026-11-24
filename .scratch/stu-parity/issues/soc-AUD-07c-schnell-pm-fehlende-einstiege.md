@@ -1,6 +1,6 @@
 # Schnell-PM: fehlende Einstiege wie STU
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** soc-AUD-07a
@@ -30,12 +30,12 @@ STU bietet die Schnell-PM an deutlich mehr Stellen an als SWU. Es fehlen Siedler
 
 ## Akzeptanzkriterien
 
-- [ ] PM-Einstieg (Popup, nicht für den eigenen Account) an: jeder Zeile der Siedlerliste, jeder Zeile aller Ranglisten mit Spielerbezug (anonyme Vielflieger-Rangliste ausgenommen), Handelspostenliste (Betreiber), Lizenzliste (Lizenznehmer), Plotschreibern im Plotdetail, jedem Mitglied auf der Allianzdetailseite.
-- [ ] Schiff → Kolonie: In der Schiffsansicht gibt es für fremde Kolonien auf demselben Feld bzw. im Orbit eine Nachrichtenaktion mit Kontext Quelle SHIP/STATION, Ziel COLONY; der Server akzeptiert Kolonieziele (Besitzer = Empfänger, gleiches Feld) und vergibt Crew-XP nach den Regeln aus soc-AUD-07a.
-- [ ] NPC-Empfänger sind erreichbar wie in STU (keine XP).
-- [ ] Frontend-Tests je Einstieg (Link vorhanden mit korrekter Empfänger-ID, fehlt beim eigenen Account); Backend-Test für Kolonieziel inkl. Feldprüfung.
-- [ ] (aus soc-AUD-07a, PO 2026-11-18) Allgemeiner Quick-PM-Kontext `source {type: SHIP|STATION|COLONY|USER, id}` / `target {type, id}`; der Server prüft Quelle = Absender und Zielbesitzer = Empfänger.
-- [ ] (aus soc-AUD-07a, PO 2026-11-18) Crew-XP `FOREIGN_CONTACT_MESSAGE` auch für Kolonie des Empfängers als Ziel (Schiff/Station → Kolonie im Orbit), mit Tests.
+- [x] PM-Einstieg (Popup, nicht für den eigenen Account) an: jeder Zeile der Siedlerliste, jeder Zeile aller Ranglisten mit Spielerbezug (anonyme Vielflieger-Rangliste ausgenommen), Handelspostenliste (Betreiber), Lizenzliste (Lizenznehmer), Plotschreibern im Plotdetail, jedem Mitglied auf der Allianzdetailseite.
+- [x] Schiff → Kolonie: In der Schiffsansicht gibt es für fremde Kolonien auf demselben Feld bzw. im Orbit eine Nachrichtenaktion mit Kontext Quelle SHIP/STATION, Ziel COLONY; der Server akzeptiert Kolonieziele (Besitzer = Empfänger, gleiches Feld) und vergibt Crew-XP nach den Regeln aus soc-AUD-07a.
+- [x] NPC-Empfänger sind erreichbar wie in STU (keine XP).
+- [x] Frontend-Tests je Einstieg (Link vorhanden mit korrekter Empfänger-ID, fehlt beim eigenen Account); Backend-Test für Kolonieziel inkl. Feldprüfung.
+- [x] (aus soc-AUD-07a, PO 2026-11-18) Allgemeiner Quick-PM-Kontext `source {type: SHIP|STATION|COLONY|USER, id}` / `target {type, id}`; der Server prüft Quelle = Absender und Zielbesitzer = Empfänger.
+- [x] (aus soc-AUD-07a, PO 2026-11-18) Crew-XP `FOREIGN_CONTACT_MESSAGE` auch für Kolonie des Empfängers als Ziel (Schiff/Station → Kolonie im Orbit), mit Tests.
 
 ## Herkunft
 
@@ -45,3 +45,10 @@ STU bietet die Schnell-PM an deutlich mehr Stellen an als SWU. Es fehlen Siedler
 - Die Siedlerliste selbst (Suche, Sortierung) ist Thema des Bereichs trade-map-world; hier nur der PM-Einstieg. Der PM-Link je Mitglied auf der Allianzdetailseite ist hier enthalten und in soc-AUD-11 nicht doppelt.
 
 ## Comments
+
+- 2026-11-24 (Claude Opus 5.5, direkt umgesetzt; `ticket-coder`/Luna in dieser Session nicht verfügbar, Backend-Teil betrifft Autorisierung): umgesetzt, Prüfung ausstehend. Commit „feat(messaging): STU quick PM entry points and ship to colony message (stu-parity soc-AUD-07c)“.
+  - PmLink (Popup, nicht für eigenen Account) in Siedlerliste, allen Spieler-Ranglisten (anonyme Vielflieger- und Handelsposten-Rangliste ohne Spielerbezug ausgenommen), Handelspostenliste und Posteninfo (Betreiber), Lizenzliste (Lizenznehmer), Plotschreibern, Allianzmitgliedern (Detail- und Verwaltungsseite, wie STU `alliancemanagement.twig`).
+  - Schiff → Kolonie: `POST /spacecraft/:id/communications/nearby/:targetId` nimmt `targetType: 'COLONY'`; Server prüft eigene Quelle (Schiff/Station), Kolonie fremd, besetzt, nicht verlassen, gleiches Feld; Empfänger = Kolonie-Besitzer; Logeintrag `[DIRECT:COLONY:id]`, Crew-XP `FOREIGN_CONTACT_MESSAGE` nach 07a-Regeln (keine XP für NPC/Freund). Feldkontext liefert `colony.owner {id, name}`, Schiffsansicht zeigt dort den PM-Button.
+  - Kontextmodell: Quelle USER = `/messages`, Quelle SHIP/STATION = Pfad-`:id` (Besitz geprüft), Ziel SHIP/STATION/COLONY per `targetType`. Quelle COLONY hat keinen Einstieg (wie 07a abgegrenzt) und ist nicht gebaut.
+  - Checks: `nx typecheck` backend/frontend/shared grün; Backend `jest src/modules/spacecraft` 827/827 (6 neue Kolonie-Fälle); vitest `src/pages src/components` 958/958 (neue Tests je Einstieg); eslint 0 Fehler. Bestehender Verwaltungs-Test filtert den PM-Button jetzt heraus.
+  - Ausstehend: gesammelter Verifikationslauf (volle `test-integration`, Workspace-Build); `colony.owner` im Feldkontext hat keinen eigenen Backend-Test.

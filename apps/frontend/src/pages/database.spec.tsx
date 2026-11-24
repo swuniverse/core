@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
+import { useAuthStore } from '../stores/auth.store';
 import { DatabasePage, DatabaseSystemDetailPage } from './database';
 vi.mock('../components/database/DatabaseProgress', () => ({ DatabaseProgress: () => null }));
 
@@ -143,6 +144,33 @@ describe('DatabasePage', () => {
     expect(within(table).getByText('Leia')).toBeTruthy();
     expect(within(table).getByText('120')).toBeTruthy();
     expect(screen.getByText('Dein Punktestand: 45 (Platz 11)')).toBeTruthy();
+  });
+
+  it('offers a quick PM on player rankings except for the own account', async () => {
+    useAuthStore.setState({ user: { id: 2 } as never });
+    apiMocks.get.mockImplementation((url: string) =>
+      url === '/database/rankings/prestige'
+        ? Promise.resolve({
+            title: 'Die Top 10 Prestige',
+            metricLabel: 'Prestige',
+            entries: [
+              { userId: 1, username: 'Leia', score: 120, rank: 1 },
+              { userId: 2, username: 'Han', score: 45, rank: 2 },
+            ],
+            currentUser: { userId: 2, username: 'Han', score: 45, rank: 2 },
+          })
+        : Promise.resolve({ sections: [] }),
+    );
+    render(
+      <MemoryRouter initialEntries={['/database?view=rankings&ranking=prestige']}>
+        <DatabasePage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Nachricht an Leia schreiben' }));
+    expect(screen.getByText(/Empfänger:/).textContent).toContain('(1)');
+    expect(screen.queryByRole('button', { name: 'Nachricht an Han schreiben' })).toBeNull();
+    useAuthStore.setState({ user: null });
   });
 
   it('groups all available highscores and opens the RPG and Aurodium rankings', async () => {
@@ -409,6 +437,7 @@ describe('DatabasePage', () => {
     expect(screen.getByText('3')).toBeTruthy();
     expect(screen.queryByText('Commander')).toBeNull();
     expect(screen.queryByText('Leia')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Nachricht an/ })).toBeNull();
   });
 
   it('links settlers to their profile pages', async () => {
@@ -425,6 +454,28 @@ describe('DatabasePage', () => {
     const link = await screen.findByRole('link', { name: 'Vader' });
     expect(link.getAttribute('href')).toBe('/players/1');
     expect(screen.getByText('Vader')).toBeTruthy();
+  });
+
+  it('offers a quick PM in the settler list except for the own account', async () => {
+    useAuthStore.setState({ user: { id: 1 } as never });
+    const { rerender } = render(
+      <MemoryRouter>
+        <DatabasePage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Siedlerliste' }));
+    await screen.findByRole('link', { name: 'Vader' });
+    expect(screen.queryByRole('button', { name: 'Nachricht an Vader schreiben' })).toBeNull();
+
+    useAuthStore.setState({ user: { id: 2 } as never });
+    rerender(
+      <MemoryRouter>
+        <DatabasePage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Nachricht an Vader schreiben' }));
+    expect(screen.getByText(/Empfänger:/).textContent).toContain('(1)');
+    useAuthStore.setState({ user: null });
   });
 
   it('renders an unlocked system as a complete static coordinate raster', async () => {

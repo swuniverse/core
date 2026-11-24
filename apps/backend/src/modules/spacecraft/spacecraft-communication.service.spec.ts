@@ -67,6 +67,7 @@ function serviceFixture() {
     colonyRepo,
     userRepo,
     distressRepo,
+    logRepo,
     gateway,
     messaging,
   };
@@ -251,6 +252,62 @@ describe('SpacecraftCommunicationService', () => {
       shipRepo.findOne.mockResolvedValue(null);
 
       await expect(service.sendNearbyMessage(7, 1, 8, 'Hallo')).rejects.toThrow();
+      expect(crewEnhancement.enhanceSpacecraft).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('quick PM to a colony in orbit', () => {
+    function toColony(colony: Record<string, unknown>) {
+      const fixture = serviceFixture();
+      fixture.shipRepo.findOne.mockResolvedValueOnce({
+        id: 7, userId: 1, name: 'Source', status: 'IDLE', locationId: 42,
+        location: { id: 42, kind: 'SYSTEM_FIELD', systemField: { starSystemId: 5, sx: 3, sy: 4 } },
+      });
+      fixture.colonyRepo.findOne.mockResolvedValueOnce({
+        id: 30, name: 'Kolonie', userId: 2, isAbandoned: false,
+        starSystemId: 5, posX: 3, posY: 4, systemField: { starSystemId: 5, sx: 3, sy: 4 },
+        ...colony,
+      });
+      return fixture;
+    }
+
+    it('delivers to the colony owner and rewards the source crew', async () => {
+      const { service, messaging, crewEnhancement, logRepo } = toColony({});
+
+      await expect(service.sendNearbyMessage(7, 1, 30, 'Hallo', 'COLONY')).resolves.toEqual({ delivered: true });
+
+      expect(messaging.send).toHaveBeenCalledWith(1, 2, expect.stringContaining('Source sendet an Kolonie in Sektor 3|4'));
+      expect(logRepo.create).toHaveBeenCalledWith(expect.objectContaining({ body: '[DIRECT:COLONY:30] Hallo' }));
+      expect(crewEnhancement.enhanceSpacecraft).toHaveBeenCalledWith(7, 'FOREIGN_CONTACT_MESSAGE');
+    });
+
+    it('rejects a colony on another field', async () => {
+      const { service, messaging } = toColony({ systemField: { starSystemId: 5, sx: 3, sy: 5 } });
+
+      await expect(service.sendNearbyMessage(7, 1, 30, 'Hallo', 'COLONY')).rejects.toThrow(
+        'Empfänger befindet sich nicht auf diesem Feld',
+      );
+      expect(messaging.send).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['own', { userId: 1 }],
+      ['ownerless', { userId: null }],
+      ['abandoned', { isAbandoned: true }],
+    ])('rejects an %s colony', async (_label, colony) => {
+      const { service, messaging } = toColony(colony);
+
+      await expect(service.sendNearbyMessage(7, 1, 30, 'Hallo', 'COLONY')).rejects.toThrow('Empfänger nicht verfügbar');
+      expect(messaging.send).not.toHaveBeenCalled();
+    });
+
+    it('reaches an NPC colony owner without experience', async () => {
+      const { service, messaging, userRepo, crewEnhancement } = toColony({});
+      userRepo.findOneBy.mockResolvedValue({ id: 2, isNpc: true });
+
+      await service.sendNearbyMessage(7, 1, 30, 'Hallo', 'COLONY');
+
+      expect(messaging.send).toHaveBeenCalled();
       expect(crewEnhancement.enhanceSpacecraft).not.toHaveBeenCalled();
     });
   });
