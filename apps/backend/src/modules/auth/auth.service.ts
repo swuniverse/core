@@ -15,7 +15,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { User } from './user.entity';
-import { FactionEntity } from '../faction/entities/faction.entity';
+import { lockJoinableFaction } from '../faction/faction.service';
 import {
   RegisterDto,
   LoginDto,
@@ -191,7 +191,6 @@ export class AuthService {
       await this.acquireRegistrationLock(manager);
 
       const userRepo = manager.getRepository(User);
-      const factionRepo = manager.getRepository(FactionEntity);
 
       const exists = await userRepo.findOne({
         where: [
@@ -212,12 +211,7 @@ export class AuthService {
         throw new ConflictException('Username or email already taken');
       }
 
-      const faction = await factionRepo.findOne({
-        where: { id: dto.factionId },
-      });
-      if (!faction) {
-        throw new BadRequestException('Invalid faction');
-      }
+      const faction = await lockJoinableFaction(manager, { id: dto.factionId });
 
       const userCount = await userRepo.count();
 

@@ -1,6 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { Faction } from '@swuniverse/shared';
 import { FactionEntity } from './entities/faction.entity';
 import { FactionModifier } from './entities/faction-modifier.entity';
@@ -48,6 +52,44 @@ const DEFAULT_FACTIONS: Array<{
     },
   },
 ];
+
+/** STU `FactionItem::hasFreePlayerSlots`. */
+export function hasFreePlayerSlots(
+  faction: Pick<FactionEntity, 'playerLimit'>,
+  playerCount: number,
+): boolean {
+  return faction.playerLimit === 0 || playerCount < faction.playerLimit;
+}
+
+function countFactionPlayers(manager: EntityManager, factionId: number): Promise<number> {
+  return nonNpcUsers(manager.getRepository(User).createQueryBuilder('u'), 'u')
+    .andWhere('u.factionId = :factionId', { factionId })
+    .getCount();
+}
+
+/**
+ * STU `Register`: rejects unknown, unselectable and full factions. Locks the
+ * faction row so parallel joins inside the caller's transaction cannot overbook.
+ */
+export async function lockJoinableFaction(
+  manager: EntityManager,
+  where: { id: number } | { key: string },
+): Promise<FactionEntity> {
+  const faction = await manager.getRepository(FactionEntity).findOne({
+    where,
+    lock: { mode: 'pessimistic_write' },
+  });
+  if (!faction) throw new BadRequestException('Unbekannte Fraktion.');
+  if (!faction.isSelectable) {
+    throw new BadRequestException('Diese Fraktion ist derzeit nicht wählbar.');
+  }
+  if (!hasFreePlayerSlots(faction, await countFactionPlayers(manager, faction.id))) {
+    throw new BadRequestException(
+      'Bei dieser Fraktion sind alle vorgesehenen Spielerplätze belegt.',
+    );
+  }
+  return faction;
+}
 
 @Injectable()
 export class FactionService {
@@ -102,21 +144,28 @@ export class FactionService {
     }
   }
 
-  async findAll(): Promise<(FactionEntity & { playerCount: number })[]> {
+  async findAll(): Promise<
+    (FactionEntity & { playerCount: number; hasFreePlayerSlots: boolean })[]
+  > {
     const factions = await this.factionRepo.find({ relations: { modifiers: true } });
+    // Same count as lockJoinableFaction: every non-NPC account of the faction (STU).
     const counts: { factionId: number; count: string }[] = await nonNpcUsers(
       this.userRepo.createQueryBuilder('u'),
       'u',
     )
       .select('u.factionId', 'factionId')
       .addSelect('COUNT(*)', 'count')
-      .where(
-        'u.factionId IS NOT NULL AND u.isAdmin = false AND u.emailVerifiedAt IS NOT NULL',
-      )
+      .andWhere('u.factionId IS NOT NULL')
       .groupBy('u.factionId')
       .getRawMany();
     const countMap = Object.fromEntries(counts.map((r) => [r.factionId, +r.count]));
-    return factions.map((f) => Object.assign(f, { playerCount: countMap[f.id] ?? 0 }));
+    return factions.map((f) => {
+      const playerCount = countMap[f.id] ?? 0;
+      return Object.assign(f, {
+        playerCount,
+        hasFreePlayerSlots: hasFreePlayerSlots(f, playerCount),
+      });
+    });
   }
 
   findById(id: number): Promise<FactionEntity | null> {
@@ -127,13 +176,22 @@ export class FactionService {
     id: number,
     isSelectable: boolean,
   ): Promise<FactionEntity> {
+    return this.updateAdminFields(id, { isSelectable });
+  }
+
+  async updatePlayerLimit(id: number, playerLimit: number): Promise<FactionEntity> {
+    return this.updateAdminFields(id, { playerLimit });
+  }
+
+  private async updateAdminFields(
+    id: number,
+    fields: Partial<Pick<FactionEntity, 'isSelectable' | 'playerLimit'>>,
+  ): Promise<FactionEntity> {
     const faction = await this.findById(id);
     if (!faction) {
       throw new NotFoundException('Faction not found');
     }
-
-    faction.isSelectable = isSelectable;
-    return this.factionRepo.save(faction);
+    return this.factionRepo.save(Object.assign(faction, fields));
   }
 
   findByKey(key: Faction | string): Promise<FactionEntity | null> {

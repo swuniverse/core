@@ -9,6 +9,7 @@ interface FactionAdminEntry {
   name: string;
   isSelectable: boolean;
   playerCount: number;
+  playerLimit: number;
 }
 
 export function AdminFactionsPage() {
@@ -29,25 +30,42 @@ export function AdminFactionsPage() {
       );
   }, []);
 
-  async function toggleSelectability(faction: FactionAdminEntry) {
+  async function save(
+    faction: FactionAdminEntry,
+    path: 'selectability' | 'player-limit',
+    body: Partial<FactionAdminEntry>,
+  ) {
     setSavingId(faction.id);
     setError('');
     try {
       const updated = await api.patch<FactionAdminEntry>(
-        `/factions/${faction.id}/selectability`,
-        { isSelectable: !faction.isSelectable },
+        `/factions/${faction.id}/${path}`,
+        body,
       );
       setFactions((current) =>
-        current.map((entry) => (entry.id === faction.id ? updated : entry)),
+        current.map((entry) =>
+          entry.id === faction.id ? { ...entry, ...updated } : entry,
+        ),
       );
     } catch (err) {
       setError(
         err instanceof ApiError
           ? err.message
-          : 'Fraktionswählbarkeit konnte nicht gespeichert werden',
+          : 'Fraktion konnte nicht gespeichert werden',
       );
     } finally {
       setSavingId(null);
+    }
+  }
+
+  function savePlayerLimit(faction: FactionAdminEntry, value: string) {
+    const playerLimit = Number(value);
+    if (!Number.isInteger(playerLimit) || playerLimit < 0) {
+      setError('Spielerlimit muss eine ganze Zahl ab 0 sein');
+      return;
+    }
+    if (playerLimit !== faction.playerLimit) {
+      void save(faction, 'player-limit', { playerLimit });
     }
   }
 
@@ -62,8 +80,9 @@ export function AdminFactionsPage() {
       <div>
         <h1 className="text-2xl font-bold text-swu-accent">Fraktionen</h1>
         <p className="mt-1 text-sm text-swu-muted">
-          Legt fest, welche Fraktionen neue Spieler im Onboarding wählen können.
-          Bereits zugeordnete Spieler bleiben unverändert.
+          Legt fest, welche Fraktionen neue Spieler wählen können und wie viele
+          Spieler eine Fraktion höchstens hat (0 = unbegrenzt). Bereits
+          zugeordnete Spieler bleiben unverändert.
         </p>
       </div>
       {error && (
@@ -77,6 +96,7 @@ export function AdminFactionsPage() {
             <tr>
               <th className="p-3">Fraktion</th>
               <th className="p-3 text-right">Spieler</th>
+              <th className="p-3">Spielerlimit</th>
               <th className="p-3">Für neue Spieler</th>
             </tr>
           </thead>
@@ -88,12 +108,28 @@ export function AdminFactionsPage() {
                   {faction.playerCount}
                 </td>
                 <td className="p-3">
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    aria-label={`Spielerlimit ${faction.name}`}
+                    defaultValue={faction.playerLimit}
+                    disabled={savingId === faction.id}
+                    onBlur={(e) => savePlayerLimit(faction, e.target.value)}
+                    className="w-20 rounded border border-swu-border bg-swu-bg px-2 py-1 text-right"
+                  />
+                </td>
+                <td className="p-3">
                   <label className="inline-flex items-center gap-2">
                     <input
                       type="checkbox"
                       checked={faction.isSelectable}
                       disabled={savingId === faction.id}
-                      onChange={() => void toggleSelectability(faction)}
+                      onChange={() =>
+                        void save(faction, 'selectability', {
+                          isSelectable: !faction.isSelectable,
+                        })
+                      }
                     />
                     {faction.isSelectable ? 'Wählbar' : 'Nicht wählbar'}
                   </label>

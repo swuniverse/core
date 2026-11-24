@@ -15,6 +15,9 @@ const faction = {
   name: 'Galaktisches Imperium',
   colorPrimary: '#ff0000',
   playerCount: 3,
+  playerLimit: 0,
+  isSelectable: true,
+  hasFreePlayerSlots: true,
   modifiers: [],
 };
 
@@ -37,6 +40,27 @@ describe('RegisterPage', () => {
     await screen.findByText('Galaktisches Imperium');
     expect(screen.getByText('+10%')).toBeTruthy();
     expect(screen.queryByText(/Koloniewachstum/)).toBeNull();
+  });
+
+  it('shows n/limit, marks full factions and hides unselectable ones', async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      { ...faction, playerLimit: 3, hasFreePlayerSlots: false },
+      { ...faction, id: 2, name: 'Rebellenallianz', playerCount: 1, playerLimit: 5 },
+      { ...faction, id: 3, name: 'Hutten', isSelectable: false },
+    ]);
+    render(
+      <MemoryRouter>
+        <RegisterPage />
+      </MemoryRouter>,
+    );
+
+    const full = (await screen.findByText('Galaktisches Imperium')).closest('button')!;
+    expect(full.disabled).toBe(true);
+    expect(full.textContent).toContain('3/3 Siedler – voll');
+    const open = screen.getByText('Rebellenallianz').closest('button')!;
+    expect(open.disabled).toBe(false);
+    expect(open.textContent).toContain('1/5 Siedler');
+    expect(screen.queryByText('Hutten')).toBeNull();
   });
 
   it('has no invite key field', async () => {

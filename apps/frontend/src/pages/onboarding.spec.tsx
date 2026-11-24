@@ -103,7 +103,7 @@ describe('OnboardingPage', () => {
     });
   });
 
-  it('explains and disables factions that are not selectable', async () => {
+  it('explains and disables factions that are not selectable or full', async () => {
     apiMocks.get.mockImplementation((url: string) => {
       if (url === '/auth/me') {
         return Promise.resolve({ ...profile, faction: null });
@@ -121,6 +121,9 @@ describe('OnboardingPage', () => {
             colorSecondary: '#000',
             homeZone: 'REBEL',
             isSelectable: true,
+            playerCount: 4,
+            playerLimit: 4,
+            hasFreePlayerSlots: false,
           },
           {
             id: 2,
@@ -130,6 +133,9 @@ describe('OnboardingPage', () => {
             colorSecondary: '#000',
             homeZone: 'EMPIRE',
             isSelectable: false,
+            playerCount: 0,
+            playerLimit: 0,
+            hasFreePlayerSlots: true,
           },
         ]);
       }
@@ -146,7 +152,15 @@ describe('OnboardingPage', () => {
       'Derzeit nicht für neue Spieler wählbar',
     );
 
+    const fullFaction = screen.getByRole('button', { name: /Rebellenallianz/ });
+    expect((fullFaction as HTMLButtonElement).disabled).toBe(true);
+    expect(fullFaction.textContent).toContain('4/4 – voll');
+    expect(fullFaction.textContent).toContain(
+      'Alle vorgesehenen Spielerplätze sind belegt',
+    );
+
     fireEvent.click(unavailableFaction);
+    fireEvent.click(fullFaction);
     expect(apiMocks.post).not.toHaveBeenCalled();
   });
 

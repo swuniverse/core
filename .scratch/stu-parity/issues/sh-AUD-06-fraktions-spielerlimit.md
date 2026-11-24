@@ -1,6 +1,6 @@
 # Spielerlimit je Fraktion wie STU, Registrierung prüft Wählbarkeit
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -37,15 +37,15 @@ Hinweis: `auth.service.ts#register` wird durch `origin/main` (`da02e52f`) umgesc
 
 ## Akzeptanzkriterien
 
-- [ ] Fraktion hat `playerLimit` (ganzzahlig, `0` = unbegrenzt, Default `0`), per Migration angelegt.
-- [ ] Gezählt werden Spieler der Fraktion ohne NPC (Spieler-IDs ab der ersten Spieler-ID, wie STU). Eine gemeinsame Funktion liefert `playerCount` und `hasFreePlayerSlots` (`limit = 0 || count < limit`).
-- [ ] Der Admin kann `playerLimit` je Fraktion in `admin-factions.tsx` setzen, neben `isSelectable`; Validierung `>= 0`.
-- [ ] Die öffentliche Fraktionsliste liefert `playerCount`, `playerLimit`, `isSelectable` und `hasFreePlayerSlots`. Registrierung und Onboarding zeigen bei gesetztem Limit „n/Limit“ und markieren volle Fraktionen mit „voll“ (Hinweis wie STU: alle vorgesehenen Spielerplätze belegt); volle oder nicht wählbare Fraktionen sind nicht auswählbar.
-- [ ] `POST auth/register` lehnt nicht wählbare und volle Fraktionen serverseitig ab, mit deutscher Meldung. Die Prüfung läuft in derselben Transaktion wie das Anlegen des Kontos (kein Überbuchen bei gleichzeitigen Registrierungen, z. B. Sperre auf der Fraktionszeile).
-- [ ] `POST onboarding/faction` prüft dieselben Bedingungen über dieselbe Funktion.
-- [ ] `map.md`: Entscheidung tmw-FA1b1 (Option 1c, „kein playerLimit“) ersetzt, mit Verweis auf dieses Ticket.
-- [ ] Backend-Tests: Limit 0 unbegrenzt; Limit erreicht ⇒ Ablehnung bei Registrierung und Onboarding; `isSelectable = false` ⇒ Ablehnung bei direktem `POST auth/register`; gleichzeitige Registrierungen überbuchen nicht (PostgreSQL-Integrationstest); Admin-Validierung.
-- [ ] Frontend-Tests: Registrierung zeigt „n/Limit“ und „voll“, nicht wählbare/volle Fraktion nicht auswählbar; Admin-Feld speichert.
+- [x] Fraktion hat `playerLimit` (ganzzahlig, `0` = unbegrenzt, Default `0`), per Migration angelegt.
+- [x] Gezählt werden Spieler der Fraktion ohne NPC (Spieler-IDs ab der ersten Spieler-ID, wie STU). Eine gemeinsame Funktion liefert `playerCount` und `hasFreePlayerSlots` (`limit = 0 || count < limit`).
+- [x] Der Admin kann `playerLimit` je Fraktion in `admin-factions.tsx` setzen, neben `isSelectable`; Validierung `>= 0`.
+- [x] Die öffentliche Fraktionsliste liefert `playerCount`, `playerLimit`, `isSelectable` und `hasFreePlayerSlots`. Registrierung und Onboarding zeigen bei gesetztem Limit „n/Limit“ und markieren volle Fraktionen mit „voll“ (Hinweis wie STU: alle vorgesehenen Spielerplätze belegt); volle oder nicht wählbare Fraktionen sind nicht auswählbar.
+- [x] `POST auth/register` lehnt nicht wählbare und volle Fraktionen serverseitig ab, mit deutscher Meldung. Die Prüfung läuft in derselben Transaktion wie das Anlegen des Kontos (kein Überbuchen bei gleichzeitigen Registrierungen, z. B. Sperre auf der Fraktionszeile).
+- [x] `POST onboarding/faction` prüft dieselben Bedingungen über dieselbe Funktion.
+- [x] `map.md`: Entscheidung tmw-FA1b1 (Option 1c, „kein playerLimit“) ersetzt, mit Verweis auf dieses Ticket.
+- [x] Backend-Tests: Limit 0 unbegrenzt; Limit erreicht ⇒ Ablehnung bei Registrierung und Onboarding; `isSelectable = false` ⇒ Ablehnung bei direktem `POST auth/register`; gleichzeitige Registrierungen überbuchen nicht (PostgreSQL-Integrationstest); Admin-Validierung.
+- [x] Frontend-Tests: Registrierung zeigt „n/Limit“ und „voll“, nicht wählbare/volle Fraktion nicht auswählbar; Admin-Feld speichert.
 
 ## Herkunft
 
@@ -54,3 +54,14 @@ Hinweis: `auth.service.ts#register` wird durch `origin/main` (`da02e52f`) umgesc
 - PO-Entscheidung 2026-11-17: `playerLimit` wie STU, ersetzt Option 1c. Das resolved Ticket tmw-FA1b1 erfüllt sein AK „direkte Requests können die Sperre nicht umgehen“ nicht für `POST auth/register`.
 
 ## Comments
+
+### 2026-11-24 — umgesetzt, Prüfung ausstehend
+
+- Commit: `feat(faction): STU player limit per faction (stu-parity sh-AUD-06)`.
+- Backend: Migration `20261124140000-add-faction-player-limit` (`playerLimit int not null default 0`); `lockJoinableFaction` in `faction.service.ts` lädt die Fraktion mit `pessimistic_write`, lehnt unbekannte, nicht wählbare und volle Fraktionen deutsch ab; `register` (in seiner Transaktion) und `onboarding.selectFaction` (jetzt in Transaktion) rufen sie auf. `PATCH factions/:id/player-limit` (Admin, `IsInt`, `Min(0)`). `GET factions` liefert `playerLimit`, `playerCount`, `isSelectable`, `hasFreePlayerSlots`.
+- Zählung geändert: `playerCount` zählt jetzt wie STU alle Nicht-NPC-Konten der Fraktion (vorher ohne Admins und unbestätigte Konten; der alte Filter überschrieb zudem per `.where` den NPC-Ausschluss). Unbestätigte Konten belegen damit Plätze, bis die Inaktivitätslöschung sie entfernt (wie STU).
+- Fraktionsdaten bleiben lokale Frontend-Typen wie bisher, kein neuer Shared-DTO.
+- Frontend: Registrierung blendet nicht wählbare Fraktionen aus, zeigt „n/Limit Siedler – voll“ und sperrt volle; Onboarding zeigt „n/Limit – voll“ samt Hinweis und sperrt; Admin-Seite mit Feld „Spielerlimit“ (Speichern beim Verlassen, Prüfung ≥ 0).
+- Tests: Backend-Unit `auth.service.spec` (+3: nicht wählbar, voll, unter Limit/Limit 0), `onboarding.service.spec` (angepasst), `faction.service.spec` (+4 DTO-Validierung) – 33/33; PostgreSQL `faction-player-limit.int-spec.ts` (paralleles Überbuchen, Limit 0) 2/2; Vitest `register`, `onboarding`, `admin-factions` 9/9; `nx typecheck backend frontend` ✓; ESLint 0 Fehler.
+- Ausstehend: gesammelter Verifikationslauf.
+- Modell: Claude Opus 5.5 direkt (Transaktion/Nebenläufigkeit, kein Delegieren).

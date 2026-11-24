@@ -29,6 +29,9 @@ interface FactionOption {
   name: string;
   colorPrimary: string;
   playerCount: number;
+  playerLimit: number;
+  isSelectable: boolean;
+  hasFreePlayerSlots: boolean;
   modifiers: FactionModifiers[];
 }
 
@@ -292,12 +295,18 @@ export function RegisterPage() {
           <fieldset className="swu-factions">
             <legend>Doktrin wählen <small className="swu-field__hint">dein Startbonus für Bau, Forschung und Flotte</small></legend>
             <div className="swu-factions__row">
-              {factions.map((f) => (
+              {factions.filter((f) => f.isSelectable).map((f) => (
                 <button
                   className={`swu-faction ${factionId === f.id ? 'swu-faction--selected' : ''}`}
                   key={f.id}
                   type="button"
                   aria-pressed={factionId === f.id}
+                  disabled={!f.hasFreePlayerSlots}
+                  title={
+                    f.hasFreePlayerSlots
+                      ? undefined
+                      : 'Alle vorgesehenen Spielerplätze dieser Fraktion sind belegt'
+                  }
                   onClick={() => setFactionId(f.id)}
                   style={{ color: f.colorPrimary }}
                 >
@@ -307,7 +316,10 @@ export function RegisterPage() {
                     aria-hidden="true"
                   />
                   <span>{f.name}</span>
-                  <span className="swu-faction__count">{f.playerCount} Siedler</span>
+                  <span className="swu-faction__count">
+                    {f.playerLimit > 0 ? `${f.playerCount}/${f.playerLimit}` : f.playerCount} Siedler
+                    {!f.hasFreePlayerSlots && ' – voll'}
+                  </span>
                   {f.modifiers?.[0] && (
                     <span className="swu-faction__bonuses">
                       {getBonuses(f.modifiers[0]).map((b) => (

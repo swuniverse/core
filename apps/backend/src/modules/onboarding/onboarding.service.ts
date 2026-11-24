@@ -15,7 +15,7 @@ import {
   OnboardingSelection,
   OnboardingSelectionStatus,
 } from './entities/onboarding-selection.entity';
-import { FactionService } from '../faction/faction.service';
+import { FactionService, lockJoinableFaction } from '../faction/faction.service';
 import { Layer } from '../starmap/entities/layer.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
 import {
@@ -114,20 +114,17 @@ export class OnboardingService {
       throw new BadRequestException('Faction is already selected');
     }
 
-    const faction = await this.factionService.findByKey(factionKey);
-    if (!faction) {
-      throw new NotFoundException('Faction not found');
-    }
-    if (!faction.isSelectable) {
-      throw new BadRequestException('Diese Fraktion ist derzeit nicht wählbar.');
-    }
+    const faction = await this.userRepo.manager.transaction(async (manager) => {
+      const joinable = await lockJoinableFaction(manager, { key: factionKey });
+      await manager.update(User, userId, {
+        faction: joinable.key as Faction,
+        factionId: joinable.id,
+      });
+      return joinable;
+    });
 
     const selection = await this.getOrCreateSelection(userId);
     selection.factionId = faction.id;
-    await this.userRepo.update(userId, {
-      faction: faction.key as Faction,
-      factionId: faction.id,
-    });
     return this.onboardingRepo.save(selection);
   }
 

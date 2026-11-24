@@ -21,8 +21,10 @@ jest.mock('../research/entities/research.entity', () => ({
   Research: class Research {},
   ResearchStatus: { COMPLETED: 'COMPLETED' },
 }));
+const mockLockJoinableFaction = jest.fn();
 jest.mock('../faction/faction.service', () => ({
   FactionService: class FactionService {},
+  lockJoinableFaction: (...args: unknown[]) => mockLockJoinableFaction(...args),
 }));
 jest.mock('../colony/colony-seed.service', () => ({
   ColonySeedService: class ColonySeedService {},
@@ -37,17 +39,20 @@ import { OnboardingService } from './onboarding.service';
 
 describe('OnboardingService', () => {
   it('rejects a faction that is not selectable before changing the user', async () => {
+    mockLockJoinableFaction.mockRejectedValueOnce(
+      new BadRequestException('Diese Fraktion ist derzeit nicht wählbar.'),
+    );
+    const manager = {
+      update: jest.fn(),
+    };
     const userRepo = {
       findOneBy: jest.fn(async () => ({ id: 7, factionId: null })),
       update: jest.fn(),
+      manager: {
+        transaction: jest.fn(async (fn: (m: typeof manager) => unknown) => fn(manager)),
+      },
     };
-    const factionService = {
-      findByKey: jest.fn(async () => ({
-        id: 2,
-        key: Faction.GALACTIC_EMPIRE,
-        isSelectable: false,
-      })),
-    };
+    const factionService = {};
     const onboardingRepo = {
       findOne: jest.fn(),
       create: jest.fn(),
@@ -73,7 +78,10 @@ describe('OnboardingService', () => {
     ).rejects.toThrow(
       new BadRequestException('Diese Fraktion ist derzeit nicht wählbar.'),
     );
-    expect(userRepo.update).not.toHaveBeenCalled();
+    expect(mockLockJoinableFaction).toHaveBeenCalledWith(manager, {
+      key: Faction.GALACTIC_EMPIRE,
+    });
+    expect(manager.update).not.toHaveBeenCalled();
     expect(onboardingRepo.save).not.toHaveBeenCalled();
   });
 
@@ -326,7 +334,9 @@ describe('OnboardingService', () => {
       findOneBy: jest.fn(async () => ({ id: 7, factionId: 2 })),
       update: jest.fn(),
     };
-    const factionService = { findByKey: jest.fn() };
+    const userRepoManager = { transaction: jest.fn() };
+    Object.assign(userRepo, { manager: userRepoManager });
+    const factionService = {};
     const service = new OnboardingService(
       {} as never,
       userRepo as never,
@@ -345,7 +355,7 @@ describe('OnboardingService', () => {
     await expect(
       service.selectFaction(7, Faction.REBEL_ALLIANCE),
     ).rejects.toThrow(new BadRequestException('Faction is already selected'));
-    expect(factionService.findByKey).not.toHaveBeenCalled();
+    expect(userRepoManager.transaction).not.toHaveBeenCalled();
     expect(userRepo.update).not.toHaveBeenCalled();
   });
 });

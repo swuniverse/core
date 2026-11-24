@@ -38,21 +38,32 @@ function setup(
   options: {
     users?: ReturnType<typeof makeUser>[];
     existing?: boolean;
-    faction?: { id: number; key: string } | null;
+    faction?: {
+      id: number;
+      key: string;
+      isSelectable?: boolean;
+      playerLimit?: number;
+    } | null;
     userCount?: number;
+    factionPlayerCount?: number;
   } = {},
 ) {
   const users = options.users ?? [];
   const faction =
     options.faction === undefined
-      ? { id: 1, key: 'GALACTIC_EMPIRE' }
+      ? { id: 1, key: 'GALACTIC_EMPIRE', isSelectable: true, playerLimit: 0 }
       : options.faction;
+  const playerCountQuery = {
+    andWhere: jest.fn().mockReturnThis(),
+    getCount: jest.fn(async () => options.factionPlayerCount ?? 0),
+  };
 
   const txUserRepo = {
     findOne: jest.fn(async () => (options.existing ? makeUser() : null)),
     count: jest.fn(async () => options.userCount ?? 5),
     create: jest.fn((value) => value),
     save: jest.fn(async (value) => ({ id: 42, createdAt: NOW, ...value })),
+    createQueryBuilder: jest.fn(() => playerCountQuery),
   };
   const txFactionRepo = { findOne: jest.fn(async () => faction) };
   const manager = {
@@ -131,6 +142,30 @@ describe('AuthService email verification', () => {
       password: 'correct-horse',
       factionId: 1,
     };
+
+    it.each([
+      ['not selectable', { isSelectable: false, playerLimit: 0 }, 0, 'nicht wählbar'],
+      ['full', { isSelectable: true, playerLimit: 3 }, 3, 'Spielerplätze belegt'],
+    ])('rejects a %s faction', async (_label, flags, factionPlayerCount, message) => {
+      const { service, txUserRepo } = setup({
+        faction: { id: 1, key: 'GALACTIC_EMPIRE', ...flags },
+        factionPlayerCount,
+      });
+
+      await expect(service.register(dto)).rejects.toThrow(message);
+      expect(txUserRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('accepts a faction below its limit and treats limit 0 as unlimited', async () => {
+      for (const [playerLimit, factionPlayerCount] of [[3, 2], [0, 999]]) {
+        const { service, txUserRepo } = setup({
+          faction: { id: 1, key: 'GALACTIC_EMPIRE', isSelectable: true, playerLimit },
+          factionPlayerCount,
+        });
+        await service.register(dto);
+        expect(txUserRepo.save).toHaveBeenCalled();
+      }
+    });
 
     it('creates an unverified user and returns no tokens', async () => {
       const { service, txUserRepo } = setup();

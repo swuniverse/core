@@ -24,6 +24,7 @@ describe('AdminFactionsPage', () => {
         name: 'Rebellenallianz',
         isSelectable: true,
         playerCount: 12,
+        playerLimit: 0,
       },
     ]);
   });
@@ -50,5 +51,29 @@ describe('AdminFactionsPage', () => {
       });
     });
     expect(await screen.findByText('Nicht wählbar')).toBeTruthy();
+  });
+
+  it('saves a player limit and rejects negative values', async () => {
+    apiMocks.patch.mockResolvedValue({ id: 1, playerLimit: 20 });
+    render(
+      <MemoryRouter>
+        <AdminFactionsPage />
+      </MemoryRouter>,
+    );
+
+    const input = await screen.findByLabelText('Spielerlimit Rebellenallianz');
+    fireEvent.change(input, { target: { value: '-1' } });
+    fireEvent.blur(input);
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(apiMocks.patch).not.toHaveBeenCalled();
+
+    fireEvent.change(input, { target: { value: '20' } });
+    fireEvent.blur(input);
+    await waitFor(() => {
+      expect(apiMocks.patch).toHaveBeenCalledWith('/factions/1/player-limit', {
+        playerLimit: 20,
+      });
+    });
+    expect(screen.getByText('12')).toBeTruthy();
   });
 });

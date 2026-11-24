@@ -36,6 +36,9 @@ interface FactionOption {
   colorSecondary: string;
   homeZone: string | null;
   isSelectable: boolean;
+  playerCount: number;
+  playerLimit: number;
+  hasFreePlayerSlots: boolean;
 }
 
 interface SelectionDto {
@@ -498,7 +501,11 @@ export function OnboardingPage() {
                     <button
                       key={faction.id}
                       type="button"
-                      disabled={saving || !faction.isSelectable}
+                      disabled={
+                        saving ||
+                        !faction.isSelectable ||
+                        !faction.hasFreePlayerSlots
+                      }
                       onClick={() => void selectFaction(faction.key)}
                       className="rounded border border-swu-border p-4 text-left transition hover:border-swu-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-swu-border"
                     >
@@ -509,10 +516,22 @@ export function OnboardingPage() {
                       <span className="font-bold text-swu-primary">
                         {faction.name}
                       </span>
-                      {!faction.isSelectable && (
+                      {faction.playerLimit > 0 && (
+                        <span className="ml-2 text-xs text-swu-muted">
+                          {faction.playerCount}/{faction.playerLimit}
+                          {!faction.hasFreePlayerSlots && ' – voll'}
+                        </span>
+                      )}
+                      {!faction.isSelectable ? (
                         <span className="mt-2 block text-xs text-swu-muted">
                           Derzeit nicht für neue Spieler wählbar
                         </span>
+                      ) : (
+                        !faction.hasFreePlayerSlots && (
+                          <span className="mt-2 block text-xs text-swu-muted">
+                            Alle vorgesehenen Spielerplätze sind belegt
+                          </span>
+                        )
                       )}
                     </button>
                   );

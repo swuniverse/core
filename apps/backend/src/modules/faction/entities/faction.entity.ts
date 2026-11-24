@@ -31,6 +31,10 @@ export class FactionEntity {
   @Column({ type: 'boolean', default: true })
   isSelectable: boolean;
 
+  /** STU `player_limit`: 0 = unlimited. */
+  @Column({ type: 'int', default: 0 })
+  playerLimit: number;
+
   @Column({ type: 'int', nullable: true })
   starterShipClassId: number | null;
 

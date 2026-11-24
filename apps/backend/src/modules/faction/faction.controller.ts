@@ -11,6 +11,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { AdminGuard } from '../auth/admin.guard';
 import { FactionService } from './faction.service';
 import { UpdateFactionSelectabilityDto } from './dto/update-faction-selectability.dto';
+import { UpdateFactionPlayerLimitDto } from './dto/update-faction-player-limit.dto';
 
 @Controller('factions')
 export class FactionController {
@@ -28,5 +29,14 @@ export class FactionController {
     @Body() dto: UpdateFactionSelectabilityDto,
   ) {
     return this.factionService.updateSelectability(id, dto.isSelectable);
+  }
+
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Patch(':id/player-limit')
+  updatePlayerLimit(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateFactionPlayerLimitDto,
+  ) {
+    return this.factionService.updatePlayerLimit(id, dto.playerLimit);
   }
 }
