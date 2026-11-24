@@ -6,6 +6,7 @@ import { RpgPlotController } from './rpg-plot.controller';
 import { RpgPlotMember } from './rpg-plot-member.entity';
 import { RpgPlot } from './rpg-plot.entity';
 import { RpgPlotService } from './rpg-plot.service';
+import { EmptyPlotMaintenanceService } from './empty-plot-maintenance.service';
 import { RpgController } from './rpg.controller';
 import { RpgService } from './rpg.service';
 import { UserCharacter } from './user-character.entity';
@@ -16,7 +17,7 @@ import { UserCharacter } from './user-character.entity';
     MessagingModule,
   ],
   controllers: [RpgController, RpgPlotController],
-  providers: [RpgService, RpgPlotService],
-  exports: [RpgPlotService],
+  providers: [RpgService, RpgPlotService, EmptyPlotMaintenanceService],
+  exports: [RpgPlotService, EmptyPlotMaintenanceService],
 })
 export class RpgModule {}

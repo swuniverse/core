@@ -50,6 +50,10 @@ import { RepairCompletionService } from './repair-completion.service';
 import { StationShipRepair } from '../spacecraft/entities/station-ship-repair.entity';
 import { SpacecraftRepairTask } from '../spacecraft/entities/spacecraft-repair-task.entity';
 import { LocationMiningRegenerationService } from '../spacecraft/location-mining-regeneration.service';
+import { RpgModule } from '../rpg/rpg.module';
+import { EmptyPlotMaintenanceService } from '../rpg/empty-plot-maintenance.service';
+import { CrewExperienceMaintenanceService } from './crew-experience-maintenance.service';
+import { MissingAwardsMaintenanceService } from './missing-awards-maintenance.service';
 import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue.entity';
 
 @Module({
@@ -84,6 +88,7 @@ import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue
     TradeModule,
     AccountDeletionModule,
     MailModule,
+    RpgModule,
   ],
   controllers: [TickController, TickStatusController],
   providers: [
@@ -97,6 +102,8 @@ import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue
     TopFlightsRewardService,
     WreckDecayService,
     IdleUserMaintenanceService,
+    CrewExperienceMaintenanceService,
+    MissingAwardsMaintenanceService,
     {
       provide: WRECK_DECAY_RANDOM_TOKEN,
       useValue: () => Math.floor(Math.random() * 11) + 5,
@@ -112,7 +119,10 @@ import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue
         tradeLottery: TradeLotteryService,
         idleUsers: IdleUserMaintenanceService,
         locationMining: LocationMiningRegenerationService,
-      ) => [topFlightsReward, profileVisitors, layerMapCycle, tradeLicenses, tradeOffers, tradeLottery, idleUsers, locationMining],
+        crewExperience: CrewExperienceMaintenanceService,
+        emptyPlots: EmptyPlotMaintenanceService,
+        missingAwards: MissingAwardsMaintenanceService,
+      ) => [topFlightsReward, profileVisitors, layerMapCycle, tradeLicenses, tradeOffers, tradeLottery, idleUsers, locationMining, crewExperience, emptyPlots, missingAwards],
       inject: [
         TopFlightsRewardService,
         ProfileVisitorService,
@@ -122,6 +132,9 @@ import { ColonyShipBuildQueue } from '../colony/entities/colony-ship-build-queue
         TradeLotteryService,
         IdleUserMaintenanceService,
         LocationMiningRegenerationService,
+        CrewExperienceMaintenanceService,
+        EmptyPlotMaintenanceService,
+        MissingAwardsMaintenanceService,
       ],
     },
   ],

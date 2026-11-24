@@ -31,6 +31,7 @@ import { SystemTypeDiscovery } from '../starmap/entities/system-type-discovery.e
 import { SYSTEM_TYPE_DEFINITIONS } from '../starmap/starmap-system-types';
 import { GameGateway } from '../websocket/game.gateway';
 import { DatabaseCompletionService } from './database-completion.service';
+import { MissingAwardsMaintenanceService } from '../tick/missing-awards-maintenance.service';
 import { DatabaseService } from './database.service';
 import { DatabaseDiscoveryListener } from './database-discovery.listener';
 import { DATABASE_DISCOVERY, type DatabaseDiscoveryPort } from './database-discovery.port';
@@ -377,6 +378,19 @@ describe('database category completion (PostgreSQL)', () => {
       expect(await awardsOf(player)).toEqual([`DATABASE_SYSTEMS_L${core.id}`]);
       expect(emitToUser.mock.calls.filter(([, type]) => type === WsEventType.AWARD_GRANTED)).toHaveLength(1);
     });
+  });
+
+  it('maintenance backfills missing awards once, for players only (sh-AUD-11a)', async () => {
+    await explore(player, coreSystems);
+    await explore(npc, coreSystems);
+    const handler = new MissingAwardsMaintenanceService(dataSource.getRepository(User), service);
+
+    await expect(handler.run()).resolves.toBe('1 fehlende Awards vergeben');
+    await expect(handler.run()).resolves.toBe('0 fehlende Awards vergeben');
+
+    expect(await awardsOf(player)).toEqual([`DATABASE_SYSTEMS_L${core.id}`]);
+    expect(await awardsOf(npc)).toEqual([]);
+    expect(prestige.change).toHaveBeenCalledTimes(1);
   });
 
   it('lists star system progress only for the given known layers (tmw-D5d)', async () => {
