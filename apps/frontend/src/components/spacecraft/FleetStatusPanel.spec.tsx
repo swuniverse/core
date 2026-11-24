@@ -41,9 +41,10 @@ describe('FleetStatusPanel', () => {
     const onUpdate = vi.fn();
     renderPanel({ onUpdate });
 
-    expect(await screen.findByText('Antares')).toBeTruthy();
-    expect(screen.queryByText('Solo')).toBeNull();
-    expect(screen.queryByText('Defiant')).toBeNull();
+    // STU fleetInfo: one row per member, the name only as image title.
+    expect((await screen.findByRole('link', { name: 'Antares' })).getAttribute('title')).toBe('Antares');
+    expect(screen.queryByRole('link', { name: 'Solo' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Defiant' })).toBeNull();
     expect(screen.getByRole('meter', { name: 'Hülle' }).getAttribute('aria-valuenow')).toBe('40');
     expect(screen.queryByRole('meter', { name: 'Hyperantrieb' })).toBeNull();
 

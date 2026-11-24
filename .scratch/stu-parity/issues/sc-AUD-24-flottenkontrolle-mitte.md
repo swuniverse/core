@@ -16,6 +16,8 @@ STU `src/html/spacecraft/control/control_mid.twig` Z. 99–140: Der Flottenführ
 - [x] Alarmstufe Grün/Gelb/Rot für die Flotte über `PATCH fleets/:id/alert-state`.
 - [x] Fehlschläge je Schiff als „Schiff: Grund“.
 - [x] Icons `kss2`, `shldac1/2`, `act_phaser2`, `act_torp2`, `warp1/2` aus STU (Submodul `assets`).
+- [x] Flottenstatus einzeilig wie STU `fleetInfo`: Schiffsbild (Name als Titel), vier gleich breite Kästchen Hülle/Schilde/EPS/Hyperantrieb mit festen STU-Farben (leer bei fehlendem System), Flagge; „fixiert“ mit Info-Icon.
+- [x] Checkbox „Flotte“ beim Flottenführer in Reaktor aufladen (`fleet_reactor`), Reaktorverteilung/Übertrag (`fleetSplit`) und Ersatzbatterie entladen (`fleet_batt`): Befehl geht schiffsweise an jedes Mitglied, Ausgabe „Flottenbefehl ausgeführt: …“ plus „Schiff: Grund“ je Fehlschlag.
 
 ## Comments
 
@@ -25,3 +27,9 @@ STU `src/html/spacecraft/control/control_mid.twig` Z. 99–140: Der Flottenführ
 - Tests: neu `FleetControlPanel.spec.tsx` (6). Vitest `components/spacecraft` + `spacecraft-detail` 267/267; `nx typecheck frontend` ✓.
 - Ausstehend: gesammelter Verifikationslauf.
 - Modell: Claude Opus 5.5 direkt.
+
+### 2026-11-24 — Flottenstatus einzeilig und „Flotte“-Häkchen, Prüfung ausstehend
+
+- STU: `control_right.twig` (`fleetInfo`, Checkboxen `fleet_reactor`, `fleetSplit`, `fleet_batt`), `LoadReactor.php`, `SplitReactorOutput.php`, `UnloadBattery.php`.
+- SWU: kein Backend-Umbau; `ReactorPanel` ruft die Einzelschiff-Endpunkte (`reactor/load`, `battery/discharge`, `reactor-distribution`, alle mit Eigner-Prüfung) nacheinander für `fleetMembers` auf. Abweichung: volle Reaktoren meldet der Endpunkt pro Schiff, STU überspringt sie still.
+- Tests: `ReactorPanel.spec.tsx` +4, `FleetStatusPanel.spec.tsx` angepasst. Vitest `components/spacecraft` + `spacecraft-detail` 271/271; `nx typecheck frontend` ✓; ESLint ohne Befund in den geänderten Dateien.

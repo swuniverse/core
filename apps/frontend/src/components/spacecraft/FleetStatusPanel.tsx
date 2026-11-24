@@ -97,6 +97,12 @@ export function FleetStatusPanel({
             }
           />
           fixiert
+          <img
+            src="/assets/buttons/info2.png"
+            alt=""
+            aria-hidden="true"
+            className="size-4"
+          />
         </label>
       </h3>
       <ul className="divide-y divide-swu-border/60">
@@ -104,45 +110,45 @@ export function FleetStatusPanel({
           <li key={member.id} className="flex items-center gap-2 py-1">
             <Link
               to={`/spacecraft/${member.id}`}
-              className="w-28 shrink-0 hover:text-swu-accent"
+              title={member.name}
+              className="w-20 shrink-0 bg-black"
             >
               <img
                 src={shipImage(member.shipClassId, member.shipClassKey)}
-                alt=""
-                aria-hidden="true"
+                alt={member.name}
                 className="max-h-8"
               />
-              <span className="block truncate">{member.name}</span>
             </Link>
-            <div className="grid flex-1 grid-cols-2 gap-1">
+            {/* STU fleetInfo: four equal boxes, empty when the system is missing. */}
+            <div className="grid flex-1 grid-cols-4 gap-1">
               <Bar
                 icon="modul_1.png"
                 label="Hülle"
+                color="bg-green-500"
                 current={member.hull}
                 max={member.hullMax}
               />
-              {member.shieldsMax > 0 && (
-                <Bar
-                  icon="modul_2.png"
-                  label="Schilde"
-                  current={member.shields}
-                  max={member.shieldsMax}
-                />
-              )}
+              <Bar
+                icon="modul_2.png"
+                label="Schilde"
+                color="bg-blue-600"
+                current={member.shields}
+                max={member.shieldsMax}
+              />
               <Bar
                 icon="modul_8.png"
                 label="Energie"
+                color="bg-yellow-400"
                 current={member.energy}
                 max={member.energyMax}
               />
-              {member.warpdriveMax > 0 && (
-                <Bar
-                  icon="modul_11.png"
-                  label="Hyperantrieb"
-                  current={member.warpdrive}
-                  max={member.warpdriveMax}
-                />
-              )}
+              <Bar
+                icon="modul_11.png"
+                label="Hyperantrieb"
+                color="bg-sky-400"
+                current={member.warpdrive}
+                max={member.warpdriveMax}
+              />
             </div>
             <button
               type="button"
@@ -177,23 +183,25 @@ export function FleetStatusPanel({
 function Bar({
   icon,
   label,
+  color,
   current,
   max,
 }: {
   icon: string;
   label: string;
+  color: string;
   current: number;
   max: number;
 }) {
-  const percent = max > 0 ? Math.round((current / max) * 100) : 0;
+  const box =
+    'flex items-center gap-1 border border-swu-border/60 bg-black/30 p-1';
+  if (max <= 0) return <span className={box} />;
+  const percent = Math.round((current / max) * 100);
   return (
-    <span
-      className="flex items-center gap-1"
-      title={`${label}: ${current}/${max}`}
-    >
+    <span className={box} title={`${label}: ${current}/${max}`}>
       <img src={`/assets/buttons/${icon}`} alt={label} className="size-4" />
       <span
-        className="h-1.5 flex-1 bg-black/50"
+        className="h-2 flex-1 bg-gray-500"
         role="meter"
         aria-label={label}
         aria-valuenow={current}
@@ -201,7 +209,7 @@ function Bar({
         aria-valuemax={max}
       >
         <span
-          className={`block h-full ${percent <= 25 ? 'bg-red-500' : percent <= 50 ? 'bg-yellow-400' : 'bg-green-500'}`}
+          className={`block h-full ${color}`}
           style={{ width: `${percent}%` }}
         />
       </span>

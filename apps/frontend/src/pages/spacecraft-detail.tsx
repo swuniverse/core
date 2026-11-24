@@ -296,6 +296,11 @@ export function SpacecraftDetailPage() {
               }
               hasReactor={ship.runtimeSystems?.REACTOR != null}
               hasWarpdrive={ship.runtimeSystems?.WARPDRIVE != null}
+              fleetMembers={
+                ship.fleetId != null && ship.fleetLeaderId === ship.id
+                  ? ship.fleetMembers
+                  : undefined
+              }
               onUpdate={refreshShipAndStorage}
             />
           </div>

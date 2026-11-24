@@ -229,4 +229,65 @@ describe('ReactorPanel', () => {
     );
     expect(container.innerHTML).toBe('');
   });
+  describe('STU "Flotte" checkboxes for the fleet leader', () => {
+    const fleetMembers = [
+      { id: 2, name: 'Defiant' },
+      { id: 5, name: 'Antares' },
+    ];
+
+    it('offers no fleet checkbox without fleet members', () => {
+      render(<ReactorPanel {...props} />);
+      expect(screen.queryByRole('checkbox', { name: /^Flottenbefehl/ })).toBeNull();
+    });
+
+    it('loads every reactor of the fleet and lists per-ship failures', async () => {
+      apiMocks.post.mockImplementation((path: string) =>
+        path.startsWith('/spacecraft/5/')
+          ? Promise.reject(new Error('Nicht genügend Crew vorhanden'))
+          : Promise.resolve({ transferred: 1 }),
+      );
+      render(<ReactorPanel {...props} fleetMembers={fleetMembers} />);
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Flottenbefehl Reaktor aufladen' }));
+      fireEvent.click(screen.getByRole('button', { name: 'aufladen' }));
+
+      const status = await screen.findByRole('status');
+      expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/reactor/load', { amount: 1 });
+      expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/5/reactor/load', { amount: 1 });
+      expect(status.textContent).toContain('Flottenbefehl ausgeführt: Aufladung des Reaktors');
+      expect(status.textContent).toContain('Antares: Nicht genügend Crew vorhanden');
+    });
+
+    it('discharges every battery of the fleet', async () => {
+      apiMocks.post.mockResolvedValue({ transferred: 1 });
+      render(<ReactorPanel {...props} fleetMembers={fleetMembers} />);
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Flottenbefehl Ersatzbatterie entladen' }));
+      fireEvent.click(screen.getByRole('button', { name: 'entladen' }));
+
+      await waitFor(() =>
+        expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/5/battery/discharge', { amount: 1 }),
+      );
+      expect(apiMocks.post).toHaveBeenCalledWith('/spacecraft/2/battery/discharge', { amount: 1 });
+    });
+
+    it('applies the reactor split to every ship of the fleet', async () => {
+      apiMocks.patch.mockResolvedValue({ reactorWarpSplit: 30, reactorAutoCarryOver: true });
+      render(<ReactorPanel {...props} fleetMembers={fleetMembers} />);
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Flottenbefehl Reaktorverteilung' }));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Überschüssige Energie übertragen' }));
+
+      await waitFor(() =>
+        expect(apiMocks.patch).toHaveBeenCalledWith('/spacecraft/5/reactor-distribution', {
+          warpSplit: 30,
+          autoCarryOver: true,
+        }),
+      );
+      expect(apiMocks.patch).toHaveBeenCalledWith('/spacecraft/2/reactor-distribution', {
+        warpSplit: 30,
+        autoCarryOver: true,
+      });
+    });
+  });
 });

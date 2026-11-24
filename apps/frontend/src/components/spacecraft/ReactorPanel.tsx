@@ -23,8 +23,17 @@ interface ReactorPanelProps {
   hasReactor?: boolean;
   /** STU control_right.twig: warp block only with a warp drive (`hasWarpDrive`). */
   hasWarpdrive?: boolean;
+  /** Set for a fleet leader: STU "Flotte" checkboxes send the command to every member. */
+  fleetMembers?: Array<{ id: number; name: string }>;
   onUpdate: () => void;
 }
+
+type FleetCommand = 'reactor' | 'split' | 'battery';
+const FLEET_COMMAND_LABELS: Record<FleetCommand, string> = {
+  reactor: 'Reaktor aufladen',
+  split: 'Reaktorverteilung',
+  battery: 'Ersatzbatterie entladen',
+};
 
 export function ReactorPanel({
   shipId,
@@ -41,8 +50,54 @@ export function ReactorPanel({
   canTransferReactorCharge = false,
   hasReactor = true,
   hasWarpdrive = true,
+  fleetMembers,
   onUpdate,
 }: ReactorPanelProps) {
+  const [fleetFlags, setFleetFlags] = useState<Record<FleetCommand, boolean>>({
+    reactor: false,
+    split: false,
+    battery: false,
+  });
+  const [fleetResult, setFleetResult] = useState<string[] | null>(null);
+  const forFleet = (command: FleetCommand) =>
+    fleetMembers && fleetFlags[command] ? fleetMembers : null;
+
+  /** STU runs fleet commands ship by ship; one failure never blocks the others. */
+  async function runForFleet(
+    members: Array<{ id: number; name: string }>,
+    title: string,
+    request: (id: number) => Promise<unknown>,
+  ) {
+    const failures: string[] = [];
+    for (const member of members) {
+      try {
+        await request(member.id);
+      } catch (err: unknown) {
+        failures.push(
+          `${member.name}: ${err instanceof Error ? err.message : 'fehlgeschlagen'}`,
+        );
+      }
+    }
+    setFleetResult([`Flottenbefehl ausgeführt: ${title}`, ...failures]);
+  }
+
+  const fleetBox = (command: FleetCommand) =>
+    fleetMembers && (
+      <label className="ml-auto inline-flex items-center gap-1 text-[10px] text-swu-muted">
+        <input
+          type="checkbox"
+          aria-label={`Flottenbefehl ${FLEET_COMMAND_LABELS[command]}`}
+          checked={fleetFlags[command]}
+          onChange={(event) =>
+            setFleetFlags((current) => ({
+              ...current,
+              [command]: event.target.checked,
+            }))
+          }
+        />
+        Flotte
+      </label>
+    );
   const [split, setSplit] = useState(reactorWarpSplit);
   const [autoCarryOver, setAutoCarryOver] = useState(reactorAutoCarryOver);
   const [confirmedDistribution, setConfirmedDistribution] = useState({
@@ -109,6 +164,18 @@ export function ReactorPanel({
             split: result.reactorWarpSplit,
             autoCarryOver: result.reactorAutoCarryOver,
           });
+          const members = forFleet('split');
+          if (members) {
+            await runForFleet(
+              members.filter((member) => member.id !== shipId),
+              `Reaktorleistung geht zu ${100 - clamped} Prozent in den Hyperantrieb (Übertrag ${nextAutoCarryOver ? 'aktiviert' : 'deaktiviert'})`,
+              (id) =>
+                api.patch(`/spacecraft/${id}/reactor-distribution`, {
+                  warpSplit: clamped,
+                  autoCarryOver: nextAutoCarryOver,
+                }),
+            );
+          }
           onUpdate();
         } catch (err: unknown) {
           setSplit(confirmedDistribution.split);
@@ -125,17 +192,32 @@ export function ReactorPanel({
       if (debounce) debounceRef.current = setTimeout(() => void save(), 300);
       else void save();
     },
-    [confirmedDistribution, shipId, onUpdate],
+    [confirmedDistribution, shipId, onUpdate, fleetFlags, fleetMembers],
   );
 
   async function transferEngineering(
     action: 'reactor/load' | 'battery/discharge',
     requested: number | 'MAX',
   ) {
-    setEngineering(action.startsWith('reactor') ? 'reactor' : 'battery');
+    const command = action.startsWith('reactor') ? 'reactor' : 'battery';
+    setEngineering(command);
     setError(null);
     try {
-      await api.post(`/spacecraft/${shipId}/${action}`, { amount: requested });
+      const members = forFleet(command);
+      if (members) {
+        await runForFleet(
+          members,
+          command === 'reactor'
+            ? 'Aufladung des Reaktors'
+            : 'Ersatzbatterie entladen',
+          (id) =>
+            api.post(`/spacecraft/${id}/${action}`, { amount: requested }),
+        );
+      } else {
+        await api.post(`/spacecraft/${shipId}/${action}`, {
+          amount: requested,
+        });
+      }
       onUpdate();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Transfer fehlgeschlagen');
@@ -240,6 +322,7 @@ export function ReactorPanel({
               onAmount={setAmount}
               onSubmit={(value) => transferEngineering('reactor/load', value)}
             />
+            {fleetBox('reactor')}
             {canTransferReactorCharge && (
               <button
                 type="button"
@@ -364,6 +447,7 @@ export function ReactorPanel({
                 className="accent-swu-accent"
               />
             </label>
+            {fleetBox('split')}
           </div>
         )}
 
@@ -408,9 +492,17 @@ export function ReactorPanel({
                 transferEngineering('battery/discharge', value)
               }
             />
+            {fleetBox('battery')}
           </div>
         )}
       </div>
+      {fleetResult && (
+        <ul role="status" className="mt-2 text-[11px] text-swu-primary">
+          {fleetResult.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      )}
       {error && (
         <p role="alert" className="mt-2 text-[11px] text-red-300">
           {error}
