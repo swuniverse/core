@@ -1,6 +1,6 @@
 # HoloNet-Liste aufgeklappt und mit Autor-/Admin-Aktionen wie STU
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -56,3 +56,5 @@ Commit: `feat(holonet): STU expanded card, author delete, admin edit, plot chang
 - Bereits gelaufen: `jest src/modules/holonet` (51 Tests grün), `nx typecheck backend`, `vitest src/pages/holonet.spec.tsx` (33 Tests grün), `tsc` app/spec im Frontend, eslint auf den geänderten Dateien.
 - Offen für den Verifikationslauf: `holonet-characters.int-spec.ts` gegen die DB (mit neuer Spalte), volle `lint typecheck test` und Migration gegen Postgres.
 - Modell: Opus 5.5 im Hauptlauf, kein Sol/Luna-Agent in dieser Session verfügbar (Abweichung vom Routing).
+
+- 2026-11-24 – **resolved.** Gesammelter Verifikationslauf (Claude Opus 5.5; Sol/Luna in dieser Session nicht verfügbar) auf `f1e0c2f2`: `nx run-many -t build typecheck lint` (backend, frontend, shared) grün; Unit Backend 2764/2764, Frontend 1028/1028; PostgreSQL-Integration 1045/1089 im Gesamtlauf – die 44 Fehler (6 Suiten) waren Test-Fixtures mit alten `sendSystem`-Argumentpositionen bzw. der historische Kolonie-Ereignis-Migrationstest nach dem Betreff-Wegfall (soc-AUD-07b), behoben in `f1e0c2f2`, betroffene Suiten danach 112/112 grün. Diff-Review: Regression behoben – `publicAuthor` lieferte für Kommentare gelöschter Konten einen leeren Namen statt „Gelöschter Siedler“ (Ursache des in soc-AUD-07b als vorbestehend vermerkten `account-deletion.int-spec`-Fehlers); jetzt grün. Migration `editedAt` im Gesamtlauf mitgelaufen, holonet-Unit 66/66 (mit Onboarding).

@@ -1,6 +1,6 @@
 # Maintenance: täglicher Crew-XP-Tick, leere RPG-Plots löschen, fehlende Awards nachtragen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -65,3 +65,5 @@ Commit `727a3fe9` (feat(maintenance): STU crew XP tick, empty RPG plot deletion,
 - Routing: Sol/Luna in dieser Session nicht verfügbar, direkt mit Claude Opus 5.5 umgesetzt.
 
 Ausstehend: gesammelter Verifikationslauf (Diff-Review gegen AK, volle Backend-Unit- und Integrationssuite).
+
+- 2026-11-24 – **resolved.** Gesammelter Verifikationslauf (Claude Opus 5.5; Sol/Luna in dieser Session nicht verfügbar) auf `f1e0c2f2`: `nx run-many -t build typecheck lint` (backend, frontend, shared) grün; Unit Backend 2764/2764, Frontend 1028/1028; PostgreSQL-Integration 1045/1089 im Gesamtlauf – die 44 Fehler (6 Suiten) waren Test-Fixtures mit alten `sendSystem`-Argumentpositionen bzw. der historische Kolonie-Ereignis-Migrationstest nach dem Betreff-Wegfall (soc-AUD-07b), behoben in `f1e0c2f2`, betroffene Suiten danach 112/112 grün. Diff-Review ohne inhaltlichen Befund (Auswahl nur bemannter Schiffe begründet, da ohne Crew keine XP). `maintenance-handlers.int-spec` hatte nach soc-AUD-07b eine veraltete Argumentposition, korrigiert und grün.

@@ -1,6 +1,6 @@
 # Globale History: STATION- und COLONY-Ereignisse schreiben
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -65,3 +65,4 @@ Offen: gesammelter Verifikationslauf (volle Backend-Unit-/Integrationssuite, Rev
 
 Modell: Claude Opus 5.5 direkt implementiert (Sol/Luna in dieser Session nicht verfügbar).
 
+- 2026-11-24 – **resolved.** Gesammelter Verifikationslauf (Claude Opus 5.5; Sol/Luna in dieser Session nicht verfügbar) auf `f1e0c2f2`: `nx run-many -t build typecheck lint` (backend, frontend, shared) grün; Unit Backend 2764/2764, Frontend 1028/1028; PostgreSQL-Integration 1045/1089 im Gesamtlauf – die 44 Fehler (6 Suiten) waren Test-Fixtures mit alten `sendSystem`-Argumentpositionen bzw. der historische Kolonie-Ereignis-Migrationstest nach dem Betreff-Wegfall (soc-AUD-07b), behoben in `f1e0c2f2`, betroffene Suiten danach 112/112 grün. Diff-Review gegen AK ohne Befund.

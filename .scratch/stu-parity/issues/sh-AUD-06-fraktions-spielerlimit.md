@@ -1,6 +1,6 @@
 # Spielerlimit je Fraktion wie STU, Registrierung prüft Wählbarkeit
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -65,3 +65,5 @@ Hinweis: `auth.service.ts#register` wird durch `origin/main` (`da02e52f`) umgesc
 - Tests: Backend-Unit `auth.service.spec` (+3: nicht wählbar, voll, unter Limit/Limit 0), `onboarding.service.spec` (angepasst), `faction.service.spec` (+4 DTO-Validierung) – 33/33; PostgreSQL `faction-player-limit.int-spec.ts` (paralleles Überbuchen, Limit 0) 2/2; Vitest `register`, `onboarding`, `admin-factions` 9/9; `nx typecheck backend frontend` ✓; ESLint 0 Fehler.
 - Ausstehend: gesammelter Verifikationslauf.
 - Modell: Claude Opus 5.5 direkt (Transaktion/Nebenläufigkeit, kein Delegieren).
+
+- 2026-11-24 – **resolved.** Gesammelter Verifikationslauf (Claude Opus 5.5; Sol/Luna in dieser Session nicht verfügbar) auf `f1e0c2f2`: `nx run-many -t build typecheck lint` (backend, frontend, shared) grün; Unit Backend 2764/2764, Frontend 1028/1028; PostgreSQL-Integration 1045/1089 im Gesamtlauf – die 44 Fehler (6 Suiten) waren Test-Fixtures mit alten `sendSystem`-Argumentpositionen bzw. der historische Kolonie-Ereignis-Migrationstest nach dem Betreff-Wegfall (soc-AUD-07b), behoben in `f1e0c2f2`, betroffene Suiten danach 112/112 grün. Diff-Review: Befund behoben – `selectFaction` prüfte „Fraktion schon gewählt“ außerhalb der Transaktion; jetzt bedingtes Update (`factionId IS NULL`) unter der Fraktionssperre, Unit-Test ergänzt (15/15), `faction-player-limit.int-spec` 2/2.

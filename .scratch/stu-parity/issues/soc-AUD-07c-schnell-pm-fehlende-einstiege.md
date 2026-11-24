@@ -1,6 +1,6 @@
 # Schnell-PM: fehlende Einstiege wie STU
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** soc-AUD-07a
@@ -52,3 +52,5 @@ STU bietet die Schnell-PM an deutlich mehr Stellen an als SWU. Es fehlen Siedler
   - Kontextmodell: Quelle USER = `/messages`, Quelle SHIP/STATION = Pfad-`:id` (Besitz geprüft), Ziel SHIP/STATION/COLONY per `targetType`. Quelle COLONY hat keinen Einstieg (wie 07a abgegrenzt) und ist nicht gebaut.
   - Checks: `nx typecheck` backend/frontend/shared grün; Backend `jest src/modules/spacecraft` 827/827 (6 neue Kolonie-Fälle); vitest `src/pages src/components` 958/958 (neue Tests je Einstieg); eslint 0 Fehler. Bestehender Verwaltungs-Test filtert den PM-Button jetzt heraus.
   - Ausstehend: gesammelter Verifikationslauf (volle `test-integration`, Workspace-Build); `colony.owner` im Feldkontext hat keinen eigenen Backend-Test.
+
+- 2026-11-24 – **resolved.** Gesammelter Verifikationslauf (Claude Opus 5.5; Sol/Luna in dieser Session nicht verfügbar) auf `f1e0c2f2`: `nx run-many -t build typecheck lint` (backend, frontend, shared) grün; Unit Backend 2764/2764, Frontend 1028/1028; PostgreSQL-Integration 1045/1089 im Gesamtlauf – die 44 Fehler (6 Suiten) waren Test-Fixtures mit alten `sendSystem`-Argumentpositionen bzw. der historische Kolonie-Ereignis-Migrationstest nach dem Betreff-Wegfall (soc-AUD-07b), behoben in `f1e0c2f2`, betroffene Suiten danach 112/112 grün. Diff-Review ohne Befund; offener Punkt `colony.owner` ohne eigenen Backend-Test bleibt als bekannte Lücke (Frontend-Test deckt Anzeige/Versand ab).

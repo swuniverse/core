@@ -1,6 +1,6 @@
 # Stations-Award wie STU vergeben, Menüpunkt „Stationen“ nur danach
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** sc-AUD-27
@@ -58,3 +58,5 @@ Spieler, die eine Station ohne die Forschung besitzen (zum Beispiel über eine �
 - `auth.service.ts`: Übergangsregel „eigene Station“ entfernt; Sidebar und Mobil-Menü ohne Admin-Sonderfall.
 - Tests: `game-data.service.spec.ts` (Award an genau beiden Raumkonstrukt-Forschungen), PostgreSQL `migration-tests/20261124-stations-award.int-spec.ts` (einmalig, Prestige 10, Verlauf, nicht für laufende Forschung, NPC ohne Prestige), `stations-navigation.int-spec.ts` (eigene Station allein schaltet nicht frei), `navigation.spec.tsx` (Admin ohne Sonderfall). Jest game-data/research/auth 135/135, PostgreSQL 6/6, Vitest layout/stations/research 36/36, `nx typecheck` ✓, ESLint ohne Befund.
 - Modell: Claude Opus 5.5 direkt.
+
+- 2026-11-24 – **resolved.** Gesammelter Verifikationslauf (Claude Opus 5.5; Sol/Luna in dieser Session nicht verfügbar) auf `f1e0c2f2`: `nx run-many -t build typecheck lint` (backend, frontend, shared) grün; Unit Backend 2764/2764, Frontend 1028/1028; PostgreSQL-Integration 1045/1089 im Gesamtlauf – die 44 Fehler (6 Suiten) waren Test-Fixtures mit alten `sendSystem`-Argumentpositionen bzw. der historische Kolonie-Ereignis-Migrationstest nach dem Betreff-Wegfall (soc-AUD-07b), behoben in `f1e0c2f2`, betroffene Suiten danach 112/112 grün. Diff-Review gegen AK ohne Befund (Migration idempotent, Prestige wie `PrestigeService.change`, game-data-Commit `18e5dc9` auf `origin/main`).

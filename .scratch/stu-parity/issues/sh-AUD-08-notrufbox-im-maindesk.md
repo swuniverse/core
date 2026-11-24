@@ -1,6 +1,6 @@
 # Notrufbox im Maindesk anzeigen
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -33,8 +33,8 @@ STU zeigt in der linken Maindesk-Spalte eine Box „Notrufe“ (nur wenn Notrufe
 - [x] Box „Notrufe“ in der linken Maindesk-Spalte, Position wie STU (nach Allianzforum, vor Ereignissen). Ohne aktive Notrufe wird sie nicht angezeigt.
 - [x] Spalten: Koordinaten, Info, Notrufsignal, Zeitpunkt (In-Universe-Datumsformat wie übrige Maindesk-Zeitangaben).
 - [x] Detailrecht wie STU: Für eigene Schiffe und Schiffe von Freunden (Beziehungsauflösung aus Sicht des Betrachters) Koordinaten sowie „<Schiff> von <Spieler>“ mit Profillink. Für alle anderen nur Sektor/Region und Notruftext, ohne Schiffs- und Spielernamen. Die Filterung passiert serverseitig; das DTO enthält für fremde Notrufe keinen Schiffsnamen, keine Besitzer-ID und keine genauen Koordinaten.
-- [ ] RPG-verborgene Schiffe bleiben ausgeblendet (bestehender Filter).
-- [ ] Backend-Tests: Detail für eigenes und Freundes-Schiff, reduziertes DTO für Fremde, RPG-Filter.
+- [x] RPG-verborgene Schiffe bleiben ausgeblendet (bestehender Filter).
+- [x] Backend-Tests: Detail für eigenes und Freundes-Schiff, reduziertes DTO für Fremde, RPG-Filter.
 - [x] Frontend-Tests: Box erscheint mit Daten, fehlt ohne Daten, zeigt reduzierte Zeile ohne Details.
 
 ## Herkunft
@@ -54,3 +54,5 @@ Commit „feat(maindesk): STU distress box with viewer-filtered details (stu-par
 - Bereits gelaufen: `spacecraft-communication.service.spec.ts` (12/12, darunter eigen/Freund/fremd und RPG-Filter), `DashboardLowerSections.spec.tsx` (9/9), `nx run-many -t typecheck -p backend frontend` grün.
 - Noch offen für die gesammelte Verifikation: `rpg-transponder.int-spec.ts` (angepasst auf `listActiveDistress(admin)` / `details?.spacecraftId`, braucht Integrations-DB) und der Diff-Review. AC „Backend-Tests“ und „RPG-verborgene Schiffe“ bleiben bis dahin offen.
 - Modell: Opus 5.5 direkt (Sol/Luna in dieser Sitzung nicht verfügbar; Ticket berührt Informationsfreigabe, daher keine Delegation).
+
+- 2026-11-24 – **resolved.** Gesammelter Verifikationslauf (Claude Opus 5.5; Sol/Luna in dieser Session nicht verfügbar) auf `f1e0c2f2`: `nx run-many -t build typecheck lint` (backend, frontend, shared) grün; Unit Backend 2764/2764, Frontend 1028/1028; PostgreSQL-Integration 1045/1089 im Gesamtlauf – die 44 Fehler (6 Suiten) waren Test-Fixtures mit alten `sendSystem`-Argumentpositionen bzw. der historische Kolonie-Ereignis-Migrationstest nach dem Betreff-Wegfall (soc-AUD-07b), behoben in `f1e0c2f2`, betroffene Suiten danach 112/112 grün. Diff-Review: Filterung serverseitig, fremde Notrufe ohne Schiffsname, Besitzer-ID und Feld; RPG-Filter vor der Abbildung; `rpg-transponder.int-spec` im Gesamtlauf grün. Damit auch AK „RPG-verborgene Schiffe“ und „Backend-Tests“ erfüllt.

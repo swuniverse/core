@@ -1,6 +1,6 @@
 # PMs ohne Betreff, Empfänger per Siedler-ID oder Kontaktliste
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** M
 **Blocked by:** soc-AUD-07a
@@ -53,3 +53,5 @@ STU-Privatnachrichten haben keinen Betreff (`PrivateMessage` hat kein Betrefffel
   - Checks: `nx typecheck` backend/shared/frontend grün; `backend:test` 2757/2757; Integration (Migration, Messaging-Ordner, Admin-Broadcast, Handel, Ionensturm, Subraumellipse, Alarmreaktion, Wurmloch, Bewegung, Allianz-Lifecycle, Kolonie-Orbit u. a.) grün; vitest messages/QuickPm/tutorial-targets/admin-mass-message/message-preview grün; eslint ohne Fehler.
   - Vorbestehend, nicht durch dieses Ticket: `account-deletion.int-spec` „keeps what others see …“ (HoloNet-Kommentarautor) schlägt auch auf HEAD fehl.
   - Ausstehend: gesammelter Verifikationslauf (volle `test-integration`, Workspace-Build).
+
+- 2026-11-24 – **resolved.** Gesammelter Verifikationslauf (Claude Opus 5.5; Sol/Luna in dieser Session nicht verfügbar) auf `f1e0c2f2`: `nx run-many -t build typecheck lint` (backend, frontend, shared) grün; Unit Backend 2764/2764, Frontend 1028/1028; PostgreSQL-Integration 1045/1089 im Gesamtlauf – die 44 Fehler (6 Suiten) waren Test-Fixtures mit alten `sendSystem`-Argumentpositionen bzw. der historische Kolonie-Ereignis-Migrationstest nach dem Betreff-Wegfall (soc-AUD-07b), behoben in `f1e0c2f2`, betroffene Suiten danach 112/112 grün. Diff-Review: alle `sendSystem`-Aufrufe mit drittem Argument geprüft – nur echte Delivery-Keys, kein verrutschter Betreff. Folgefehler in Int-Specs (Mock-Argumentpositionen, historischer Migrationstest) behoben. Der `account-deletion`-Fehler stammte aus soc-AUD-02 und ist behoben.
