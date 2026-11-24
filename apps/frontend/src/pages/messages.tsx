@@ -20,28 +20,17 @@ import {
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { tutorialEvent } from '../components/tutorial/useTutorial';
 import { messagePreview } from '../components/messaging/message-preview';
+import { MessageCard, PageNumbers, type FolderMessage } from '../components/messaging/MessageCard';
 
 type OriginSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 
-interface MessageSummary {
-  id: number;
-  body: string;
-  isRead?: boolean;
-  readReceipt?: boolean;
-  isSystem: boolean;
-  createdAt: string;
+interface MessageSummary extends FolderMessage {
   originSeverity?: OriginSeverity | null;
-  sender?: { username: string };
-  recipient?: { username: string };
-}
-
-interface MessageDetail extends MessageSummary {
-  /** `null` once the sender deleted the account. */
-  senderId: number | null;
-  recipientId: number;
   targetKind?: MessageTargetKind | null;
   targetId?: number | null;
 }
+
+type MessageDetail = MessageSummary;
 
 interface FolderSummary {
   folder: MessageFolder;
@@ -426,7 +415,6 @@ export function MessagesPage() {
   );
   const [folders, setFolders] = useState<FolderSummary[]>([]);
   const [messages, setMessages] = useState<MessageSummary[]>([]);
-  const [selected, setSelected] = useState<MessageDetail | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
@@ -434,7 +422,7 @@ export function MessagesPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const limit = 20;
+  const [limit, setLimit] = useState(6);
   const [messengerStyle, setMessengerStyle] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
 
@@ -477,7 +465,13 @@ export function MessagesPage() {
       );
       setMessages(response.data);
       setTotal(response.total);
+      setLimit(response.limit);
       setSelectedIds(new Set());
+      // STU marks displayed messages read on load; refresh rail counters and header badge.
+      if (response.data.some((message) => message.isRead === false)) {
+        void refreshFolders().catch(() => undefined);
+        window.dispatchEvent(new Event('swu:messages-read'));
+      }
     } finally {
       setLoading(false);
     }
@@ -491,6 +485,7 @@ export function MessagesPage() {
       );
       setConversations(response.data);
       setTotal(response.total);
+      setLimit(response.limit);
     } finally {
       setLoading(false);
     }
@@ -542,43 +537,20 @@ export function MessagesPage() {
     );
     setFolder(parseFolder(searchParams.get('folder')));
     setPage(1);
-    setSelected(null);
   }, [searchParams, startsCompose]);
 
   const switchFolder = (nextFolder: MessageFolder) => {
     setFolder(nextFolder);
     setTab('folders');
     setPage(1);
-    setSelected(null);
     setSelectedIds(new Set());
     setSearchParams({ folder: nextFolder.toLowerCase() });
   };
 
   const switchToCompose = () => {
     setTab('compose');
-    setSelected(null);
     setSelectedIds(new Set());
     setSearchParams({ tab: 'compose' });
-  };
-
-  const openMessage = async (id: number) => {
-    const msg = await api.get<MessageDetail>(`/messages/${id}`);
-    setSelected(msg);
-    if (!msg.isRead && folder !== 'OUTBOX') {
-      setMessages((current) =>
-        current.map((entry) =>
-          entry.id === id ? { ...entry, isRead: true } : entry,
-        ),
-      );
-      setFolders((current) =>
-        current.map((entry) =>
-          entry.folder === folder
-            ? { ...entry, unread: Math.max(0, entry.unread - 1) }
-            : entry,
-        ),
-      );
-    }
-    await refreshFolders();
   };
 
   const deleteMessage = async (id: number) => {
@@ -589,7 +561,6 @@ export function MessagesPage() {
       next.delete(id);
       return next;
     });
-    if (selected?.id === id) setSelected(null);
     await refreshFolders();
   };
 
@@ -621,7 +592,6 @@ export function MessagesPage() {
     try {
       await api.post('/messages/bulk-delete', { ids });
       setConfirmation(null);
-      setSelected(null);
       await refreshCurrentFolder();
     } catch {
       setActionError('Nachrichten konnten nicht gelöscht werden.');
@@ -633,7 +603,6 @@ export function MessagesPage() {
     setActionError(null);
     try {
       await api.post(customId !== null ? `/messages/user-folders/${customId}/mark-read` : `/messages/folders/${folder.toLowerCase()}/mark-read`, {});
-      setSelected(null);
       await refreshCurrentFolder();
     } catch {
       setActionError('Der Ordner konnte nicht als gelesen markiert werden.');
@@ -650,7 +619,6 @@ export function MessagesPage() {
     try {
       await api.post(customId !== null ? `/messages/user-folders/${customId}/empty` : `/messages/folders/${folder.toLowerCase()}/empty`, {});
       setConfirmation(null);
-      setSelected(null);
       setSelectedIds(new Set());
       setPage(1);
       await refreshCurrentFolder(1);
@@ -659,15 +627,43 @@ export function MessagesPage() {
     }
   };
 
-  const replyTo = () => {
-    if (!selected || selected.senderId === null) return;
+  const replyTo = (message: MessageSummary) => {
+    if (message.senderId === null) return;
     void api
-      .get<MessageDetail[]>(`/messages/correspondence/${selected.senderId}`)
+      .get<MessageDetail[]>(`/messages/correspondence/${message.senderId}`)
       .then(setCorrespondence)
       .catch(() => setCorrespondence([]));
-    selectRecipient({ id: selected.senderId, username: selected.sender?.username || '' });
+    selectRecipient({ id: message.senderId, username: message.sender?.username || '' });
     setCompose((c) => ({ ...c, body: '' }));
     switchToCompose();
+  };
+
+  // STU SwitchContactMode: set the sender's mode, creating the contact if needed.
+  const setSenderContactMode = async (message: MessageSummary, mode: ContactMode) => {
+    if (message.senderId === null) return;
+    try {
+      const contact = message.senderContact
+        ? await api.patch<ContactDto>(`/contacts/${message.senderContact.id}/mode`, { mode })
+        : await api.post<ContactDto>('/contacts', { playerId: message.senderId, mode });
+      setMessages((current) =>
+        current.map((entry) =>
+          entry.senderId === message.senderId
+            ? { ...entry, senderContact: { id: contact.id, mode: contact.mode } }
+            : entry,
+        ),
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Kontaktmodus konnte nicht gespeichert werden');
+    }
+  };
+
+  const moveMessage = async (id: number, folderId: number | null) => {
+    try {
+      await api.post('/messages/user-folders/move', { ids: [id], folderId });
+      await refreshCurrentFolder();
+    } catch {
+      setActionError('Die Nachricht konnte nicht verschoben werden.');
+    }
   };
 
   const openConversation = (conversation: Conversation) => {
@@ -876,8 +872,8 @@ export function MessagesPage() {
           <UserMessageFolders folders={userFolders} activeId={customId}
             onSelect={id => setSearchParams(id === null ? { folder: 'personal' } : { folder: 'personal', userFolder: String(id) })}
             onRefresh={refreshUserFolders}
-            moveIds={tab === 'folders' && folder === 'PERSONAL' ? (selectedIds.size ? [...selectedIds] : selected && !selected.isSystem ? [selected.id] : []) : []}
-            onMoved={async () => { setSelected(null); await refreshCurrentFolder(); }} />
+            moveIds={tab === 'folders' && folder === 'PERSONAL' ? [...selectedIds] : []}
+            onMoved={refreshCurrentFolder} />
         </aside>
 
         <div className="min-w-0 flex-1">
@@ -1073,133 +1069,27 @@ export function MessagesPage() {
             ) : (
               <div className="divide-y divide-swu-border/50">
                 {messages.map((msg) => (
-                  <div
+                  <MessageCard
                     key={msg.id}
-                    className={`flex items-center hover:bg-swu-bg/50 transition-colors ${
-                      selected?.id === msg.id ? 'bg-swu-bg/50' : ''
-                    } ${!msg.isRead && folder !== 'OUTBOX' ? 'border-l-2 border-l-swu-accent' : ''}`}
-                  >
-                    {folder !== 'OUTBOX' && (
-                      <label className="flex shrink-0 items-center px-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(msg.id)}
-                          onChange={() => toggleSelection(msg.id)}
-                          aria-label={`Nachricht ${messagePreview(msg.body)} auswählen`}
-                        />
-                      </label>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => openMessage(msg.id)}
-                      className="flex-1 text-left p-3"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span
-                          className={`text-sm ${
-                            !msg.isRead && folder !== 'OUTBOX'
-                              ? 'font-bold text-swu-primary'
-                              : 'text-swu-muted'
-                          }`}
-                        >
-                          {folder === 'OUTBOX' ? <>An: <PlayerName name={msg.recipient?.username} /></> : msg.isSystem ? 'System' : <PlayerName name={msg.sender?.username || 'System'} />}
-                        </span>
-                        <div className="flex shrink-0 items-center gap-2">
-                          {folder === 'OUTBOX' && msg.readReceipt && (
-                            <span
-                              title="Nachricht gelesen"
-                              aria-label="Nachricht gelesen"
-                              className="text-sm font-bold text-green-400"
-                            >
-                              ✓✓
-                            </span>
-                          )}
-                          <OriginSeverityBadge severity={msg.originSeverity} />
-                          <span className="text-[10px] text-swu-muted">
-                            {timeAgo(msg.createdAt)}
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-xs text-swu-muted mt-0.5 break-words">
-                        {messagePreview(msg.body)}
-                      </p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => deleteMessage(msg.id)}
-                      className="px-3 py-1 text-xs text-red-400 hover:text-red-300 transition-colors"
-                      title="Loeschen"
-                      aria-label="Nachricht löschen"
-                    >
-                      X
-                    </button>
-                  </div>
+                    message={msg}
+                    outbox={folder === 'OUTBOX'}
+                    selected={selectedIds.has(msg.id)}
+                    targetRoute={getMessageTargetRoute(msg.targetKind, msg.targetId)}
+                    badge={<OriginSeverityBadge severity={msg.originSeverity} />}
+                    moveFolders={folder === 'PERSONAL' && !msg.isSystem ? userFolders : null}
+                    currentUserFolderId={customId}
+                    onToggle={() => toggleSelection(msg.id)}
+                    onDelete={() => void deleteMessage(msg.id)}
+                    onReply={() => replyTo(msg)}
+                    onContactMode={(mode) => void setSenderContactMode(msg, mode)}
+                    onMove={(folderId) => void moveMessage(msg.id, folderId)}
+                  />
                 ))}
               </div>
             )}
 
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-3 py-2 border-t border-swu-border/50">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  className="text-xs text-swu-muted hover:text-swu-primary disabled:opacity-30"
-                >
-                  Zurueck
-                </button>
-                <span className="text-xs text-swu-muted">
-                  Seite {page} von {totalPages}
-                </span>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                  className="text-xs text-swu-muted hover:text-swu-primary disabled:opacity-30"
-                >
-                  Weiter
-                </button>
-              </div>
-            )}
+            <PageNumbers page={page} totalPages={totalPages} onPage={setPage} />
           </div>
-
-          {selected && (
-            <div className="w-full bg-swu-surface border border-swu-border rounded-lg p-4 md:w-96">
-              <div className="mb-1 flex items-center gap-2">
-                <h3 className="font-bold text-swu-primary">
-                  <PlayerName name={selected.sender?.username || 'System'} />
-                </h3>
-                <OriginSeverityBadge severity={selected.originSeverity} />
-              </div>
-              <p className="text-[10px] text-swu-muted mb-3">
-                {timeAgo(selected.createdAt)}
-              </p>
-              <BbCodeText
-                text={selected.body}
-                className="text-sm text-swu-muted whitespace-pre-wrap mb-4"
-              />
-              {(() => {
-                const targetRoute = getMessageTargetRoute(
-                  selected.targetKind,
-                  selected.targetId,
-                );
-                return targetRoute ? (
-                  <Link
-                    to={targetRoute}
-                    className="mr-2 inline-block border border-swu-accent px-3 py-1 text-xs text-swu-accent hover:bg-swu-accent/20"
-                  >
-                    ansehen
-                  </Link>
-                ) : null;
-              })()}
-              {!selected.isSystem && folder !== 'OUTBOX' && selected.senderId !== null && (
-                <button
-                  onClick={replyTo}
-                  className="px-3 py-1 text-xs bg-swu-accent/20 border border-swu-accent text-swu-accent rounded hover:bg-swu-accent/30 transition-colors"
-                >
-                  Antworten
-                </button>
-              )}
-            </div>
-          )}
         </div>
       )}
         </div>

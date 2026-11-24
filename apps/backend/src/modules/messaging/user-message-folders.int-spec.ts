@@ -56,6 +56,22 @@ describe('Custom message folders (PostgreSQL)', () => {
     ).toBeNull();
     expect(await service.list(owner)).toHaveLength(1);
   });
+  it('moves a single message into a folder where it is shown in full and marked read', async () => {
+    const folder = await service.create(owner, 'Archiv');
+    await service.move(owner, [message.id], folder.id);
+    const page = await service.messages(owner, folder.id);
+    expect(page).toMatchObject({ total: 1, limit: 6 });
+    expect(page.data[0]).toMatchObject({
+      id: message.id,
+      isRead: false,
+      sender: { id: other },
+      senderContact: null,
+    });
+    expect(page.data[0].sender).not.toHaveProperty('email');
+    expect(
+      (await db.getRepository(Message).findOneByOrFail({ id: message.id })).isRead,
+    ).toBe(true);
+  });
   it('moves a bulk selection and back, without changing fixed counters', async () => {
     const second = await db
       .getRepository(Message)

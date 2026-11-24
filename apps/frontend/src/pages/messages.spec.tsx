@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ToastProvider } from '../components/Toast';
 import { MessagesPage } from './messages';
@@ -49,12 +49,14 @@ describe('MessagesPage folders', () => {
               isRead: false,
               isSystem: false,
               createdAt: '2026-10-13T12:00:00.000Z',
-              sender: { username: 'Leia' },
+              senderId: 7,
+              sender: { id: 7, username: 'Leia', avatar: null, faction: null, isNpc: false },
+              senderContact: null,
             },
           ],
           total: 1,
           page: 1,
-          limit: 20,
+          limit: 6,
         });
       }
       if (url === '/messages/folders/trade?page=1') {
@@ -129,7 +131,7 @@ describe('MessagesPage folders', () => {
     expect(screen.getByRole('link', { name: 'Notizzettel öffnen' }).getAttribute('href')).toBe('/notes');
   });
 
-  it('shows a COLONY message severity in the list and its detail', async () => {
+  it('shows a COLONY message severity and full text on its card', async () => {
     api.get.mockImplementation((url: string) => {
       if (url === '/messages/folders') return Promise.resolve(folders);
       if (url === '/messages/folders/colony?page=1') {
@@ -149,27 +151,15 @@ describe('MessagesPage folders', () => {
           limit: 20,
         });
       }
-      if (url === '/messages/12') {
-        return Promise.resolve({
-          id: 12,
-          body: 'Sofortiger Einsatz erforderlich.',
-          isRead: false,
-          isSystem: true,
-          createdAt: '2026-10-13T12:00:00.000Z',
-          senderId: 0,
-          recipientId: 1,
-          originSeverity: 'CRITICAL',
-        });
-      }
       return Promise.resolve({ data: [], total: 0, page: 1, limit: 20 });
     });
 
     renderPage('/messages?folder=colony');
 
     expect(await screen.findByText('CRITICAL')).toBeTruthy();
-    fireEvent.click(screen.getByText('Schildgenerator ausgefallen'));
-    expect(await screen.findByText('Sofortiger Einsatz erforderlich.')).toBeTruthy();
-    expect(screen.getAllByText('CRITICAL')).toHaveLength(2);
+    expect(screen.getByText('Schildgenerator ausgefallen')).toBeTruthy();
+    expect(within(screen.getByRole('article')).getByText('System')).toBeTruthy();
+    expect(screen.queryByRole('group', { name: /Kontaktmodus/ })).toBeNull();
   });
 
   it.each([
@@ -177,48 +167,35 @@ describe('MessagesPage folders', () => {
     ['SPACECRAFT', 6, '/spacecraft/6'],
     ['HOLONET_POST', 7, '/holonet/7'],
     ['ALLIANCE_TOPIC', 8, '/alliances/8/forum/topics/8'],
-  ])('links a %s message target from its detail', async (targetKind, targetId, href) => {
+  ])('links a %s message target from its card', async (targetKind, targetId, href) => {
     api.get.mockImplementation((url: string) => {
       if (url === '/messages/folders') return Promise.resolve(folders);
       if (url === '/messages/folders/personal?page=1') {
         return Promise.resolve({
-          data: [{ id: 31, body: 'Verlinkte Meldung', isRead: true, isSystem: true, createdAt: '2026-10-13T12:00:00.000Z' }],
+          data: [{ id: 31, body: 'Verlinkte Meldung', isRead: true, isSystem: true, createdAt: '2026-10-13T12:00:00.000Z', senderId: 1, targetKind, targetId }],
           total: 1,
           page: 1,
           limit: 20,
-        });
-      }
-      if (url === '/messages/31') {
-        return Promise.resolve({
-          id: 31,
-          body: 'Ziel öffnen.',
-          isRead: true,
-          isSystem: true,
-          createdAt: '2026-10-13T12:00:00.000Z',
-          senderId: 1,
-          recipientId: 1,
-          targetKind,
-          targetId,
         });
       }
       return Promise.resolve({ data: [], total: 0, page: 1, limit: 20 });
     });
 
     renderPage();
-    fireEvent.click(await screen.findByText('Verlinkte Meldung'));
+    await screen.findByText('Verlinkte Meldung');
 
     expect((await screen.findByRole('link', { name: 'ansehen' })).getAttribute('href')).toBe(href);
   });
 
   it('does not render a target link without a complete target', async () => {
     renderPage();
-    fireEvent.click(await screen.findByText('Private Nachricht'));
-
-    await screen.findByText('Bitte antworten.');
+    await screen.findByText('Private Nachricht');
     expect(screen.queryByRole('link', { name: 'ansehen' })).toBeNull();
   });
 
-  it('refreshes the folder summary after reading a received message', async () => {
+  it('refreshes the folder summary and header badge after displaying unread messages', async () => {
+    const headerRefresh = vi.fn();
+    window.addEventListener('swu:messages-read', headerRefresh);
     const refreshedFolders = folders.map((entry) =>
       entry.folder === 'PERSONAL' ? { ...entry, unread: 0, total: 2 } : entry,
     );
@@ -263,13 +240,14 @@ describe('MessagesPage folders', () => {
     });
 
     renderPage();
-    fireEvent.click(await screen.findByText('Private Nachricht'));
 
     await waitFor(() =>
       expect(
         screen.getByRole('button', { name: /Persönlich/ }).textContent,
       ).toContain('0/2'),
     );
+    expect(headerRefresh).toHaveBeenCalled();
+    window.removeEventListener('swu:messages-read', headerRefresh);
   });
 
   it('refreshes the folder summary after deleting a message', async () => {
@@ -306,7 +284,7 @@ describe('MessagesPage folders', () => {
     });
 
     renderPage();
-    fireEvent.click(await screen.findByTitle('Loeschen'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Nachricht löschen' }));
 
     await waitFor(() =>
       expect(
@@ -461,23 +439,12 @@ describe('MessagesPage folders', () => {
             isRead: false,
             isSystem: false,
             createdAt: '2026-10-13T12:00:00.000Z',
-            sender: { username: 'Leia' },
+            senderId: 7,
+            sender: { id: 7, username: 'Leia', avatar: null, faction: null, isNpc: false },
           }],
           total: 1,
           page: 1,
-          limit: 20,
-        });
-      }
-      if (url === '/messages/11') {
-        return Promise.resolve({
-          id: 11,
-          body: 'Bitte antworten.',
-          isRead: false,
-          isSystem: false,
-          createdAt: '2026-10-13T12:00:00.000Z',
-          sender: { username: 'Leia' },
-          senderId: 7,
-          recipientId: 1,
+          limit: 6,
         });
       }
       if (url === '/messages/correspondence/7') {
@@ -496,12 +463,94 @@ describe('MessagesPage folders', () => {
     });
     renderPage();
 
-    fireEvent.click(await screen.findByText('Private Nachricht'));
     fireEvent.click(await screen.findByRole('button', { name: 'Antworten' }));
 
     expect(await screen.findByText('Korrespondenz')).toBeTruthy();
     expect(screen.getByText('Alter Verlauf')).toBeTruthy();
     expect(api.get).toHaveBeenCalledWith('/messages/correspondence/7');
+  });
+
+  it('shows a full card with sender link, settler id, avatar and NPC badge', async () => {
+    api.get.mockImplementation((url: string) => {
+      if (url === '/messages/folders') return Promise.resolve(folders);
+      if (url === '/messages/folders/trade?page=1') {
+        return Promise.resolve({
+          data: [{
+            id: 40,
+            body: '[b]Angebot[/b] für Dich',
+            isRead: false,
+            isSystem: false,
+            createdAt: '2026-10-13T12:00:00.000Z',
+            senderId: 99,
+            sender: { id: 99, username: 'Händlergilde', avatar: '/a.png', faction: null, isNpc: true },
+            senderContact: null,
+          }],
+          total: 1,
+          page: 1,
+          limit: 6,
+        });
+      }
+      return Promise.resolve({ data: [], total: 0, page: 1, limit: 6 });
+    });
+    renderPage('/messages?folder=trade');
+
+    expect(await screen.findByText('Angebot')).toBeTruthy();
+    expect(screen.getByText('(99)')).toBeTruthy();
+    expect(screen.getByText('NPC')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Profil von Händlergilde' }).getAttribute('href')).toBe('/players/99');
+    expect(screen.getByText('(neu)')).toBeTruthy();
+    expect(screen.queryByRole('group', { name: /Kontaktmodus/ })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: /verschieben/ })).toBeNull();
+  });
+
+  it('creates a contact from the card switcher and updates an existing one', async () => {
+    api.post.mockResolvedValue({ id: 5, mode: 'ENEMY' });
+    api.patch.mockResolvedValue({ id: 5, mode: 'FRIEND' });
+    renderPage();
+
+    const group = await screen.findByRole('group', { name: 'Kontaktmodus für Leia' });
+    fireEvent.click(within(group).getByRole('button', { name: 'Feind' }));
+    await waitFor(() =>
+      expect(within(group).getByRole('button', { name: 'Feind' }).getAttribute('aria-pressed')).toBe('true'),
+    );
+    expect(api.post).toHaveBeenCalledWith('/contacts', { playerId: 7, mode: 'ENEMY' });
+
+    fireEvent.click(within(group).getByRole('button', { name: 'Freund' }));
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/contacts/5/mode', { mode: 'FRIEND' }));
+  });
+
+  it('moves a single personal message into a custom folder from its card', async () => {
+    const baseGet = api.get.getMockImplementation() as (url: string) => unknown;
+    api.get.mockImplementation((url: string) =>
+      url === '/messages/user-folders'
+        ? Promise.resolve([{ id: 3, name: 'Archiv', sortOrder: 0 }])
+        : baseGet(url),
+    );
+    api.post.mockResolvedValue({ affected: 1 });
+    renderPage();
+
+    const select = await screen.findByRole('combobox', { name: 'Nachricht Private Nachricht verschieben' });
+    await waitFor(() => expect(within(select).getByRole('option', { name: 'Archiv' })).toBeTruthy());
+    fireEvent.change(select, { target: { value: '3' } });
+
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/messages/user-folders/move', { ids: [11], folderId: 3 }),
+    );
+  });
+
+  it('navigates folder pages by page number', async () => {
+    const baseGet = api.get.getMockImplementation() as (url: string) => unknown;
+    api.get.mockImplementation((url: string) =>
+      url.startsWith('/messages/folders/personal?page=')
+        ? Promise.resolve({ data: [], total: 40, page: 1, limit: 6 })
+        : baseGet(url),
+    );
+    renderPage();
+
+    const pages = await screen.findByRole('navigation', { name: 'Seiten' });
+    expect(within(pages).getAllByRole('button').map((b) => b.textContent)).toEqual(['1', '2', '3', '7']);
+    fireEvent.click(within(pages).getByRole('button', { name: 'Seite 7' }));
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/messages/folders/personal?page=7'));
   });
 
   it('renders contacts, changes their mode, and selects one in compose', async () => {

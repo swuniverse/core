@@ -22,6 +22,11 @@ import {
   MessageFolder,
   MESSAGE_FOLDERS,
 } from './message-folder';
+import {
+  FOLDER_PAGE_SIZE,
+  presentReceivedPage,
+  publicMessage,
+} from './folder-page';
 
 export interface TransactionalNotifications {
   manager: EntityManager;
@@ -63,14 +68,19 @@ export class MessagingService {
     });
 
     return {
-      data: withDeletedAuthor(data, 'sender', 'senderId'),
+      data: withDeletedAuthor(data, 'sender', 'senderId').map(publicMessage),
       total,
       page,
       limit,
     };
   }
 
-  async getFolder(userId: number, folder: MessageFolder, page = 1, limit = 20) {
+  async getFolder(
+    userId: number,
+    folder: MessageFolder,
+    page = 1,
+    limit = FOLDER_PAGE_SIZE,
+  ) {
     const normalizedPage = Math.max(1, page);
     if (folder === MessageFolder.OUTBOX) {
       return this.getSent(userId, normalizedPage, limit);
@@ -90,7 +100,7 @@ export class MessagingService {
     });
 
     return {
-      data: withDeletedAuthor(data, 'sender', 'senderId'),
+      data: await presentReceivedPage(this.messageRepo.manager, userId, data),
       total,
       page: normalizedPage,
       limit,
@@ -130,7 +140,7 @@ export class MessagingService {
     }));
   }
 
-  async getSent(userId: number, page = 1, limit = 20) {
+  async getSent(userId: number, page = 1, limit = FOLDER_PAGE_SIZE) {
     const normalizedPage = Math.max(1, page);
     const [data, total] = await this.messageRepo.findAndCount({
       where: { senderId: userId, deletedBySender: false },
@@ -146,7 +156,7 @@ export class MessagingService {
     );
     const senderEnabled = receiptSettings.get(userId) ?? true;
     const receipts = data.map(({ isRead, ...message }) => ({
-      ...message,
+      ...publicMessage(message),
       readReceipt:
         isRead &&
         senderEnabled &&
@@ -156,7 +166,7 @@ export class MessagingService {
     return { data: receipts, total, page: normalizedPage, limit };
   }
 
-  async getOne(messageId: number, userId: number): Promise<Message> {
+  async getOne(messageId: number, userId: number) {
     const message = await this.messageRepo.findOne({
       where: [
         { id: messageId, recipientId: userId, deletedByRecipient: false },
@@ -171,11 +181,11 @@ export class MessagingService {
       await this.messageRepo.save(message);
     }
 
-    return withDeletedAuthor([message], 'sender', 'senderId')[0];
+    return publicMessage(withDeletedAuthor([message], 'sender', 'senderId')[0]);
   }
 
   async getCorrespondence(userId: number, partnerId: number, limit = 10) {
-    return this.messageRepo.find({
+    const messages = await this.messageRepo.find({
       where: [
         {
           senderId: partnerId,
@@ -196,6 +206,7 @@ export class MessagingService {
       order: { createdAt: 'DESC' },
       take: Math.min(Math.max(1, limit), 10),
     });
+    return messages.map(publicMessage);
   }
 
   async getConversations(userId: number, page = 1, limit = 20) {

@@ -5,10 +5,10 @@ import {
 } from '@nestjs/common';
 import { DataSource, EntityManager, In } from 'typeorm';
 import { User } from '../auth/user.entity';
-import { withDeletedAuthor } from '../account-deletion/deleted-player';
 import { Message } from './entities/message.entity';
 import { UserMessageFolder } from './entities/user-message-folder.entity';
 import { MessageFolder } from './message-folder';
+import { FOLDER_PAGE_SIZE, presentReceivedPage } from './folder-page';
 
 @Injectable()
 export class UserMessageFoldersService {
@@ -145,14 +145,14 @@ export class UserMessageFoldersService {
         },
         relations: ['sender'],
         order: { createdAt: 'DESC' },
-        skip: (p - 1) * 20,
-        take: 20,
+        skip: (p - 1) * FOLDER_PAGE_SIZE,
+        take: FOLDER_PAGE_SIZE,
       });
     return {
-      data: withDeletedAuthor(data, 'sender', 'senderId'),
+      data: await presentReceivedPage(this.db.manager, userId, data),
       total,
       page: p,
-      limit: 20,
+      limit: FOLDER_PAGE_SIZE,
     };
   }
 

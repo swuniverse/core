@@ -206,7 +206,7 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
       body: {
         total: 2,
         page: 1,
-        limit: 20,
+        limit: 6,
       },
     });
     expect(personal.body.data.map((message: Message) => message.body)).toEqual([
@@ -245,7 +245,7 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
 
   it('paginates a folder without including messages from another folder', async () => {
     const messages = dataSource.getRepository(Message);
-    for (let index = 1; index <= 21; index += 1) {
+    for (let index = 1; index <= 7; index += 1) {
       await messages.save(
         messages.create({
           senderId: users.han.id,
@@ -268,10 +268,62 @@ describe('message folders HTTP contract (Postgres, HTTP)', () => {
 
     expect(response).toMatchObject({
       status: 200,
-      body: { total: 21, page: 2, limit: 20 },
+      body: { total: 7, page: 2, limit: 6 },
     });
     expect(response.body.data).toHaveLength(1);
     expect(response.body.data[0]).toMatchObject({ body: 'Persönlich 1' });
+  });
+
+  it('shows six full messages with public sender data and the readers contact mode', async () => {
+    const messages = dataSource.getRepository(Message);
+    for (let index = 1; index <= 7; index += 1) {
+      await messages.save(
+        messages.create({
+          senderId: users.han.id,
+          recipientId: users.leia.id,
+          body: `Nachricht ${index}`,
+        }),
+      );
+    }
+    const [contact] = await dataSource.query(
+      `INSERT INTO contacts ("userId", "contactUserId", mode) VALUES ($1, $2, 'FRIEND') RETURNING id`,
+      [users.leia.id, users.han.id],
+    );
+
+    const response = await call('leia', '/messages/folders/personal');
+
+    expect(response.body).toMatchObject({ total: 7, page: 1, limit: 6 });
+    expect(response.body.data).toHaveLength(6);
+    const [newest] = response.body.data;
+    expect(newest).toMatchObject({
+      body: 'Nachricht 7',
+      isRead: false,
+      sender: { id: users.han.id, username: 'han', isNpc: false, avatar: null },
+      senderContact: { id: contact.id, mode: 'FRIEND' },
+    });
+    expect(newest.sender).not.toHaveProperty('email');
+    expect(newest.sender).not.toHaveProperty('passwordHash');
+  });
+
+  it('marks only the displayed page as read when it is loaded', async () => {
+    const messages = dataSource.getRepository(Message);
+    for (let index = 1; index <= 7; index += 1) {
+      await messages.save(
+        messages.create({
+          senderId: users.han.id,
+          recipientId: users.leia.id,
+          body: `Nachricht ${index}`,
+        }),
+      );
+    }
+
+    await call('leia', '/messages/folders/personal?page=1');
+
+    expect(await messages.countBy({ recipientId: users.leia.id, isRead: false })).toBe(1);
+    const again = await call('leia', '/messages/folders/personal?page=1');
+    expect(again.body.data[0]).toMatchObject({ isRead: true });
+    const summary = await call('leia', '/messages/folders');
+    expect(summary.body[0]).toMatchObject({ folder: 'PERSONAL', unread: 1 });
   });
 
   it('requires authentication for folder summaries and folder messages', async () => {

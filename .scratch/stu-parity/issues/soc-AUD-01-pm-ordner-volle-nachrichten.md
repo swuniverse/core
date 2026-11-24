@@ -1,6 +1,6 @@
 # PM-Ordner mit vollen Nachrichten wie STU
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** soc-AUD-07b
@@ -27,14 +27,14 @@ Der PM-Ordner zeigt heute eine Betreffliste mit 20 Zeilen je Seite und einem Det
 
 ## Akzeptanzkriterien
 
-- [ ] Ein Ordner zeigt je Seite 6 Nachrichten vollständig (wie STU `PMLIMITER`), jeweils mit BBCode-Text, Absender (Name mit Profillink und Siedler-ID), Avatar mit Profillink, NPC-Kennzeichen, absolutem Datum (hervorgehoben, wenn neu), Lesebestätigung (Postausgang) und „ansehen“-Link bei gesetztem Ziel.
-- [ ] Aktionen je Nachricht: Antworten (öffnet Compose mit Antwortverlauf), Löschen, Checkbox für Mehrfachaktionen, Kontaktmodus-Umschalter für den Absender (Freund/Neutral/Feind bzw. Kontakt anlegen, nicht bei System-/NPC-Absender), Verschieben in einen eigenen Ordner per Auswahl je Nachricht (nur persönliche Nachrichten, wie soc-A7).
-- [ ] Seitennavigation mit Seitenzahlen statt nur Zurück/Weiter.
-- [ ] Angezeigte Nachrichten werden beim Anzeigen der Seite als gelesen markiert (STU), nicht erst beim Anklicken; Zähler und Navigationsbadge aktualisieren sich.
-- [ ] Das Detailpanel entfällt im Ordner. Messenger-Ansicht (`inbox_messenger_style`) bleibt unverändert.
-- [ ] Die API liefert je Nachricht die nötigen Absenderdaten (Avatar, `isNpc`, Kontaktmodus des Lesers zum Absender) ohne N+1-Abfragen.
-- [ ] Backend-Tests: Seitengröße 6, Absenderdaten, Gelesen-Markierung beim Laden, Verschieben einer Einzelnachricht.
-- [ ] Frontend-Tests: volle Karte mit Text/Avatar/NPC-Kennzeichen, Kontaktumschalter, Verschieben je Nachricht, Seitenzahlen.
+- [x] Ein Ordner zeigt je Seite 6 Nachrichten vollständig (wie STU `PMLIMITER`), jeweils mit BBCode-Text, Absender (Name mit Profillink und Siedler-ID), Avatar mit Profillink, NPC-Kennzeichen, absolutem Datum (hervorgehoben, wenn neu), Lesebestätigung (Postausgang) und „ansehen“-Link bei gesetztem Ziel.
+- [x] Aktionen je Nachricht: Antworten (öffnet Compose mit Antwortverlauf), Löschen, Checkbox für Mehrfachaktionen, Kontaktmodus-Umschalter für den Absender (Freund/Neutral/Feind bzw. Kontakt anlegen, nicht bei System-/NPC-Absender), Verschieben in einen eigenen Ordner per Auswahl je Nachricht (nur persönliche Nachrichten, wie soc-A7).
+- [x] Seitennavigation mit Seitenzahlen statt nur Zurück/Weiter.
+- [x] Angezeigte Nachrichten werden beim Anzeigen der Seite als gelesen markiert (STU), nicht erst beim Anklicken; Zähler und Navigationsbadge aktualisieren sich.
+- [x] Das Detailpanel entfällt im Ordner. Messenger-Ansicht (`inbox_messenger_style`) bleibt unverändert.
+- [x] Die API liefert je Nachricht die nötigen Absenderdaten (Avatar, `isNpc`, Kontaktmodus des Lesers zum Absender) ohne N+1-Abfragen.
+- [x] Backend-Tests: Seitengröße 6, Absenderdaten, Gelesen-Markierung beim Laden, Verschieben einer Einzelnachricht.
+- [x] Frontend-Tests: volle Karte mit Text/Avatar/NPC-Kennzeichen, Kontaktumschalter, Verschieben je Nachricht, Seitenzahlen.
 
 ## Herkunft
 
@@ -43,3 +43,14 @@ Der PM-Ordner zeigt heute eine Betreffliste mit 20 Zeilen je Seite und einem Det
 - Kein bisheriges Ticket; die Inventur führte den Ordner als „vorhanden“.
 
 ## Comments
+
+### 2026-11-24 · umgesetzt, Prüfung ausstehend
+
+Commit: `feat(messaging): STU folder cards with full messages (stu-parity soc-AUD-01)`.
+
+- Backend: Ordnerseiten (System-, Postausgang, eigene Ordner) mit 6 Nachrichten (`FOLDER_PAGE_SIZE`, STU `PMLIMITER`). Angezeigte empfangene Nachrichten werden beim Laden gelesen markiert; die Antwort trägt noch das alte `isRead` (Hervorhebung „neu“). Je Nachricht `sender` (id, username, avatar, faction, isNpc) und `senderContact` ({id, mode} des Lesers) über eine gebündelte Kontaktabfrage (`folder-page.ts`).
+- Sicherheitsbefund behoben: `sender`/`recipient` wurden bisher als volle `User`-Entität ausgeliefert (inkl. `email`, `passwordHash`) in Ordner, Postausgang, Einzelnachricht und Korrespondenz. Jetzt nur öffentliche Felder (`publicUser`).
+- Frontend: `MessageCard` (BBCode-Text, Avatar/Name mit Profillink, Siedler-ID, NPC-Kennzeichen, absolutes Datum, neu hervorgehoben, Lesebestätigung, „ansehen“, Antworten mit Verlauf, Löschen, Checkbox, Kontaktmodus-Umschalter, Verschieben je Nachricht) und `PageNumbers`. Detailpanel entfernt; Messenger-Ansicht unverändert. Kopfzeilenbadge aktualisiert sich über `swu:messages-read`.
+- Checks: `nx typecheck backend`/`frontend` grün; Backend-Unit `messaging`+`contacts` 45/45; Integration `messaging-folders`+`user-message-folders` 17/17; Frontend `messages.spec` 28/28, `header`+`messaging` 19/19.
+- Ausstehend: gesammelter Verifikationslauf (volle Suites/Build, Diff-Review gegen Kriterien).
+- Modell: Luna/Sol in dieser Sitzung nicht verfügbar; direkt mit Claude Opus 5.5 umgesetzt.

@@ -95,7 +95,11 @@ export function Header() {
   useEffect(() => {
     refreshMessageFolders();
     window.addEventListener('focus', refreshMessageFolders);
-    return () => window.removeEventListener('focus', refreshMessageFolders);
+    window.addEventListener('swu:messages-read', refreshMessageFolders);
+    return () => {
+      window.removeEventListener('focus', refreshMessageFolders);
+      window.removeEventListener('swu:messages-read', refreshMessageFolders);
+    };
   }, [refreshMessageFolders]);
   useEffect(() => {
     return () => window.clearTimeout(messageRefreshTimeout.current);
