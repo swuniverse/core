@@ -1,19 +1,27 @@
 import { PlayerName } from '../PlayerName';
 import { useEffect, useState } from 'react';
-import { AllianceRole, type AllianceDepotDto } from '@swuniverse/shared';
+import {
+  AlliancePermission,
+  grantsAlliancePermission,
+  type AllianceDepotDto,
+} from '@swuniverse/shared';
 import { api } from '../../services/api';
 
 export function AllianceDepotsPanel({
   allianceId,
-  role,
+  permissions,
 }: {
   allianceId: number;
-  role: AllianceRole | null;
+  /** The viewer's held rights; null without membership. */
+  permissions: AlliancePermission[] | null;
 }) {
   const [depots, setDepots] = useState<AllianceDepotDto[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refresh, setRefresh] = useState(0);
-  const allowed = role === AllianceRole.PRESIDENT || role === AllianceRole.VICE;
+  const allowed = grantsAlliancePermission(
+    permissions ?? [],
+    AlliancePermission.VIEW_ALLIANCE_STORAGE,
+  );
   useEffect(() => {
     let current = true;
     setDepots(null);
@@ -58,7 +66,9 @@ export function AllianceDepotsPanel({
           className="border-t border-swu-border pt-2"
         >
           <h3 className="font-bold">{depot.name}</h3>
-          <p>Besitzer: <PlayerName name={depot.owner.name} /></p>
+          <p>
+            Besitzer: <PlayerName name={depot.owner.name} />
+          </p>
           <p>Standort: {depot.locationLabel}</p>
           <p>
             Lager: {depot.cargoUsed} / {depot.cargoMax}

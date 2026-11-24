@@ -11,7 +11,9 @@ import {
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import {
   AllianceRelationshipType,
+  AlliancePermission,
   AllianceRole,
+  grantsAlliancePermission,
   type AllianceChronicleDto,
   type AllianceChronicleEntryDto,
   type AllianceDiplomacyChronicleDto,
@@ -27,7 +29,6 @@ import {
   type AllianceRelationshipSummaryDto,
   type AllianceSummaryDto,
   type AllianceRefDto,
-  type AllianceTitlesDto,
   DiplomacyPartyType,
   type MyAllianceDto,
   type SettlerCounterpartyDto,
@@ -269,7 +270,9 @@ function AllianceListSection({
                   />
                 </Link>
                 <div className="min-w-0 flex-1 space-y-1.5">
-                  <h3 className="text-xs font-bold text-swu-muted">Mitglieder</h3>
+                  <h3 className="text-xs font-bold text-swu-muted">
+                    Mitglieder
+                  </h3>
                   <AllianceListMembers members={alliance.members} />
                 </div>
               </div>
@@ -501,11 +504,14 @@ function AllianceMembersSection({
                 <PlayerName name={member.name} playerId={member.userId} />
               </Link>
               <PmLink playerId={member.userId} playerName={member.name} />
-              {member.roleTitle && (
-                <span className="border border-swu-accent/50 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-swu-accent">
-                  {member.roleTitle}
+              {member.roles.map((role) => (
+                <span
+                  key={role.id}
+                  className="border border-swu-accent/50 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-swu-accent"
+                >
+                  {role.title}
                 </span>
-              )}
+              ))}
               {member.online !== undefined && (
                 <span
                   className={
@@ -556,19 +562,28 @@ function useAllianceDetail(id: string | undefined) {
   return { alliance, loadError, reload };
 }
 
+/** STU `AllianceProvider`: leadership are holders of ALLIANCE_LEADERSHIP. */
+function isAllianceLeader(
+  alliance: AllianceDetailDto,
+  member: AllianceMemberDto,
+): boolean {
+  const held = alliance.roles
+    .filter((role) => member.roles.some((r) => r.id === role.id))
+    .flatMap((role) => role.permissions);
+  return grantsAlliancePermission(held, AlliancePermission.ALLIANCE_LEADERSHIP);
+}
+
 /** German sentence for one internal chronicle entry. */
-function allianceChronicleText(
-  entry: AllianceChronicleEntryDto,
-  titles?: AllianceTitlesDto,
-): string {
+function allianceChronicleText(entry: AllianceChronicleEntryDto): string {
+  // Entries before soc-AUD-09a store the fixed office instead of a role title.
   const officeName = (role: unknown): string | null => {
     switch (role) {
       case 'PRESIDENT':
-        return titles?.president ?? 'Präsident';
+        return 'Präsident';
       case 'VICE':
-        return titles?.vice ?? 'Vize-Präsident';
+        return 'Vize-Präsident';
       case 'DIPLOMAT':
-        return titles?.diplomat ?? 'Diplomat';
+        return 'Diplomat';
       default:
         return null;
     }
@@ -585,14 +600,23 @@ function allianceChronicleText(
     case 'MEMBER_KICKED':
       return `${actor} hat ${subject} aus der Allianz geworfen`;
     case 'ROLE_CHANGED': {
-      const { newRole, previousRole } = chronicleMeta(entry);
+      const { roleTitle, assigned, newRole, previousRole } =
+        chronicleMeta(entry);
+      if (typeof roleTitle === 'string') {
+        return assigned === false
+          ? `${actor} hat ${subject} die Rolle ${roleTitle} entzogen`
+          : `${actor} hat ${subject} die Rolle ${roleTitle} zugewiesen`;
+      }
       const newOffice = officeName(newRole);
       return newOffice
         ? `${actor} hat ${subject} zum ${newOffice} ernannt`
         : `${actor} hat ${subject} vom Amt ${officeName(previousRole) ?? 'unbekannt'} abgesetzt`;
     }
     case 'PRESIDENCY_TRANSFERRED': {
-      const previousOffice = officeName(chronicleMeta(entry).previousRole);
+      const { previousRoles, previousRole } = chronicleMeta(entry);
+      const previousOffice = Array.isArray(previousRoles)
+        ? previousRoles.join(', ') || null
+        : officeName(previousRole);
       return `${actor} hat die Präsidentschaft an ${subject} übergeben${
         previousOffice ? ` (zuvor ${previousOffice})` : ''
       }`;
@@ -712,7 +736,7 @@ export function AllianceChroniclePage() {
                   className="border-l-2 border-swu-border pl-3"
                 >
                   <p className="font-medium text-swu-text">
-                    {allianceChronicleText(entry, alliance?.titles)}
+                    {allianceChronicleText(entry)}
                   </p>
                   <p className="text-xs text-swu-muted">
                     {dateFormatter.format(new Date(entry.occurredAt))}
@@ -800,7 +824,14 @@ function DiplomacyRelationships({
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-bold">
-                {relationship.counterpartyType === DiplomacyPartyType.PLAYER ? <PlayerName name={relationship.counterparty.name} playerId={relationship.counterparty.id} /> : relationship.counterparty.name}
+                {relationship.counterpartyType === DiplomacyPartyType.PLAYER ? (
+                  <PlayerName
+                    name={relationship.counterparty.name}
+                    playerId={relationship.counterparty.id}
+                  />
+                ) : (
+                  relationship.counterparty.name
+                )}
                 {partyTypeLabel(relationship.counterpartyType)}:{' '}
                 {relationshipTypeLabel(relationship.type)}
               </h3>
@@ -1493,7 +1524,9 @@ export function AllianceDiplomacyPage() {
                   <div className="space-y-1 text-sm md:col-span-2">
                     <p>
                       Gegenpartei (Siedler):{' '}
-                      <strong><PlayerName name={negotiateWith.name} /></strong>
+                      <strong>
+                        <PlayerName name={negotiateWith.name} />
+                      </strong>
                     </p>
                     <button
                       type="button"
@@ -1836,243 +1869,258 @@ export function AllianceDetailPage() {
       <BackLink to="/alliances/list" label="Allianzen" />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_19rem]">
         <main className="min-w-0 space-y-4">
-      {alliance.banner && (
-        <img
-          src={alliance.banner.url}
-          alt={`Banner von ${alliance.name}`}
-          className="mx-auto h-auto max-w-full border border-swu-border"
-        />
-      )}
+          {alliance.banner && (
+            <img
+              src={alliance.banner.url}
+              alt={`Banner von ${alliance.name}`}
+              className="mx-auto h-auto max-w-full border border-swu-border"
+            />
+          )}
 
-      <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <PageTitle color={alliance.color}>{alliance.name}</PageTitle>
-          <div className="flex flex-wrap gap-2">
-            {actions.apply && (
-              <button
-                type="button"
-                disabled={busy}
-                className={primaryButtonClass}
-                onClick={() =>
-                  void run(() => api.post(`${base}/applications`, {}))
-                }
-              >
-                Bewerben
-              </button>
+          <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <PageTitle color={alliance.color}>{alliance.name}</PageTitle>
+              <div className="flex flex-wrap gap-2">
+                {actions.apply && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className={primaryButtonClass}
+                    onClick={() =>
+                      void run(() => api.post(`${base}/applications`, {}))
+                    }
+                  >
+                    Bewerben
+                  </button>
+                )}
+                {actions.withdrawApplication && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className={buttonClass}
+                    onClick={() =>
+                      void run(() => api.delete(`${base}/applications/mine`))
+                    }
+                  >
+                    Bewerbung zurückziehen
+                  </button>
+                )}
+                {alliance.viewer.permissions !== null && (
+                  <Link to="/alliances/list" className={buttonClass}>
+                    Allianzliste
+                  </Link>
+                )}
+                {actions.manageApplications && (
+                  <Link to={`${base}/applications`} className={buttonClass}>
+                    Bewerbungen anzeigen
+                  </Link>
+                )}
+                {(actions.editDetails ||
+                  actions.manageBanner ||
+                  actions.leave ||
+                  actions.dissolve ||
+                  alliance.members.some((member) =>
+                    Object.values(member.actions).some(Boolean),
+                  )) && (
+                  <Link to={`${base}/edit`} className={buttonClass}>
+                    Editieren
+                  </Link>
+                )}
+                {actions.readForum && (
+                  <Link to={`${base}/forum`} className={buttonClass}>
+                    Forum
+                  </Link>
+                )}
+                {actions.viewMemberOperations && (
+                  <Link to={`${base}/member-overview`} className={buttonClass}>
+                    Mitgliederübersicht öffnen
+                  </Link>
+                )}
+                {actions.viewChronicle && (
+                  <Link to={`${base}/chronicle`} className={buttonClass}>
+                    Chronik lesen
+                  </Link>
+                )}
+                {actions.manageDiplomacy && (
+                  <Link to={`${base}/diplomacy`} className={buttonClass}>
+                    Diplomatieverwaltung
+                  </Link>
+                )}
+              </div>
+            </div>
+            <ErrorMessage message={error} />
+          </section>
+
+          <section className="border border-swu-border bg-swu-surface p-4">
+            {alliance.renderedDescription.trim() ? (
+              <BbCodeText
+                text={alliance.renderedDescription}
+                allowBannerImages
+                className="text-sm text-swu-text whitespace-pre-wrap"
+              />
+            ) : (
+              <p className="text-sm italic text-swu-muted">
+                Keine Allianz-Beschreibung hinterlegt
+              </p>
             )}
-            {actions.withdrawApplication && (
+          </section>
+
+          <section className="space-y-2 border border-swu-border bg-swu-surface p-4">
+            <h2 className="text-sm font-bold text-swu-primary">
+              Diplomatie-Chronik
+            </h2>
+            {chronicle?.entries.length ? (
+              <ol className="space-y-2 text-sm">
+                {chronicle.entries.map((entry) => (
+                  <li
+                    key={entry.id}
+                    className="border-l-2 border-swu-border pl-3"
+                  >
+                    <p className="font-medium text-swu-text">
+                      {chronicleEventLabel(entry)}: {entry.firstAlliance.name} –{' '}
+                      {entry.secondAlliance.name}
+                      {entry.relationship.vassalage &&
+                        ` (${entry.relationship.vassalage.lordAllianceId === alliance.id ? 'Lehnsherr' : 'Vasall'})`}
+                    </p>
+                    <p className="text-xs text-swu-muted">
+                      <PlayerName name={entry.actor?.name ?? 'Unbekannt'} /> ·{' '}
+                      {dateFormatter.format(new Date(entry.occurredAt))}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="text-sm italic text-swu-muted">
+                Keine öffentlichen Diplomatieereignisse vorhanden
+              </p>
+            )}
+            {chronicleLoadMoreError && (
+              <p role="alert" className="text-sm text-red-300">
+                {chronicleLoadMoreError}
+              </p>
+            )}
+            {chronicle?.nextCursor && (
               <button
                 type="button"
-                disabled={busy}
+                disabled={loadingMoreChronicle}
                 className={buttonClass}
-                onClick={() =>
-                  void run(() => api.delete(`${base}/applications/mine`))
-                }
+                onClick={() => void loadMoreChronicle()}
               >
-                Bewerbung zurückziehen
+                {loadingMoreChronicle
+                  ? 'Ältere Ereignisse werden geladen...'
+                  : 'Ältere Ereignisse laden'}
               </button>
             )}
-            {alliance.viewer.role !== null && (
-              <Link to="/alliances/list" className={buttonClass}>
-                Allianzliste
-              </Link>
-            )}
-            {actions.manageApplications && (
-              <Link to={`${base}/applications`} className={buttonClass}>
-                Bewerbungen anzeigen
-              </Link>
-            )}
-            {(actions.editDetails ||
-              actions.manageBanner ||
-              actions.leave ||
-              actions.dissolve ||
-              alliance.members.some((member) =>
-                Object.values(member.actions).some(Boolean),
-              )) && (
-              <Link to={`${base}/edit`} className={buttonClass}>
-                Editieren
-              </Link>
-            )}
-            {actions.readForum && (
-              <Link to={`${base}/forum`} className={buttonClass}>
-                Forum
-              </Link>
-            )}
-            {actions.viewMemberOperations && (
-              <Link to={`${base}/member-overview`} className={buttonClass}>
-                Mitgliederübersicht öffnen
-              </Link>
-            )}
-            {actions.viewChronicle && (
-              <Link to={`${base}/chronicle`} className={buttonClass}>
-                Chronik lesen
-              </Link>
-            )}
-            {actions.manageDiplomacy && (
-              <Link to={`${base}/diplomacy`} className={buttonClass}>
-                Diplomatieverwaltung
-              </Link>
-            )}
-          </div>
-        </div>
-        <ErrorMessage message={error} />
-      </section>
+          </section>
 
-      <section className="border border-swu-border bg-swu-surface p-4">
-        {alliance.renderedDescription.trim() ? (
-          <BbCodeText
-            text={alliance.renderedDescription}
-            allowBannerImages
-            className="text-sm text-swu-text whitespace-pre-wrap"
-          />
-        ) : (
-          <p className="text-sm italic text-swu-muted">
-            Keine Allianz-Beschreibung hinterlegt
-          </p>
-        )}
-      </section>
-
-      <section className="space-y-2 border border-swu-border bg-swu-surface p-4">
-        <h2 className="text-sm font-bold text-swu-primary">
-          Diplomatie-Chronik
-        </h2>
-        {chronicle?.entries.length ? (
-          <ol className="space-y-2 text-sm">
-            {chronicle.entries.map((entry) => (
-              <li key={entry.id} className="border-l-2 border-swu-border pl-3">
-                <p className="font-medium text-swu-text">
-                  {chronicleEventLabel(entry)}: {entry.firstAlliance.name} –{' '}
-                  {entry.secondAlliance.name}
-                  {entry.relationship.vassalage &&
-                    ` (${entry.relationship.vassalage.lordAllianceId === alliance.id ? 'Lehnsherr' : 'Vasall'})`}
-                </p>
-                <p className="text-xs text-swu-muted">
-                  <PlayerName name={entry.actor?.name ?? 'Unbekannt'} /> ·{' '}
-                  {dateFormatter.format(new Date(entry.occurredAt))}
-                </p>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className="text-sm italic text-swu-muted">
-            Keine öffentlichen Diplomatieereignisse vorhanden
-          </p>
-        )}
-        {chronicleLoadMoreError && (
-          <p role="alert" className="text-sm text-red-300">
-            {chronicleLoadMoreError}
-          </p>
-        )}
-        {chronicle?.nextCursor && (
-          <button
-            type="button"
-            disabled={loadingMoreChronicle}
-            className={buttonClass}
-            onClick={() => void loadMoreChronicle()}
-          >
-            {loadingMoreChronicle
-              ? 'Ältere Ereignisse werden geladen...'
-              : 'Ältere Ereignisse laden'}
-          </button>
-        )}
-      </section>
-
-      {alliance.relationships.length > 0 && (
-        <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
-          <h2 className="text-sm font-bold text-swu-primary">
-            Aktive Beziehungen
-          </h2>
-          <ul className="divide-y divide-swu-border/40">
-            {alliance.relationships.map((relationship) => {
-              const isLord =
-                relationship.vassalage?.lordAllianceId === alliance.id;
-              const isVassal =
-                relationship.vassalage?.vassalAllianceId === alliance.id;
-              const labels = [
-                relationship.permissions.treatAsFriend
-                  ? 'Als Freund behandeln'
-                  : null,
-                relationship.permissions.shareLivePositions
-                  ? 'Live-Kartenpositionen teilen'
-                  : null,
-              ].filter(Boolean);
-              return (
-                <li key={relationship.id} className="space-y-2 py-3 text-sm">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <Link
-                      to={
-                        relationship.counterpartyType ===
-                        DiplomacyPartyType.PLAYER
-                          ? `/players/${relationship.counterparty.id}`
-                          : `/alliances/${relationship.counterparty.id}`
-                      }
-                      className="font-bold text-swu-primary hover:text-swu-accent"
-                      style={{
-                        color: relationship.counterparty.color ?? undefined,
-                      }}
+          {alliance.relationships.length > 0 && (
+            <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
+              <h2 className="text-sm font-bold text-swu-primary">
+                Aktive Beziehungen
+              </h2>
+              <ul className="divide-y divide-swu-border/40">
+                {alliance.relationships.map((relationship) => {
+                  const isLord =
+                    relationship.vassalage?.lordAllianceId === alliance.id;
+                  const isVassal =
+                    relationship.vassalage?.vassalAllianceId === alliance.id;
+                  const labels = [
+                    relationship.permissions.treatAsFriend
+                      ? 'Als Freund behandeln'
+                      : null,
+                    relationship.permissions.shareLivePositions
+                      ? 'Live-Kartenpositionen teilen'
+                      : null,
+                  ].filter(Boolean);
+                  return (
+                    <li
+                      key={relationship.id}
+                      className="space-y-2 py-3 text-sm"
                     >
-                      {relationship.counterpartyType === DiplomacyPartyType.PLAYER ? <PlayerName name={relationship.counterparty.name} playerId={relationship.counterparty.id} /> : relationship.counterparty.name}
-                    </Link>
-                    <span>{relationshipTypeLabel(relationship.type)}</span>
-                    <span className="text-xs text-swu-muted">
-                      seit{' '}
-                      {dateFormatter.format(new Date(relationship.startedAt))}
-                    </span>
-                  </div>
-                  {relationship.vassalage && (
-                    <p className="text-xs text-swu-muted">
-                      {isLord
-                        ? `Lehnsherr von ${relationship.counterparty.name}`
-                        : isVassal
-                          ? `Vasall von ${relationship.counterparty.name}`
-                          : null}
-                    </p>
-                  )}
-                  {labels.length > 0 && (
-                    <p className="text-xs text-swu-muted">
-                      {labels.join(' · ')}
-                    </p>
-                  )}
-                  {relationship.hasContract && (
-                    <div className="space-y-2">
-                      <button
-                        type="button"
-                        disabled={loadingContractId === relationship.id}
-                        className={buttonClass}
-                        onClick={() => void loadContract(relationship)}
-                      >
-                        {loadingContractId === relationship.id
-                          ? 'Vertragswerk wird geladen...'
-                          : 'Vertragswerk anzeigen'}
-                      </button>
-                      {contracts[relationship.id] !== undefined && (
-                        <BbCodeText
-                          text={contracts[relationship.id]}
-                          className="border border-swu-border/60 bg-swu-bg/50 p-3 text-sm whitespace-pre-wrap"
-                        />
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <Link
+                          to={
+                            relationship.counterpartyType ===
+                            DiplomacyPartyType.PLAYER
+                              ? `/players/${relationship.counterparty.id}`
+                              : `/alliances/${relationship.counterparty.id}`
+                          }
+                          className="font-bold text-swu-primary hover:text-swu-accent"
+                          style={{
+                            color: relationship.counterparty.color ?? undefined,
+                          }}
+                        >
+                          {relationship.counterpartyType ===
+                          DiplomacyPartyType.PLAYER ? (
+                            <PlayerName
+                              name={relationship.counterparty.name}
+                              playerId={relationship.counterparty.id}
+                            />
+                          ) : (
+                            relationship.counterparty.name
+                          )}
+                        </Link>
+                        <span>{relationshipTypeLabel(relationship.type)}</span>
+                        <span className="text-xs text-swu-muted">
+                          seit{' '}
+                          {dateFormatter.format(
+                            new Date(relationship.startedAt),
+                          )}
+                        </span>
+                      </div>
+                      {relationship.vassalage && (
+                        <p className="text-xs text-swu-muted">
+                          {isLord
+                            ? `Lehnsherr von ${relationship.counterparty.name}`
+                            : isVassal
+                              ? `Vasall von ${relationship.counterparty.name}`
+                              : null}
+                        </p>
                       )}
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
-
+                      {labels.length > 0 && (
+                        <p className="text-xs text-swu-muted">
+                          {labels.join(' · ')}
+                        </p>
+                      )}
+                      {relationship.hasContract && (
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            disabled={loadingContractId === relationship.id}
+                            className={buttonClass}
+                            onClick={() => void loadContract(relationship)}
+                          >
+                            {loadingContractId === relationship.id
+                              ? 'Vertragswerk wird geladen...'
+                              : 'Vertragswerk anzeigen'}
+                          </button>
+                          {contracts[relationship.id] !== undefined && (
+                            <BbCodeText
+                              text={contracts[relationship.id]}
+                              className="border border-swu-border/60 bg-swu-bg/50 p-3 text-sm whitespace-pre-wrap"
+                            />
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
         </main>
 
         <aside className="space-y-4 xl:sticky xl:top-4 xl:self-start">
           <AllianceMembersSection
             title="Leitung"
-            members={alliance.members.filter(
-              (member) => member.role !== AllianceRole.NONE,
+            members={alliance.members.filter((member) =>
+              isAllianceLeader(alliance, member),
             )}
           />
           <AllianceMembersSection
             title="Mitglieder"
             members={alliance.members.filter(
-              (member) => member.role === AllianceRole.NONE,
+              (member) => !isAllianceLeader(alliance, member),
             )}
           />
           <section className="space-y-2 border border-swu-border bg-swu-surface p-4">
@@ -2260,7 +2308,6 @@ export function AllianceEditPage() {
       homepage: alliance.homepage,
       color: alliance.color ?? '',
       acceptsApplications: alliance.acceptsApplications,
-      titles: { ...alliance.titles },
     });
   }, [alliance]);
 
@@ -2298,8 +2345,6 @@ export function AllianceEditPage() {
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm({ ...form, [key]: value });
-  const setTitle = (key: keyof typeof form.titles, value: string) =>
-    setForm({ ...form, titles: { ...form.titles, [key]: value } });
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -2339,38 +2384,28 @@ export function AllianceEditPage() {
 
   const memberActions = (member: AllianceMemberDto) => {
     const buttons: ReactNode[] = [];
-    const roleButton = (role: AllianceRole, label: string) => (
-      <button
-        key={label}
-        type="button"
-        disabled={busy}
-        className={buttonClass}
-        onClick={() =>
-          void run(() =>
-            api.put(`/alliances/${alliance.id}/members/${member.userId}/role`, {
-              role,
-            }),
-          )
-        }
-      >
-        {label}
-      </button>
-    );
-    if (member.actions.appointVice) {
-      buttons.push(
-        roleButton(AllianceRole.VICE, `Zum ${alliance.titles.vice} ernennen`),
-      );
-    }
-    if (member.actions.appointDiplomat) {
-      buttons.push(
-        roleButton(
-          AllianceRole.DIPLOMAT,
-          `Zum ${alliance.titles.diplomat} ernennen`,
-        ),
-      );
-    }
-    if (member.actions.dismiss) {
-      buttons.push(roleButton(AllianceRole.NONE, 'Amt entziehen'));
+    // Minimal role assignment until the role editor (soc-AUD-09b).
+    if (member.actions.editRoles) {
+      for (const role of alliance.roles) {
+        if (!role.actions.assign) continue;
+        const held = member.roles.some((r) => r.id === role.id);
+        buttons.push(
+          <button
+            key={`role-${role.id}`}
+            type="button"
+            disabled={busy}
+            className={buttonClass}
+            onClick={() =>
+              void run(() => {
+                const url = `/alliances/${alliance.id}/members/${member.userId}/roles/${role.id}`;
+                return held ? api.delete(url) : api.put(url, {});
+              })
+            }
+          >
+            {held ? `${role.title} entziehen` : `${role.title} zuweisen`}
+          </button>,
+        );
+      }
     }
     if (member.actions.transferPresidency) {
       buttons.push(
@@ -2382,7 +2417,7 @@ export function AllianceEditPage() {
           onClick={() => {
             if (
               !window.confirm(
-                `Das Amt ${alliance.titles.president} an ${member.name} übergeben? Du wirst danach Mitglied ohne Amt.`,
+                `Die Präsidentschaft an ${member.name} übergeben? Du verlierst danach die Präsidentenrolle.`,
               )
             )
               return;
@@ -2427,7 +2462,10 @@ export function AllianceEditPage() {
       <BackLink to={`/alliances/${alliance.id}`} label={alliance.name} />
       <PageTitle>Allianz bearbeiten</PageTitle>
       <ErrorMessage message={error} />
-      <AllianceDepotsPanel allianceId={alliance.id} role={alliance.viewer.role} />
+      <AllianceDepotsPanel
+        allianceId={alliance.id}
+        permissions={alliance.viewer.permissions}
+      />
       {alliance.viewer.actions.editDetails && (
         <form
           onSubmit={submit}
@@ -2505,44 +2543,6 @@ export function AllianceEditPage() {
               Beim Schließen werden alle offenen Bewerbungen abgelehnt.
             </p>
           )}
-          <fieldset className="space-y-2 border border-swu-border/60 p-3">
-            <legend className="px-1 text-xs uppercase tracking-wider text-swu-muted">
-              Amtstitel (je 3 bis 30 Zeichen)
-            </legend>
-            <Field label="Titel Präsident">
-              {(fieldId) => (
-                <input
-                  id={fieldId}
-                  value={form.titles.president}
-                  maxLength={30}
-                  onChange={(e) => setTitle('president', e.target.value)}
-                  className={inputClass}
-                />
-              )}
-            </Field>
-            <Field label="Titel Vize">
-              {(fieldId) => (
-                <input
-                  id={fieldId}
-                  value={form.titles.vice}
-                  maxLength={30}
-                  onChange={(e) => setTitle('vice', e.target.value)}
-                  className={inputClass}
-                />
-              )}
-            </Field>
-            <Field label="Titel Diplomat">
-              {(fieldId) => (
-                <input
-                  id={fieldId}
-                  value={form.titles.diplomat}
-                  maxLength={30}
-                  onChange={(e) => setTitle('diplomat', e.target.value)}
-                  className={inputClass}
-                />
-              )}
-            </Field>
-          </fieldset>
           <button type="submit" disabled={busy} className={primaryButtonClass}>
             Speichern
           </button>
@@ -2607,15 +2607,15 @@ export function AllianceEditPage() {
           </h2>
           <AllianceMembersSection
             title="Leitung"
-            members={alliance.members.filter(
-              (member) => member.role !== AllianceRole.NONE,
+            members={alliance.members.filter((member) =>
+              isAllianceLeader(alliance, member),
             )}
             actions={memberActions}
           />
           <AllianceMembersSection
             title="Mitglieder"
             members={alliance.members.filter(
-              (member) => member.role === AllianceRole.NONE,
+              (member) => !isAllianceLeader(alliance, member),
             )}
             actions={memberActions}
           />
@@ -2795,7 +2795,15 @@ export function SettlerPublicDiplomacy({ playerId }: { playerId: number }) {
                     color: relationship.counterparty.color ?? undefined,
                   }}
                 >
-                  {relationship.counterpartyType === DiplomacyPartyType.PLAYER ? <PlayerName name={relationship.counterparty.name} playerId={relationship.counterparty.id} /> : relationship.counterparty.name}
+                  {relationship.counterpartyType ===
+                  DiplomacyPartyType.PLAYER ? (
+                    <PlayerName
+                      name={relationship.counterparty.name}
+                      playerId={relationship.counterparty.id}
+                    />
+                  ) : (
+                    relationship.counterparty.name
+                  )}
                 </Link>
                 <span>{relationshipTypeLabel(relationship.type)}</span>
                 <span className="text-xs text-swu-muted">

@@ -11,9 +11,11 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import {
   AllianceRelationshipType,
   DiplomacyPartyType,
+  AlliancePermission,
   AllianceRole,
   Faction,
   type AllianceDetailDto,
+  type AllianceRoleDto,
   type AllianceDiplomacyManagementDto,
   type AllianceMemberActionsDto,
   type AllianceSummaryDto,
@@ -48,10 +50,38 @@ vi.mock('../services/api', async (importOriginal) => {
 
 const NO_MEMBER_ACTIONS: AllianceMemberActionsDto = {
   kick: false,
-  appointVice: false,
-  appointDiplomat: false,
-  dismiss: false,
+  editRoles: false,
   transferPresidency: false,
+};
+
+const role = (
+  id: number,
+  title: string,
+  permissions: AlliancePermission[],
+  assign = false,
+): AllianceRoleDto => ({
+  id,
+  title,
+  sort: id,
+  permissions,
+  founder: permissions.includes(AlliancePermission.FOUNDER),
+  actions: { edit: false, delete: false, assign },
+});
+const ROLES = [
+  role(1, 'Großadmiral', [AlliancePermission.FOUNDER]),
+  role(2, 'Vize-Präsident', [AlliancePermission.SUCCESSOR]),
+  role(3, 'Diplomat', [AlliancePermission.DIPLOMATIC]),
+];
+const memberRole = (r: AllianceRoleDto) => ({
+  id: r.id,
+  title: r.title,
+  sort: r.sort,
+});
+const PRESET_PERMISSIONS: Record<AllianceRole, AlliancePermission[]> = {
+  [AllianceRole.PRESIDENT]: [AlliancePermission.FOUNDER],
+  [AllianceRole.VICE]: [AlliancePermission.SUCCESSOR],
+  [AllianceRole.DIPLOMAT]: [AlliancePermission.DIPLOMATIC],
+  [AllianceRole.NONE]: [],
 };
 
 // Alliance list/detail are public seams: member identity includes avatar fallback data.
@@ -91,19 +121,14 @@ function detail(overrides: Partial<AllianceDetailDto> = {}): AllianceDetailDto {
     description: '[b]Wir[/b] fliegen',
     renderedDescription: '[b]Wir[/b] fliegen',
     banner: null,
-    titles: {
-      president: 'Großadmiral',
-      vice: 'Vize-Präsident',
-      diplomat: 'Diplomat',
-    },
+    roles: ROLES,
     members: [
       {
         userId: 1,
         name: 'Leia',
         avatar: null,
         faction: Faction.REBEL_ALLIANCE,
-        role: AllianceRole.PRESIDENT,
-        roleTitle: 'Großadmiral',
+        roles: [memberRole(ROLES[0])],
         joinedAt: '2026-10-01T12:00:00.000Z',
         actions: NO_MEMBER_ACTIONS,
       },
@@ -112,15 +137,14 @@ function detail(overrides: Partial<AllianceDetailDto> = {}): AllianceDetailDto {
         name: 'Wedge',
         avatar: null,
         faction: Faction.REBEL_ALLIANCE,
-        role: AllianceRole.NONE,
-        roleTitle: null,
+        roles: [],
         joinedAt: '2026-10-02T12:00:00.000Z',
         actions: NO_MEMBER_ACTIONS,
       },
     ],
     relationships: [],
     viewer: {
-      role: null,
+      permissions: null,
       actions: {
         apply: false,
         withdrawApplication: false,
@@ -133,6 +157,7 @@ function detail(overrides: Partial<AllianceDetailDto> = {}): AllianceDetailDto {
         viewMemberOperations: false,
         viewChronicle: false,
         manageBanner: false,
+        manageRoles: false,
       },
     },
     ...overrides,
@@ -259,7 +284,10 @@ function withViewer(
 ): AllianceDetailDto {
   return {
     ...base,
-    viewer: { role, actions: { ...base.viewer.actions, ...actions } },
+    viewer: {
+      permissions: role === null ? null : PRESET_PERMISSIONS[role],
+      actions: { ...base.viewer.actions, ...actions },
+    },
   };
 }
 
@@ -461,9 +489,13 @@ describe('AllianceListPage', () => {
     });
     expect(leia).toBeTruthy();
     expect(
-      within(bannerAndMembers as HTMLElement).getByRole('link', { name: 'Wedge' }),
+      within(bannerAndMembers as HTMLElement).getByRole('link', {
+        name: 'Wedge',
+      }),
     ).toBeTruthy();
-    expect(screen.queryByRole('img', { name: 'Banner von Red Squadron' })).toBeNull();
+    expect(
+      screen.queryByRole('img', { name: 'Banner von Red Squadron' }),
+    ).toBeNull();
     expect(screen.queryByTestId('alliance-banner-placeholder-2')).toBeNull();
     expect(leia.querySelector('img')?.getAttribute('src')).toBe(
       '/assets/avatars/alliance-rebel-default.png',
@@ -476,9 +508,9 @@ describe('AllianceListPage', () => {
     expect(
       screen.getByRole('link', { name: 'Luke' }).getAttribute('href'),
     ).toBe('/players/3');
-    expect(
-      screen.getByRole('link', { name: 'Han' }).getAttribute('href'),
-    ).toBe('/players/4');
+    expect(screen.getByRole('link', { name: 'Han' }).getAttribute('href')).toBe(
+      '/players/4',
+    );
   });
 
   it('omits an empty alliance group', async () => {
@@ -965,9 +997,15 @@ describe('AllianceDetailPage', () => {
 
     renderAt('/alliances/1');
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Nachricht an Leia schreiben' }));
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Nachricht an Leia schreiben',
+      }),
+    );
     expect(screen.getByText(/Empfänger:/).textContent).toContain('(1)');
-    expect(screen.queryByRole('button', { name: 'Nachricht an Wedge schreiben' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Nachricht an Wedge schreiben' }),
+    ).toBeNull();
     useAuthStore.setState({ user: null });
   });
 
@@ -1406,8 +1444,7 @@ describe('AllianceDetailPage', () => {
               name: 'Leia',
               avatar: null,
               faction: Faction.REBEL_ALLIANCE,
-              role: AllianceRole.PRESIDENT,
-              roleTitle: 'Großadmiral',
+              roles: [memberRole(ROLES[0])],
               joinedAt: '2026-10-01T12:00:00.000Z',
               actions: NO_MEMBER_ACTIONS,
             },
@@ -1416,14 +1453,11 @@ describe('AllianceDetailPage', () => {
               name: 'Wedge',
               avatar: null,
               faction: Faction.REBEL_ALLIANCE,
-              role: AllianceRole.VICE,
-              roleTitle: 'Vize-Präsident',
+              roles: [memberRole(ROLES[1])],
               joinedAt: '2026-10-02T12:00:00.000Z',
               actions: {
                 kick: true,
-                appointVice: false,
-                appointDiplomat: true,
-                dismiss: true,
+                editRoles: true,
                 transferPresidency: true,
               },
             },
@@ -1432,11 +1466,15 @@ describe('AllianceDetailPage', () => {
               name: 'Biggs',
               avatar: null,
               faction: Faction.REBEL_ALLIANCE,
-              role: AllianceRole.NONE,
-              roleTitle: null,
+              roles: [],
               joinedAt: '2026-10-03T12:00:00.000Z',
               actions: { ...NO_MEMBER_ACTIONS, kick: true },
             },
+          ],
+          roles: [
+            ROLES[0],
+            role(2, 'Vize-Präsident', [AlliancePermission.SUCCESSOR], true),
+            role(3, 'Diplomat', [AlliancePermission.DIPLOMATIC], true),
           ],
         }),
         AllianceRole.PRESIDENT,
@@ -1453,7 +1491,7 @@ describe('AllianceDetailPage', () => {
       ).toBeTruthy();
       expect(screen.queryByRole('button', { name: 'Rauswerfen' })).toBeNull();
       expect(
-        screen.queryByRole('button', { name: 'Zum Diplomat ernennen' }),
+        screen.queryByRole('button', { name: 'Diplomat zuweisen' }),
       ).toBeNull();
       detailPage.unmount();
 
@@ -1466,36 +1504,38 @@ describe('AllianceDetailPage', () => {
         within(wedge).getByRole('button', { name: 'Rauswerfen' }),
       ).toBeTruthy();
       expect(
-        within(wedge).getByRole('button', { name: 'Zum Diplomat ernennen' }),
+        within(wedge).getByRole('button', { name: 'Diplomat zuweisen' }),
       ).toBeTruthy();
       expect(
-        within(wedge).getByRole('button', { name: 'Amt entziehen' }),
+        within(wedge).getByRole('button', { name: 'Vize-Präsident entziehen' }),
       ).toBeTruthy();
       expect(
         within(wedge).getByRole('button', { name: 'Präsidentenamt übergeben' }),
       ).toBeTruthy();
       expect(
-        within(wedge).queryByRole('button', {
-          name: 'Zum Vize-Präsident ernennen',
-        }),
+        within(wedge).queryByRole('button', { name: /Großadmiral/ }),
       ).toBeNull();
 
       const biggs = screen.getByRole('link', { name: 'Biggs' }).closest('li')!;
       expect(
         within(biggs)
           .getAllByRole('button')
-          .filter((b) => !b.getAttribute('aria-label')?.startsWith('Nachricht an'))
+          .filter(
+            (b) => !b.getAttribute('aria-label')?.startsWith('Nachricht an'),
+          )
           .map((b) => b.textContent),
       ).toEqual(['Rauswerfen']);
       const leia = screen.getByRole('link', { name: 'Leia' }).closest('li')!;
       expect(
         within(leia)
           .queryAllByRole('button')
-          .filter((b) => !b.getAttribute('aria-label')?.startsWith('Nachricht an')),
+          .filter(
+            (b) => !b.getAttribute('aria-label')?.startsWith('Nachricht an'),
+          ),
       ).toHaveLength(0);
     });
 
-    it('appoints, dismisses and transfers via the role endpoints', async () => {
+    it('assigns, removes roles and transfers via the role endpoints', async () => {
       routeGet({ '/alliances/1': managed() });
       vi.spyOn(window, 'confirm').mockReturnValue(true);
 
@@ -1504,22 +1544,17 @@ describe('AllianceDetailPage', () => {
         await screen.findByRole('link', { name: 'Wedge' })
       ).closest('li')!;
 
-      await clickWhenEnabled(wedge, 'Zum Diplomat ernennen');
+      await clickWhenEnabled(wedge, 'Diplomat zuweisen');
       await waitFor(() =>
         expect(apiMocks.put).toHaveBeenCalledWith(
-          '/alliances/1/members/2/role',
-          {
-            role: AllianceRole.DIPLOMAT,
-          },
+          '/alliances/1/members/2/roles/3',
+          {},
         ),
       );
-      await clickWhenEnabled(wedge, 'Amt entziehen');
+      await clickWhenEnabled(wedge, 'Vize-Präsident entziehen');
       await waitFor(() =>
-        expect(apiMocks.put).toHaveBeenCalledWith(
-          '/alliances/1/members/2/role',
-          {
-            role: AllianceRole.NONE,
-          },
+        expect(apiMocks.delete).toHaveBeenCalledWith(
+          '/alliances/1/members/2/roles/2',
         ),
       );
       await clickWhenEnabled(wedge, 'Präsidentenamt übergeben');
@@ -1725,11 +1760,20 @@ describe('AllianceEditPage', () => {
     });
 
   it('includes the permitted depot stocks in the alliance administration', async () => {
-    routeGet({ '/alliances/1': editable(), '/alliances/1/depots': [{
-      stationId: 7, name: 'Depot', owner: { id: 2, name: 'Besitzer' },
-      locationLabel: 'Basis (2|3)', cargoUsed: 9, cargoMax: 100,
-      cargo: [{ commodityId: 5, name: 'Tibanna-Gas', amount: 9 }],
-    }] });
+    routeGet({
+      '/alliances/1': editable(),
+      '/alliances/1/depots': [
+        {
+          stationId: 7,
+          name: 'Depot',
+          owner: { id: 2, name: 'Besitzer' },
+          locationLabel: 'Basis (2|3)',
+          cargoUsed: 9,
+          cargoMax: 100,
+          cargo: [{ commodityId: 5, name: 'Tibanna-Gas', amount: 9 }],
+        },
+      ],
+    });
     renderAt('/alliances/1/edit');
     await screen.findByText('Besitzer: Besitzer');
     expect(screen.getByText('Tibanna-Gas: 9')).toBeTruthy();
@@ -1743,8 +1787,12 @@ describe('AllianceEditPage', () => {
           detail().members[0],
           {
             ...detail().members[1],
-            actions: { ...NO_MEMBER_ACTIONS, kick: true, appointVice: true },
+            actions: { ...NO_MEMBER_ACTIONS, kick: true, editRoles: true },
           },
+        ],
+        roles: [
+          ROLES[0],
+          role(2, 'Vize-Präsident', [AlliancePermission.SUCCESSOR], true),
         ],
       }),
       AllianceRole.PRESIDENT,
@@ -1762,7 +1810,7 @@ describe('AllianceEditPage', () => {
     expect(await screen.findByLabelText('Banner hochladen')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Rauswerfen' })).toBeTruthy();
     expect(
-      screen.getByRole('button', { name: 'Zum Vize-Präsident ernennen' }),
+      screen.getByRole('button', { name: 'Vize-Präsident zuweisen' }),
     ).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Allianz verlassen' }),
@@ -1786,7 +1834,7 @@ describe('AllianceEditPage', () => {
     expect(screen.queryByRole('button', { name: 'Speichern' })).toBeNull();
   });
 
-  it('saves details, application switch and office titles', async () => {
+  it('saves details and application switch', async () => {
     routeGet({ '/alliances/1': editable() });
 
     renderAt('/alliances/1/edit');
@@ -1799,12 +1847,6 @@ describe('AllianceEditPage', () => {
     });
     fireEvent.change(screen.getByLabelText('Farbe'), { target: { value: '' } });
     fireEvent.click(screen.getByLabelText('Bewerbungen annehmen'));
-    fireEvent.change(screen.getByLabelText('Titel Präsident'), {
-      target: { value: 'Kanzler' },
-    });
-    fireEvent.change(screen.getByLabelText('Titel Vize'), {
-      target: { value: 'Admiral' },
-    });
     fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
 
     await waitFor(() =>
@@ -1814,7 +1856,6 @@ describe('AllianceEditPage', () => {
         homepage: '',
         color: '',
         acceptsApplications: false,
-        titles: { president: 'Kanzler', vice: 'Admiral', diplomat: 'Diplomat' },
       }),
     );
     expect(
@@ -1960,6 +2001,13 @@ describe('AllianceEditPage', () => {
               previousRole: 'VICE',
               newRole: 'NONE',
             }),
+            withMeta(2, 'ROLE_CHANGED', 'Leia', 'Mon', {
+              roleTitle: 'Flottenchef',
+              assigned: true,
+            }),
+            withMeta(1, 'PRESIDENCY_TRANSFERRED', 'Wedge', 'Mon', {
+              previousRoles: ['Flottenchef', 'Diplomat'],
+            }),
           ],
           nextCursor: null,
         },
@@ -1977,6 +2025,14 @@ describe('AllianceEditPage', () => {
       ).toBeTruthy();
       expect(
         screen.getByText('Leia hat Han vom Amt Vize-Präsident abgesetzt'),
+      ).toBeTruthy();
+      expect(
+        screen.getByText('Leia hat Mon die Rolle Flottenchef zugewiesen'),
+      ).toBeTruthy();
+      expect(
+        screen.getByText(
+          'Wedge hat die Präsidentschaft an Mon übergeben (zuvor Flottenchef, Diplomat)',
+        ),
       ).toBeTruthy();
       expect(
         screen.getByText(

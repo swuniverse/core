@@ -46,6 +46,8 @@ import { ForumBoard } from './entities/forum-board.entity';
 import { ForumTopic } from './entities/forum-topic.entity';
 import { ForumPost } from './entities/forum-post.entity';
 import { AllianceMembership } from './entities/alliance-membership.entity';
+import { AllianceRoleEntity } from './entities/alliance-role.entity';
+import { AllianceMemberRole } from './entities/alliance-member-role.entity';
 import { AllianceApplication } from './entities/alliance-application.entity';
 import { AllianceRelationship } from './entities/alliance-relationship.entity';
 import { AllianceRelationshipProposal } from './entities/alliance-relationship-proposal.entity';
@@ -62,6 +64,8 @@ import { AllianceDiplomacyNotification } from './entities/alliance-diplomacy-not
       Alliance,
       AllianceDepot,
       AllianceMembership,
+      AllianceRoleEntity,
+      AllianceMemberRole,
       AllianceApplication,
       DiplomacyParty,
       AllianceRelationship,

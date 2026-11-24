@@ -12,6 +12,8 @@ import { FactionModifier } from '../../modules/faction/entities/faction-modifier
 import { Alliance } from '../../modules/alliance/entities/alliance.entity';
 import { AllianceDepot } from '../../modules/alliance/entities/alliance-depot.entity';
 import { AllianceMembership } from '../../modules/alliance/entities/alliance-membership.entity';
+import { AllianceRoleEntity } from '../../modules/alliance/entities/alliance-role.entity';
+import { AllianceMemberRole } from '../../modules/alliance/entities/alliance-member-role.entity';
 import { AllianceApplication } from '../../modules/alliance/entities/alliance-application.entity';
 import { AllianceRelationship } from '../../modules/alliance/entities/alliance-relationship.entity';
 import { AllianceRelationshipProposal } from '../../modules/alliance/entities/alliance-relationship-proposal.entity';
@@ -119,6 +121,8 @@ export const INTEGRATION_ENTITIES = [
   Alliance,
   AllianceDepot,
   AllianceMembership,
+  AllianceRoleEntity,
+  AllianceMemberRole,
   AllianceApplication,
   DiplomacyParty,
   AllianceRelationship,

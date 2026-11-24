@@ -3,6 +3,7 @@ import type {
   AllianceChronicleEventType,
   AllianceDiplomacyChronicleEndReason,
   AllianceDiplomacyChronicleEventType,
+  AlliancePermission,
   AllianceRelationshipType,
   AllianceRole,
   Faction,
@@ -26,20 +27,27 @@ export interface AllianceRecord {
   color: string | null;
   factionId: number;
   acceptsApplications: boolean;
-  presidentTitle: string;
-  viceTitle: string;
-  diplomatTitle: string;
   /** Opaque asset key of the banner, or null without banner. */
   bannerKey: string | null;
   bannerUpdatedAt: Date | null;
   foundedAt: Date;
 }
 
+export interface AllianceRoleRecord {
+  id: number;
+  allianceId: number;
+  title: string;
+  sort: number;
+  /** As stored; FOUNDER marks the fixed president role. */
+  permissions: AlliancePermission[];
+}
+
 export interface MembershipRecord {
   id: number;
   allianceId: number;
   userId: number;
-  role: AllianceRole;
+  /** Held roles, ordered by sort then id. */
+  roles: AllianceRoleRecord[];
   joinedAt: Date;
 }
 
@@ -205,9 +213,6 @@ export type AlliancePatch = Partial<
     | 'homepage'
     | 'color'
     | 'acceptsApplications'
-    | 'presidentTitle'
-    | 'viceTitle'
-    | 'diplomatTitle'
     | 'bannerKey'
     | 'bannerUpdatedAt'
   >
@@ -266,6 +271,7 @@ export interface AllianceStore {
   listAlliances(): Promise<AllianceRecord[]>;
   countMembers(): Promise<Map<number, number>>;
   isNameTaken(name: string, exceptAllianceId?: number): Promise<boolean>;
+  /** Also creates the standard roles (`STANDARD_ALLIANCE_ROLES`). */
   insertAlliance(data: {
     name: string;
     description: string;
@@ -432,17 +438,29 @@ export interface AllianceStore {
   listMembershipsForAlliances(
     allianceIds: number[],
   ): Promise<MembershipRecord[]>;
+  /** `role` assigns that standard role of the alliance (founding, seeding). */
   insertMembership(data: {
     allianceId: number;
     userId: number;
-    role: AllianceRole;
+    role?: AllianceRole;
   }): Promise<void>;
-  /** Returns false if the player is not a member of that alliance. */
-  setRole(
-    allianceId: number,
-    userId: number,
-    role: AllianceRole,
-  ): Promise<boolean>;
+
+  /** Ordered by sort, then id. */
+  listRoles(allianceId: number): Promise<AllianceRoleRecord[]>;
+  findRole(id: number): Promise<AllianceRoleRecord | null>;
+  insertRole(
+    data: Omit<AllianceRoleRecord, 'id'>,
+  ): Promise<AllianceRoleRecord>;
+  updateRole(
+    id: number,
+    patch: Partial<Pick<AllianceRoleRecord, 'title' | 'sort' | 'permissions'>>,
+  ): Promise<void>;
+  /** Also removes every assignment of the role. */
+  deleteRole(id: number): Promise<void>;
+  /** Idempotent; a second holder of the founder role violates `alliance_president`. */
+  assignRole(membershipId: number, roleId: number): Promise<void>;
+  /** Returns false if the member did not hold the role. */
+  unassignRole(membershipId: number, roleId: number): Promise<boolean>;
   /** Returns false if the player is not a member of that alliance. */
   deleteMembership(allianceId: number, userId: number): Promise<boolean>;
 

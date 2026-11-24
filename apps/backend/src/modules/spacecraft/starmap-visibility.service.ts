@@ -8,8 +8,11 @@ import type {
   StarmapContactStance,
   StarmapContactsDto,
 } from '@swuniverse/shared';
+import {
+  AlliancePermission,
+  grantsAlliancePermission,
+} from '@swuniverse/shared';
 import { In, Not, Repository } from 'typeorm';
-import { mayActOnAlliance } from '../alliance/alliance-permissions';
 import { RelationshipResolverService } from '../alliance/relationship-resolver.service';
 import { Layer } from '../starmap/entities/layer.entity';
 import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
@@ -125,11 +128,18 @@ export class StarmapVisibilityService {
     const visibility = new Map<number, OwnerVisibility>([
       [viewerId, { reason: 'OWN' }],
     ]);
-    const { viewerMembership, alliance, mateIds, viewerRole, partnerIds } =
+    const {
+      viewerMembership,
+      alliance,
+      mateIds,
+      viewerPermissions,
+      partnerIds,
+    } =
       await this.relationships.starmapCandidates(viewerId);
-    const managementDetails =
-      viewerRole !== null &&
-      mayActOnAlliance(viewerRole, 'viewShipManagementDetails');
+    const managementDetails = grantsAlliancePermission(
+      viewerPermissions,
+      AlliancePermission.VIEW_SHIPS,
+    );
     const candidateIds = [...new Set([...mateIds, ...partnerIds])].filter(
       (id) => !visibility.has(id),
     );

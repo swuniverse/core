@@ -147,9 +147,13 @@ function MemberRow({
           decorative
           className="size-9 text-sm"
         />
-        <span className="font-bold text-swu-primary"><PlayerName name={member.name} playerId={member.userId} /></span>
-        {member.roleTitle && (
-          <span className="text-xs text-swu-muted">{member.roleTitle}</span>
+        <span className="font-bold text-swu-primary">
+          <PlayerName name={member.name} playerId={member.userId} />
+        </span>
+        {member.roles.length > 0 && (
+          <span className="text-xs text-swu-muted">
+            {member.roles.map((role) => role.title).join(', ')}
+          </span>
         )}
         <span className="text-xs text-swu-muted">
           Letzte Aktivität: {formatLastActive(member.lastActiveAt)}

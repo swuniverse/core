@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import {
   AllianceRelationshipType,
+  AlliancePermission,
   AllianceRole,
   Faction,
 } from '@swuniverse/shared';
@@ -412,7 +413,10 @@ describe('alliance persistence (Postgres)', () => {
       dataSource.getRepository(User),
       new StatisticsService(dataSource, []),
       { emitToUser: jest.fn() } as never,
-      { getManyBoolean: async (ids: number[]) => new Map(ids.map((id) => [id, true])) } as never,
+      {
+        getManyBoolean: async (ids: number[]) =>
+          new Map(ids.map((id) => [id, true])),
+      } as never,
     );
     const failingService = new AllianceService(store, messaging);
     const markDelivered = jest
@@ -581,12 +585,17 @@ describe('alliance persistence (Postgres)', () => {
       acceptsApplications: false,
       color: null,
       homepage: '',
-      titles: {
-        president: 'Präsident',
-        vice: 'Vize-Präsident',
-        diplomat: 'Diplomat',
-      },
-      members: [expect.objectContaining({ userId: leia.id, role: PRESIDENT })],
+      roles: [
+        expect.objectContaining({ title: 'Präsident', sort: 1, founder: true }),
+        expect.objectContaining({ title: 'Vize-Präsident', sort: 2 }),
+        expect.objectContaining({ title: 'Diplomat', sort: 3 }),
+      ],
+      members: [
+        expect.objectContaining({
+          userId: leia.id,
+          roles: [expect.objectContaining({ title: 'Präsident' })],
+        }),
+      ],
     });
   });
 
@@ -669,9 +678,13 @@ describe('alliance persistence (Postgres)', () => {
       role: VICE,
     });
 
-    await expect(store.setRole(rogue.id, wedge.id, PRESIDENT)).rejects.toEqual(
-      new AllianceConstraintViolation('alliance_president'),
-    );
+    const founderRole = (await store.listRoles(rogue.id)).find((r) =>
+      r.permissions.includes(AlliancePermission.FOUNDER),
+    )!;
+    const wedgeMembership = (await store.findMembership(wedge.id))!;
+    await expect(
+      store.assignRole(wedgeMembership.id, founderRole.id),
+    ).rejects.toEqual(new AllianceConstraintViolation('alliance_president'));
     await expect(
       store.insertMembership({
         allianceId: rogue.id,
@@ -693,8 +706,10 @@ describe('alliance persistence (Postgres)', () => {
 
     await service.transferPresidency(leia.id, rogue.id, wedge.id);
 
-    expect((await store.findMembership(leia.id))?.role).toBe(NONE);
-    expect((await store.findMembership(wedge.id))?.role).toBe(PRESIDENT);
+    const titles = async (id: number) =>
+      (await store.findMembership(id))?.roles.map((r) => r.title);
+    expect(await titles(leia.id)).toEqual([]);
+    expect(await titles(wedge.id)).toEqual(['Präsident']);
   });
 
   it('cascades memberships and applications when an alliance is dissolved', async () => {

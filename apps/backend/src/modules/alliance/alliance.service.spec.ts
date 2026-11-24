@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import {
   AllianceChronicleEventType,
+  AlliancePermission,
   AllianceDiplomacyChronicleEventType,
   AllianceRelationshipType,
   AllianceRole,
@@ -454,21 +455,20 @@ describe('AllianceService', () => {
         factionName: 'Rebellenallianz',
         memberCount: 1,
         acceptsApplications: false,
-        titles: {
-          president: 'Präsident',
-          vice: 'Vize-Präsident',
-          diplomat: 'Diplomat',
-        },
       });
+      expect(detail.roles.map((r) => [r.title, r.founder])).toEqual([
+        ['Präsident', true],
+        ['Vize-Präsident', false],
+        ['Diplomat', false],
+      ]);
       expect(detail.members).toEqual([
         expect.objectContaining({
           userId: 1,
           name: 'Leia',
-          role: PRESIDENT,
-          roleTitle: 'Präsident',
+          roles: [expect.objectContaining({ title: 'Präsident' })],
         }),
       ]);
-      expect(detail.viewer.role).toBe(PRESIDENT);
+      expect(detail.viewer.permissions).toEqual(['FOUNDER']);
     });
 
     it('trims the name', async () => {
@@ -707,14 +707,14 @@ describe('AllianceService', () => {
       await expectError(service.getDetail(1, 99), NotFoundException);
     });
 
-    it('shows members with the alliance’s own office titles, president first', async () => {
+    it('shows members with the alliance’s own role titles, by role order', async () => {
       const { store, service } = setup();
       store.addPlayer(1, 'Leia');
       store.addPlayer(2, 'Wedge');
       store.addPlayer(3, 'Mon');
       store.addPlayer(4, 'Biggs');
       const alliance = store.seedAlliance(
-        { name: 'Rogue Squadron', presidentTitle: 'Großadmiral' },
+        { name: 'Rogue Squadron', roleTitles: { PRESIDENT: 'Großadmiral' } },
         [
           [2, NONE],
           [3, DIPLOMAT],
@@ -725,11 +725,13 @@ describe('AllianceService', () => {
 
       const detail = await service.getDetail(2, alliance.id);
 
-      expect(detail.members.map((m) => [m.name, m.role, m.roleTitle])).toEqual([
-        ['Leia', PRESIDENT, 'Großadmiral'],
-        ['Biggs', VICE, 'Vize-Präsident'],
-        ['Mon', DIPLOMAT, 'Diplomat'],
-        ['Wedge', NONE, null],
+      expect(
+        detail.members.map((m) => [m.name, m.roles.map((r) => r.title)]),
+      ).toEqual([
+        ['Leia', ['Großadmiral']],
+        ['Biggs', ['Vize-Präsident']],
+        ['Mon', ['Diplomat']],
+        ['Wedge', []],
       ]);
     });
 
@@ -821,7 +823,7 @@ describe('AllianceService', () => {
         const { viewer, members } = await service.getDetail(5, alliance.id);
 
         expect(viewer).toEqual({
-          role: null,
+          permissions: null,
           actions: {
             apply: true,
             withdrawApplication: false,
@@ -834,6 +836,7 @@ describe('AllianceService', () => {
             viewMemberOperations: false,
             viewChronicle: false,
             manageBanner: false,
+            manageRoles: false,
           },
         });
         expect(
@@ -883,7 +886,7 @@ describe('AllianceService', () => {
         const { viewer, members } = await service.getDetail(1, alliance.id);
 
         expect(viewer).toEqual({
-          role: PRESIDENT,
+          permissions: [AlliancePermission.FOUNDER],
           actions: {
             apply: false,
             withdrawApplication: false,
@@ -896,6 +899,7 @@ describe('AllianceService', () => {
             viewMemberOperations: true,
             viewChronicle: true,
             manageBanner: true,
+            manageRoles: true,
           },
         });
         const byName = Object.fromEntries(
@@ -903,25 +907,16 @@ describe('AllianceService', () => {
         );
         expect(byName['Leia']).toEqual({
           kick: false,
-          appointVice: false,
-          appointDiplomat: false,
-          dismiss: false,
+          editRoles: false,
           transferPresidency: false,
         });
-        expect(byName['Wedge']).toEqual({
-          kick: true,
-          appointVice: false,
-          appointDiplomat: true,
-          dismiss: true,
-          transferPresidency: true,
-        });
-        expect(byName['Biggs']).toEqual({
-          kick: true,
-          appointVice: true,
-          appointDiplomat: true,
-          dismiss: false,
-          transferPresidency: true,
-        });
+        for (const name of ['Wedge', 'Biggs']) {
+          expect(byName[name]).toEqual({
+            kick: true,
+            editRoles: true,
+            transferPresidency: true,
+          });
+        }
       });
 
       it('lets the sole president leave (dissolving the alliance)', async () => {
@@ -953,11 +948,12 @@ describe('AllianceService', () => {
           members.map((m) => [m.name, m.actions]),
         );
         expect(byName['Leia'].kick).toBe(false);
-        expect(byName['Mon']).toMatchObject({ kick: true, dismiss: true });
+        // Protection rule: the vice lacks the diplomat rights, so the diplomat is out of reach.
+        expect(byName['Mon']).toMatchObject({ kick: false, editRoles: false });
         expect(byName['Biggs']).toMatchObject({
           kick: true,
-          appointDiplomat: true,
-          appointVice: false,
+          editRoles: true,
+          transferPresidency: false,
         });
       });
 
@@ -982,8 +978,9 @@ describe('AllianceService', () => {
             manageDiplomacy,
             readForum: true,
             viewMemberOperations: false,
-            viewChronicle: true,
+            viewChronicle: false,
             manageBanner: false,
+            manageRoles: false,
           });
           expect(
             members.every((m) => Object.values(m.actions).every((a) => !a)),
@@ -1246,11 +1243,7 @@ describe('AllianceService', () => {
       const delivered = new Map<string, SentMessage>();
       const messaging = {
         sendSystem: jest.fn(
-          async (
-            to: number,
-            body: string,
-            deliveryKey: string,
-          ) => {
+          async (to: number, body: string, deliveryKey: string) => {
             if (!delivered.has(deliveryKey)) {
               delivered.set(deliveryKey, { to, body });
             }
@@ -2171,7 +2164,7 @@ describe('AllianceService', () => {
 
         expect(await store.findMembership(5)).toMatchObject({
           allianceId: alliance.id,
-          role: NONE,
+          roles: [],
         });
         expect(store.snapshot().applications).toHaveLength(0);
         expect(messagesTo(sent, 5)).toEqual([
@@ -2729,14 +2722,17 @@ describe('AllianceService', () => {
         }
       });
 
-      it('lets a vice kick members and diplomats only', async () => {
+      it('lets a vice kick members but not holders of rights the vice lacks', async () => {
         const { store, service, alliance } = scenario();
 
         await service.kick(2, alliance.id, 4);
-        await service.kick(2, alliance.id, 3);
-        await expectError(service.kick(2, alliance.id, 6), ForbiddenException);
+        // Protection rule: the diplomat holds DIPLOMATIC, which the vice lacks.
+        await expectError(service.kick(2, alliance.id, 3), ForbiddenException);
         await expectError(service.kick(2, alliance.id, 1), ForbiddenException);
-        expect(await store.findMembership(6)).not.toBeNull();
+        // A fellow vice holds no right beyond the actor's (STU: MANAGE_JOBS).
+        await service.kick(2, alliance.id, 6);
+        expect(await store.findMembership(6)).toBeNull();
+        expect(await store.findMembership(3)).not.toBeNull();
         expect(await store.findMembership(1)).not.toBeNull();
       });
 
@@ -2814,11 +2810,7 @@ describe('AllianceService', () => {
             .fn()
             .mockRejectedValueOnce(new Error('messaging unavailable'))
             .mockImplementation(
-              async (
-                to: number,
-                body: string,
-                key: string,
-              ) => {
+              async (to: number, body: string, key: string) => {
                 delivered.set(key, { to, body });
               },
             ),
@@ -2865,7 +2857,7 @@ describe('AllianceService', () => {
       store.addPlayer(3, 'Mon');
       store.addPlayer(4, 'Biggs');
       const alliance = store.seedAlliance(
-        { name: 'Rogue Squadron', viceTitle: 'Admiral' },
+        { name: 'Rogue Squadron', roleTitles: { VICE: 'Admiral' } },
         [
           [1, PRESIDENT],
           [2, VICE],
@@ -2876,97 +2868,247 @@ describe('AllianceService', () => {
       return { ...ctx, alliance };
     }
 
-    it('lets the president appoint a vice, using the alliance’s title', async () => {
+    const vice = (store: InMemoryAllianceStore, id: number) =>
+      store.roleIdOf(id, VICE);
+    const diplomat = (store: InMemoryAllianceStore, id: number) =>
+      store.roleIdOf(id, DIPLOMAT);
+
+    it('lets the president assign a role, using the alliance’s title', async () => {
       const { store, service, sent, alliance } = scenario();
 
-      await service.setRole(1, alliance.id, 4, VICE);
+      await service.assignRole(1, alliance.id, 4, vice(store, alliance.id));
 
-      expect((await store.findMembership(4))?.role).toBe(VICE);
+      expect(await store.presetOf(4)).toBe(VICE);
       expect(messagesTo(sent, 4)).toEqual([
         'Du wurdest zum Admiral der Allianz Rogue Squadron ernannt',
       ]);
     });
 
-    it('replaces the previous office', async () => {
+    it('lets a member hold several roles', async () => {
       const { store, service, alliance } = scenario();
 
-      await service.setRole(1, alliance.id, 3, VICE);
-      expect((await store.findMembership(3))?.role).toBe(VICE);
-      await service.setRole(1, alliance.id, 3, DIPLOMAT);
-      expect((await store.findMembership(3))?.role).toBe(DIPLOMAT);
+      await service.assignRole(1, alliance.id, 3, vice(store, alliance.id));
+
+      expect(
+        (await store.findMembership(3))?.roles.map((r) => r.title),
+      ).toEqual(['Admiral', 'Diplomat']);
     });
 
-    it('lets the president dismiss and informs the member', async () => {
+    it('lets the president remove a role and informs the member', async () => {
       const { store, service, sent, alliance } = scenario();
 
-      await service.setRole(1, alliance.id, 2, NONE);
+      await service.unassignRole(1, alliance.id, 2, vice(store, alliance.id));
 
-      expect((await store.findMembership(2))?.role).toBe(NONE);
+      expect(await store.presetOf(2)).toBe(NONE);
       expect(messagesTo(sent, 2)).toEqual([
-        'Du wurdest von Deinem Amt in der Allianz Rogue Squadron entbunden',
+        'Du wurdest von der Rolle Admiral in der Allianz Rogue Squadron entbunden',
       ]);
     });
 
-    it('lets a vice appoint and dismiss diplomats only', async () => {
+    it('lets a vice hand out only rights it holds itself', async () => {
       const { store, service, alliance } = scenario();
 
-      await service.setRole(2, alliance.id, 4, DIPLOMAT);
-      expect((await store.findMembership(4))?.role).toBe(DIPLOMAT);
-      await service.setRole(2, alliance.id, 3, NONE);
-      expect((await store.findMembership(3))?.role).toBe(NONE);
+      await service.assignRole(2, alliance.id, 4, vice(store, alliance.id));
+      expect(await store.presetOf(4)).toBe(VICE);
+
+      // The diplomat role carries rights the vice lacks.
+      await expectError(
+        service.assignRole(2, alliance.id, 4, diplomat(store, alliance.id)),
+        ForbiddenException,
+      );
+      // The diplomat holds rights the vice lacks, so it is out of reach.
+      await expectError(
+        service.unassignRole(2, alliance.id, 3, diplomat(store, alliance.id)),
+        ForbiddenException,
+      );
+      await expectError(service.kick(2, alliance.id, 3), ForbiddenException);
+    });
+
+    it('never hands out the founder role', async () => {
+      const { store, service, alliance } = scenario();
 
       await expectError(
-        service.setRole(2, alliance.id, 4, VICE),
+        service.assignRole(
+          1,
+          alliance.id,
+          4,
+          store.roleIdOf(alliance.id, PRESIDENT),
+        ),
         ForbiddenException,
       );
       await expectError(
-        service.setRole(2, alliance.id, 1, NONE),
+        service.unassignRole(
+          2,
+          alliance.id,
+          1,
+          store.roleIdOf(alliance.id, PRESIDENT),
+        ),
         ForbiddenException,
       );
     });
 
-    it('refuses changing one’s own office', async () => {
-      const { service, alliance } = scenario();
+    it('refuses changing one’s own roles', async () => {
+      const { store, service, alliance } = scenario();
 
       await expectError(
-        service.setRole(2, alliance.id, 2, NONE),
+        service.unassignRole(2, alliance.id, 2, vice(store, alliance.id)),
         BadRequestException,
       );
       await expectError(
-        service.setRole(1, alliance.id, 1, VICE),
+        service.assignRole(1, alliance.id, 1, vice(store, alliance.id)),
         BadRequestException,
       );
     });
 
-    it('forbids diplomats and members', async () => {
-      const { service, alliance } = scenario();
+    it('forbids members without MANAGE_JOBS', async () => {
+      const { store, service, alliance } = scenario();
 
       await expectError(
-        service.setRole(3, alliance.id, 4, DIPLOMAT),
+        service.assignRole(3, alliance.id, 4, diplomat(store, alliance.id)),
         ForbiddenException,
       );
       await expectError(
-        service.setRole(4, alliance.id, 3, NONE),
-        ForbiddenException,
-      );
-    });
-
-    it('refuses appointing to an office the member already holds', async () => {
-      const { service, alliance } = scenario();
-
-      await expectError(
-        service.setRole(1, alliance.id, 2, VICE),
+        service.unassignRole(4, alliance.id, 3, diplomat(store, alliance.id)),
         ForbiddenException,
       );
     });
 
-    it('refuses appointing a president via setRole', async () => {
-      const { service, alliance } = scenario();
+    it('refuses a role of another alliance', async () => {
+      const { store, service, alliance } = scenario();
+      store.addPlayer(9, 'Thrawn');
+      const other = store.seedAlliance({ name: 'Andere' }, [[9, PRESIDENT]]);
 
       await expectError(
-        service.setRole(1, alliance.id, 4, PRESIDENT),
-        BadRequestException,
+        service.assignRole(1, alliance.id, 4, vice(store, other.id)),
+        NotFoundException,
       );
+    });
+
+    it('records role changes in the chronicle', async () => {
+      const { store, service, alliance } = scenario();
+
+      await service.assignRole(1, alliance.id, 4, vice(store, alliance.id));
+
+      const { entries } = await service.listChronicle(1, alliance.id);
+      expect(entries[0]).toMatchObject({
+        type: AllianceChronicleEventType.ROLE_CHANGED,
+        metadata: { roleTitle: 'Admiral', assigned: true },
+      });
+    });
+
+    describe('role management', () => {
+      it('creates, renames, sorts and deletes roles', async () => {
+        const { store, service, alliance } = scenario();
+
+        const { id } = await service.createRole(1, alliance.id, {
+          title: 'Quartiermeister',
+          permissions: [AlliancePermission.VIEW_ALLIANCE_STORAGE],
+        });
+        await service.updateRole(1, alliance.id, id, {
+          title: 'Logistiker',
+          sort: 0,
+        });
+        let roles = await service.listRoles(1, alliance.id);
+        expect(roles[0]).toMatchObject({
+          id,
+          title: 'Logistiker',
+          permissions: [AlliancePermission.VIEW_ALLIANCE_STORAGE],
+          founder: false,
+        });
+
+        await service.deleteRole(1, alliance.id, id);
+        roles = await service.listRoles(1, alliance.id);
+        expect(roles.map((r) => r.id)).not.toContain(id);
+        expect(await store.findRole(id)).toBeNull();
+      });
+
+      it('refuses granting rights the actor lacks', async () => {
+        const { store, service, alliance } = scenario();
+
+        await expectError(
+          service.createRole(2, alliance.id, {
+            title: 'Botschafter',
+            permissions: [AlliancePermission.CREATE_AGREEMENTS],
+          }),
+          ForbiddenException,
+        );
+        // Editing the diplomat role would touch rights the vice lacks.
+        await expectError(
+          service.updateRole(2, alliance.id, diplomat(store, alliance.id), {
+            title: 'Gesandter',
+          }),
+          ForbiddenException,
+        );
+        await expectError(
+          service.updateRole(2, alliance.id, vice(store, alliance.id), {
+            permissions: [AlliancePermission.DIPLOMATIC],
+          }),
+          ForbiddenException,
+        );
+      });
+
+      it('refuses FOUNDER as a role right', async () => {
+        const { service, alliance } = scenario();
+
+        await expectError(
+          service.createRole(1, alliance.id, {
+            title: 'Zweiter Präsident',
+            permissions: [AlliancePermission.FOUNDER],
+          }),
+          BadRequestException,
+        );
+      });
+
+      it('keeps the founder role fixed apart from its title', async () => {
+        const { store, service, alliance } = scenario();
+        const founder = store.roleIdOf(alliance.id, PRESIDENT);
+
+        await service.updateRole(1, alliance.id, founder, { title: 'Kanzler' });
+        expect((await store.findRole(founder))?.title).toBe('Kanzler');
+
+        await expectError(
+          service.updateRole(1, alliance.id, founder, {
+            permissions: [AlliancePermission.SUCCESSOR],
+          }),
+          ForbiddenException,
+        );
+        await expectError(
+          service.deleteRole(1, alliance.id, founder),
+          ForbiddenException,
+        );
+        await expectError(
+          service.updateRole(2, alliance.id, founder, { title: 'Chef' }),
+          ForbiddenException,
+        );
+      });
+
+      it('reports the protection rule per role to the viewer', async () => {
+        const { service, alliance } = scenario();
+
+        const roles = await service.listRoles(2, alliance.id);
+
+        expect(roles.map((r) => [r.title, r.actions])).toEqual([
+          ['Präsident', { edit: false, delete: false, assign: false }],
+          ['Admiral', { edit: true, delete: true, assign: true }],
+          ['Diplomat', { edit: false, delete: false, assign: false }],
+        ]);
+      });
+
+      it('validates title and rights', async () => {
+        const { service, alliance } = scenario();
+
+        await expectError(
+          service.createRole(1, alliance.id, { title: 'X', permissions: [] }),
+          BadRequestException,
+        );
+        await expectError(
+          service.createRole(1, alliance.id, {
+            title: 'Gültig',
+            permissions: ['UNKNOWN' as AlliancePermission],
+          }),
+          BadRequestException,
+        );
+      });
     });
 
     describe('transferPresidency', () => {
@@ -2975,8 +3117,8 @@ describe('AllianceService', () => {
 
         await service.transferPresidency(1, alliance.id, 3);
 
-        expect((await store.findMembership(1))?.role).toBe(NONE);
-        expect((await store.findMembership(3))?.role).toBe(PRESIDENT);
+        expect(await store.presetOf(1)).toBe(NONE);
+        expect(await store.presetOf(3)).toBe(PRESIDENT);
         expect(messagesTo(sent, 3)).toEqual([
           'Du wurdest zum Präsident der Allianz Rogue Squadron ernannt',
         ]);
@@ -3003,14 +3145,14 @@ describe('AllianceService', () => {
           service.transferPresidency(1, alliance.id, 4),
           NotFoundException,
         );
-        expect((await store.findMembership(1))?.role).toBe(PRESIDENT);
+        expect(await store.presetOf(1)).toBe(PRESIDENT);
         expect(sent).toHaveLength(0);
       });
 
       it('reports a lost presidency race as a domain error', async () => {
         const { store, service, alliance } = scenario();
         jest
-          .spyOn(store, 'setRole')
+          .spyOn(store, 'assignRole')
           .mockRejectedValueOnce(
             new AllianceConstraintViolation('alliance_president'),
           );
@@ -3020,7 +3162,7 @@ describe('AllianceService', () => {
           BadRequestException,
           /gerade geändert/,
         );
-        expect((await store.findMembership(1))?.role).toBe(PRESIDENT);
+        expect(await store.presetOf(1)).toBe(PRESIDENT);
       });
 
       it('is reserved to the president', async () => {
@@ -3131,20 +3273,6 @@ describe('AllianceService', () => {
       [{ color: '#12345' }, /RGB-Code/],
       [{ color: '123456' }, /RGB-Code/],
       [{ color: '#12345g' }, /RGB-Code/],
-      [
-        { titles: { president: 'Bo', vice: 'Vize', diplomat: 'Diplomat' } },
-        /3 bis 30 Zeichen/,
-      ],
-      [
-        {
-          titles: {
-            president: 'Boss',
-            vice: 'x'.repeat(31),
-            diplomat: 'Diplomat',
-          },
-        },
-        /3 bis 30 Zeichen/,
-      ],
     ])('rejects %j and saves nothing', async (patch, message) => {
       const { store, service, sent, alliance } = scenario();
       store.addPlayer(9, 'Han');
@@ -3164,30 +3292,6 @@ describe('AllianceService', () => {
       expect(await store.findAlliance(alliance.id)).toEqual(before);
       expect(store.snapshot().applications).toHaveLength(1);
       expect(sent).toHaveLength(0);
-    });
-
-    it('renames the office titles used in the detail view', async () => {
-      const { service, alliance } = scenario();
-
-      await service.update(2, alliance.id, {
-        titles: {
-          president: 'Großadmiral',
-          vice: 'Admiral',
-          diplomat: 'Botschafter',
-        },
-      });
-
-      const detail = await service.getDetail(1, alliance.id);
-      expect(detail.titles).toEqual({
-        president: 'Großadmiral',
-        vice: 'Admiral',
-        diplomat: 'Botschafter',
-      });
-      expect(detail.members.map((m) => m.roleTitle)).toEqual([
-        'Großadmiral',
-        'Admiral',
-        'Botschafter',
-      ]);
     });
 
     it('is forbidden for diplomats and outsiders', async () => {
@@ -3224,36 +3328,40 @@ describe('AllianceService', () => {
     const entries = async (service: AllianceService, allianceId: number) =>
       (await service.listChronicle(1, allianceId)).entries;
 
-    it('records an appointment with old and new office', async () => {
-      const { service, alliance } = scenario();
+    it('records an assignment with the role title', async () => {
+      const { store, service, alliance } = scenario();
 
-      await service.setRole(1, alliance.id, 3, DIPLOMAT);
+      await service.assignRole(
+        1,
+        alliance.id,
+        3,
+        store.roleIdOf(alliance.id, DIPLOMAT),
+      );
 
       expect(await entries(service, alliance.id)).toEqual([
         expect.objectContaining({
           type: AllianceChronicleEventType.ROLE_CHANGED,
           actor: { userId: 1, name: 'Leia' },
           subject: { userId: 3, name: 'Biggs' },
-          metadata: expect.objectContaining({
-            previousRole: NONE,
-            newRole: DIPLOMAT,
-          }),
+          metadata: { roleTitle: 'Diplomat', assigned: true },
         }),
       ]);
     });
 
-    it('records a dismissal with old and new office', async () => {
-      const { service, alliance } = scenario();
+    it('records a removal with the role title', async () => {
+      const { store, service, alliance } = scenario();
 
-      await service.setRole(1, alliance.id, 2, NONE);
+      await service.unassignRole(
+        1,
+        alliance.id,
+        2,
+        store.roleIdOf(alliance.id, VICE),
+      );
 
       expect((await entries(service, alliance.id))[0]).toEqual(
         expect.objectContaining({
           type: AllianceChronicleEventType.ROLE_CHANGED,
-          metadata: expect.objectContaining({
-            previousRole: VICE,
-            newRole: NONE,
-          }),
+          metadata: { roleTitle: 'Vize-Präsident', assigned: false },
         }),
       );
     });
@@ -3263,12 +3371,13 @@ describe('AllianceService', () => {
 
       await service.transferPresidency(1, alliance.id, 2);
 
-      expect(await entries(service, alliance.id)).toEqual([
+      // Leia no longer holds VIEW_ALLIANCE_HISTORY; the new president reads.
+      expect((await service.listChronicle(2, alliance.id)).entries).toEqual([
         expect.objectContaining({
           type: AllianceChronicleEventType.PRESIDENCY_TRANSFERRED,
           actor: { userId: 1, name: 'Leia' },
           subject: { userId: 2, name: 'Wedge' },
-          metadata: expect.objectContaining({ previousRole: VICE }),
+          metadata: { previousRoles: ['Vize-Präsident'] },
         }),
       ]);
     });
@@ -3294,17 +3403,6 @@ describe('AllianceService', () => {
       expect(JSON.stringify(entry.metadata)).not.toContain('geheim');
     });
 
-    it('records title changes without copying the title texts', async () => {
-      const { service, alliance } = scenario();
-
-      await service.update(1, alliance.id, {
-        titles: { president: 'Boss', vice: 'Vize', diplomat: 'Diplomat' },
-      });
-
-      const [entry] = await entries(service, alliance.id);
-      expect(entry.metadata).toEqual({ fields: ['titles'] });
-    });
-
     it('records no entry for an update without actual change', async () => {
       const { store, service, alliance } = scenario();
       const current = (await store.findAlliance(alliance.id))!;
@@ -3322,7 +3420,12 @@ describe('AllianceService', () => {
       const { store, service, alliance } = scenario();
 
       await expectError(
-        service.setRole(3, alliance.id, 2, NONE),
+        service.unassignRole(
+          3,
+          alliance.id,
+          2,
+          store.roleIdOf(alliance.id, VICE),
+        ),
         ForbiddenException,
       );
       await expectError(
@@ -3477,13 +3580,17 @@ describe('AllianceService', () => {
       expect(entry.subject).toEqual({ userId: 3, name: 'Biggs' });
     });
 
-    it('is readable by current members only and access ends with membership', async () => {
+    it('is readable with VIEW_ALLIANCE_HISTORY only and access ends with membership', async () => {
       const { store, service, alliance } = scenario();
       store.seedAlliance({ name: 'Red Squadron' }, [[5, PRESIDENT]]);
 
       await expect(
-        service.listChronicle(3, alliance.id),
+        service.listChronicle(2, alliance.id),
       ).resolves.toBeDefined();
+      await expectError(
+        service.listChronicle(3, alliance.id),
+        ForbiddenException,
+      );
       await expectError(
         service.listChronicle(4, alliance.id),
         NotFoundException,
@@ -3554,13 +3661,16 @@ describe('AllianceService', () => {
       ).toEqual([AllianceDiplomacyChronicleEventType.WAR_DECLARED]);
     });
 
-    it('offers the chronicle capability to members only', async () => {
+    it('offers the chronicle capability to holders of VIEW_ALLIANCE_HISTORY only', async () => {
       const { store, service, alliance } = scenario();
       store.addPlayer(7, 'Outsider');
 
       expect(
-        (await service.getDetail(3, alliance.id)).viewer.actions.viewChronicle,
+        (await service.getDetail(2, alliance.id)).viewer.actions.viewChronicle,
       ).toBe(true);
+      expect(
+        (await service.getDetail(3, alliance.id)).viewer.actions.viewChronicle,
+      ).toBe(false);
       expect(
         (await service.getDetail(7, alliance.id)).viewer.actions.viewChronicle,
       ).toBe(false);
@@ -3654,7 +3764,11 @@ describe('AllianceService', () => {
       await service.removeAccount(1);
 
       const members = await store.listMemberships(alliance.id);
-      expect(members.map((m) => [m.userId, m.role])).toEqual([
+      expect(
+        await Promise.all(
+          members.map(async (m) => [m.userId, await store.presetOf(m.userId)]),
+        ),
+      ).toEqual([
         [2, PRESIDENT],
         [3, DIPLOMAT],
         [4, NONE],
@@ -3675,12 +3789,12 @@ describe('AllianceService', () => {
 
       await service.removeAccount(1);
 
-      expect((await store.findMembership(3))?.role).toBe(PRESIDENT);
+      expect(await store.presetOf(3)).toBe(PRESIDENT);
 
       await service.removeAccount(3);
 
-      expect((await store.findMembership(2))?.role).toBe(NONE);
-      expect((await store.findMembership(4))?.role).toBe(PRESIDENT);
+      expect(await store.presetOf(2)).toBe(NONE);
+      expect(await store.presetOf(4)).toBe(PRESIDENT);
     });
 
     it('elects someone when every activity is empty, by longest membership', async () => {
@@ -3690,7 +3804,7 @@ describe('AllianceService', () => {
 
       await service.removeAccount(1);
 
-      expect((await store.findMembership(2))?.role).toBe(PRESIDENT);
+      expect(await store.presetOf(2)).toBe(PRESIDENT);
     });
 
     it('ranks a vice without activity above an active member', async () => {
@@ -3699,7 +3813,7 @@ describe('AllianceService', () => {
 
       await service.removeAccount(1);
 
-      expect((await store.findMembership(2))?.role).toBe(PRESIDENT);
+      expect(await store.presetOf(2)).toBe(PRESIDENT);
     });
 
     it('records the automatic succession without a diplomacy entry', async () => {
@@ -3753,7 +3867,7 @@ describe('AllianceService', () => {
         BadRequestException,
         /Präsidentenamt zuerst übergeben/,
       );
-      expect((await store.findMembership(1))?.role).toBe(PRESIDENT);
+      expect(await store.presetOf(1)).toBe(PRESIDENT);
     });
   });
 });

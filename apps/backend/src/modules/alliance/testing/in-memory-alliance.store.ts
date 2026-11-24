@@ -1,5 +1,6 @@
 import type { AllianceTransactionHandle } from '../alliance-context-cleanup';
 import {
+  AlliancePermission,
   AllianceRelationshipType,
   AllianceRole,
   DiplomacyPartyType,
@@ -23,6 +24,7 @@ import {
   AllianceDiplomacyNotificationRecord,
   AlliancePatch,
   AllianceRecord,
+  AllianceRoleRecord,
   AllianceStore,
   ApplicationRecord,
   AllianceRelationshipProposalRecord,
@@ -37,13 +39,17 @@ import {
   proposalParties,
   relationshipRecordOf,
 } from '../alliance.store';
-import { DEFAULT_ALLIANCE_TITLES } from '../alliance.constants';
+import { STANDARD_ALLIANCE_ROLES } from '../alliance.constants';
+
+type StoredMembership = Omit<MembershipRecord, 'roles'>;
 
 interface State {
   players: PlayerRecord[];
   factions: FactionRecord[];
   alliances: AllianceRecord[];
-  memberships: MembershipRecord[];
+  memberships: StoredMembership[];
+  roles: AllianceRoleRecord[];
+  memberRoles: Array<{ membershipId: number; roleId: number }>;
   applications: ApplicationRecord[];
   relationships: AllianceRelationshipRecord[];
   relationshipProposals: AllianceRelationshipProposalRecord[];
@@ -77,6 +83,8 @@ export class InMemoryAllianceStore implements AllianceStore {
     factions: [REBELS, EMPIRE],
     alliances: [],
     memberships: [],
+    roles: [],
+    memberRoles: [],
     applications: [],
     relationships: [],
     relationshipProposals: [],
@@ -122,7 +130,14 @@ export class InMemoryAllianceStore implements AllianceStore {
 
   /** Test setup shortcut: alliance with the given members, bypassing rules. */
   seedAlliance(
-    data: Partial<AllianceRecord> & { name: string },
+    {
+      roleTitles,
+      ...data
+    }: Partial<AllianceRecord> & {
+      name: string;
+      /** Custom titles of the standard roles. */
+      roleTitles?: Partial<Record<AllianceRole, string>>;
+    },
     members: Array<[userId: number, role: AllianceRole]>,
   ): AllianceRecord {
     const alliance: AllianceRecord = {
@@ -132,25 +147,70 @@ export class InMemoryAllianceStore implements AllianceStore {
       color: null,
       factionId: REBELS.id,
       acceptsApplications: true,
-      presidentTitle: DEFAULT_ALLIANCE_TITLES.president,
-      viceTitle: DEFAULT_ALLIANCE_TITLES.vice,
-      diplomatTitle: DEFAULT_ALLIANCE_TITLES.diplomat,
       bannerKey: null,
       bannerUpdatedAt: null,
       foundedAt: this.now(),
       ...data,
     };
     this.state.alliances.push(alliance);
-    for (const [userId, role] of members) {
-      this.state.memberships.push({
+    for (const [preset, role] of Object.entries(STANDARD_ALLIANCE_ROLES)) {
+      this.state.roles.push({
         id: this.nextId(),
         allianceId: alliance.id,
-        userId,
-        role,
-        joinedAt: this.now(),
+        title: roleTitles?.[preset as AllianceRole] ?? role.title,
+        sort: role.sort,
+        permissions: [...role.permissions],
       });
     }
+    for (const [userId, role] of members) {
+      const id = this.nextId();
+      this.state.memberships.push({
+        id,
+        allianceId: alliance.id,
+        userId,
+        joinedAt: this.now(),
+      });
+      this.assignPreset(id, alliance.id, role);
+    }
     return alliance;
+  }
+
+  /** Test helper: replaces the member's standard roles by one preset (NONE clears them). */
+  async setRole(allianceId: number, userId: number, role: AllianceRole) {
+    const membership = this.state.memberships.find(
+      (m) => m.userId === userId && m.allianceId === allianceId,
+    );
+    if (!membership) return false;
+    const standard = new Set(
+      this.state.roles
+        .filter((r) => r.allianceId === allianceId && r.sort <= 3)
+        .map((r) => r.id),
+    );
+    this.state.memberRoles = this.state.memberRoles.filter(
+      (mr) => mr.membershipId !== membership.id || !standard.has(mr.roleId),
+    );
+    this.assignPreset(membership.id, allianceId, role);
+    return true;
+  }
+
+  /** Test helper: the highest standard role the player holds, NONE otherwise. */
+  async presetOf(userId: number): Promise<AllianceRole> {
+    const membership = await this.findMembership(userId);
+    const sorts = new Set(membership?.roles.map((r) => r.sort));
+    return (
+      (Object.entries(STANDARD_ALLIANCE_ROLES).find(([, r]) =>
+        sorts.has(r.sort),
+      )?.[0] as AllianceRole | undefined) ?? AllianceRole.NONE
+    );
+  }
+
+  /** Test helper: id of a standard role of the alliance. */
+  roleIdOf(allianceId: number, preset: Exclude<AllianceRole, AllianceRole.NONE>) {
+    return this.state.roles.find(
+      (r) =>
+        r.allianceId === allianceId &&
+        r.sort === STANDARD_ALLIANCE_ROLES[preset].sort,
+    )!.id;
   }
 
   seedApplication(allianceId: number, userId: number): ApplicationRecord {
@@ -357,6 +417,13 @@ export class InMemoryAllianceStore implements AllianceStore {
 
   async deleteAlliance(id: number) {
     this.state.alliances = this.state.alliances.filter((a) => a.id !== id);
+    const goneRoleIds = new Set(
+      this.state.roles.filter((r) => r.allianceId === id).map((r) => r.id),
+    );
+    this.state.roles = this.state.roles.filter((r) => r.allianceId !== id);
+    this.state.memberRoles = this.state.memberRoles.filter(
+      (mr) => !goneRoleIds.has(mr.roleId),
+    );
     this.state.memberships = this.state.memberships.filter(
       (m) => m.allianceId !== id,
     );
@@ -392,6 +459,8 @@ export class InMemoryAllianceStore implements AllianceStore {
       factions,
       alliances: [],
       memberships: [],
+      roles: [],
+      memberRoles: [],
       applications: [],
       relationships: [],
       relationshipProposals: [],
@@ -892,7 +961,7 @@ export class InMemoryAllianceStore implements AllianceStore {
 
   async findMembership(userId: number) {
     const membership = this.state.memberships.find((m) => m.userId === userId);
-    return membership ? { ...membership } : null;
+    return membership ? this.toMembership(membership) : null;
   }
 
   async findMemberships(userIds: number[]) {
@@ -908,7 +977,7 @@ export class InMemoryAllianceStore implements AllianceStore {
       .sort(
         (a, b) => a.joinedAt.getTime() - b.joinedAt.getTime() || a.id - b.id,
       )
-      .map((m) => ({ ...m }));
+      .map((m) => this.toMembership(m));
   }
 
   async listMembershipsForAlliances(allianceIds: number[]) {
@@ -921,43 +990,113 @@ export class InMemoryAllianceStore implements AllianceStore {
           a.joinedAt.getTime() - b.joinedAt.getTime() ||
           a.id - b.id,
       )
-      .map((m) => ({ ...m }));
+      .map((m) => this.toMembership(m));
   }
 
-  async insertMembership(data: {
+  async insertMembership({
+    role,
+    ...data
+  }: {
     allianceId: number;
     userId: number;
-    role: AllianceRole;
+    role?: AllianceRole;
   }) {
     if (this.state.memberships.some((m) => m.userId === data.userId)) {
       throw new AllianceConstraintViolation('membership_user');
     }
-    this.assertSinglePresident(data.allianceId, data.role);
-    this.state.memberships.push({
-      id: this.nextId(),
-      ...data,
-      joinedAt: this.now(),
-    });
+    const id = this.nextId();
+    this.state.memberships.push({ id, ...data, joinedAt: this.now() });
+    this.assignPreset(id, data.allianceId, role ?? AllianceRole.NONE);
   }
 
-  async setRole(allianceId: number, userId: number, role: AllianceRole) {
-    const membership = this.state.memberships.find(
-      (m) => m.userId === userId && m.allianceId === allianceId,
-    );
-    if (!membership) return false;
-    if (membership.role !== role) {
-      this.assertSinglePresident(allianceId, role);
+  async listRoles(allianceId: number) {
+    return this.state.roles
+      .filter((r) => r.allianceId === allianceId)
+      .sort((a, b) => a.sort - b.sort || a.id - b.id)
+      .map((r) => structuredClone(r));
+  }
+
+  async findRole(id: number) {
+    const role = this.state.roles.find((r) => r.id === id);
+    return role ? structuredClone(role) : null;
+  }
+
+  async insertRole(data: Omit<AllianceRoleRecord, 'id'>) {
+    const founder = data.permissions.includes(AlliancePermission.FOUNDER);
+    if (
+      founder &&
+      this.state.roles.some(
+        (r) =>
+          r.allianceId === data.allianceId &&
+          r.permissions.includes(AlliancePermission.FOUNDER),
+      )
+    ) {
+      throw new Error('UQ_alliance_roles_founder');
     }
-    membership.role = role;
-    return true;
+    const role = { id: this.nextId(), ...structuredClone(data) };
+    this.state.roles.push(role);
+    return structuredClone(role);
+  }
+
+  async updateRole(
+    id: number,
+    patch: Partial<Pick<AllianceRoleRecord, 'title' | 'sort' | 'permissions'>>,
+  ) {
+    const role = this.state.roles.find((r) => r.id === id);
+    if (!role) return;
+    const wasFounder = role.permissions.includes(AlliancePermission.FOUNDER);
+    const next = { ...role, ...structuredClone(patch) };
+    if (next.permissions.includes(AlliancePermission.FOUNDER) !== wasFounder) {
+      // The composite foreign key would reject flipping a held role.
+      throw new Error('FK_alliance_member_roles_role');
+    }
+    Object.assign(role, next);
+  }
+
+  async deleteRole(id: number) {
+    this.state.roles = this.state.roles.filter((r) => r.id !== id);
+    this.state.memberRoles = this.state.memberRoles.filter(
+      (mr) => mr.roleId !== id,
+    );
+  }
+
+  async assignRole(membershipId: number, roleId: number) {
+    const role = this.state.roles.find((r) => r.id === roleId);
+    if (!role) throw new Error('FK_alliance_member_roles_role');
+    if (
+      this.state.memberRoles.some(
+        (mr) => mr.membershipId === membershipId && mr.roleId === roleId,
+      )
+    ) {
+      return;
+    }
+    if (
+      role.permissions.includes(AlliancePermission.FOUNDER) &&
+      this.state.memberRoles.some((mr) => mr.roleId === roleId)
+    ) {
+      throw new AllianceConstraintViolation('alliance_president');
+    }
+    this.state.memberRoles.push({ membershipId, roleId });
+  }
+
+  async unassignRole(membershipId: number, roleId: number) {
+    const before = this.state.memberRoles.length;
+    this.state.memberRoles = this.state.memberRoles.filter(
+      (mr) => !(mr.membershipId === membershipId && mr.roleId === roleId),
+    );
+    return this.state.memberRoles.length < before;
   }
 
   async deleteMembership(allianceId: number, userId: number) {
-    const before = this.state.memberships.length;
-    this.state.memberships = this.state.memberships.filter(
-      (m) => !(m.userId === userId && m.allianceId === allianceId),
+    const gone = this.state.memberships.find(
+      (m) => m.userId === userId && m.allianceId === allianceId,
     );
-    return this.state.memberships.length < before;
+    if (!gone) return false;
+    this.state.memberships = this.state.memberships.filter((m) => m !== gone);
+    this.state.memberRoles = this.state.memberRoles.filter(
+      (mr) => mr.membershipId !== gone.id,
+    );
+    return true;
   }
 
   async findApplication(id: number) {
@@ -1081,15 +1220,40 @@ export class InMemoryAllianceStore implements AllianceStore {
     }
   }
 
-  private assertSinglePresident(allianceId: number, role: AllianceRole) {
+  private assignPreset(
+    membershipId: number,
+    allianceId: number,
+    role: AllianceRole,
+  ) {
+    if (role === AllianceRole.NONE) return;
+    const preset = this.state.roles.find(
+      (r) =>
+        r.allianceId === allianceId &&
+        r.sort === STANDARD_ALLIANCE_ROLES[role].sort,
+    );
+    if (!preset) throw new Error(`Standard role ${role} missing`);
     if (
       role === AllianceRole.PRESIDENT &&
-      this.state.memberships.some(
-        (m) => m.allianceId === allianceId && m.role === AllianceRole.PRESIDENT,
-      )
+      this.state.memberRoles.some((mr) => mr.roleId === preset.id)
     ) {
       throw new AllianceConstraintViolation('alliance_president');
     }
+    this.state.memberRoles.push({ membershipId, roleId: preset.id });
+  }
+
+  private toMembership(membership: StoredMembership): MembershipRecord {
+    const roleIds = new Set(
+      this.state.memberRoles
+        .filter((mr) => mr.membershipId === membership.id)
+        .map((mr) => mr.roleId),
+    );
+    return {
+      ...membership,
+      roles: this.state.roles
+        .filter((r) => roleIds.has(r.id))
+        .sort((a, b) => a.sort - b.sort || a.id - b.id)
+        .map((r) => structuredClone(r)),
+    };
   }
 
   private nextId() {

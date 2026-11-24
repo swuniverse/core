@@ -9,18 +9,16 @@ import {
   AllianceMemberOperationsDto,
   AllianceMemberOverviewDto,
   AllianceMemberShipGroupDto,
-  AllianceRole,
+  AlliancePermission,
 } from '@swuniverse/shared';
-import { mayActOnAlliance } from './alliance-permissions';
+import { hasPermission } from './alliance-permissions';
 import { ALLIANCE_STORE } from './alliance.store';
-import type { AllianceRecord, AllianceStore } from './alliance.store';
+import type { AllianceStore, MembershipRecord } from './alliance.store';
 import { MEMBER_OPERATIONS_READER } from './member-operations.port';
 import type {
   MemberOperationsReader,
   MemberOperationsRecord,
 } from './member-operations.port';
-
-const { PRESIDENT, VICE, DIPLOMAT } = AllianceRole;
 
 const ERR = {
   allianceNotFound: 'Die Allianz existiert nicht',
@@ -28,12 +26,8 @@ const ERR = {
   forbidden: 'Dazu fehlt Dir die Berechtigung',
 } as const;
 
-const ROLE_ORDER: Record<AllianceRole, number> = {
-  [PRESIDENT]: 0,
-  [VICE]: 1,
-  [DIPLOMAT]: 2,
-  [AllianceRole.NONE]: 3,
-};
+const rank = (m: MembershipRecord) =>
+  m.roles[0]?.sort ?? Number.POSITIVE_INFINITY;
 
 const emptyOperations = (userId: number): MemberOperationsRecord => ({
   userId,
@@ -59,7 +53,9 @@ export class MemberOverviewService {
     viewerId: number,
     allianceId: number,
   ): Promise<AllianceMemberOverviewDto> {
-    const alliance = await this.requireViewableAlliance(viewerId, allianceId);
+    const viewer = await this.requireViewableAlliance(viewerId, allianceId);
+    const seesColonies = hasPermission(viewer, AlliancePermission.VIEW_COLONIES);
+    const seesShips = hasPermission(viewer, AlliancePermission.VIEW_SHIPS);
     const memberships = await this.store.listMemberships(allianceId);
     const ids = memberships.map((m) => m.userId);
     const [players, factions, operations] = await Promise.all([
@@ -71,7 +67,7 @@ export class MemberOverviewService {
     const operationsOf = new Map(operations.map((o) => [o.userId, o]));
 
     const members = [...memberships]
-      .sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role])
+      .sort((a, b) => rank(a) - rank(b))
       .map((m): AllianceMemberOperationsDto => {
         const info = player.get(m.userId);
         const faction = factions.find((f) => f.id === info?.factionId);
@@ -82,11 +78,10 @@ export class MemberOverviewService {
           avatar: info?.avatar ?? null,
           faction: faction?.key ?? null,
           factionName: faction?.name ?? null,
-          role: m.role,
-          roleTitle: this.roleTitle(alliance, m.role),
+          roles: m.roles.map(({ id, title, sort }) => ({ id, title, sort })),
           lastActiveAt: ops.lastActiveAt?.toISOString() ?? null,
           crew: { assigned: ops.crew.assigned, limit: ops.crew.limit },
-          colonies: ops.colonies.map((c) => ({
+          colonies: (seesColonies ? ops.colonies : []).map((c) => ({
             id: c.id,
             name: c.name,
             location: c.location,
@@ -97,7 +92,7 @@ export class MemberOverviewService {
             population: c.population,
             populationMax: c.populationMax,
           })),
-          shipGroups: this.groupShips(ops),
+          shipGroups: seesShips ? this.groupShips(ops) : [],
         };
       });
     return { allianceId, members };
@@ -108,7 +103,10 @@ export class MemberOverviewService {
     allianceId: number,
     colonyId: number,
   ): Promise<AllianceColonyStockDto> {
-    await this.requireViewableAlliance(viewerId, allianceId);
+    const viewer = await this.requireViewableAlliance(viewerId, allianceId);
+    if (!hasPermission(viewer, AlliancePermission.VIEW_COLONIES)) {
+      throw new ForbiddenException(ERR.forbidden);
+    }
     const stock = await this.reader.colonyStock(colonyId);
     const memberships = await this.store.listMemberships(allianceId);
     if (!stock || !memberships.some((m) => m.userId === stock.userId)) {
@@ -125,20 +123,24 @@ export class MemberOverviewService {
     };
   }
 
-  /** Not Found for outsiders, Forbidden for members without the right. */
+  /**
+   * Not Found for outsiders, Forbidden without VIEW_MEMBER_DATA. Deviation
+   * from STU (any of several rights opens the page): colonies and ships are
+   * additionally gated by VIEW_COLONIES and VIEW_SHIPS.
+   */
   private async requireViewableAlliance(
     viewerId: number,
     allianceId: number,
-  ): Promise<AllianceRecord> {
+  ): Promise<MembershipRecord> {
     const alliance = await this.store.findAlliance(allianceId);
     const membership = await this.store.findMembership(viewerId);
     if (!alliance || membership?.allianceId !== allianceId) {
       throw new NotFoundException(ERR.allianceNotFound);
     }
-    if (!mayActOnAlliance(membership.role, 'viewMemberOperations')) {
+    if (!hasPermission(membership, AlliancePermission.VIEW_MEMBER_DATA)) {
       throw new ForbiddenException(ERR.forbidden);
     }
-    return alliance;
+    return membership;
   }
 
   private groupShips(
@@ -164,18 +166,5 @@ export class MemberOverviewService {
     return [...groups.values()].sort((a, b) =>
       a.shipClassName.localeCompare(b.shipClassName, 'de'),
     );
-  }
-
-  private roleTitle(alliance: AllianceRecord, role: AllianceRole) {
-    switch (role) {
-      case PRESIDENT:
-        return alliance.presidentTitle;
-      case VICE:
-        return alliance.viceTitle;
-      case DIPLOMAT:
-        return alliance.diplomatTitle;
-      default:
-        return null;
-    }
   }
 }

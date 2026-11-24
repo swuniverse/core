@@ -7,7 +7,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import {
-  AllianceRole,
+  AlliancePermission,
   type AllianceDepotDto,
   type StationAllianceDepotDto,
 } from '@swuniverse/shared';
@@ -18,6 +18,8 @@ import {
 } from './alliance-context-cleanup';
 import { AllianceDepot } from './entities/alliance-depot.entity';
 import { AllianceMembership } from './entities/alliance-membership.entity';
+import { TypeOrmAllianceStore } from './typeorm-alliance.store';
+import { hasPermission } from './alliance-permissions';
 import { Alliance } from './entities/alliance.entity';
 import {
   Spacecraft,
@@ -158,17 +160,15 @@ export class AllianceDepotService implements OnModuleInit {
         where: { id: allianceId },
         lock: { mode: 'pessimistic_read' },
       });
-      const member = await manager.findOneBy(AllianceMembership, {
-        allianceId,
-        userId,
-      });
+      const member =
+        await TypeOrmAllianceStore.forManager(manager).findMembership(userId);
       if (
         !alliance ||
-        !member ||
-        ![AllianceRole.PRESIDENT, AllianceRole.VICE].includes(member.role)
+        member?.allianceId !== allianceId ||
+        !hasPermission(member, AlliancePermission.VIEW_ALLIANCE_STORAGE)
       )
         throw new ForbiddenException(
-          'Nur Präsident und Vize dürfen Allianzdepots einsehen',
+          'Dazu fehlt Dir das Recht, Allianzdepots einzusehen',
         );
       const depots = await manager.find(AllianceDepot, {
         where: { allianceId },

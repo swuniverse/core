@@ -13,7 +13,8 @@ import { randomBytes } from 'node:crypto';
 import { BannerImageError, normalizeBannerPng } from './alliance-banner-image';
 import { ALLIANCE_ASSET_STORAGE } from './alliance-asset.port';
 import type { AllianceAssetStorage } from './alliance-asset.port';
-import { mayActOnAlliance } from './alliance-permissions';
+import { AlliancePermission } from '@swuniverse/shared';
+import { hasPermission } from './alliance-permissions';
 import { AllianceRateLimiterService } from './alliance-rate-limiter.service';
 import { ALLIANCE_STORE } from './alliance.store';
 import type {
@@ -159,7 +160,7 @@ export class AllianceBannerService {
     if (
       !membership ||
       membership.allianceId !== allianceId ||
-      !mayActOnAlliance(membership.role, 'manageBanner')
+      !hasPermission(membership, AlliancePermission.EDIT_ALLIANCE)
     ) {
       throw new ForbiddenException(ERR.forbidden);
     }
@@ -176,7 +177,7 @@ export class AllianceBannerService {
     if (
       !membership ||
       membership.allianceId !== allianceId ||
-      !mayActOnAlliance(membership.role, 'manageBanner')
+      !hasPermission(membership, AlliancePermission.EDIT_ALLIANCE)
     ) {
       throw new ForbiddenException(ERR.forbidden);
     }

@@ -26,7 +26,7 @@ import { SystemField } from '../starmap/entities/system-field.entity';
 import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
 import { StarmapVisibilityService } from './starmap-visibility.service';
 
-const { NONE, PRESIDENT, VICE, DIPLOMAT } = AllianceRole;
+const { NONE, PRESIDENT } = AllianceRole;
 
 /** Space field type seeded by migrations. */
 const SPACE_FIELD_TYPE_ID = 1;
@@ -330,12 +330,26 @@ describe('starmap contacts (Postgres)', () => {
       const { leia, han, rogue, contactsOf } = await world();
       expect(await contactsOf(han)).toContain('Tantive:ALLIANCE:FRIEND');
 
-      await alliances.setRole(leia.id, rogue.id, han.id, VICE);
+      const roles = await store.listRoles(rogue.id);
+      const roleId = (title: string) =>
+        roles.find((r) => r.title === title)!.id;
+      await alliances.assignRole(
+        leia.id,
+        rogue.id,
+        han.id,
+        roleId('Vize-Präsident'),
+      );
       expect(await contactsOf(han)).toContain(
         'Tantive:ALLIANCE:FRIEND+details',
       );
 
-      await alliances.setRole(leia.id, rogue.id, han.id, DIPLOMAT);
+      await alliances.unassignRole(
+        leia.id,
+        rogue.id,
+        han.id,
+        roleId('Vize-Präsident'),
+      );
+      await alliances.assignRole(leia.id, rogue.id, han.id, roleId('Diplomat'));
       expect(await contactsOf(han)).toContain('Tantive:ALLIANCE:FRIEND');
 
       await alliances.transferPresidency(leia.id, rogue.id, han.id);

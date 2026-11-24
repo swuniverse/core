@@ -3,6 +3,7 @@ import {
   chooseSuccessor,
   SuccessionCandidate,
 } from './presidential-succession';
+import { STANDARD_ALLIANCE_ROLES } from './alliance.constants';
 
 const { NONE, VICE, DIPLOMAT } = AllianceRole;
 
@@ -14,7 +15,9 @@ function candidate(
   lastActiveAt: Date | null,
   joinedAt: Date = at(1),
 ): SuccessionCandidate {
-  return { userId, role, lastActiveAt, joinedAt };
+  const permissions =
+    role === AllianceRole.NONE ? [] : STANDARD_ALLIANCE_ROLES[role].permissions;
+  return { userId, permissions, lastActiveAt, joinedAt };
 }
 
 describe('chooseSuccessor', () => {

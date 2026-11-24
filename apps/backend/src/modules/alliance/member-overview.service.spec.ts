@@ -41,12 +41,15 @@ function setup() {
   store.addPlayer(3, 'Lando');
   store.addPlayer(4, 'Wedge');
   store.addPlayer(5, 'Outsider');
-  const alliance = store.seedAlliance({ name: 'Rogue', viceTitle: 'Vize' }, [
-    [1, PRESIDENT],
-    [2, VICE],
-    [3, DIPLOMAT],
-    [4, NONE],
-  ]);
+  const alliance = store.seedAlliance(
+    { name: 'Rogue', roleTitles: { [VICE]: 'Vize' } },
+    [
+      [1, PRESIDENT],
+      [2, VICE],
+      [3, DIPLOMAT],
+      [4, NONE],
+    ],
+  );
   const other = store.seedAlliance({ name: 'Other' }, [[5, PRESIDENT]]);
   return { store, reader, service, alliance, other };
 }
@@ -59,17 +62,21 @@ describe('MemberOverviewService', () => {
     const { service, alliance } = setup();
     const overview = await service.getOverview(viewer, alliance.id);
     expect(overview.allianceId).toBe(alliance.id);
-    expect(overview.members.map((m) => [m.userId, m.name, m.role])).toEqual([
-      [1, 'Leia', PRESIDENT],
-      [2, 'Han', VICE],
-      [3, 'Lando', DIPLOMAT],
-      [4, 'Wedge', NONE],
+    expect(
+      overview.members.map((m) => [
+        m.userId,
+        m.name,
+        m.roles.map((r) => r.title),
+      ]),
+    ).toEqual([
+      [1, 'Leia', ['Präsident']],
+      [2, 'Han', ['Vize']],
+      [3, 'Lando', ['Diplomat']],
+      [4, 'Wedge', []],
     ]);
     expect(overview.members[1]).toMatchObject({
-      roleTitle: 'Vize',
       faction: 'REBEL_ALLIANCE',
     });
-    expect(overview.members[3].roleTitle).toBeNull();
   });
 
   it('refuses diplomat and member without office with Forbidden', async () => {
@@ -223,8 +230,7 @@ describe('MemberOverviewService', () => {
       'factionName',
       'lastActiveAt',
       'name',
-      'role',
-      'roleTitle',
+      'roles',
       'shipGroups',
       'userId',
     ]);

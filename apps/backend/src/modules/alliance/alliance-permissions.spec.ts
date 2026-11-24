@@ -1,82 +1,102 @@
-import { AllianceRole } from '@swuniverse/shared';
+import { AlliancePermission } from '@swuniverse/shared';
 import {
-  ALLIANCE_ACTIONS,
-  ALLIANCE_MEMBER_ACTIONS,
-  AllianceAction,
-  AllianceMemberAction,
-  mayActOnAlliance,
-  mayActOnMember,
+  hasPermission,
+  heldPermissions,
+  isFounder,
+  mayHandleRole,
+  mayManageMember,
 } from './alliance-permissions';
+import { STANDARD_ALLIANCE_ROLES } from './alliance.constants';
 
-const { NONE, PRESIDENT, VICE, DIPLOMAT } = AllianceRole;
-const ROLES = [PRESIDENT, VICE, DIPLOMAT, NONE];
+const P = AlliancePermission;
+const ALL = Object.values(P);
 
-// Every allowed (actor, action, target) combination. Everything else is denied.
-const ALLOWED_MEMBER_ACTIONS: Array<
-  [AllianceRole, AllianceMemberAction, AllianceRole]
-> = [
-  [PRESIDENT, 'kick', VICE],
-  [PRESIDENT, 'kick', DIPLOMAT],
-  [PRESIDENT, 'kick', NONE],
-  [PRESIDENT, 'appointVice', DIPLOMAT],
-  [PRESIDENT, 'appointVice', NONE],
-  [PRESIDENT, 'appointDiplomat', VICE],
-  [PRESIDENT, 'appointDiplomat', NONE],
-  [PRESIDENT, 'dismiss', VICE],
-  [PRESIDENT, 'dismiss', DIPLOMAT],
-  [PRESIDENT, 'transferPresidency', VICE],
-  [PRESIDENT, 'transferPresidency', DIPLOMAT],
-  [PRESIDENT, 'transferPresidency', NONE],
-  [VICE, 'kick', DIPLOMAT],
-  [VICE, 'kick', NONE],
-  [VICE, 'appointDiplomat', NONE],
-  [VICE, 'dismiss', DIPLOMAT],
-];
-
-const ALLOWED_ALLIANCE_ACTIONS: Array<[AllianceRole, AllianceAction]> = [
-  [PRESIDENT, 'manageApplications'],
-  [PRESIDENT, 'editDetails'],
-  [PRESIDENT, 'dissolve'],
-  [PRESIDENT, 'declareWar'],
-  [PRESIDENT, 'manageDiplomacy'],
-  [VICE, 'manageApplications'],
-  [VICE, 'editDetails'],
-  [PRESIDENT, 'viewShipManagementDetails'],
-  [PRESIDENT, 'moderateForum'],
-  [VICE, 'moderateForum'],
-  [VICE, 'viewShipManagementDetails'],
-  [PRESIDENT, 'viewMemberOperations'],
-  [VICE, 'viewMemberOperations'],
-  [PRESIDENT, 'manageBanner'],
-  [VICE, 'manageBanner'],
-  [DIPLOMAT, 'declareWar'],
-  [DIPLOMAT, 'manageDiplomacy'],
-];
-
-describe('mayActOnMember', () => {
-  for (const actor of ROLES) {
-    for (const action of ALLIANCE_MEMBER_ACTIONS) {
-      for (const target of ROLES) {
-        const allowed = ALLOWED_MEMBER_ACTIONS.some(
-          ([a, act, t]) => a === actor && act === action && t === target,
-        );
-        it(`${actor} ${allowed ? 'may' : 'may not'} ${action} ${target}`, () => {
-          expect(mayActOnMember(actor, action, target)).toBe(allowed);
-        });
-      }
-    }
-  }
+const member = (userId: number, ...roles: AlliancePermission[][]) => ({
+  userId,
+  roles: roles.map((permissions) => ({ permissions })),
 });
+const president = member(1, [...STANDARD_ALLIANCE_ROLES.PRESIDENT.permissions]);
+const vice = member(2, [...STANDARD_ALLIANCE_ROLES.VICE.permissions]);
+const diplomat = member(3, [...STANDARD_ALLIANCE_ROLES.DIPLOMAT.permissions]);
+const plain = member(4);
 
-describe('mayActOnAlliance', () => {
-  for (const actor of ROLES) {
-    for (const action of ALLIANCE_ACTIONS) {
-      const allowed = ALLOWED_ALLIANCE_ACTIONS.some(
-        ([a, act]) => a === actor && act === action,
+describe('alliance permissions', () => {
+  it('FOUNDER grants every right', () => {
+    for (const p of ALL) expect(hasPermission(president, p)).toBe(true);
+    expect(isFounder(president)).toBe(true);
+  });
+
+  it('a parent right grants its children, not its siblings', () => {
+    const successorOnly = member(5, [P.SUCCESSOR]);
+    expect(hasPermission(successorOnly, P.MANAGE_JOBS)).toBe(true);
+    expect(hasPermission(successorOnly, P.VIEW_ALLIANCE_HISTORY)).toBe(true);
+    expect(hasPermission(successorOnly, P.CREATE_AGREEMENTS)).toBe(false);
+    expect(hasPermission(successorOnly, P.FOUNDER)).toBe(false);
+
+    const diplomaticOnly = member(6, [P.DIPLOMATIC]);
+    expect(hasPermission(diplomaticOnly, P.EDIT_DIPLOMATIC_DOCUMENTS)).toBe(
+      true,
+    );
+    expect(hasPermission(diplomaticOnly, P.EDIT_ALLIANCE)).toBe(false);
+  });
+
+  it('a child right does not grant its parent', () => {
+    const child = member(7, [P.MANAGE_JOBS]);
+    expect(hasPermission(child, P.SUCCESSOR)).toBe(false);
+    expect(hasPermission(child, P.EDIT_ALLIANCE)).toBe(false);
+  });
+
+  it('unions the rights of several roles', () => {
+    const both = member(8, [P.EDIT_ALLIANCE], [P.CREATE_AGREEMENTS]);
+    expect(heldPermissions(both).sort()).toEqual(
+      [P.CREATE_AGREEMENTS, P.EDIT_ALLIANCE].sort(),
+    );
+    expect(hasPermission(both, P.CREATE_AGREEMENTS)).toBe(true);
+    expect(hasPermission(null, P.EDIT_ALLIANCE)).toBe(false);
+    expect(hasPermission(plain, P.VIEW_SHIPS)).toBe(false);
+  });
+
+  describe('protection rule', () => {
+    it('nobody hands out or edits the FOUNDER role', () => {
+      expect(mayHandleRole(president, { permissions: [P.FOUNDER] })).toBe(
+        false,
       );
-      it(`${actor} ${allowed ? 'may' : 'may not'} ${action}`, () => {
-        expect(mayActOnAlliance(actor, action)).toBe(allowed);
-      });
-    }
-  }
+      expect(mayHandleRole(vice, { permissions: [P.FOUNDER] })).toBe(false);
+    });
+
+    it('only rights the actor holds can be handed out', () => {
+      expect(mayHandleRole(vice, { permissions: [P.EDIT_ALLIANCE] })).toBe(
+        true,
+      );
+      expect(mayHandleRole(vice, { permissions: [P.SUCCESSOR] })).toBe(true);
+      expect(mayHandleRole(vice, { permissions: [P.CREATE_AGREEMENTS] })).toBe(
+        false,
+      );
+      const jobsOnly = member(9, [P.MANAGE_JOBS]);
+      expect(mayHandleRole(jobsOnly, { permissions: [P.MANAGE_JOBS] })).toBe(
+        true,
+      );
+      expect(mayHandleRole(jobsOnly, { permissions: [P.SUCCESSOR] })).toBe(
+        false,
+      );
+      expect(mayHandleRole(diplomat, { permissions: [] })).toBe(false);
+    });
+
+    it('members with rights the actor lacks are out of reach', () => {
+      expect(mayManageMember(vice, plain)).toBe(true);
+      expect(mayManageMember(vice, diplomat)).toBe(false);
+      expect(mayManageMember(vice, president)).toBe(false);
+      expect(mayManageMember(president, diplomat)).toBe(true);
+      expect(mayManageMember(president, vice)).toBe(true);
+      expect(mayManageMember(diplomat, plain)).toBe(false);
+      const jobsOnly = member(9, [P.MANAGE_JOBS]);
+      expect(mayManageMember(jobsOnly, vice)).toBe(false);
+      expect(mayManageMember(jobsOnly, plain)).toBe(true);
+    });
+
+    it('nobody changes their own roles', () => {
+      expect(mayManageMember(president, president)).toBe(false);
+      expect(mayManageMember(vice, vice)).toBe(false);
+    });
+  });
 });

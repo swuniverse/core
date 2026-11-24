@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   AllianceRelationshipType,
-  AllianceRole,
+  AlliancePermission,
   type Stance,
 } from '@swuniverse/shared';
 import { ALLIANCE_STORE } from './alliance.store';
@@ -55,8 +55,8 @@ export interface StarmapCandidates {
   alliance: { id: number; name: string; color: string | null } | null;
   /** Other current members of that alliance. */
   mateIds: number[];
-  /** The viewer's current office in that alliance; null without alliance. */
-  viewerRole: AllianceRole | null;
+  /** Rights of the viewer's roles as stored; empty without alliance. */
+  viewerPermissions: AlliancePermission[];
   /** Relationship partners plus owners granting live positions to the viewer. */
   partnerIds: number[];
 }
@@ -181,7 +181,7 @@ export class RelationshipResolverService {
       viewerMembership: null,
       alliance: null,
       mateIds: [],
-      viewerRole: null,
+      viewerPermissions: [],
       partnerIds: [],
     };
     let membership: MembershipRecord | null;
@@ -199,7 +199,7 @@ export class RelationshipResolverService {
     ]);
     return {
       viewerMembership: membership,
-      ...(allianceMap ?? { alliance: null, mateIds: [], viewerRole: null }),
+      ...(allianceMap ?? { alliance: null, mateIds: [], viewerPermissions: [] }),
       partnerIds: [...new Set([...partnerIds, ...contactSharerIds])].filter((id) => id !== viewerId),
     };
   }
@@ -221,7 +221,7 @@ export class RelationshipResolverService {
         mateIds: memberships
           .map((member) => member.userId)
           .filter((memberId) => memberId !== membership.userId),
-        viewerRole: membership.role,
+        viewerPermissions: membership.roles.flatMap((r) => r.permissions),
       };
     } catch {
       return null;

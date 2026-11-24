@@ -1,81 +1,67 @@
-import { AllianceRole } from '@swuniverse/shared';
+import {
+  AlliancePermission,
+  grantsAlliancePermission,
+} from '@swuniverse/shared';
 
-export const ALLIANCE_MEMBER_ACTIONS = [
-  'kick',
-  'appointVice',
-  'appointDiplomat',
-  'dismiss',
-  'transferPresidency',
-] as const;
-export type AllianceMemberAction = (typeof ALLIANCE_MEMBER_ACTIONS)[number];
-
-export const ALLIANCE_ACTIONS = [
-  'manageApplications',
-  'editDetails',
-  'dissolve',
-  'declareWar',
-  'manageDiplomacy',
-  'viewShipManagementDetails',
-  'moderateForum',
-  'viewMemberOperations',
-  'manageBanner',
-] as const;
-export type AllianceAction = (typeof ALLIANCE_ACTIONS)[number];
-
-const { NONE, PRESIDENT, VICE, DIPLOMAT } = AllianceRole;
-
-/**
- * May an actor holding `actor` perform `action` on a fellow member holding
- * `target`? Acting on oneself is excluded by the caller.
- */
-export function mayActOnMember(
-  actor: AllianceRole,
-  action: AllianceMemberAction,
-  target: AllianceRole,
-): boolean {
-  if (target === PRESIDENT) return false;
-  if (actor === PRESIDENT) {
-    switch (action) {
-      case 'kick':
-      case 'transferPresidency':
-        return true;
-      case 'appointVice':
-        return target !== VICE;
-      case 'appointDiplomat':
-        return target !== DIPLOMAT;
-      case 'dismiss':
-        return target !== NONE;
-    }
-  }
-  if (actor === VICE) {
-    switch (action) {
-      case 'kick':
-        return target === NONE || target === DIPLOMAT;
-      case 'appointDiplomat':
-        return target === NONE;
-      case 'dismiss':
-        return target === DIPLOMAT;
-      default:
-        return false;
-    }
-  }
-  return false;
+/** Anything holding alliance roles, e.g. a membership record. */
+export interface RoleHolder {
+  roles: ReadonlyArray<{ permissions: readonly AlliancePermission[] }>;
 }
 
-export function mayActOnAlliance(
-  actor: AllianceRole,
-  action: AllianceAction,
+/** Union of the rights of all roles, as stored (parents not expanded). */
+export function heldPermissions(
+  member: RoleHolder | null | undefined,
+): AlliancePermission[] {
+  return [...new Set(member?.roles.flatMap((r) => r.permissions) ?? [])];
+}
+
+/** STU `AllianceJobManager::hasUserPermission`; no member, no right. */
+export function hasPermission(
+  member: RoleHolder | null | undefined,
+  permission: AlliancePermission,
 ): boolean {
-  if (actor === PRESIDENT) return true;
-  if (actor === DIPLOMAT) {
-    return action === 'declareWar' || action === 'manageDiplomacy';
-  }
-  if (actor === VICE) {
-    return (
-      action !== 'dissolve' &&
-      action !== 'declareWar' &&
-      action !== 'manageDiplomacy'
-    );
-  }
-  return false;
+  return grantsAlliancePermission(heldPermissions(member), permission);
+}
+
+export function isFounder(member: RoleHolder | null | undefined): boolean {
+  return heldPermissions(member).includes(AlliancePermission.FOUNDER);
+}
+
+/**
+ * Protection rule (ADR 0001, the STU escalation bug is not adopted): an actor
+ * only grants, edits or takes away rights it holds itself.
+ */
+export function coversPermissions(
+  actor: RoleHolder,
+  permissions: readonly AlliancePermission[],
+): boolean {
+  return permissions.every((p) => hasPermission(actor, p));
+}
+
+/**
+ * May the actor change the target's roles or kick the target? Needs
+ * MANAGE_JOBS, never the actor itself, and only targets whose rights the
+ * actor covers (so the founder is untouchable).
+ */
+export function mayManageMember(
+  actor: RoleHolder & { userId: number },
+  target: RoleHolder & { userId: number },
+): boolean {
+  return (
+    actor.userId !== target.userId &&
+    hasPermission(actor, AlliancePermission.MANAGE_JOBS) &&
+    coversPermissions(actor, heldPermissions(target))
+  );
+}
+
+/** May the actor create, edit, delete or hand out a role with these rights? */
+export function mayHandleRole(
+  actor: RoleHolder,
+  role: { permissions: readonly AlliancePermission[] },
+): boolean {
+  return (
+    hasPermission(actor, AlliancePermission.MANAGE_JOBS) &&
+    !role.permissions.includes(AlliancePermission.FOUNDER) &&
+    coversPermissions(actor, role.permissions)
+  );
 }

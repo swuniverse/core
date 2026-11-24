@@ -1,22 +1,17 @@
-import { AllianceRole } from '@swuniverse/shared';
+import { AlliancePermission } from '@swuniverse/shared';
 
 export interface SuccessionCandidate {
   userId: number;
-  role: AllianceRole;
+  /** Rights as stored on the member's roles (parents not expanded). */
+  permissions: readonly AlliancePermission[];
   /** Empty activity counts as older than every recorded value. */
   lastActiveAt: Date | null;
   joinedAt: Date;
 }
 
-const ROLE_PRIORITY: Partial<Record<AllianceRole, number>> = {
-  [AllianceRole.VICE]: 0,
-  [AllianceRole.DIPLOMAT]: 1,
-};
-const OTHER_PRIORITY = 2;
-
 /**
- * Picks the new president among the remaining members: vice, then diplomat,
- * then any other member; within a tier the most recently active, then the
+ * Picks the new president among the remaining members: holders of SUCCESSOR,
+ * then of DIPLOMATIC, then any other member; within a tier the most recently active, then the
  * longest membership, then the lowest user id. Returns null without
  * candidates. The departing president must not be part of the input.
  */
@@ -24,7 +19,11 @@ export function chooseSuccessor(
   candidates: SuccessionCandidate[],
 ): number | null {
   const priority = (c: SuccessionCandidate) =>
-    ROLE_PRIORITY[c.role] ?? OTHER_PRIORITY;
+    c.permissions.includes(AlliancePermission.SUCCESSOR)
+      ? 0
+      : c.permissions.includes(AlliancePermission.DIPLOMATIC)
+        ? 1
+        : 2;
   const activity = (c: SuccessionCandidate) =>
     c.lastActiveAt?.getTime() ?? Number.NEGATIVE_INFINITY;
   const sorted = [...candidates].sort((a, b) => {

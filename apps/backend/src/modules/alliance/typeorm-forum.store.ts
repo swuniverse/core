@@ -1,11 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, IsNull } from 'typeorm';
-import { AllianceRole } from '@swuniverse/shared';
 import { User } from '../auth/user.entity';
 import { Alliance } from './entities/alliance.entity';
-import { AllianceMembership } from './entities/alliance-membership.entity';
 import { ForumBoard } from './entities/forum-board.entity';
+import { TypeOrmAllianceStore } from './typeorm-alliance.store';
 import { ForumTopic } from './entities/forum-topic.entity';
 import { ForumPost } from './entities/forum-post.entity';
 import type {
@@ -82,9 +81,10 @@ class TypeOrmForumStoreSession implements ForumStore {
   }
 
   async findMember(userId: number): Promise<ForumMemberRecord | null> {
-    const membership = await this.manager.findOneBy(AllianceMembership, {
-      userId,
-    });
+    const membership =
+      await TypeOrmAllianceStore.forManager(this.manager).findMembership(
+        userId,
+      );
     if (!membership) return null;
     const [user, alliance] = await Promise.all([
       this.manager.findOneBy(User, { id: userId }),
@@ -95,12 +95,7 @@ class TypeOrmForumStoreSession implements ForumStore {
       userId,
       name: displayName(user),
       allianceId: alliance.id,
-      role: membership.role,
-      titles: {
-        president: alliance.presidentTitle,
-        vice: alliance.viceTitle,
-        diplomat: alliance.diplomatTitle,
-      },
+      permissions: membership.roles.flatMap((r) => r.permissions),
     };
   }
 
@@ -111,7 +106,7 @@ class TypeOrmForumStoreSession implements ForumStore {
         where: { id: In(userIds) },
         relations: { factionRef: true },
       }),
-      this.manager.findBy(AllianceMembership, { userId: In(userIds) }),
+      TypeOrmAllianceStore.forManager(this.manager).findMemberships(userIds),
     ]);
     const membershipOf = new Map(memberships.map((m) => [m.userId, m]));
     return users.map((user) => ({
@@ -119,7 +114,7 @@ class TypeOrmForumStoreSession implements ForumStore {
       name: displayName(user),
       factionName: user.factionRef?.name ?? null,
       allianceId: membershipOf.get(user.id)?.allianceId ?? null,
-      role: (membershipOf.get(user.id)?.role as AllianceRole | undefined) ?? null,
+      roleTitle: membershipOf.get(user.id)?.roles[0]?.title ?? null,
     }));
   }
 

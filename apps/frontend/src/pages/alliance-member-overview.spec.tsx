@@ -1,10 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import {
-  AllianceRole,
-  Faction,
-  type AllianceMemberOverviewDto,
-} from '@swuniverse/shared';
+import { Faction, type AllianceMemberOverviewDto } from '@swuniverse/shared';
 import type * as ApiModule from '../services/api';
 import { AllianceMemberOverviewPage } from './alliance-member-overview';
 
@@ -26,8 +22,7 @@ const overview: AllianceMemberOverviewDto = {
       avatar: null,
       faction: Faction.REBEL_ALLIANCE,
       factionName: 'Rebellenallianz',
-      role: AllianceRole.PRESIDENT,
-      roleTitle: 'Großadmiral',
+      roles: [{ id: 1, title: 'Großadmiral', sort: 1 }],
       lastActiveAt: '2026-10-08T10:00:00.000Z',
       crew: { assigned: 12, limit: 40 },
       colonies: [
@@ -57,8 +52,7 @@ const overview: AllianceMemberOverviewDto = {
       avatar: null,
       faction: Faction.REBEL_ALLIANCE,
       factionName: 'Rebellenallianz',
-      role: AllianceRole.NONE,
-      roleTitle: null,
+      roles: [],
       lastActiveAt: null,
       crew: { assigned: 0, limit: 0 },
       colonies: [],

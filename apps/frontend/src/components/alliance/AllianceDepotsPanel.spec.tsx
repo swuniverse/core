@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { AllianceRole } from '@swuniverse/shared';
+import { AlliancePermission } from '@swuniverse/shared';
 import { AllianceDepotsPanel } from './AllianceDepotsPanel';
 const mocks = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock('../../services/api', () => ({ api: mocks }));
@@ -20,7 +20,12 @@ describe('AllianceDepotsPanel', () => {
         cargo: [{ commodityId: 5, name: 'Tibanna-Gas', amount: 9 }],
       },
     ]);
-    render(<AllianceDepotsPanel allianceId={3} role={AllianceRole.VICE} />);
+    render(
+      <AllianceDepotsPanel
+        allianceId={3}
+        permissions={[AlliancePermission.SUCCESSOR]}
+      />,
+    );
     await screen.findByText('Besitzer: Besitzer');
     expect(screen.getByText('Standort: Basis (2|3)')).toBeTruthy();
     expect(screen.getByText('Tibanna-Gas: 9')).toBeTruthy();
@@ -29,11 +34,11 @@ describe('AllianceDepotsPanel', () => {
     );
     await waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(2));
   });
-  it.each([AllianceRole.NONE, AllianceRole.DIPLOMAT, null])(
-    'does not fetch or show stocks for role %s',
-    (role) => {
+  it.each([[], [AlliancePermission.DIPLOMATIC], null])(
+    'does not fetch or show stocks for rights %j',
+    (permissions) => {
       const { container } = render(
-        <AllianceDepotsPanel allianceId={3} role={role} />,
+        <AllianceDepotsPanel allianceId={3} permissions={permissions} />,
       );
       expect(container.textContent).toBe('');
       expect(mocks.get).not.toHaveBeenCalled();
@@ -41,12 +46,13 @@ describe('AllianceDepotsPanel', () => {
   );
   it('removes cached stock when the office is lost and handles empty data', async () => {
     const view = render(
-      <AllianceDepotsPanel allianceId={3} role={AllianceRole.PRESIDENT} />,
+      <AllianceDepotsPanel
+        allianceId={3}
+        permissions={[AlliancePermission.FOUNDER]}
+      />,
     );
     await screen.findByText('Keine Depotstationen zugeordnet.');
-    view.rerender(
-      <AllianceDepotsPanel allianceId={3} role={AllianceRole.NONE} />,
-    );
+    view.rerender(<AllianceDepotsPanel allianceId={3} permissions={[]} />);
     expect(screen.queryByText('Allianzdepots')).toBeNull();
   });
 });

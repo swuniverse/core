@@ -13,6 +13,7 @@ import {
 } from 'typeorm';
 import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import {
+  AlliancePermission,
   AllianceRelationshipType,
   AllianceRole,
   DiplomacyPartyType,
@@ -22,6 +23,9 @@ import { User } from '../auth/user.entity';
 import { FactionEntity } from '../faction/entities/faction.entity';
 import { Alliance } from './entities/alliance.entity';
 import { AllianceMembership } from './entities/alliance-membership.entity';
+import { AllianceRoleEntity } from './entities/alliance-role.entity';
+import { AllianceMemberRole } from './entities/alliance-member-role.entity';
+import { STANDARD_ALLIANCE_ROLES } from './alliance.constants';
 import { AllianceApplication } from './entities/alliance-application.entity';
 import { AllianceRelationship } from './entities/alliance-relationship.entity';
 import { AllianceRelationshipProposal } from './entities/alliance-relationship-proposal.entity';
@@ -40,6 +44,7 @@ import {
   AllianceDiplomacyNotificationRecord,
   AlliancePatch,
   AllianceRecord,
+  AllianceRoleRecord,
   AllianceRelationshipChangeProposalRecord,
   AllianceRelationshipProposalRecord,
   AllianceRelationshipRecord,
@@ -65,7 +70,7 @@ import {
 const CONSTRAINTS: Record<string, AllianceConstraint> = {
   UQ_alliances_name_lower: 'alliance_name',
   UQ_alliance_memberships_user: 'membership_user',
-  UQ_alliance_memberships_president: 'alliance_president',
+  UQ_alliance_member_roles_founder: 'alliance_president',
   UQ_alliance_applications_alliance_user: 'application',
   UQ_alliance_relationship_proposals_pair: 'relationship_proposal',
   UQ_alliance_relationship_change_proposals_relationship:
@@ -118,24 +123,24 @@ function toAlliance(alliance: Alliance): AllianceRecord {
     color: alliance.color,
     factionId: alliance.factionId,
     acceptsApplications: alliance.acceptsApplications,
-    presidentTitle: alliance.presidentTitle,
-    viceTitle: alliance.viceTitle,
-    diplomatTitle: alliance.diplomatTitle,
     bannerKey: alliance.bannerKey,
     bannerUpdatedAt: alliance.bannerUpdatedAt,
     foundedAt: alliance.foundedAt,
   };
 }
 
-function toMembership(membership: AllianceMembership): MembershipRecord {
+function toRole(role: AllianceRoleEntity): AllianceRoleRecord {
   return {
-    id: membership.id,
-    allianceId: membership.allianceId,
-    userId: membership.userId,
-    role: membership.role,
-    joinedAt: membership.joinedAt,
+    id: role.id,
+    allianceId: role.allianceId,
+    title: role.title,
+    sort: role.sort,
+    permissions: [...role.permissions],
   };
 }
+
+const byRoleOrder = (a: AllianceRoleRecord, b: AllianceRoleRecord) =>
+  a.sort - b.sort || a.id - b.id;
 
 function toApplication(application: AllianceApplication): ApplicationRecord {
   return {
@@ -1089,6 +1094,18 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
       .save(Alliance, this.manager.create(Alliance, data))
       .catch(translateConstraintError);
     await this.manager.insert(DiplomacyParty, { allianceId: alliance.id });
+    await this.manager.insert(
+      AllianceRoleEntity,
+      Object.values(STANDARD_ALLIANCE_ROLES).map((role) => ({
+        allianceId: alliance.id,
+        title: role.title,
+        sort: role.sort,
+        permissions: [...role.permissions],
+        founder: (role.permissions as readonly AlliancePermission[]).includes(
+          AlliancePermission.FOUNDER,
+        ),
+      })),
+    );
     return toAlliance(
       await this.manager.findOneByOrFail(Alliance, { id: alliance.id }),
     );
@@ -1131,7 +1148,7 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     const membership = await this.manager.findOneBy(AllianceMembership, {
       userId,
     });
-    return membership ? toMembership(membership) : null;
+    return membership ? (await this.withRoles([membership]))[0] : null;
   }
 
   async findMemberships(userIds: number[]) {
@@ -1139,7 +1156,7 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
     const memberships = await this.manager.findBy(AllianceMembership, {
       userId: In(userIds),
     });
-    return memberships.map(toMembership);
+    return this.withRoles(memberships);
   }
 
   async listMemberships(allianceId: number) {
@@ -1147,7 +1164,7 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
       where: { allianceId },
       order: { joinedAt: 'ASC', id: 'ASC' },
     });
-    return memberships.map(toMembership);
+    return this.withRoles(memberships);
   }
 
   async listMembershipsForAlliances(allianceIds: number[]) {
@@ -1156,24 +1173,113 @@ class TypeOrmAllianceStoreSession implements AllianceStore {
       where: { allianceId: In(allianceIds) },
       order: { allianceId: 'ASC', joinedAt: 'ASC', id: 'ASC' },
     });
-    return memberships.map(toMembership);
+    return this.withRoles(memberships);
   }
 
-  async insertMembership(data: {
+  async insertMembership({
+    role,
+    ...data
+  }: {
     allianceId: number;
     userId: number;
-    role: AllianceRole;
+    role?: AllianceRole;
   }) {
-    await this.manager
+    const result = await this.manager
       .insert(AllianceMembership, data)
+      .catch(translateConstraintError);
+    if (!role || role === AllianceRole.NONE) return;
+    const standard = STANDARD_ALLIANCE_ROLES[role];
+    const preset = await this.manager.findOneByOrFail(AllianceRoleEntity, {
+      allianceId: data.allianceId,
+      sort: standard.sort,
+    });
+    await this.assignRole(Number(result.identifiers[0].id), preset.id);
+  }
+
+  async listRoles(allianceId: number) {
+    const roles = await this.manager.find(AllianceRoleEntity, {
+      where: { allianceId },
+      order: { sort: 'ASC', id: 'ASC' },
+    });
+    return roles.map(toRole);
+  }
+
+  async findRole(id: number) {
+    const role = await this.manager.findOneBy(AllianceRoleEntity, { id });
+    return role ? toRole(role) : null;
+  }
+
+  async insertRole(data: Omit<AllianceRoleRecord, 'id'>) {
+    const role = await this.manager.save(
+      AllianceRoleEntity,
+      this.manager.create(AllianceRoleEntity, {
+        ...data,
+        founder: data.permissions.includes(AlliancePermission.FOUNDER),
+      }),
+    );
+    return toRole(role);
+  }
+
+  async updateRole(
+    id: number,
+    patch: Partial<Pick<AllianceRoleRecord, 'title' | 'sort' | 'permissions'>>,
+  ) {
+    if (!Object.keys(patch).length) return;
+    await this.manager.update(AllianceRoleEntity, { id }, patch);
+  }
+
+  async deleteRole(id: number) {
+    await this.manager.delete(AllianceRoleEntity, { id });
+  }
+
+  async assignRole(membershipId: number, roleId: number) {
+    const role = await this.manager.findOneByOrFail(AllianceRoleEntity, {
+      id: roleId,
+    });
+    // Conflict target is the primary key only: a second founder must still fail.
+    await this.manager
+      .query(
+        `INSERT INTO "alliance_member_roles" ("membershipId", "roleId", "founder")
+         VALUES ($1, $2, $3) ON CONFLICT ("membershipId", "roleId") DO NOTHING`,
+        [membershipId, roleId, role.founder],
+      )
       .catch(translateConstraintError);
   }
 
-  async setRole(allianceId: number, userId: number, role: AllianceRole) {
-    const result = await this.manager
-      .update(AllianceMembership, { allianceId, userId }, { role })
-      .catch(translateConstraintError);
+  async unassignRole(membershipId: number, roleId: number) {
+    const result = await this.manager.delete(AllianceMemberRole, {
+      membershipId,
+      roleId,
+    });
     return (result.affected ?? 0) > 0;
+  }
+
+  private async withRoles(
+    memberships: AllianceMembership[],
+  ): Promise<MembershipRecord[]> {
+    const ids = memberships.map((m) => m.id);
+    const rows = ids.length
+      ? await this.manager
+          .createQueryBuilder(AllianceRoleEntity, 'r')
+          .innerJoin(AllianceMemberRole, 'mr', 'mr."roleId" = r.id')
+          .addSelect('mr."membershipId"', 'membershipId')
+          .where('mr."membershipId" IN (:...ids)', { ids })
+          .getRawAndEntities()
+      : { raw: [], entities: [] };
+    const byId = new Map(rows.entities.map((r) => [r.id, toRole(r)]));
+    const rolesOf = new Map<number, AllianceRoleRecord[]>();
+    for (const raw of rows.raw as Array<{ r_id: number; membershipId: number }>) {
+      const list = rolesOf.get(Number(raw.membershipId)) ?? [];
+      list.push(byId.get(Number(raw.r_id))!);
+      rolesOf.set(Number(raw.membershipId), list);
+    }
+    return memberships.map((m) => ({
+      id: m.id,
+      allianceId: m.allianceId,
+      userId: m.userId,
+      roles: (rolesOf.get(m.id) ?? []).sort(byRoleOrder),
+      joinedAt: m.joinedAt,
+    }));
   }
 
   async deleteMembership(allianceId: number, userId: number) {

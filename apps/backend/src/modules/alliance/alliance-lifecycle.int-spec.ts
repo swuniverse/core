@@ -22,6 +22,21 @@ import { TypeOrmForumStore } from './typeorm-forum.store';
 
 const { NONE, PRESIDENT, VICE } = AllianceRole;
 
+/** Memberships with the former office derived from the held standard roles. */
+const MEMBER_OFFICES = `(
+  SELECT m."userId", m."allianceId",
+    CASE
+      WHEN bool_or('FOUNDER' = ANY(r.permissions)) THEN 'PRESIDENT'
+      WHEN bool_or('SUCCESSOR' = ANY(r.permissions)) THEN 'VICE'
+      WHEN bool_or('DIPLOMATIC' = ANY(r.permissions)) THEN 'DIPLOMAT'
+      ELSE 'NONE'
+    END AS "role"
+  FROM alliance_memberships m
+  LEFT JOIN alliance_member_roles mr ON mr."membershipId" = m.id
+  LEFT JOIN alliance_roles r ON r.id = mr."roleId"
+  GROUP BY m.id
+) offices`;
+
 /**
  * Lifecycle of the internal cooperation data on real Postgres: dissolution
  * (both paths) and account deletion across forum and alliance chronicle.
@@ -715,7 +730,7 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
         );
 
         const members = await dataSource.query(
-          `SELECT "userId", "role" FROM alliance_memberships WHERE "allianceId" = $1`,
+          `SELECT "userId", "role" FROM ${MEMBER_OFFICES} WHERE "allianceId" = $1`,
           [rogue.id],
         );
         const presidents = members.filter(
@@ -756,7 +771,7 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
       );
 
       const members = await dataSource.query(
-        `SELECT "userId", "role" FROM alliance_memberships WHERE "allianceId" = $1`,
+        `SELECT "userId", "role" FROM ${MEMBER_OFFICES} WHERE "allianceId" = $1`,
         [rogue.id],
       );
       expect(
@@ -777,7 +792,7 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
       const alliances = await count('alliances');
       if (alliances === 1) {
         const presidents = await dataSource.query(
-          `SELECT 1 FROM alliance_memberships WHERE "allianceId" = $1 AND "role" = $2`,
+          `SELECT 1 FROM ${MEMBER_OFFICES} WHERE "allianceId" = $1 AND "role" = $2`,
           [rogue.id, PRESIDENT],
         );
         expect(presidents).toHaveLength(1);
@@ -862,7 +877,7 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
       expect(await store.listActiveRelationships(rogue.id)).toHaveLength(1);
       expect(sendSystem.mock.calls.map((call) => call[0])).toEqual([han.id]);
       const [member] = await dataSource.query(
-        `SELECT "role" FROM alliance_memberships WHERE "allianceId" = $1`,
+        `SELECT "role" FROM ${MEMBER_OFFICES} WHERE "allianceId" = $1`,
         [rogue.id],
       );
       expect(member.role).toBe(PRESIDENT);
@@ -886,7 +901,7 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
       await dataSource.query('DELETE FROM "users" WHERE "id" = $1', [leia.id]);
 
       const roles = await dataSource.query(
-        `SELECT "userId", "role" FROM alliance_memberships ORDER BY "userId"`,
+        `SELECT "userId", "role" FROM ${MEMBER_OFFICES} ORDER BY "userId"`,
       );
       expect(roles).toEqual([
         { userId: wedge.id, role: PRESIDENT },
@@ -939,7 +954,7 @@ describe('alliance internal cooperation lifecycle (Postgres)', () => {
       ]);
 
       const members = await dataSource.query(
-        `SELECT "userId", "role" FROM alliance_memberships WHERE "allianceId" = $1`,
+        `SELECT "userId", "role" FROM ${MEMBER_OFFICES} WHERE "allianceId" = $1`,
         [rogue.id],
       );
       expect(members).toEqual([{ userId: han.id, role: PRESIDENT }]);

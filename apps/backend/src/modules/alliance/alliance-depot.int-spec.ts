@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { ForbiddenException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AllianceRole, Faction } from '@swuniverse/shared';
 import {
@@ -62,18 +63,26 @@ describe('Alliance depots (PostgreSQL)', () => {
     vice = await createUser(db, { factionId: rebels });
     diplomat = await createUser(db, { factionId: rebels });
     outsider = await createUser(db, { factionId: rebels });
+    const store = new TypeOrmAllianceStore(db);
+    const created = await store.insertAlliance({
+      name: 'Logistik',
+      description: '',
+      factionId: rebels,
+    });
     alliance = await db
       .getRepository(Alliance)
-      .save({ name: 'Logistik', factionId: rebels });
+      .findOneByOrFail({ id: created.id });
     for (const [user, role] of [
       [president, AllianceRole.PRESIDENT],
       [owner, AllianceRole.NONE],
       [vice, AllianceRole.VICE],
       [diplomat, AllianceRole.DIPLOMAT],
     ] as const) {
-      await db
-        .getRepository(AllianceMembership)
-        .save({ allianceId: alliance.id, userId: user.id, role });
+      await store.insertMembership({
+        allianceId: alliance.id,
+        userId: user.id,
+        role,
+      });
     }
     const hull = await db.getRepository(ShipClassDef).save({
       key: 'DEPOT',
@@ -204,13 +213,14 @@ describe('Alliance depots (PostgreSQL)', () => {
     }
     for (const actor of [owner, diplomat, outsider])
       await expect(service.list(alliance.id, actor.id)).rejects.toThrow(
-        'Präsident',
+        ForbiddenException,
       );
-    await db
-      .getRepository(AllianceMembership)
-      .update({ userId: vice.id }, { role: AllianceRole.NONE });
+    const store = new TypeOrmAllianceStore(db);
+    const viceMembership = (await store.findMembership(vice.id))!;
+    for (const role of viceMembership.roles)
+      await store.unassignRole(viceMembership.id, role.id);
     await expect(service.list(alliance.id, vice.id)).rejects.toThrow(
-      'Präsident',
+      ForbiddenException,
     );
   });
   it.each(['leave', 'kick', 'dissolve'])(
@@ -269,17 +279,15 @@ describe('Alliance depots (PostgreSQL)', () => {
     const workerClass = await db
       .getRepository(ShipClassDef)
       .save({ key: 'BEE', name: 'Workbee', category: 'SHIP', role: 'WORKBEE' });
-    await db
-      .getRepository(Spacecraft)
-      .save({
-        name: 'Workbee',
-        shipClassId: workerClass.id,
-        userId: owner.id,
-        locationId: station.locationId,
-        dockedAtId: station.id,
-        hull: 1,
-        crewRequired: 0,
-      });
+    await db.getRepository(Spacecraft).save({
+      name: 'Workbee',
+      shipClassId: workerClass.id,
+      userId: owner.id,
+      locationId: station.locationId,
+      dockedAtId: station.id,
+      hull: 1,
+      crewRequired: 0,
+    });
     const send = jest.fn(async () => undefined);
     const scrapping = new StationScrappingService(
       db,

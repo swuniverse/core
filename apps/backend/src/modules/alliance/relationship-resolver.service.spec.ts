@@ -1,4 +1,8 @@
-import { AllianceRelationshipType, AllianceRole } from '@swuniverse/shared';
+import {
+  AlliancePermission,
+  AllianceRelationshipType,
+  AllianceRole,
+} from '@swuniverse/shared';
 import {
   NoPersonalContactStatusPort,
   RelationshipResolverService,
@@ -20,7 +24,7 @@ const NO_CANDIDATES = {
   viewerMembership: null,
   alliance: null,
   mateIds: [],
-  viewerRole: null,
+  viewerPermissions: [],
   partnerIds: [],
 };
 
@@ -180,7 +184,9 @@ describe('RelationshipResolverService', () => {
   describe('priority conflicts', () => {
     const friendlyContact: PersonalContactStatusPort = {
       statuses: async (firstPlayerId, secondPlayerIds) =>
-        new Map(secondPlayerIds.map((playerId) => [playerId, 'FRIEND'] as const)),
+        new Map(
+          secondPlayerIds.map((playerId) => [playerId, 'FRIEND'] as const),
+        ),
     };
     function twoAlliances() {
       const store = new InMemoryAllianceStore();
@@ -292,7 +298,9 @@ describe('RelationshipResolverService', () => {
         [1, AllianceRole.PRESIDENT],
         [2, AllianceRole.NONE],
       ]);
-      const statuses = jest.fn().mockResolvedValue(new Map([[3, 'ENEMY'] as const]));
+      const statuses = jest
+        .fn()
+        .mockResolvedValue(new Map([[3, 'ENEMY'] as const]));
       const resolver = resolverFor(store, { statuses });
 
       await expect(resolver.resolveMany(1, [2, 3])).resolves.toEqual(
@@ -301,7 +309,9 @@ describe('RelationshipResolverService', () => {
           [3, expect.objectContaining({ status: 'ENEMY' })],
         ]),
       );
-      await expect(resolver.resolve(3, 1)).resolves.toMatchObject({ status: 'NEUTRAL' });
+      await expect(resolver.resolve(3, 1)).resolves.toMatchObject({
+        status: 'NEUTRAL',
+      });
       expect(statuses).toHaveBeenCalledWith(1, [2, 3]);
     });
 
@@ -460,7 +470,9 @@ describe('RelationshipResolverService', () => {
       store.addPlayer(2, 'Settler Two');
 
       await expect(
-        resolverFor(store, { statuses: async () => new Map([[2, 'FRIEND']]) }).resolve(1, 2),
+        resolverFor(store, {
+          statuses: async () => new Map([[2, 'FRIEND']]),
+        }).resolve(1, 2),
       ).resolves.toMatchObject({ status: 'FRIEND', mayTransferSafely: true });
     });
 
@@ -613,7 +625,9 @@ describe('RelationshipResolverService', () => {
       seedSettlers(store, { type: AllianceRelationshipType.ALLIANCE });
 
       await expect(
-        resolverFor(store, { statuses: async () => new Map([[2, 'FRIEND']]) }).resolve(1, 2),
+        resolverFor(store, {
+          statuses: async () => new Map([[2, 'FRIEND']]),
+        }).resolve(1, 2),
       ).resolves.toMatchObject({ status: 'FRIEND' });
     });
 
@@ -681,7 +695,7 @@ describe('RelationshipResolverService', () => {
           viewerMembership: null,
           alliance: null,
           mateIds: [],
-          viewerRole: null,
+          viewerPermissions: [],
         });
         expect([...candidates.partnerIds].sort()).toEqual([2, 3, 4]);
       });
@@ -750,19 +764,30 @@ describe('RelationshipResolverService', () => {
     it('lets both sides of an active trade agreement trade favorably', async () => {
       const resolver = relate(AllianceRelationshipType.TRADE_AGREEMENT);
 
-      for (const [from, to] of [[1, 2], [2, 1], [1, 3], [3, 1]]) {
+      for (const [from, to] of [
+        [1, 2],
+        [2, 1],
+        [1, 3],
+        [3, 1],
+      ]) {
         await expect(resolver.resolve(from, to)).resolves.toMatchObject({
           status: 'NEUTRAL',
           mayTradeFavorably: true,
         });
       }
-      await expect(resolver.resolve(1, 4)).resolves.toMatchObject({ mayTradeFavorably: false });
-      await expect(resolver.resolve(2, 3)).resolves.toMatchObject({ mayTradeFavorably: false });
+      await expect(resolver.resolve(1, 4)).resolves.toMatchObject({
+        mayTradeFavorably: false,
+      });
+      await expect(resolver.resolve(2, 3)).resolves.toMatchObject({
+        mayTradeFavorably: false,
+      });
     });
 
     it('keeps the trade capability under friend treatment', async () => {
       await expect(
-        relate(AllianceRelationshipType.TRADE_AGREEMENT, { treatAsFriend: true }).resolve(1, 2),
+        relate(AllianceRelationshipType.TRADE_AGREEMENT, {
+          treatAsFriend: true,
+        }).resolve(1, 2),
       ).resolves.toMatchObject({ status: 'FRIEND', mayTradeFavorably: true });
     });
 
@@ -771,7 +796,9 @@ describe('RelationshipResolverService', () => {
       [AllianceRelationshipType.FRIENDSHIP, true],
       [AllianceRelationshipType.ALLIANCE, true],
     ])('grants nothing for %s', async (type, treatAsFriend) => {
-      await expect(relate(type, { treatAsFriend }).resolve(1, 2)).resolves.toMatchObject({
+      await expect(
+        relate(type, { treatAsFriend }).resolve(1, 2),
+      ).resolves.toMatchObject({
         mayTradeFavorably: false,
       });
     });
@@ -789,7 +816,9 @@ describe('RelationshipResolverService', () => {
         statuses: async () => new Map([[2, 'ENEMY']]),
       };
 
-      await expect(resolverFor(store, enemyContact).resolve(1, 2)).resolves.toMatchObject({
+      await expect(
+        resolverFor(store, enemyContact).resolve(1, 2),
+      ).resolves.toMatchObject({
         status: 'ENEMY',
         mayTradeFavorably: false,
       });
@@ -843,7 +872,9 @@ describe('RelationshipResolverService', () => {
       store.addPlayer(2, 'Unassigned', null);
 
       await expect(
-        resolverFor(store, { statuses: async () => new Map([[2, 'FRIEND']]) }).resolve(1, 2),
+        resolverFor(store, {
+          statuses: async () => new Map([[2, 'FRIEND']]),
+        }).resolve(1, 2),
       ).resolves.toEqual(closed);
     });
   });
@@ -856,12 +887,20 @@ describe('RelationshipResolverService', () => {
       const livePositionSharerIds = jest.fn(async () => [2]);
       const resolver = resolverFor(store, { statuses, livePositionSharerIds });
       const stances = await resolver.resolveMany(1, [2, 2, 3]);
-      expect(stances.get(2)).toMatchObject({ status: 'NEUTRAL', mayShareLivePosition: true });
-      expect(stances.get(3)).toMatchObject({ status: 'NEUTRAL', mayShareLivePosition: false });
+      expect(stances.get(2)).toMatchObject({
+        status: 'NEUTRAL',
+        mayShareLivePosition: true,
+      });
+      expect(stances.get(3)).toMatchObject({
+        status: 'NEUTRAL',
+        mayShareLivePosition: false,
+      });
       expect(statuses).toHaveBeenCalledTimes(1);
       expect(livePositionSharerIds).toHaveBeenCalledTimes(1);
       expect(livePositionSharerIds).toHaveBeenCalledWith(1, [2, 3]);
-      livePositionSharerIds.mockRejectedValue(new Error('contacts unavailable'));
+      livePositionSharerIds.mockRejectedValue(
+        new Error('contacts unavailable'),
+      );
       expect((await resolver.resolve(1, 2)).mayShareLivePosition).toBe(false);
       expect((await resolver.starmapCandidates(1)).partnerIds).toEqual([]);
     });
@@ -1004,7 +1043,7 @@ describe('RelationshipResolverService', () => {
       });
     });
 
-    it('names the viewer’s alliance, its current mates and the viewer’s office as map candidates', async () => {
+    it('names the viewer’s alliance, its current mates and the viewer’s rights as map candidates', async () => {
       const store = new InMemoryAllianceStore();
       for (const id of [1, 2, 3, 4]) store.addPlayer(id, `Rebel ${id}`);
       const own = store.seedAlliance({ name: 'Own', color: '#ff8800' }, [
@@ -1021,11 +1060,11 @@ describe('RelationshipResolverService', () => {
         }),
         alliance: { id: own.id, name: 'Own', color: '#ff8800' },
         mateIds: [2],
-        viewerRole: AllianceRole.PRESIDENT,
+        viewerPermissions: [AlliancePermission.FOUNDER],
         partnerIds: [],
       });
       await expect(resolver.starmapCandidates(2)).resolves.toMatchObject({
-        viewerRole: AllianceRole.NONE,
+        viewerPermissions: [],
       });
       await expect(resolver.starmapCandidates(4)).resolves.toEqual(
         NO_CANDIDATES,
@@ -1052,7 +1091,7 @@ describe('RelationshipResolverService', () => {
         ).resolves.toMatchObject({
           alliance: null,
           mateIds: [],
-          viewerRole: null,
+          viewerPermissions: [],
           partnerIds: [],
         });
       },

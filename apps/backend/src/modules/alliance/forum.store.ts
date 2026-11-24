@@ -1,4 +1,4 @@
-import type { AllianceRole } from '@swuniverse/shared';
+import type { AlliancePermission } from '@swuniverse/shared';
 
 export const FORUM_STORE = Symbol('FORUM_STORE');
 
@@ -53,8 +53,8 @@ export interface ForumMemberRecord {
   userId: number;
   name: string;
   allianceId: number;
-  role: AllianceRole;
-  titles: { president: string; vice: string; diplomat: string };
+  /** Rights of the member's roles as stored. */
+  permissions: AlliancePermission[];
 }
 
 /** Display data of a post or topic author whose account still exists. */
@@ -62,9 +62,10 @@ export interface ForumAuthorRecord {
   userId: number;
   name: string;
   factionName: string | null;
-  /** Current membership; the office title is only shown within that alliance. */
+  /** Current membership; the role title is only shown within that alliance. */
   allianceId: number | null;
-  role: AllianceRole | null;
+  /** Title of the member's first role by sort; null without role. */
+  roleTitle: string | null;
 }
 
 export interface ForumBoardSummaryRecord {

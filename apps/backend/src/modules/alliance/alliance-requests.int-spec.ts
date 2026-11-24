@@ -91,7 +91,10 @@ describe('alliance internal cooperation requests (Postgres, HTTP)', () => {
         { provide: ConfigService, useValue: { get: () => JWT_SECRET } },
         {
           provide: getRepositoryToken(User),
-          useValue: { findOneBy: ({ id }: { id: number }) => dataSource.getRepository(User).findOneBy({ id }) },
+          useValue: {
+            findOneBy: ({ id }: { id: number }) =>
+              dataSource.getRepository(User).findOneBy({ id }),
+          },
         },
         JwtStrategy,
         AllianceService,
@@ -614,8 +617,9 @@ describe('alliance internal cooperation requests (Postgres, HTTP)', () => {
 
   // --- Chronicle ---------------------------------------------------------
 
-  it('shows the internal chronicle to members of exactly this alliance and never leaks it via the diplomacy chronicle', async () => {
-    await expectStatuses({ ...MEMBERS, ...OUTSIDERS, ...ANON }, (a) =>
+  it('shows the internal chronicle to holders of VIEW_ALLIANCE_HISTORY in exactly this alliance and never leaks it via the diplomacy chronicle', async () => {
+    const history = { ...MEMBERS, diplomat: 403, member: 403 };
+    await expectStatuses({ ...history, ...OUTSIDERS, ...ANON }, (a) =>
       call(a, 'GET', `/alliances/${w.rogue.id}/chronicle`),
     );
     expect(

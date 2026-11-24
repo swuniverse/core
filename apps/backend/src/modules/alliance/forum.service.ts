@@ -7,7 +7,8 @@ import {
   Optional,
 } from '@nestjs/common';
 import {
-  AllianceRole,
+  AlliancePermission,
+  grantsAlliancePermission,
   DASHBOARD_FORUM_TOPIC_LIMIT,
   FORUM_BOARD_NAME_MAX,
   FORUM_BOARD_NAME_MIN,
@@ -36,7 +37,6 @@ import {
   type UpdateForumPostRequest,
   type UpdateForumPostResponse,
 } from '@swuniverse/shared';
-import { mayActOnAlliance } from './alliance-permissions';
 import { AllianceRateLimiterService } from './alliance-rate-limiter.service';
 import {
   FORUM_STORE,
@@ -566,8 +566,12 @@ export class ForumService {
     return post;
   }
 
+  /** STU has no forum moderation right; it belongs to EDIT_ALLIANCE like the boards. */
   protected mayModerate(viewer: ForumMemberRecord): boolean {
-    return mayActOnAlliance(viewer.role, 'moderateForum');
+    return grantsAlliancePermission(
+      viewer.permissions,
+      AlliancePermission.EDIT_ALLIANCE,
+    );
   }
 
   // --- Mapping ---
@@ -623,26 +627,8 @@ export class ForumService {
       name: author.name || snapshotName,
       factionName: author.factionName,
       roleTitle:
-        author.allianceId === viewer.allianceId
-          ? this.roleTitle(viewer, author.role)
-          : null,
+        author.allianceId === viewer.allianceId ? author.roleTitle : null,
     };
-  }
-
-  private roleTitle(
-    viewer: ForumMemberRecord,
-    role: AllianceRole | null,
-  ): string | null {
-    switch (role) {
-      case AllianceRole.PRESIDENT:
-        return viewer.titles.president;
-      case AllianceRole.VICE:
-        return viewer.titles.vice;
-      case AllianceRole.DIPLOMAT:
-        return viewer.titles.diplomat;
-      default:
-        return null;
-    }
   }
 
   private async authorsOf(userIds: number[]) {

@@ -65,7 +65,7 @@ export class InMemoryForumStore implements ForumStore {
   async findMember(userId: number): Promise<ForumMemberRecord | null> {
     if (this.deletedAccounts.has(userId)) return null;
     const data = this.alliances.snapshot();
-    const membership = data.memberships.find((m) => m.userId === userId);
+    const membership = await this.alliances.findMembership(userId);
     const player = data.players.find((p) => p.id === userId);
     if (!membership || !player) return null;
     const alliance = data.alliances.find((a) => a.id === membership.allianceId);
@@ -74,21 +74,17 @@ export class InMemoryForumStore implements ForumStore {
       userId,
       name: player.name,
       allianceId: alliance.id,
-      role: membership.role,
-      titles: {
-        president: alliance.presidentTitle,
-        vice: alliance.viceTitle,
-        diplomat: alliance.diplomatTitle,
-      },
+      permissions: membership.roles.flatMap((r) => r.permissions),
     };
   }
 
   async findAuthors(userIds: number[]): Promise<ForumAuthorRecord[]> {
     const data = this.alliances.snapshot();
+    const memberships = await this.alliances.findMemberships(userIds);
     return [...new Set(userIds)].flatMap((userId) => {
       const player = data.players.find((p) => p.id === userId);
       if (!player || this.deletedAccounts.has(userId)) return [];
-      const membership = data.memberships.find((m) => m.userId === userId);
+      const membership = memberships.find((m) => m.userId === userId);
       return [
         {
           userId,
@@ -96,7 +92,7 @@ export class InMemoryForumStore implements ForumStore {
           factionName:
             data.factions.find((f) => f.id === player.factionId)?.name ?? null,
           allianceId: membership?.allianceId ?? null,
-          role: membership?.role ?? null,
+          roleTitle: membership?.roles[0]?.title ?? null,
         },
       ];
     });

@@ -4,7 +4,11 @@ import type { SpaceLocationDto } from '../starmap/index.js';
 /** Freund, Feind or Neutral between two players (see CONTEXT.md). */
 export type Stance = 'FRIEND' | 'NEUTRAL' | 'ENEMY';
 
-/** Fixed offices inside an alliance (ADR 0001). NONE = member without office. */
+/**
+ * The three standard roles every alliance starts with (ADR 0001). Members hold
+ * any number of freely configured roles; this enum only names the presets,
+ * NONE = no standard role.
+ */
 export enum AllianceRole {
   NONE = 'NONE',
   PRESIDENT = 'PRESIDENT',
@@ -12,16 +16,78 @@ export enum AllianceRole {
   DIPLOMAT = 'DIPLOMAT',
 }
 
+/** STU `AllianceJobPermissionEnum`: the 14 rights a role can carry. */
+export enum AlliancePermission {
+  FOUNDER = 'FOUNDER',
+  SUCCESSOR = 'SUCCESSOR',
+  DIPLOMATIC = 'DIPLOMATIC',
+  CREATE_AGREEMENTS = 'CREATE_AGREEMENTS',
+  EDIT_DIPLOMATIC_DOCUMENTS = 'EDIT_DIPLOMATIC_DOCUMENTS',
+  ALLIANCE_LEADERSHIP = 'ALLIANCE_LEADERSHIP',
+  EDIT_ALLIANCE = 'EDIT_ALLIANCE',
+  MANAGE_APPLICATIONS = 'MANAGE_APPLICATIONS',
+  MANAGE_JOBS = 'MANAGE_JOBS',
+  VIEW_COLONIES = 'VIEW_COLONIES',
+  VIEW_MEMBER_DATA = 'VIEW_MEMBER_DATA',
+  VIEW_SHIPS = 'VIEW_SHIPS',
+  VIEW_ALLIANCE_STORAGE = 'VIEW_ALLIANCE_STORAGE',
+  VIEW_ALLIANCE_HISTORY = 'VIEW_ALLIANCE_HISTORY',
+}
+
+/** STU `getParentPermission`: holding the parent grants the child. */
+export const ALLIANCE_PERMISSION_PARENT: Partial<
+  Record<AlliancePermission, AlliancePermission>
+> = {
+  [AlliancePermission.CREATE_AGREEMENTS]: AlliancePermission.DIPLOMATIC,
+  [AlliancePermission.EDIT_DIPLOMATIC_DOCUMENTS]: AlliancePermission.DIPLOMATIC,
+  [AlliancePermission.ALLIANCE_LEADERSHIP]: AlliancePermission.SUCCESSOR,
+  [AlliancePermission.EDIT_ALLIANCE]: AlliancePermission.SUCCESSOR,
+  [AlliancePermission.MANAGE_APPLICATIONS]: AlliancePermission.SUCCESSOR,
+  [AlliancePermission.MANAGE_JOBS]: AlliancePermission.SUCCESSOR,
+  [AlliancePermission.VIEW_COLONIES]: AlliancePermission.SUCCESSOR,
+  [AlliancePermission.VIEW_MEMBER_DATA]: AlliancePermission.SUCCESSOR,
+  [AlliancePermission.VIEW_SHIPS]: AlliancePermission.SUCCESSOR,
+  [AlliancePermission.VIEW_ALLIANCE_STORAGE]: AlliancePermission.SUCCESSOR,
+  [AlliancePermission.VIEW_ALLIANCE_HISTORY]: AlliancePermission.SUCCESSOR,
+};
+
+/**
+ * STU `AllianceJobManager::hasUserPermission` over a set of held rights:
+ * FOUNDER grants everything, a parent right grants its children.
+ */
+export function grantsAlliancePermission(
+  held: readonly AlliancePermission[],
+  permission: AlliancePermission,
+): boolean {
+  if (held.includes(AlliancePermission.FOUNDER)) return true;
+  if (held.includes(permission)) return true;
+  const parent = ALLIANCE_PERMISSION_PARENT[permission];
+  return parent !== undefined && held.includes(parent);
+}
+
+/** A role of an alliance with its rights, ordered by `sort`. */
+export interface AllianceRoleDto {
+  id: number;
+  title: string;
+  sort: number;
+  permissions: AlliancePermission[];
+  /** The fixed president role: one holder, not editable or deletable. */
+  founder: boolean;
+  /** Server decisions for the viewer (protection rule of ADR 0001). */
+  actions: { edit: boolean; delete: boolean; assign: boolean };
+}
+
+/** A role as shown on a member. */
+export interface AllianceMemberRoleDto {
+  id: number;
+  title: string;
+  sort: number;
+}
+
 export interface AllianceRefDto {
   id: number;
   name: string;
   color: string | null;
-}
-
-export interface AllianceTitlesDto {
-  president: string;
-  vice: string;
-  diplomat: string;
 }
 
 export interface AllianceSummaryMemberDto {
@@ -48,9 +114,8 @@ export interface AllianceSummaryDto {
 /** Actions the viewer may perform on one member; computed by the server. */
 export interface AllianceMemberActionsDto {
   kick: boolean;
-  appointVice: boolean;
-  appointDiplomat: boolean;
-  dismiss: boolean;
+  /** The viewer may assign or remove this member's roles. */
+  editRoles: boolean;
   transferPresidency: boolean;
 }
 
@@ -59,8 +124,8 @@ export interface AllianceMemberDto {
   name: string;
   avatar: string | null;
   faction: Faction | null;
-  role: AllianceRole;
-  roleTitle: string | null;
+  /** Ordered by role sort; empty without role. */
+  roles: AllianceMemberRoleDto[];
   joinedAt: string;
   actions: AllianceMemberActionsDto;
   /** Only present when the viewer is a member of the same alliance. */
@@ -78,10 +143,12 @@ export interface AllianceViewerActionsDto {
   manageDiplomacy: boolean;
   /** Current members may open the internal forum. */
   readForum: boolean;
-  /** Mitgliederübersicht öffnen (Präsident und Vize). */
+  /** Mitgliederübersicht öffnen (VIEW_MEMBER_DATA). */
   viewMemberOperations: boolean;
-  /** Read the internal alliance chronicle; true for current members only. */
+  /** Read the internal alliance chronicle (VIEW_ALLIANCE_HISTORY). */
   viewChronicle: boolean;
+  /** Create, edit, delete and assign roles (MANAGE_JOBS). */
+  manageRoles: boolean;
   /** Upload, replace and remove the banner (president and vice). */
   manageBanner: boolean;
 }
@@ -341,12 +408,13 @@ export interface AllianceDetailDto extends AllianceSummaryDto {
   description: string;
   /** Description with `$ALLIANCE_*` placeholders replaced; still BBCode. */
   renderedDescription: string;
-  titles: AllianceTitlesDto;
+  roles: AllianceRoleDto[];
   members: AllianceMemberDto[];
   /** Active public relationships only, newest first. */
   relationships: AllianceRelationshipSummaryDto[];
   viewer: {
-    role: AllianceRole | null;
+    /** Rights the viewer holds in this alliance; null for non-members. */
+    permissions: AlliancePermission[] | null;
     actions: AllianceViewerActionsDto;
   };
 }
@@ -380,11 +448,17 @@ export interface UpdateAllianceRequest {
   homepage?: string;
   color?: string;
   acceptsApplications?: boolean;
-  titles?: AllianceTitlesDto;
 }
 
-export interface SetAllianceRoleRequest {
-  role: AllianceRole.VICE | AllianceRole.DIPLOMAT | AllianceRole.NONE;
+export interface CreateAllianceRoleRequest {
+  title: string;
+  permissions: AlliancePermission[];
+}
+
+export interface UpdateAllianceRoleRequest {
+  title?: string;
+  sort?: number;
+  permissions?: AlliancePermission[];
 }
 
 /** Exactly one of `recipientAllianceId` and `recipientPlayerId` is set. */
@@ -614,8 +688,7 @@ export interface AllianceMemberOperationsDto {
   avatar: string | null;
   faction: Faction | null;
   factionName: string | null;
-  role: AllianceRole;
-  roleTitle: string | null;
+  roles: AllianceMemberRoleDto[];
   /** ISO timestamp; null when the player has no recorded activity. */
   lastActiveAt: string | null;
   crew: { assigned: number; limit: number };

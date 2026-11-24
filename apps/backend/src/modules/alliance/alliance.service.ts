@@ -22,6 +22,9 @@ import {
   AllianceDiplomacyManagementDto,
   AllianceDiplomacyCapabilitiesDto,
   AllianceMemberActionsDto,
+  AllianceMemberRoleDto,
+  AlliancePermission,
+  AllianceRoleDto,
   AllianceRelationshipChangeProposalDto,
   AllianceRelationshipContractDto,
   AllianceRelationshipPermissionsDto,
@@ -36,12 +39,13 @@ import {
   type SettlerDiplomacyManagementDto,
   type SettlerPublicDiplomacyDto,
   AllianceSummaryDto,
-  AllianceTitlesDto,
+  CreateAllianceRoleRequest,
   FoundAllianceRequest,
   LeaveAllianceResponse,
   ProposeAllianceRelationshipChangeRequest,
   ProposeAllianceRelationshipRequest,
   UpdateAllianceRequest,
+  UpdateAllianceRoleRequest,
 } from '@swuniverse/shared';
 import { chooseSuccessor } from './presidential-succession';
 import { MessagingService } from '../messaging/messaging.service';
@@ -61,11 +65,11 @@ import {
   ALLIANCE_TITLE_MIN,
 } from './alliance.constants';
 import {
-  ALLIANCE_MEMBER_ACTIONS,
-  AllianceAction,
-  AllianceMemberAction,
-  mayActOnAlliance,
-  mayActOnMember,
+  hasPermission,
+  heldPermissions,
+  isFounder,
+  mayHandleRole,
+  mayManageMember,
 } from './alliance-permissions';
 import { ONLINE_PLAYERS } from './online-players.port';
 import type { OnlinePlayersPort } from './online-players.port';
@@ -91,6 +95,7 @@ import type {
   AllianceDiplomacyChronicleEntryRecord,
   AlliancePatch,
   AllianceRecord,
+  AllianceRoleRecord,
   AllianceRelationshipChangeProposalRecord,
   AllianceRelationshipProposalRecord,
   AllianceRelationshipRecord,
@@ -101,25 +106,29 @@ import type {
   PlayerRecord,
 } from './alliance.store';
 
-const { NONE, PRESIDENT, VICE, DIPLOMAT } = AllianceRole;
+const P = AlliancePermission;
+/** Rights a role may carry; FOUNDER is never handed out through roles. */
+const ASSIGNABLE_PERMISSIONS = new Set<AlliancePermission>(
+  Object.values(P).filter((p) => p !== P.FOUNDER),
+);
 
-const ROLE_ORDER: Record<AllianceRole, number> = {
-  [PRESIDENT]: 0,
-  [VICE]: 1,
-  [DIPLOMAT]: 2,
-  [NONE]: 3,
-};
+/** Members by their first role's sort; members without role last. */
+function byRoleRank(a: MembershipRecord, b: MembershipRecord): number {
+  const rank = (m: MembershipRecord) =>
+    m.roles[0]?.sort ?? Number.POSITIVE_INFINITY;
+  return rank(a) - rank(b);
+}
 
-/** Office changes a member may receive via setRole, with the action they need. */
-const ROLE_CHANGE_ACTION = {
-  [VICE]: 'appointVice',
-  [DIPLOMAT]: 'appointDiplomat',
-  [NONE]: 'dismiss',
-} as const satisfies Partial<Record<AllianceRole, AllianceMemberAction>>;
+const isFounderRole = (role: AllianceRoleRecord) =>
+  role.permissions.includes(P.FOUNDER);
 
 const UNKNOWN_NAME = 'Unbekannt';
 
 const ERR = {
+  roleRights:
+    'Du kannst nur Rollen mit Rechten verwalten, die Du selbst besitzt',
+  roleNotFound: 'Rolle nicht gefunden',
+  invalidRole: 'Ungültige Rolle',
   alreadyMember: 'Du bist bereits Mitglied einer Allianz',
   notMember: 'Du bist in keiner Allianz',
   noFaction: 'Du musst zuerst eine Fraktion wählen',
@@ -329,7 +338,7 @@ export class AllianceService {
     };
   }
 
-  /** Internal chronicle: current members of the alliance only, else Not Found. */
+  /** Internal chronicle: members with VIEW_ALLIANCE_HISTORY; outsiders get Not Found. */
   async listChronicle(
     viewerId: number,
     allianceId: number,
@@ -339,6 +348,9 @@ export class AllianceService {
     const membership = await this.store.findMembership(viewerId);
     if (!membership || membership.allianceId !== allianceId) {
       throw new NotFoundException(ERR.allianceNotFound);
+    }
+    if (!hasPermission(membership, P.VIEW_ALLIANCE_HISTORY)) {
+      throw new ForbiddenException(ERR.forbidden);
     }
     const pageSize = Math.min(
       Math.max(limit ?? ALLIANCE_CHRONICLE_PAGE_DEFAULT, 1),
@@ -373,6 +385,7 @@ export class AllianceService {
       viewerMembership,
       application,
       relationships,
+      roles,
     ] = await Promise.all([
       this.store.listMemberships(allianceId),
       this.store.listFactions(),
@@ -380,45 +393,39 @@ export class AllianceService {
       this.store.findMembership(viewerId),
       this.store.findApplicationOf(allianceId, viewerId),
       this.store.listActiveRelationships(allianceId),
+      this.store.listRoles(allianceId),
     ]);
     const playersById = await this.playersById(
       memberships.map((membership) => membership.userId),
     );
-    const titles = this.titlesOf(alliance);
     const relationshipSummaries = await this.relationshipSummaries(
       allianceId,
       relationships,
     );
-    const ownRole =
-      viewerMembership?.allianceId === allianceId
-        ? viewerMembership.role
-        : null;
+    const own =
+      viewerMembership?.allianceId === allianceId ? viewerMembership : null;
 
     // Online status is internal: only members of this very alliance see it.
-    const onlineIds =
-      ownRole !== null
-        ? new Set(this.onlinePlayers?.onlineUserIds() ?? [])
-        : null;
+    const onlineIds = own
+      ? new Set(this.onlinePlayers?.onlineUserIds() ?? [])
+      : null;
 
-    const members = [...memberships]
-      .sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role])
-      .map((m) => {
-        const player = playersById.get(m.userId);
-        return {
-          userId: m.userId,
-          name: player?.name ?? UNKNOWN_NAME,
-          avatar: player?.avatar ?? null,
-          faction: this.playerFaction(player, factions),
-          role: m.role,
-          roleTitle: this.roleTitle(titles, m.role),
-          joinedAt: m.joinedAt.toISOString(),
-          actions: this.memberActions(ownRole, viewerId, m),
-          ...(onlineIds ? { online: onlineIds.has(m.userId) } : {}),
-        };
-      });
+    const members = [...memberships].sort(byRoleRank).map((m) => {
+      const player = playersById.get(m.userId);
+      return {
+        userId: m.userId,
+        name: player?.name ?? UNKNOWN_NAME,
+        avatar: player?.avatar ?? null,
+        faction: this.playerFaction(player, factions),
+        roles: this.memberRoles(m),
+        joinedAt: m.joinedAt.toISOString(),
+        actions: this.memberActions(own, m),
+        ...(onlineIds ? { online: onlineIds.has(m.userId) } : {}),
+      };
+    });
 
-    const may = (action: AllianceAction) =>
-      ownRole !== null && mayActOnAlliance(ownRole, action);
+    const may = (permission: AlliancePermission) =>
+      hasPermission(own, permission);
 
     return {
       ...this.toSummary(
@@ -432,14 +439,15 @@ export class AllianceService {
       description: alliance.description,
       renderedDescription: this.renderDescription(
         alliance,
-        members,
+        memberships,
+        playersById,
         relationshipSummaries,
       ),
-      titles,
+      roles: roles.map((role) => this.roleDto(own, role)),
       members,
       relationships: relationshipSummaries,
       viewer: {
-        role: ownRole,
+        permissions: own ? heldPermissions(own) : null,
         actions: {
           apply:
             !viewerMembership &&
@@ -447,17 +455,17 @@ export class AllianceService {
             alliance.acceptsApplications &&
             viewer?.factionId === alliance.factionId,
           withdrawApplication: !!application,
-          leave:
-            ownRole !== null &&
-            (ownRole !== PRESIDENT || memberships.length === 1),
-          editDetails: may('editDetails'),
-          manageApplications: may('manageApplications'),
-          dissolve: may('dissolve'),
-          manageDiplomacy: may('manageDiplomacy'),
-          readForum: ownRole !== null,
-          viewMemberOperations: may('viewMemberOperations'),
-          viewChronicle: ownRole !== null,
-          manageBanner: may('manageBanner'),
+          leave: !!own && (!isFounder(own) || memberships.length === 1),
+          editDetails: may(P.EDIT_ALLIANCE),
+          manageApplications: may(P.MANAGE_APPLICATIONS),
+          dissolve: may(P.FOUNDER),
+          manageDiplomacy:
+            may(P.CREATE_AGREEMENTS) || may(P.EDIT_DIPLOMATIC_DOCUMENTS),
+          readForum: !!own,
+          viewMemberOperations: may(P.VIEW_MEMBER_DATA),
+          viewChronicle: may(P.VIEW_ALLIANCE_HISTORY),
+          manageRoles: may(P.MANAGE_JOBS),
+          manageBanner: may(P.EDIT_ALLIANCE),
         },
       },
     };
@@ -617,7 +625,7 @@ export class AllianceService {
     await this.mutateDiplomacy(async (tx) => {
       // Player party before alliance, like a join, so the two cannot deadlock.
       await this.lockSettlerTarget(tx, targetPlayerId);
-      await this.lockedAllianceRight(tx, actorId, allianceId, 'declareWar');
+      await this.lockedAllianceRight(tx, actorId, allianceId, P.CREATE_AGREEMENTS);
       const actor = await this.loadParty(tx, allianceParty(allianceId));
       const target = await this.requireSettlerCounterparty(
         tx,
@@ -863,7 +871,7 @@ export class AllianceService {
       actorId,
       allianceId,
     );
-    if (!mayActOnAlliance(membership.role, 'manageDiplomacy')) {
+    if (!this.mayViewDiplomacy(membership)) {
       throw new ForbiddenException(ERR.forbidden);
     }
     return this.searchSettlersFor(
@@ -943,7 +951,7 @@ export class AllianceService {
         tx,
         actorId,
         allianceId,
-        'declareWar',
+        P.CREATE_AGREEMENTS,
       );
       if (allianceId === targetAllianceId) {
         throw new BadRequestException(
@@ -996,7 +1004,7 @@ export class AllianceService {
       actorId,
       allianceId,
     );
-    if (!mayActOnAlliance(membership.role, 'manageDiplomacy')) {
+    if (!this.mayViewDiplomacy(membership)) {
       throw new ForbiddenException(ERR.forbidden);
     }
 
@@ -1077,7 +1085,7 @@ export class AllianceService {
       actorId,
       allianceId,
     );
-    if (!mayActOnAlliance(membership.role, 'manageDiplomacy')) {
+    if (!this.mayViewDiplomacy(membership)) {
       throw new ForbiddenException(ERR.forbidden);
     }
     const proposals = await this.store.listRelationshipProposals(allianceId);
@@ -1094,7 +1102,7 @@ export class AllianceService {
       actorId,
       allianceId,
     );
-    if (!mayActOnAlliance(membership.role, 'manageDiplomacy')) {
+    if (!this.mayViewDiplomacy(membership)) {
       throw new ForbiddenException(ERR.forbidden);
     }
     const proposals =
@@ -1122,7 +1130,7 @@ export class AllianceService {
           tx,
           actorId,
           relationship,
-          'manageDiplomacy',
+          P.EDIT_DIPLOMATIC_DOCUMENTS,
         );
         const recipient = await this.loadParty(
           tx,
@@ -1174,7 +1182,7 @@ export class AllianceService {
         tx,
         actorId,
         proposal.recipientParty,
-        'manageDiplomacy',
+        P.EDIT_DIPLOMATIC_DOCUMENTS,
       );
       const relationship =
         await tx.acceptRelationshipChangeProposal(proposalId);
@@ -1215,7 +1223,7 @@ export class AllianceService {
         tx,
         actorId,
         proposal.recipientParty,
-        'manageDiplomacy',
+        P.EDIT_DIPLOMATIC_DOCUMENTS,
       );
       if (!(await tx.deleteRelationshipChangeProposal(proposalId))) {
         throw new NotFoundException(ERR.relationshipChangeProposalNotFound);
@@ -1244,7 +1252,7 @@ export class AllianceService {
         tx,
         actorId,
         proposal.senderParty,
-        'manageDiplomacy',
+        P.EDIT_DIPLOMATIC_DOCUMENTS,
       );
       if (!(await tx.deleteRelationshipChangeProposal(proposalId))) {
         throw new NotFoundException(ERR.relationshipChangeProposalNotFound);
@@ -1274,7 +1282,7 @@ export class AllianceService {
           tx,
           actorId,
           allianceId,
-          'manageDiplomacy',
+          P.CREATE_AGREEMENTS,
         );
         const sender = await this.loadParty(tx, allianceParty(allianceId));
         const recipient = await this.requireRecipient(tx, sender, request);
@@ -1298,7 +1306,7 @@ export class AllianceService {
         tx,
         actorId,
         relationship,
-        'manageDiplomacy',
+        P.CREATE_AGREEMENTS,
       );
       const counterpart = await this.loadParty(
         tx,
@@ -1336,7 +1344,7 @@ export class AllianceService {
         tx,
         actorId,
         proposal.recipientParty,
-        'manageDiplomacy',
+        P.CREATE_AGREEMENTS,
       );
       const activeRelationship = (
         await tx.listActiveRelationships(proposal.senderParty)
@@ -1389,7 +1397,7 @@ export class AllianceService {
         tx,
         actorId,
         proposal.recipientParty,
-        'manageDiplomacy',
+        P.CREATE_AGREEMENTS,
       );
       if (!(await tx.deleteRelationshipProposal(proposalId))) {
         throw new NotFoundException(ERR.relationshipProposalNotFound);
@@ -1415,7 +1423,7 @@ export class AllianceService {
         tx,
         actorId,
         proposal.senderParty,
-        'manageDiplomacy',
+        P.CREATE_AGREEMENTS,
       );
       if (!(await tx.deleteRelationshipProposal(proposalId))) {
         throw new NotFoundException(ERR.relationshipProposalNotFound);
@@ -1441,7 +1449,7 @@ export class AllianceService {
       actorId,
       allianceId,
     );
-    if (!mayActOnAlliance(membership.role, 'manageApplications')) {
+    if (!hasPermission(membership, P.MANAGE_APPLICATIONS)) {
       throw new ForbiddenException(ERR.forbidden);
     }
     const applications =
@@ -1486,7 +1494,7 @@ export class AllianceService {
           await tx.insertMembership({
             allianceId: created.id,
             userId,
-            role: PRESIDENT,
+            role: AllianceRole.PRESIDENT,
           });
         } catch (error) {
           if (error instanceof AllianceConstraintViolation) {
@@ -1580,7 +1588,7 @@ export class AllianceService {
         tx,
         actorId,
         application.allianceId,
-        'manageApplications',
+        P.MANAGE_APPLICATIONS,
       );
       if (await tx.findMembership(application.userId)) {
         throw new BadRequestException(ERR.applicantTaken);
@@ -1593,7 +1601,6 @@ export class AllianceService {
       await tx.insertMembership({
         allianceId: alliance.id,
         userId: application.userId,
-        role: NONE,
       });
       await this.appendAllianceChronicle(
         tx,
@@ -1639,7 +1646,7 @@ export class AllianceService {
         tx,
         actorId,
         application.allianceId,
-        'manageApplications',
+        P.MANAGE_APPLICATIONS,
       );
       if ((await tx.deleteApplications([application.id])) === 0) {
         throw new NotFoundException(ERR.applicationNotFound);
@@ -1663,7 +1670,7 @@ export class AllianceService {
       const own = members.find((m) => m.userId === userId);
       if (!own) throw new BadRequestException(ERR.notMember);
 
-      if (own.role === PRESIDENT) {
+      if (isFounder(own)) {
         if (members.length > 1) {
           throw new BadRequestException(
             'Du musst das Präsidentenamt zuerst übergeben, bevor Du die Allianz verlassen kannst',
@@ -1690,12 +1697,11 @@ export class AllianceService {
       );
     }
     const messages = await this.mutate(async (tx) => {
-      const alliance = await this.lockedMemberRight(
+      const { alliance } = await this.lockedMemberRight(
         tx,
         actorId,
         allianceId,
         targetId,
-        'kick',
       );
       await this.endMembership(tx, allianceId, targetId);
       await this.appendAllianceChronicle(
@@ -1721,7 +1727,7 @@ export class AllianceService {
         tx,
         actorId,
         allianceId,
-        'dissolve',
+        P.FOUNDER,
       );
       const members = await tx.listMemberships(allianceId);
       return this.dissolveAlliance(tx, alliance, members, actorId);
@@ -1874,7 +1880,7 @@ export class AllianceService {
       userId,
     );
     return members
-      .filter((m) => m.role === PRESIDENT || m.role === VICE)
+      .filter((m) => hasPermission(m, P.ALLIANCE_LEADERSHIP))
       .filter((m) => m.userId !== userId)
       .map((m) => ({
         to: m.userId,
@@ -1908,7 +1914,7 @@ export class AllianceService {
       const player = await tx.findPlayer(userId);
       await this.deleteApplicationsOf(tx, userId);
 
-      if (own.role !== PRESIDENT) {
+      if (!isFounder(own)) {
         return this.memberLeaves(tx, alliance, members, userId, player?.name);
       }
       const messages = await this.succeedPresident(
@@ -1950,7 +1956,7 @@ export class AllianceService {
     const successorId = chooseSuccessor(
       remaining.map((m) => ({
         userId: m.userId,
-        role: m.role,
+        permissions: heldPermissions(m),
         lastActiveAt: activity.get(m.userId) ?? null,
         joinedAt: m.joinedAt,
       })),
@@ -1959,10 +1965,14 @@ export class AllianceService {
       return this.dissolveAlliance(tx, alliance, members, presidentId);
     }
 
-    // Release the single-president slot first, then the successor takes it
-    // and drops its former office.
+    // Ending the membership frees the founder role; the successor keeps its
+    // other roles (STU keeps them as well).
+    const founderRole = await this.founderRole(tx, alliance.id);
     await this.endMembership(tx, alliance.id, presidentId);
-    await tx.setRole(alliance.id, successorId, PRESIDENT);
+    await tx.assignRole(
+      remaining.find((m) => m.userId === successorId)!.id,
+      founderRole.id,
+    );
     const successorName =
       players.find((p) => p.id === successorId)?.name ?? UNKNOWN_NAME;
     const previousName = presidentName ?? UNKNOWN_NAME;
@@ -1976,55 +1986,157 @@ export class AllianceService {
     );
     return remaining.map((m) => ({
       to: m.userId,
-      body: `Der ${alliance.presidentTitle} ${previousName} ist ausgeschieden. ${successorName} ist neuer ${alliance.presidentTitle} der Allianz ${alliance.name}`,
+      body: `Der ${founderRole.title} ${previousName} ist ausgeschieden. ${successorName} ist neuer ${founderRole.title} der Allianz ${alliance.name}`,
     }));
   }
 
-  // --- Offices ---
+  // --- Roles ---
 
-  async setRole(
+  async listRoles(
+    viewerId: number,
+    allianceId: number,
+  ): Promise<AllianceRoleDto[]> {
+    await this.requireAlliance(allianceId);
+    const own = await this.ownMembership(this.store, viewerId, allianceId);
+    const roles = await this.store.listRoles(allianceId);
+    return roles.map((role) => this.roleDto(own, role));
+  }
+
+  async createRole(
+    actorId: number,
+    allianceId: number,
+    request: CreateAllianceRoleRequest,
+  ): Promise<{ id: number }> {
+    const title = this.validateRoleTitle(request?.title);
+    const permissions = this.validateRolePermissions(request?.permissions);
+    return this.mutate(async (tx) => {
+      const { actor } = await this.lockedRoleRight(tx, actorId, allianceId);
+      if (!mayHandleRole(actor, { permissions })) {
+        throw new ForbiddenException(ERR.roleRights);
+      }
+      const roles = await tx.listRoles(allianceId);
+      const sort = Math.max(0, ...roles.map((r) => r.sort)) + 1;
+      const role = await tx.insertRole({
+        allianceId,
+        title,
+        sort,
+        permissions,
+      });
+      return { id: role.id };
+    });
+  }
+
+  async updateRole(
+    actorId: number,
+    allianceId: number,
+    roleId: number,
+    request: UpdateAllianceRoleRequest,
+  ): Promise<void> {
+    const patch: Parameters<AllianceStore['updateRole']>[1] = {};
+    if (request?.title !== undefined) {
+      patch.title = this.validateRoleTitle(request.title);
+    }
+    if (request?.permissions !== undefined) {
+      patch.permissions = this.validateRolePermissions(request.permissions);
+    }
+    if (request?.sort !== undefined) {
+      if (!Number.isInteger(request.sort) || Math.abs(request.sort) > 1e6) {
+        throw new BadRequestException(ERR.invalidRole);
+      }
+      patch.sort = request.sort;
+    }
+    await this.mutate(async (tx) => {
+      const { actor } = await this.lockedRoleRight(tx, actorId, allianceId);
+      const role = await this.requireRole(tx, allianceId, roleId);
+      // The founder role is fixed (STU `isEditable`), except for its name and place.
+      const changesRights = patch.permissions !== undefined;
+      const allowed = isFounderRole(role)
+        ? !changesRights && isFounder(actor)
+        : mayHandleRole(actor, role) &&
+          mayHandleRole(actor, { permissions: patch.permissions ?? [] });
+      if (!allowed) throw new ForbiddenException(ERR.roleRights);
+      await tx.updateRole(roleId, patch);
+      return [];
+    });
+  }
+
+  async deleteRole(
+    actorId: number,
+    allianceId: number,
+    roleId: number,
+  ): Promise<void> {
+    await this.mutate(async (tx) => {
+      const { actor } = await this.lockedRoleRight(tx, actorId, allianceId);
+      const role = await this.requireRole(tx, allianceId, roleId);
+      if (isFounderRole(role) || !mayHandleRole(actor, role)) {
+        throw new ForbiddenException(ERR.roleRights);
+      }
+      await tx.deleteRole(roleId);
+      return [];
+    });
+  }
+
+  async assignRole(
     actorId: number,
     allianceId: number,
     targetId: number,
-    role: AllianceRole,
+    roleId: number,
   ): Promise<void> {
-    const action = ROLE_CHANGE_ACTION[role as keyof typeof ROLE_CHANGE_ACTION];
-    if (!action) {
-      throw new BadRequestException(
-        'Das Präsidentenamt kann nur übergeben werden',
-      );
-    }
+    await this.changeMemberRole(actorId, allianceId, targetId, roleId, true);
+  }
+
+  async unassignRole(
+    actorId: number,
+    allianceId: number,
+    targetId: number,
+    roleId: number,
+  ): Promise<void> {
+    await this.changeMemberRole(actorId, allianceId, targetId, roleId, false);
+  }
+
+  /** Protection rule of ADR 0001 applies to the member and the role alike. */
+  private async changeMemberRole(
+    actorId: number,
+    allianceId: number,
+    targetId: number,
+    roleId: number,
+    assigned: boolean,
+  ): Promise<void> {
     if (actorId === targetId) {
-      throw new BadRequestException('Du kannst Dein eigenes Amt nicht ändern');
+      throw new BadRequestException('Du kannst Deine eigenen Rollen nicht ändern');
     }
     const messages = await this.mutate(async (tx) => {
-      const alliance = await this.lockedMemberRight(
+      const { alliance, actor, target } = await this.lockedMemberRight(
         tx,
         actorId,
         allianceId,
         targetId,
-        action,
       );
-      const previous = await tx.findMembership(targetId);
-      await tx.setRole(allianceId, targetId, role);
+      const role = await this.requireRole(tx, allianceId, roleId);
+      if (!mayHandleRole(actor, role)) {
+        throw new ForbiddenException(ERR.roleRights);
+      }
+      const holds = target.roles.some((r) => r.id === roleId);
+      if (holds === assigned) return [];
+      if (assigned) {
+        await tx.assignRole(target.id, roleId);
+      } else {
+        await tx.unassignRole(target.id, roleId);
+      }
       await this.appendAllianceChronicle(
         tx,
         allianceId,
         AllianceChronicleEventType.ROLE_CHANGED,
         actorId,
         targetId,
-        {
-          previousRole: previous?.role ?? NONE,
-          newRole: role,
-        },
+        { roleTitle: role.title, assigned },
       );
       return [
         {
           to: targetId,
-          body:
-            role === NONE
-              ? `Du wurdest von Deinem Amt in der Allianz ${alliance.name} entbunden`
-              : `Du wurdest zum ${this.roleTitle(this.titlesOf(alliance), role)} der Allianz ${alliance.name} ernannt`,
+          body: assigned
+            ? `Du wurdest zum ${role.title} der Allianz ${alliance.name} ernannt`
+            : `Du wurdest von der Rolle ${role.title} in der Allianz ${alliance.name} entbunden`,
         },
       ];
     });
@@ -2040,29 +2152,29 @@ export class AllianceService {
       throw new BadRequestException('Du bist bereits Präsident');
     }
     const messages = await this.mutate(async (tx) => {
-      const alliance = await this.lockedMemberRight(
-        tx,
-        actorId,
-        allianceId,
-        targetId,
-        'transferPresidency',
-      );
-      const previous = await tx.findMembership(targetId);
-      // Demote first: the partial unique index allows one president only.
-      await tx.setRole(allianceId, actorId, NONE);
-      await tx.setRole(allianceId, targetId, PRESIDENT);
+      const alliance = await this.lockedAlliance(tx, allianceId);
+      const actor = await this.ownMembership(tx, actorId, allianceId);
+      const target = await tx.findMembership(targetId);
+      if (!target || target.allianceId !== allianceId) {
+        throw new NotFoundException(ERR.memberNotFound);
+      }
+      if (!isFounder(actor)) throw new ForbiddenException(ERR.forbidden);
+      const founderRole = await this.founderRole(tx, allianceId);
+      // Release first: the partial unique index allows one holder only.
+      await tx.unassignRole(actor.id, founderRole.id);
+      await tx.assignRole(target.id, founderRole.id);
       await this.appendAllianceChronicle(
         tx,
         allianceId,
         AllianceChronicleEventType.PRESIDENCY_TRANSFERRED,
         actorId,
         targetId,
-        { previousRole: previous?.role ?? NONE },
+        { previousRoles: target.roles.map((r) => r.title) },
       );
       return [
         {
           to: targetId,
-          body: `Du wurdest zum ${alliance.presidentTitle} der Allianz ${alliance.name} ernannt`,
+          body: `Du wurdest zum ${founderRole.title} der Allianz ${alliance.name} ernannt`,
         },
       ];
     });
@@ -2090,12 +2202,6 @@ export class AllianceService {
     if (request.color !== undefined) {
       patch.color = this.validateColor(request.color);
     }
-    if (request.titles !== undefined) {
-      const titles = this.validateTitles(request.titles);
-      patch.presidentTitle = titles.president;
-      patch.viceTitle = titles.vice;
-      patch.diplomatTitle = titles.diplomat;
-    }
     if (request.acceptsApplications !== undefined) {
       patch.acceptsApplications = request.acceptsApplications === true;
     }
@@ -2105,7 +2211,7 @@ export class AllianceService {
         tx,
         actorId,
         allianceId,
-        'editDetails',
+        P.EDIT_ALLIANCE,
       );
       if (
         patch.name !== undefined &&
@@ -2399,7 +2505,7 @@ export class AllianceService {
     tx: AllianceStore,
     actorId: number,
     pair: { firstParty: PartyRef; secondParty: PartyRef },
-    action: AllianceAction,
+    action: AlliancePermission,
   ): Promise<PartyContext> {
     const membership = await tx.findMembership(actorId);
     const own = membership
@@ -2516,33 +2622,80 @@ export class AllianceService {
     tx: AllianceStore,
     actorId: number,
     allianceId: number,
-    action: AllianceAction,
+    permission: AlliancePermission,
   ): Promise<AllianceRecord> {
     const alliance = await this.lockedAlliance(tx, allianceId);
     const membership = await this.ownMembership(tx, actorId, allianceId);
-    if (!mayActOnAlliance(membership.role, action)) {
+    if (!hasPermission(membership, permission)) {
       throw new ForbiddenException(ERR.forbidden);
     }
     return alliance;
   }
 
+  /** Kick and role changes: MANAGE_JOBS plus the protection rule. */
   private async lockedMemberRight(
     tx: AllianceStore,
     actorId: number,
     allianceId: number,
     targetId: number,
-    action: AllianceMemberAction,
-  ): Promise<AllianceRecord> {
+  ): Promise<{
+    alliance: AllianceRecord;
+    actor: MembershipRecord;
+    target: MembershipRecord;
+  }> {
     const alliance = await this.lockedAlliance(tx, allianceId);
     const actor = await this.ownMembership(tx, actorId, allianceId);
     const target = await tx.findMembership(targetId);
     if (!target || target.allianceId !== allianceId) {
       throw new NotFoundException(ERR.memberNotFound);
     }
-    if (!mayActOnMember(actor.role, action, target.role)) {
+    if (!mayManageMember(actor, target)) {
       throw new ForbiddenException(ERR.forbidden);
     }
-    return alliance;
+    return { alliance, actor, target };
+  }
+
+  private async lockedRoleRight(
+    tx: AllianceStore,
+    actorId: number,
+    allianceId: number,
+  ): Promise<{ alliance: AllianceRecord; actor: MembershipRecord }> {
+    const alliance = await this.lockedAllianceRight(
+      tx,
+      actorId,
+      allianceId,
+      P.MANAGE_JOBS,
+    );
+    return { alliance, actor: await this.ownMembership(tx, actorId, allianceId) };
+  }
+
+  private async requireRole(
+    tx: AllianceStore,
+    allianceId: number,
+    roleId: number,
+  ): Promise<AllianceRoleRecord> {
+    const role = await tx.findRole(roleId);
+    if (!role || role.allianceId !== allianceId) {
+      throw new NotFoundException(ERR.roleNotFound);
+    }
+    return role;
+  }
+
+  private async founderRole(
+    tx: AllianceStore,
+    allianceId: number,
+  ): Promise<AllianceRoleRecord> {
+    const role = (await tx.listRoles(allianceId)).find(isFounderRole);
+    if (!role) throw new Error(`Alliance ${allianceId} has no founder role`);
+    return role;
+  }
+
+  /** Viewing the diplomacy area needs either diplomatic right. */
+  private mayViewDiplomacy(membership: MembershipRecord): boolean {
+    return (
+      hasPermission(membership, P.CREATE_AGREEMENTS) ||
+      hasPermission(membership, P.EDIT_DIPLOMATIC_DOCUMENTS)
+    );
   }
 
   private async playersById(ids: number[]): Promise<Map<number, PlayerRecord>> {
@@ -2561,29 +2714,51 @@ export class AllianceService {
     );
   }
 
-  /** President and all vices: recipients of applications and departures. */
+  /** Alliance leadership (ALLIANCE_LEADERSHIP): recipients of applications and departures. */
   private async leaderIds(
     allianceId: number,
     store: AllianceStore = this.store,
   ): Promise<number[]> {
     const members = await store.listMemberships(allianceId);
     return members
-      .filter((m) => m.role === PRESIDENT || m.role === VICE)
+      .filter((m) => hasPermission(m, P.ALLIANCE_LEADERSHIP))
       .map((m) => m.userId);
   }
 
   private memberActions(
-    viewerRole: AllianceRole | null,
-    viewerId: number,
+    viewer: MembershipRecord | null,
     target: MembershipRecord,
   ): AllianceMemberActionsDto {
-    const allowed = (action: AllianceMemberAction) =>
-      viewerRole !== null &&
-      target.userId !== viewerId &&
-      mayActOnMember(viewerRole, action, target.role);
-    return Object.fromEntries(
-      ALLIANCE_MEMBER_ACTIONS.map((action) => [action, allowed(action)]),
-    ) as unknown as AllianceMemberActionsDto;
+    const manage = !!viewer && mayManageMember(viewer, target);
+    return {
+      kick: manage,
+      editRoles: manage,
+      transferPresidency:
+        !!viewer && viewer.userId !== target.userId && isFounder(viewer),
+    };
+  }
+
+  private memberRoles(member: MembershipRecord): AllianceMemberRoleDto[] {
+    return member.roles.map(({ id, title, sort }) => ({ id, title, sort }));
+  }
+
+  private roleDto(
+    viewer: MembershipRecord | null,
+    role: AllianceRoleRecord,
+  ): AllianceRoleDto {
+    const handle = !!viewer && mayHandleRole(viewer, role);
+    return {
+      id: role.id,
+      title: role.title,
+      sort: role.sort,
+      permissions: [...role.permissions],
+      founder: isFounderRole(role),
+      actions: {
+        edit: isFounderRole(role) ? isFounder(viewer) : handle,
+        delete: handle,
+        assign: handle,
+      },
+    };
   }
 
   private declinedMessage(
@@ -2740,7 +2915,6 @@ export class AllianceService {
       ['description', ['description']],
       ['homepage', ['homepage']],
       ['color', ['color']],
-      ['titles', ['presidentTitle', 'viceTitle', 'diplomatTitle']],
       ['acceptsApplications', ['acceptsApplications']],
     ];
     return fields.filter(([, keys]) => differs(keys)).map(([name]) => name);
@@ -2804,7 +2978,7 @@ export class AllianceService {
     tx: AllianceStore,
     actorId: number,
     ref: PartyRef,
-    action: AllianceAction,
+    action: AlliancePermission,
   ): Promise<PartyContext> {
     if (isAllianceParty(ref)) {
       await this.lockedAllianceRight(tx, actorId, ref.id, action);
@@ -2898,30 +3072,6 @@ export class AllianceService {
     );
   }
 
-  private titlesOf(alliance: AllianceRecord): AllianceTitlesDto {
-    return {
-      president: alliance.presidentTitle,
-      vice: alliance.viceTitle,
-      diplomat: alliance.diplomatTitle,
-    };
-  }
-
-  private roleTitle(
-    titles: AllianceTitlesDto,
-    role: AllianceRole,
-  ): string | null {
-    switch (role) {
-      case PRESIDENT:
-        return titles.president;
-      case VICE:
-        return titles.vice;
-      case DIPLOMAT:
-        return titles.diplomat;
-      default:
-        return null;
-    }
-  }
-
   private bannerDto(alliance: AllianceRecord): AllianceBannerDto | null {
     if (!alliance.bannerKey || !alliance.bannerUpdatedAt) return null;
     return {
@@ -2933,17 +3083,25 @@ export class AllianceService {
   /** STU §9.3: placeholders are replaced on read; unknown ones are removed. */
   private renderDescription(
     alliance: AllianceRecord,
-    members: Array<{ name: string; role: AllianceRole }>,
+    members: MembershipRecord[],
+    playersById: Map<number, PlayerRecord>,
     relationships: AllianceRelationshipSummaryDto[],
   ): string {
-    const holder = (role: AllianceRole) =>
-      members.find((m) => m.role === role)?.name ?? 'Unbesetzt';
+    // STU: the first holder of a role carrying that parent right as stored.
+    const holder = (permission: AlliancePermission) => {
+      const member = [...members]
+        .sort(byRoleRank)
+        .find((m) => heldPermissions(m).includes(permission));
+      return member
+        ? (playersById.get(member.userId)?.name ?? UNKNOWN_NAME)
+        : 'Unbesetzt';
+    };
     const banner = this.bannerDto(alliance);
     const values: Record<string, string> = {
       $ALLIANCE_BANNER: banner ? `[img]${banner.url}[/img]` : '',
-      $ALLIANCE_PRESIDENT: holder(PRESIDENT),
-      $ALLIANCE_VICEPRESIDENT: holder(VICE),
-      $ALLIANCE_FOREIGNMINISTER: holder(DIPLOMAT),
+      $ALLIANCE_PRESIDENT: holder(P.FOUNDER),
+      $ALLIANCE_VICEPRESIDENT: holder(P.SUCCESSOR),
+      $ALLIANCE_FOREIGNMINISTER: holder(P.DIPLOMATIC),
       $ALLIANCE_HOMEPAGE_LINK: alliance.homepage
         ? `[url=${alliance.homepage}]Zur Allianz-Homepage[/url]`
         : '',
@@ -3043,21 +3201,23 @@ export class AllianceService {
     return color;
   }
 
-  private validateTitles(raw: AllianceTitlesDto): AllianceTitlesDto {
-    const titles = {
-      president: typeof raw?.president === 'string' ? raw.president.trim() : '',
-      vice: typeof raw?.vice === 'string' ? raw.vice.trim() : '',
-      diplomat: typeof raw?.diplomat === 'string' ? raw.diplomat.trim() : '',
-    };
-    if (
-      Object.values(titles).some(
-        (t) => t.length < ALLIANCE_TITLE_MIN || t.length > ALLIANCE_TITLE_MAX,
-      )
-    ) {
+  private validateRoleTitle(raw: unknown): string {
+    const title = typeof raw === 'string' ? raw.trim() : '';
+    if (title.length < ALLIANCE_TITLE_MIN || title.length > ALLIANCE_TITLE_MAX) {
       throw new BadRequestException(
-        `Alle Amtstitel müssen ${ALLIANCE_TITLE_MIN} bis ${ALLIANCE_TITLE_MAX} Zeichen lang sein`,
+        `Der Rollentitel muss ${ALLIANCE_TITLE_MIN} bis ${ALLIANCE_TITLE_MAX} Zeichen lang sein`,
       );
     }
-    return titles;
+    return title;
+  }
+
+  private validateRolePermissions(raw: unknown): AlliancePermission[] {
+    if (
+      !Array.isArray(raw) ||
+      raw.some((p) => !ASSIGNABLE_PERMISSIONS.has(p as AlliancePermission))
+    ) {
+      throw new BadRequestException(ERR.invalidRole);
+    }
+    return [...new Set(raw as AlliancePermission[])];
   }
 }

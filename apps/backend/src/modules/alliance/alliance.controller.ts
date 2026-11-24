@@ -25,7 +25,8 @@ import type {
   SetForumTopicImportantRequest,
   ProposeAllianceRelationshipRequest,
   ProposeSettlerRelationshipRequest,
-  SetAllianceRoleRequest,
+  CreateAllianceRoleRequest,
+  UpdateAllianceRoleRequest,
   UpdateForumPostRequest,
   UpdateAllianceRequest,
 } from '@swuniverse/shared';
@@ -575,7 +576,6 @@ export class AllianceController {
       homepage: body?.homepage,
       color: body?.color,
       acceptsApplications: body?.acceptsApplications,
-      titles: body?.titles,
     });
   }
 
@@ -614,14 +614,67 @@ export class AllianceController {
     return this.allianceService.kick(req.user.sub, id, userId);
   }
 
-  @Put(':id/members/:userId/role')
-  setRole(
+  @Get(':id/roles')
+  listRoles(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.allianceService.listRoles(req.user.sub, id);
+  }
+
+  @Post(':id/roles')
+  createRole(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: CreateAllianceRoleRequest,
+  ) {
+    return this.allianceService.createRole(req.user.sub, id, {
+      title: body?.title,
+      permissions: body?.permissions,
+    });
+  }
+
+  @Patch(':id/roles/:roleId')
+  updateRole(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('roleId', ParseIntPipe) roleId: number,
+    @Body() body: UpdateAllianceRoleRequest,
+  ) {
+    return this.allianceService.updateRole(req.user.sub, id, roleId, {
+      title: body?.title,
+      sort: body?.sort,
+      permissions: body?.permissions,
+    });
+  }
+
+  @Delete(':id/roles/:roleId')
+  deleteRole(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('roleId', ParseIntPipe) roleId: number,
+  ) {
+    return this.allianceService.deleteRole(req.user.sub, id, roleId);
+  }
+
+  @Put(':id/members/:userId/roles/:roleId')
+  assignRole(
     @Request() req: AuthRequest,
     @Param('id', ParseIntPipe) id: number,
     @Param('userId', ParseIntPipe) userId: number,
-    @Body() body: SetAllianceRoleRequest,
+    @Param('roleId', ParseIntPipe) roleId: number,
   ) {
-    return this.allianceService.setRole(req.user.sub, id, userId, body?.role);
+    return this.allianceService.assignRole(req.user.sub, id, userId, roleId);
+  }
+
+  @Delete(':id/members/:userId/roles/:roleId')
+  unassignRole(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Param('roleId', ParseIntPipe) roleId: number,
+  ) {
+    return this.allianceService.unassignRole(req.user.sub, id, userId, roleId);
   }
 
   @Post(':id/members/:userId/transfer-presidency')
