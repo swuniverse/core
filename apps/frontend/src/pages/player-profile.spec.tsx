@@ -21,6 +21,17 @@ vi.mock('../services/api', async (importOriginal) => {
   };
 });
 
+// Profile pages without alliance also load settler diplomacy; answer it with an empty DTO.
+function mockProfile<T extends { id: number }>(profile: T) {
+  apiMocks.get.mockImplementation((url: string) =>
+    Promise.resolve(
+      url.includes('/diplomacy')
+        ? { playerId: profile.id, name: '', relationships: [], entries: [], nextCursor: null }
+        : profile,
+    ),
+  );
+}
+
 function renderProfile(initialEntry = '/players/1') {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
@@ -180,7 +191,7 @@ describe('PlayerProfilePage', () => {
   });
 
   it('does not offer a quick message on the own profile', async () => {
-    apiMocks.get.mockResolvedValue({
+    mockProfile({
       id: 7,
       username: 'tester',
       displayName: 'Tester',
@@ -208,7 +219,7 @@ describe('PlayerProfilePage', () => {
   });
 
   it('groups scanned ship logbooks per spacecraft and expands them', async () => {
-    apiMocks.get.mockResolvedValue({
+    mockProfile({
       id: 1,
       username: 'vader',
       displayName: 'Vader',
@@ -254,7 +265,7 @@ describe('PlayerProfilePage', () => {
   });
 
   it('renders friends as linked avatars with their names as titles', async () => {
-    apiMocks.get.mockResolvedValue({
+    mockProfile({
       id: 1,
       username: 'leia',
       displayName: null,
@@ -318,7 +329,7 @@ describe('PlayerProfilePage', () => {
   });
 
   it('renders nonzero RPG behavior with its exact STU text and links all plots', async () => {
-    apiMocks.get.mockResolvedValue({
+    mockProfile({
       id: 1, username: 'leia', displayName: null, avatar: null,
       description: null, faction: 'REBEL_ALLIANCE', factionName: 'Rebellenallianz',
       prestige: 0, colonies: 0, ships: 0, completedResearch: 0,
@@ -339,7 +350,7 @@ describe('PlayerProfilePage', () => {
   });
 
   it('omits unset RPG behavior and shows the exact empty plot state', async () => {
-    apiMocks.get.mockResolvedValue({
+    mockProfile({
       id: 1, username: 'leia', displayName: null, avatar: null,
       description: null, faction: 'REBEL_ALLIANCE', factionName: 'Rebellenallianz',
       prestige: 0, colonies: 0, ships: 0, completedResearch: 0,
@@ -355,7 +366,7 @@ describe('PlayerProfilePage', () => {
   });
 
   it('renders awards with descriptions and repeat counts', async () => {
-    apiMocks.get.mockResolvedValue({
+    mockProfile({
       id: 1,
       username: 'leia',
       displayName: null,
@@ -392,7 +403,7 @@ describe('PlayerProfilePage', () => {
   });
 
   it('renders empty awards and friends boxes', async () => {
-    apiMocks.get.mockResolvedValue({
+    mockProfile({
       id: 1,
       username: 'leia',
       displayName: null,
@@ -420,7 +431,7 @@ describe('PlayerProfilePage', () => {
   });
 
   it('links the player’s alliance', async () => {
-    apiMocks.get.mockResolvedValue({
+    mockProfile({
       id: 1,
       username: 'vader',
       displayName: null,

@@ -4,7 +4,7 @@
   "license": "MIT",
   "description": "Star Wars Universe — A tick-based strategy browser game",
   "scripts": {
-    "dev": "nx run-many --target=serve --projects=backend,frontend --parallel",
+    "dev": "node scripts/preview-dev.mjs",
     "build": "nx run-many --target=build --all",
     "test": "nx run-many --target=test --all",
     "lint": "nx run-many --target=lint --all",
