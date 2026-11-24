@@ -12,6 +12,7 @@ import { ShipControlCenter } from '../components/spacecraft/ShipControlCenter';
 import { ReactorPanel } from '../components/spacecraft/ReactorPanel';
 import { TractorBeamPanel } from '../components/spacecraft/TractorBeamPanel';
 import { FleetStatusPanel } from '../components/spacecraft/FleetStatusPanel';
+import { FleetControlPanel } from '../components/spacecraft/FleetControlPanel';
 import { SpacecraftMessageBar } from '../components/spacecraft/SpacecraftMessageBar';
 import { ShipStoragePanel } from '../components/spacecraft/ShipStoragePanel';
 import { NearbySensorPanel } from '../components/spacecraft/NearbySensorPanel';
@@ -236,6 +237,14 @@ export function SpacecraftDetailPage() {
             systems={ship.runtimeSystems}
             onUpdate={refreshShipAndStorage}
             alertState={ship.alertState}
+          />
+          <FleetControlPanel
+            shipId={ship.id}
+            fleetId={ship.fleetId ?? null}
+            fleetLeaderId={ship.fleetLeaderId ?? null}
+            hasWarpdrive={ship.runtimeSystems?.WARPDRIVE != null}
+            inSystem={ship.location.scope === 'SYSTEM'}
+            onUpdate={refreshShipAndStorage}
           />
           <FieldContextPanel
             shipId={ship.id}
