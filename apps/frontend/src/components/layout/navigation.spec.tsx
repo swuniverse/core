@@ -4,7 +4,7 @@ import { vi } from 'vitest';
 import { BottomNav } from './bottom-nav';
 import { Sidebar } from './sidebar';
 
-let user: { isAdmin?: boolean; username?: string } | null = null;
+let user: { isAdmin?: boolean; username?: string; hasStationsNavigation?: boolean } | null = null;
 
 vi.mock('../../stores/auth.store', () => ({
   useAuthStore: (selector: (state: object) => unknown) =>
@@ -105,5 +105,29 @@ describe('navigation icons', () => {
     expect(screen.getAllByRole('link', { name: 'Admin' })).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Mehr' }));
     expect(screen.getAllByRole('link', { name: 'Admin' })).toHaveLength(2);
+  });
+  it('shows "Stationen" only once stations are available like STU', () => {
+    user = { username: 'Han' };
+    const { unmount } = render(
+      <MemoryRouter>
+        <Sidebar />
+        <BottomNav />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Mehr' }));
+    expect(screen.queryByRole('link', { name: 'Stationen' })).toBeNull();
+    unmount();
+
+    user = { username: 'Han', hasStationsNavigation: true };
+    render(
+      <MemoryRouter>
+        <Sidebar />
+        <BottomNav />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Mehr' }));
+    const links = screen.getAllByRole('link', { name: 'Stationen' });
+    expect(links).toHaveLength(2);
+    expect(links[0].getAttribute('href')).toBe('/stations');
   });
 });

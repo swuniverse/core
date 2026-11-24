@@ -89,6 +89,8 @@ export interface UserProfile {
   permissions?: string[];
   createdAt: string;
   deletionMark?: AccountDeletionMark;
+  /** STU: the "Stationen" menu entry; delivered by GET /auth/me. */
+  hasStationsNavigation?: boolean;
 }
 
 export interface JwtPayload {

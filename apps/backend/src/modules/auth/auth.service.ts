@@ -385,7 +385,32 @@ export class AuthService {
       emailVerificationSentAt,
       ...profile
     } = user;
-    return profile;
+    return {
+      ...profile,
+      hasStationsNavigation: await this.hasStationsNavigation(user),
+    };
+  }
+
+  /**
+   * STU GameTwigRenderer::hasStationsNavigation (NPC, station research award,
+   * crew on a foreign station). SWU also counts own stations because no
+   * research grants RESEARCH_STATIONS yet.
+   */
+  private async hasStationsNavigation(user: Pick<User, 'id' | 'isNpc'>): Promise<boolean> {
+    if (user.isNpc) return true;
+    const [row] = (await this.dataSource.query(
+      `SELECT (
+         EXISTS (SELECT 1 FROM user_awards WHERE "userId" = $1 AND "awardKey" = 'RESEARCH_STATIONS')
+         OR EXISTS (SELECT 1 FROM spacecraft WHERE "userId" = $1 AND kind = 'STATION' AND status <> 'DESTROYED')
+         OR EXISTS (
+           SELECT 1 FROM crew_assignments crew
+           JOIN spacecraft station ON station.id = crew."spacecraftId"
+           WHERE crew."userId" = $1 AND station.kind = 'STATION' AND station."userId" <> $1
+         )
+       ) AS visible`,
+      [user.id],
+    )) as Array<{ visible: boolean }>;
+    return row?.visible === true;
   }
 
   private async acquireRegistrationLock(manager: EntityManager): Promise<void> {

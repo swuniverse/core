@@ -34,9 +34,14 @@ export function BottomNav() {
     setMoreOpen(false);
   }, [location.pathname]);
 
+  // STU: "Stationen" only once stations are available to the player.
+  const stationItems =
+    user?.hasStationsNavigation || user?.isAdmin
+      ? [{ label: 'Stationen', path: '/stations', icon: 'station' }]
+      : [];
   const allMoreItems = user?.isAdmin
-    ? [...moreItems, { label: 'Admin', path: '/admin', icon: 'admin' }]
-    : moreItems;
+    ? [...stationItems, ...moreItems, { label: 'Admin', path: '/admin', icon: 'admin' }]
+    : [...stationItems, ...moreItems];
 
   return (
     <>
