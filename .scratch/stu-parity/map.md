@@ -402,7 +402,7 @@ SWU bietet alle spielerseitigen Funktionen und die UI/UX-Informationsdichte von 
 - sc-WP-COMBAT-3 – Kampfprestige, intakte Module im Wrack und globale Zerstörungshistory – siehe Feature-Commit
 - sc-WP-CLEAN-1 – Freie Modulinstallation, -aufrüstung und -entfernung aus der Spieler-API entfernt – siehe Feature-Commit
 - sc-WP-CREW-1 – Crewposten, Crewdetails und Umbenennen am Schiff umgesetzt – siehe Feature-Commit
-- sc-WP-CREW-2 – Persistente Crew-Expertise, zehn Ränge, Ereignisquellen und limitierte Beförderungen umgesetzt – siehe Feature-Commit
+- sc-WP-CREW-2 – Persistente Crew-Expertise, zehn Ränge, Ereignisquellen und limitierte Beförderungen umgesetzt – siehe Feature-Commit; Ereignisquelle `MAINTENANCE_TICK` mit sh-AUD-11a (Wartungshandler `crew-experience`) umgesetzt
 - sc-WP-ENG-3 – Eigenreparatur mit Ersatzteilen, Systemkomponenten, Tick-Abschluss und Flugabbruch umgesetzt – siehe Feature-Commit
 - sc-WP-ENG-3b – Bedingungslose passive Modulreparatur aus dem Schiffstick entfernt – siehe Feature-Commit
 - sc-WP-ENG-6a – Lebenserhaltung evakuiert Schiffscrew; globale Crewlimits greifen kolonieweise und danach schiffsweise – siehe Feature-Commit

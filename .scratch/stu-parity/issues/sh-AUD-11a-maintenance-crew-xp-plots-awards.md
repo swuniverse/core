@@ -1,6 +1,6 @@
 # Maintenance: täglicher Crew-XP-Tick, leere RPG-Plots löschen, fehlende Awards nachtragen
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -38,12 +38,12 @@ Die tägliche Wartung (3 Uhr) hat in SWU 7 Handler, STU registriert 22. Drei spi
 
 ## Akzeptanzkriterien
 
-- [ ] Neuer Handler `crew-experience` löst täglich `MAINTENANCE_TICK` für jedes Spieler-Spacecraft aus, das die STU-Auswahl erfüllt (kein NPC; Crew an Bord oder im Bau/Abwracken oder Bauplan ohne Crewbedarf; Besitzer nicht in wirksamem Urlaub nach `isVacationEffective`). Verarbeitung in Batches.
-- [ ] Neuer Handler `empty-rpg-plots` löscht Plots mit Start älter als 7 Tage und ohne HoloNet-Beitrag mit `plotId`; Mitglieder samt Systemnachricht wie STU (deutsch).
-- [ ] Neuer Handler `missing-awards` ruft für jeden Nicht-NPC-Spieler `checkCompletion` je Award-Kategorie auf (Sternsysteme je Ebene); vergibt nur fehlende Awards, keine doppelten Prestige-Gutschriften.
-- [ ] Alle drei Handler sind in `MAINTENANCE_HANDLERS` registriert, liefern eine Zusammenfassung für die Laufhistorie und brechen bei Fehler eines Einzelobjekts nicht den ganzen Lauf ab.
-- [ ] `map.md`/sc-WP-CREW-2: Ereignisquelle `MAINTENANCE_TICK` als umgesetzt vermerken.
-- [ ] Backend-Tests: Crew-XP für bemanntes Schiff, nicht für NPC, nicht bei Urlaub > 48 h, wohl bei Urlaub < 48 h; Plot ohne Beitrag > 7 Tage gelöscht samt Nachricht, Plot mit Beitrag oder jünger bleibt; fehlender Award wird nachgetragen, vorhandener nicht doppelt (PostgreSQL-Integrationstest für Award und Plot).
+- [x] Neuer Handler `crew-experience` löst täglich `MAINTENANCE_TICK` für jedes Spieler-Spacecraft aus, das die STU-Auswahl erfüllt (kein NPC; Crew an Bord oder im Bau/Abwracken oder Bauplan ohne Crewbedarf; Besitzer nicht in wirksamem Urlaub nach `isVacationEffective`). Verarbeitung in Batches.
+- [x] Neuer Handler `empty-rpg-plots` löscht Plots mit Start älter als 7 Tage und ohne HoloNet-Beitrag mit `plotId`; Mitglieder samt Systemnachricht wie STU (deutsch).
+- [x] Neuer Handler `missing-awards` ruft für jeden Nicht-NPC-Spieler `checkCompletion` je Award-Kategorie auf (Sternsysteme je Ebene); vergibt nur fehlende Awards, keine doppelten Prestige-Gutschriften.
+- [x] Alle drei Handler sind in `MAINTENANCE_HANDLERS` registriert, liefern eine Zusammenfassung für die Laufhistorie und brechen bei Fehler eines Einzelobjekts nicht den ganzen Lauf ab.
+- [x] `map.md`/sc-WP-CREW-2: Ereignisquelle `MAINTENANCE_TICK` als umgesetzt vermerken.
+- [x] Backend-Tests: Crew-XP für bemanntes Schiff, nicht für NPC, nicht bei Urlaub > 48 h, wohl bei Urlaub < 48 h; Plot ohne Beitrag > 7 Tage gelöscht samt Nachricht, Plot mit Beitrag oder jünger bleibt; fehlender Award wird nachgetragen, vorhandener nicht doppelt (PostgreSQL-Integrationstest für Award und Plot).
 
 ## Herkunft
 
@@ -52,3 +52,16 @@ Die tägliche Wartung (3 Uhr) hat in SWU 7 Handler, STU registriert 22. Drei spi
 - PO-Linie 2026-11-17 „wie STU“. sc-WP-CREW-2 ist resolved („Ereignisquellen“), die Quelle `MAINTENANCE_TICK` fehlt aber.
 
 ## Comments
+
+### 2026-11-24 – umgesetzt, Prüfung ausstehend
+
+Commit `727a3fe9` (feat(maintenance): STU crew XP tick, empty RPG plot deletion, missing award backfill).
+
+- `tick/crew-experience-maintenance.service.ts` (`crew-experience`): Keyset-Batches à 500 über Spacecraft mit Crew-Zuweisung, Besitzer kein NPC, `isVacationEffective` ausgeschlossen; je Schiff eigene Transaktion über `CrewEnhancementService#enhanceSpacecraft(MAINTENANCE_TICK)`. Schiffe ohne Crew werden nicht gewählt (bekämen auch in STU keine XP).
+- `rpg/empty-plot-maintenance.service.ts` (`empty-rpg-plots`): Plots mit `startedAt` älter als 7 Tage ohne nicht gelöschten HoloNet-Beitrag; Löschung und Systemnachricht („Plot gelöscht“, STU-Text) je Plot in einer Transaktion.
+- `tick/missing-awards-maintenance.service.ts` (`missing-awards`): je Nicht-NPC-Spieler `checkCompletion` für alle `DATABASE_AWARD_CATEGORIES` (Sternsysteme über alle Ebenen); `AwardService#grant` ist idempotent.
+- Alle drei in `MAINTENANCE_HANDLERS` registriert, liefern Zusammenfassungstext, fangen Fehler je Schiff/Plot/Spieler ab.
+- Tests: `tick/maintenance-handlers.int-spec.ts` (Crew-XP inkl. NPC/Urlaub 49 h/47 h; Plot alt/jung/mit Beitrag samt Nachrichten), `database/database-completion.int-spec.ts` (Award-Nachtrag einmalig, NPC ausgeschlossen) – PostgreSQL grün. `nx typecheck backend` grün, ESLint der geänderten Dateien sauber, `app-module-graph.spec`, `maintenance.service.spec`, `rpg-transponder.int-spec` (AppModule-Start) grün.
+- Routing: Sol/Luna in dieser Session nicht verfügbar, direkt mit Claude Opus 5.5 umgesetzt.
+
+Ausstehend: gesammelter Verifikationslauf (Diff-Review gegen AK, volle Backend-Unit- und Integrationssuite).
