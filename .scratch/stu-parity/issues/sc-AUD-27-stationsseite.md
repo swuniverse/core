@@ -1,6 +1,6 @@
 # Stationen auf eigener Seite mit Menüpunkt wie STU
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P2
 **Size:** S
 **Blocked by:** —
@@ -26,3 +26,5 @@ SWU vergibt `RESEARCH_STATIONS` noch durch keine Forschung (kein `awardKey` in g
 - Tests: neu `stations.spec.tsx` (2), `navigation.spec.tsx` +1, PostgreSQL `stations-navigation.int-spec.ts` (5: ohne, NPC, Award, eigene/zerstörte Station, Crew auf fremder Station). Jest `modules/auth` 60/60; `nx typecheck` ✓.
 - Hinweis: Der Login-Response liefert das Feld nicht; die Sidebar lädt `/auth/me` nach (für Nicht-Admins), Admins sehen den Punkt ohnehin.
 - Modell: Claude Opus 5.5 direkt.
+
+- 2026-11-24 – **Prüfung bestanden, resolved.** Gesammelter Verifikationslauf auf `83bca5c5`: Lint 0 Fehler (geänderte Dateien ohne neue Warnung), `nx typecheck` und `nx build` alle Projekte grün, Unit Backend 2739/2739, Frontend 1003/1004 (Ausreißer `research.spec.tsx` einzeln 15/15 grün, nicht berührt), PostgreSQL-Integration 1081/1081. Diff-Review ohne Befund (Flottenbefehle nur über eignergeprüfte Einzelschiff-Endpunkte, Doppelklick-Sperre, Stationsregel nur fürs eigene Profil). Übergangsregel „eigene Station“ und Admin-Sonderfall werden mit sc-AUD-28 an STU angeglichen. Modell: Opus 5.5 direkt.

@@ -1,6 +1,6 @@
 # Flottenkontrolle in der Schiffsansicht wie STU
 
-**Status:** claimed
+**Status:** resolved
 **Priority:** P3
 **Size:** S
 **Blocked by:** —
@@ -33,3 +33,5 @@ STU `src/html/spacecraft/control/control_mid.twig` Z. 99–140: Der Flottenführ
 - STU: `control_right.twig` (`fleetInfo`, Checkboxen `fleet_reactor`, `fleetSplit`, `fleet_batt`), `LoadReactor.php`, `SplitReactorOutput.php`, `UnloadBattery.php`.
 - SWU: kein Backend-Umbau; `ReactorPanel` ruft die Einzelschiff-Endpunkte (`reactor/load`, `battery/discharge`, `reactor-distribution`, alle mit Eigner-Prüfung) nacheinander für `fleetMembers` auf. Abweichung: volle Reaktoren meldet der Endpunkt pro Schiff, STU überspringt sie still.
 - Tests: `ReactorPanel.spec.tsx` +4, `FleetStatusPanel.spec.tsx` angepasst. Vitest `components/spacecraft` + `spacecraft-detail` 271/271; `nx typecheck frontend` ✓; ESLint ohne Befund in den geänderten Dateien.
+
+- 2026-11-24 – **Prüfung bestanden, resolved.** Gesammelter Verifikationslauf auf `83bca5c5`: Lint 0 Fehler (geänderte Dateien ohne neue Warnung), `nx typecheck` und `nx build` alle Projekte grün, Unit Backend 2739/2739, Frontend 1003/1004 (Ausreißer `research.spec.tsx` einzeln 15/15 grün, nicht berührt), PostgreSQL-Integration 1081/1081. Diff-Review ohne Befund (Flottenbefehle nur über eignergeprüfte Einzelschiff-Endpunkte, Doppelklick-Sperre, Stationsregel nur fürs eigene Profil). Modell: Opus 5.5 direkt.
