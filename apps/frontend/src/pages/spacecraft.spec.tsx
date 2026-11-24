@@ -263,8 +263,9 @@ describe('SpacecraftPage', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('8|9')).toBeTruthy();
-    expect(screen.getByText('4|7 (11|12)')).toBeTruthy();
+    // STU: system position first, galaxy field in brackets.
+    expect(await screen.findByText('(8|9)')).toBeTruthy();
+    expect(screen.getByText('11|12 (4|7)')).toBeTruthy();
   });
 
   it('groups fleets and singles and manages fleets from the last cell like STU', async () => {
@@ -307,9 +308,8 @@ describe('SpacecraftPage', () => {
     expect(screen.getByRole('heading', { name: 'Blaue Staffel' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Einzelschiffe' })).toBeTruthy();
     expect(screen.getByLabelText('Flottenführer Adler')).toBeTruthy();
-    expect(screen.getByText('2 Schiffe')).toBeTruthy();
-
-    expect(screen.queryByLabelText('Flottenname')).toBeNull();
+    // STU shiplistFleetform: crew sum of the members against the fleet limit.
+    expect(screen.getByText('(10/100 Crew)')).toBeTruthy();
 
     // STU shiplist: the last cell creates, leaves or dissolves a fleet.
     fireEvent.click(screen.getByRole('button', { name: 'Flotte erstellen: Solo' }));
@@ -358,76 +358,41 @@ describe('SpacecraftPage', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
-  it('changes the alert state for every ship from the fleet header', async () => {
+  it('renames a fleet from the header field like STU', async () => {
     apiMocks.get.mockResolvedValue([
-      {
-        ...ship,
-        id: 2,
-        fleetId: 4,
-        fleetName: 'Rote Staffel',
-        fleetLeaderId: 2,
-      },
-      {
-        ...ship,
-        id: 3,
-        fleetId: 4,
-        fleetName: 'Rote Staffel',
-        fleetLeaderId: 2,
-      },
+      { ...ship, id: 2, fleetId: 4, fleetName: 'Rote Staffel', fleetLeaderId: 2 },
     ]);
-    apiMocks.patch.mockResolvedValue({
-      alertState: 'RED',
-      applied: [{ shipId: 2, shipName: 'Falke' }],
-      failed: [{ shipId: 3, shipName: 'Adler', reason: 'System zerstört' }],
-    });
-
+    apiMocks.patch.mockResolvedValue({});
     render(
       <MemoryRouter>
         <SpacecraftPage />
       </MemoryRouter>,
     );
 
-    fireEvent.click(
-      await screen.findByRole('button', {
-        name: 'Alarmstufe Rot für Rote Staffel',
-      }),
-    );
+    const field = await screen.findByLabelText('Flottenname Rote Staffel');
+    fireEvent.change(field, { target: { value: ' Gold-Staffel ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Name von Rote Staffel ändern' }));
 
     await waitFor(() =>
-      expect(apiMocks.patch).toHaveBeenCalledWith(
-        '/spacecraft/fleets/4/alert-state',
-        { alertState: 'RED' },
-      ),
+      expect(apiMocks.patch).toHaveBeenCalledWith('/spacecraft/fleets/4', { name: 'Gold-Staffel' }),
     );
-    expect(await screen.findByText('Adler: System zerstört')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Alarmstufe .* für Rote Staffel$/ })).toBeNull();
   });
 
-  it('separates stations into a dense station list with role and dock occupancy', async () => {
+  it('lists no stations; they have their own page like STU', async () => {
     apiMocks.get.mockResolvedValue([
       ship,
-      {
-        ...ship,
-        id: 9,
-        name: 'Hoth-Phalanx',
-        kind: 'STATION',
-        stationRole: 'SENSOR',
-        shipClassName: 'Sensorphalanx',
-        dockCapacity: 2,
-        dockedShips: 1,
-        fleetId: null,
-      },
+      { ...ship, id: 9, name: 'Hoth-Phalanx', kind: 'STATION', stationRole: 'SENSOR', fleetId: null },
     ]);
-
     render(
       <MemoryRouter>
         <SpacecraftPage />
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('heading', { name: 'Stationen' })).toBeTruthy();
-    expect(screen.getAllByText('Sensorphalanx')).toHaveLength(2);
-    expect(screen.getByLabelText('Andockbelegung 1 von 2')).toBeTruthy();
-    expect(screen.getAllByText('Hoth-Phalanx')).toHaveLength(1);
+    await screen.findAllByText('Falke');
+    expect(screen.queryByRole('heading', { name: 'Stationen' })).toBeNull();
+    expect(screen.queryByText('Hoth-Phalanx')).toBeNull();
   });
 
   it('shows the dock icon for docked ships only', async () => {
@@ -444,7 +409,7 @@ describe('SpacecraftPage', () => {
 
     const icons = await screen.findAllByAltText('Angedockt an Hoth-Depot');
     expect(icons).toHaveLength(1);
-    expect(icons[0].getAttribute('src')).toBe('/assets/buttons/dock1.png');
+    expect(icons[0].getAttribute('src')).toBe('/assets/buttons/dock2.png');
   });
 
   it('shows the cloak icon only for ships with a cloak generator', async () => {
@@ -470,49 +435,40 @@ describe('SpacecraftPage', () => {
     expect(icons[0].getAttribute('src')).toBe('/assets/buttons/tarn1.png');
   });
 
-  it('renders the dense STU status columns and system availability', async () => {
+  it('renders the STU columns with combined energy, supply and system icons', async () => {
     apiMocks.get.mockResolvedValue([ship]);
-
     render(
       <MemoryRouter>
         <SpacecraftPage />
       </MemoryRouter>,
     );
 
-    for (const heading of [
-      'Alarm',
-      'Ebene',
-      'Hülle',
-      'Schilde',
-      'EPS',
-      'Hyperantrieb',
-      'Reaktor',
-      'Batterie',
-      'Crew',
-      'Systeme',
-      'Status',
-    ]) {
+    for (const heading of ['Hülle', 'Schilde', 'Energie', 'Versorgung', 'Crew', 'Systeme']) {
       expect((await screen.findAllByRole('columnheader', { name: heading })).length).toBeGreaterThan(0);
     }
-    expect(
-      screen.getByLabelText('Crew 4/5/8: zu wenig').className,
-    ).toContain('text-red-500');
-    expect(
-      screen.getByLabelText('Langstreckensensoren deaktiviert').className,
-    ).toContain('opacity-40');
-    expect(screen.getByLabelText('Waffen beschädigt').className).toContain(
-      'text-red-500',
-    );
-    expect(
-      screen.getByLabelText('Torpedos nicht vorhanden').className,
-    ).toContain('opacity-20');
-    expect(screen.getByLabelText('Bereitschaft')).toBeTruthy();
+    for (const gone of ['Ebene', 'EPS', 'Hyperantrieb', 'Reaktor', 'Batterie', 'Status']) {
+      expect(screen.queryByRole('columnheader', { name: gone })).toBeNull();
+    }
+    const row = screen.getAllByRole('row').find((item) => item.textContent?.includes('Falke'))!;
+    expect(row.textContent).toContain('70/100 +8 (3/11) 2/20 +4');
+    expect(within(row).getByAltText('Reaktorladung')).toBeTruthy();
+    expect(row.textContent).toContain('17');
+    expect(within(row).getByAltText('Ersatzbatterie')).toBeTruthy();
+    const crew = screen.getByLabelText('Crew 4/5/8: zu wenig');
+    expect(crew.className).toContain('text-red-500');
+    expect(crew.textContent).toBe('4');
+    expect(within(row).getByAltText('Nahbereichssensoren aktiviert').getAttribute('src')).toBe('/assets/buttons/kss1.png');
+    expect(within(row).getByAltText('Langstreckensensoren deaktiviert').getAttribute('src')).toBe('/assets/buttons/lss2.png');
+    expect(within(row).getByAltText('Strahlenwaffe deaktiviert')).toBeTruthy();
+    expect(within(row).queryByAltText(/Torpedobänke/)).toBeNull();
   });
 
   it('uses the list regeneration rate from the server and omits a zero rate', async () => {
+    // STU shows the regeneration only while the shields are down.
     apiMocks.get.mockResolvedValue([
-      ship,
-      { ...ship, id: 3, name: 'Adler', shieldRegeneration: 0 },
+      { ...ship, shieldActive: false },
+      { ...ship, id: 3, name: 'Adler', shieldActive: false, shieldRegeneration: 0 },
+      { ...ship, id: 4, name: 'Speer', shieldActive: true },
     ]);
 
     render(
@@ -525,13 +481,15 @@ describe('SpacecraftPage', () => {
     const rows = screen.getAllByRole('row');
     const falke = rows.find((row) => row.textContent?.includes('Falke'));
     const adler = rows.find((row) => row.textContent?.includes('Adler'));
-    expect(falke?.textContent).toContain('40/50 +4');
-    expect(falke?.textContent).not.toContain('40/50 +5');
-    expect(falke?.querySelectorAll('td')[6]?.getAttribute('title')).toContain(
+    expect(falke?.textContent).toContain('40/50 (+4)');
+    expect(falke?.textContent).not.toContain('40/50 (+5)');
+    expect(falke?.querySelectorAll('td')[5]?.getAttribute('title')).toContain(
       'Kostenlose Schildregeneration alle 15 Minuten',
     );
     expect(adler?.textContent).toContain('40/50');
-    expect(adler?.textContent).not.toContain('40/50 +');
+    expect(adler?.textContent).not.toContain('40/50 (+');
+    const speer = rows.find((row) => row.textContent?.includes('Speer'));
+    expect(speer?.textContent).not.toContain('40/50 (+');
   });
 });
 
@@ -590,10 +548,10 @@ describe('SpacecraftPage fleet list preferences', () => {
     );
     const { unmount } = render(page());
     const hide = await screen.findByRole('button', {
-      name: 'Rote Staffel ausblenden',
+      name: 'Rote Staffel zuklappen',
     });
     fireEvent.click(hide);
-    await screen.findByRole('button', { name: 'Rote Staffel einblenden' });
+    await screen.findByRole('button', { name: 'Rote Staffel aufklappen' });
     expect(apiMocks.patch).toHaveBeenCalledWith(
       '/spacecraft/fleets/4/visibility',
       { isHidden: true },
@@ -612,13 +570,13 @@ describe('SpacecraftPage fleet list preferences', () => {
     ).toBeTruthy();
     expect(
       screen
-        .getByRole('button', { name: 'Rote Staffel einblenden' })
+        .getByRole('button', { name: 'Rote Staffel aufklappen' })
         .getAttribute('aria-expanded'),
     ).toBe('false');
     unmount();
     render(page());
     const show = await screen.findByRole('button', {
-      name: 'Rote Staffel einblenden',
+      name: 'Rote Staffel aufklappen',
     });
     expect(
       screen
@@ -627,7 +585,7 @@ describe('SpacecraftPage fleet list preferences', () => {
         ?.querySelector('table'),
     ).toBeNull();
     fireEvent.click(show);
-    await screen.findByRole('button', { name: 'Rote Staffel ausblenden' });
+    await screen.findByRole('button', { name: 'Rote Staffel zuklappen' });
     expect(apiMocks.patch).toHaveBeenLastCalledWith(
       '/spacecraft/fleets/4/visibility',
       { isHidden: false },
@@ -636,7 +594,7 @@ describe('SpacecraftPage fleet list preferences', () => {
     expect(screen.getByText('Adler')).toBeTruthy();
   });
 
-  it('orders fleets by saved priority and moves the chosen fleet to the top after reload', async () => {
+  it('orders fleets by saved priority', async () => {
     const ships = members();
     apiMocks.get.mockImplementation(() =>
       Promise.resolve(ships.map((item) => ({ ...item }))),
@@ -657,16 +615,8 @@ describe('SpacecraftPage fleet list preferences', () => {
         .slice(0, 2)
         .map((item) => item.textContent);
     expect(names()).toEqual(['Blaue Staffel', 'Rote Staffel']);
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Rote Staffel nach oben' }),
-    );
-    await waitFor(() =>
-      expect(names()).toEqual(['Rote Staffel', 'Blaue Staffel']),
-    );
-    expect(apiMocks.post).toHaveBeenCalledWith(
-      '/spacecraft/fleets/4/prioritize',
-      {},
-    );
+    // STU-like header: no "nach oben" control any more.
+    expect(screen.queryByRole('button', { name: 'Rote Staffel nach oben' })).toBeNull();
   });
 
   it('keeps the fleet expanded on failure and reports the error', async () => {
@@ -678,7 +628,7 @@ describe('SpacecraftPage fleet list preferences', () => {
       </MemoryRouter>,
     );
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Rote Staffel ausblenden' }),
+      await screen.findByRole('button', { name: 'Rote Staffel zuklappen' }),
     );
     expect(await screen.findByRole('alert')).toHaveProperty(
       'textContent',
@@ -686,7 +636,7 @@ describe('SpacecraftPage fleet list preferences', () => {
     );
     expect(
       screen
-        .getByRole('button', { name: 'Rote Staffel ausblenden' })
+        .getByRole('button', { name: 'Rote Staffel zuklappen' })
         .hasAttribute('disabled'),
     ).toBe(false);
     expect(screen.getByLabelText('Flottenführer Falke')).toBeTruthy();

@@ -1,4 +1,4 @@
-import { WsEventType, type SpacecraftVisibilityPayload } from '@swuniverse/shared';
+import { CREW_PER_FLEET, WsEventType, type SpacecraftVisibilityPayload } from '@swuniverse/shared';
 import { useSocket } from '../hooks/use-socket';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
@@ -6,28 +6,41 @@ import type {
   SpacecraftOwnBuoyDto,
   SpacecraftListSystemDto,
 } from '@swuniverse/shared';
+import { InfoHeading } from '../components/spacecraft/InfoHeading';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { alertStateImage, shipImage } from '../lib/assets';
 import { ShipStorageTooltip } from '../components/spacecraft/ShipStoragePanel';
 
-const ALERT_PRESENTATION = {
-  GREEN: { label: 'Grüner Alarm', className: 'bg-swu-success' },
-  YELLOW: { label: 'Gelber Alarm', className: 'bg-swu-warning' },
-  RED: { label: 'Roter Alarm', className: 'bg-swu-danger' },
+const ALERT_LABELS = {
+  GREEN: 'Grüner Alarm',
+  YELLOW: 'Gelber Alarm',
+  RED: 'Roter Alarm',
 } as const;
 
-const SYSTEMS = [
-  ['SHORT_RANGE_SENSORS', 'NBS', 'Nahbereichssensoren'],
-  ['LONG_RANGE_SENSORS', 'LRS', 'Langstreckensensoren'],
-  ['WEAPONS', 'W', 'Waffen'],
-  ['TORPEDO_BANK', 'T', 'Torpedos'],
-] as const;
+/** STU shiplist_body: sensor icons always, weapons and cloak only when installed. */
+const SYSTEM_ICONS: Array<[keyof SpacecraftListDto['systems'], string, string, string, boolean]> = [
+  ['SHORT_RANGE_SENSORS', 'kss1', 'kss2', 'Nahbereichssensoren', true],
+  ['LONG_RANGE_SENSORS', 'lss1', 'lss2', 'Langstreckensensoren', true],
+  ['WEAPONS', 'act_phaser1', 'act_phaser2', 'Strahlenwaffe', false],
+  ['TORPEDO_BANK', 'act_torp1', 'act_torp2', 'Torpedobänke', false],
+  ['CLOAK', 'tarn1', 'tarn2', 'Tarnung', false],
+];
 
-const STATUS = {
-  STANDBY: 'Bereitschaft',
-  CARTOGRAPHY_FINALIZATION: 'Kartographie-Finalisierung',
-} as const;
+/** STU shiplist_header with its info tooltips. */
+const SHIP_COLUMNS: Array<[string, string?]> = [
+  ['Klasse'],
+  ['Name'],
+  [''],
+  ['x|y', 'im System (außerhalb)'],
+  ['Hülle', 'aktuell/maximal'],
+  ['Schilde', 'aktuell/maximal (Regeneration [alle 15 min])'],
+  ['Energie', 'EPS: aktuell/maximal, Zuwachs, (Systemverbrauch/Reaktornutzung)\nHyperantrieb: aktuell/maximal, Zuwachs'],
+  ['Versorgung', 'Reaktor, Ersatzbatterie'],
+  ['Crew', 'grün: mehr als ausreichend, rot: zu wenig'],
+  ['Systeme'],
+  [''],
+];
 
 const cell = 'border border-swu-border px-1.5 py-1';
 const numberCell = `${cell} text-right font-mono whitespace-nowrap`;
@@ -41,7 +54,6 @@ export function SpacecraftPage() {
   const [fleetActionPending, setFleetActionPending] = useState(false);
   const [fleetActionError, setFleetActionError] = useState<string | null>(null);
   const [joinFleetId, setJoinFleetId] = useState<number | null>(null);
-  const [fleetAlertFailures, setFleetAlertFailures] = useState<Record<number, string[]>>({});
   const [buoys, setBuoys] = useState<SpacecraftOwnBuoyDto[]>([]);
 
   const loadVersion = useRef(0);
@@ -89,7 +101,6 @@ export function SpacecraftPage() {
       ),
     })).sort((a, b) => b.sort - a.sort || a.id - b.id);
   }, [ships]);
-  const stations = ships.filter((ship) => ship.kind === 'STATION');
   const mobileShips = ships.filter((ship) => ship.kind !== 'STATION');
   const singles = mobileShips.filter((ship) => ship.fleetId == null);
 
@@ -114,31 +125,14 @@ export function SpacecraftPage() {
     }
   }
 
-  async function renameFleet(id: number, currentName: string) {
-    const name = window.prompt('Neuer Flottenname', currentName)?.trim();
-    if (!name || name === currentName) return;
-    await api.patch(`/spacecraft/fleets/${id}`, { name });
-    await loadShips();
-  }
-
-  async function dissolveFleet(id: number, name: string) {
-    if (!window.confirm(`Flotte „${name}“ wirklich auflösen?`)) return;
-    await api.delete(`/spacecraft/fleets/${id}`);
-    await loadShips();
-  }
-
-  async function setFleetAlertState(
-    fleetId: number,
-    alertState: SpacecraftListDto['alertState'],
-  ) {
-    const result = await api.patch<{
-      failed: Array<{ shipName: string; reason: string }>;
-    }>(`/spacecraft/fleets/${fleetId}/alert-state`, { alertState });
-    setFleetAlertFailures((current) => ({
-      ...current,
-      [fleetId]: result.failed.map(({ shipName, reason }) => `${shipName}: ${reason}`),
-    }));
-    await loadShips();
+  async function renameFleet(id: number, name: string) {
+    setFleetActionError(null);
+    try {
+      await api.patch(`/spacecraft/fleets/${id}`, { name });
+      await loadShips();
+    } catch (error) {
+      setFleetActionError(error instanceof Error ? error.message : 'Umbenennen fehlgeschlagen');
+    }
   }
 
   async function updateFleetList(fleetId: number, isHidden?: boolean) {
@@ -173,49 +167,28 @@ export function SpacecraftPage() {
       {fleets.map((fleet) => (
         <ShipTable
           key={fleet.id}
-          title={fleet.name}
+          header={
+            <FleetHeader
+              fleet={fleet}
+              pending={fleetActionPending}
+              onToggle={() => void updateFleetList(fleet.id, !fleet.isHidden)}
+              onRename={(name) => void renameFleet(fleet.id, name)}
+              onAdd={() => setJoinFleetId(fleet.id)}
+            />
+          }
           ships={fleet.members}
           leaderId={fleet.leaderId}
           collapsed={fleet.isHidden}
-          actions={(
-            <>
-              <span>{fleet.members.length} {fleet.members.length === 1 ? 'Schiff' : 'Schiffe'}</span>
-              <button type="button" title="Schiff hinzufügen" aria-label={`Schiff zu ${fleet.name} hinzufügen`} onClick={() => setJoinFleetId(fleet.id)}><img src="/assets/buttons/fl_join1.png" alt="" aria-hidden="true" className="size-5" /></button>
-              <button type="button" disabled={fleetActionPending} aria-label={`${fleet.name} ${fleet.isHidden ? 'einblenden' : 'ausblenden'}`} aria-expanded={!fleet.isHidden} className="border border-swu-border px-2 py-1 text-swu-primary disabled:opacity-40" onClick={() => void updateFleetList(fleet.id, !fleet.isHidden)}>{fleet.isHidden ? 'Einblenden' : 'Ausblenden'}</button>
-              <button type="button" disabled={fleetActionPending} aria-label={`${fleet.name} nach oben`} className="border border-swu-border px-2 py-1 text-swu-primary disabled:opacity-40" onClick={() => void updateFleetList(fleet.id)}>Nach oben</button>
-              <div className="flex items-center gap-1">
-                {(['GREEN', 'YELLOW', 'RED'] as const).map((alertState) => {
-                  const active = fleet.members.every((member) => member.alertState === alertState);
-                  return (
-                    <button
-                      key={alertState}
-                      type="button"
-                      aria-label={`Alarmstufe ${alertState === 'GREEN' ? 'Grün' : alertState === 'YELLOW' ? 'Gelb' : 'Rot'} für ${fleet.name}`}
-                      title={`Alarmstufe ${alertState === 'GREEN' ? 'Grün' : alertState === 'YELLOW' ? 'Gelb' : 'Rot'}`}
-                      className={active ? 'ring-1 ring-swu-primary' : 'opacity-60 hover:opacity-100'}
-                      onClick={() => void setFleetAlertState(fleet.id, alertState)}
-                    >
-                      <img src={alertStateImage(alertState, active)} alt="" className="size-4" />
-                    </button>
-                  );
-                })}
-              </div>
-              <button type="button" className="text-swu-primary hover:underline" onClick={() => void renameFleet(fleet.id, fleet.name)}>Umbenennen</button>
-              <button type="button" className="text-red-400 hover:underline" onClick={() => void dissolveFleet(fleet.id, fleet.name)}>Auflösen</button>
-            </>
-          )}
-          message={fleetAlertFailures[fleet.id]?.join('\n')}
           onFleet={(ship) => void changeFleet(ship)}
-onOpen={(id) => navigate(`/spacecraft/${id}`)}
+          onOpen={(id) => navigate(`/spacecraft/${id}`)}
         />
       ))}
-      <StationTable stations={stations} onOpen={(id) => navigate(`/spacecraft/${id}`)} />
       <ShipTable
-        title="Einzelschiffe"
+        header={<h2 className="font-bold text-swu-primary">Einzelschiffe</h2>}
         ships={singles}
         emptyLabel={ships.length === 0 ? 'Du besitzt derzeit keine Schiffe' : 'Alle Schiffe sind einer Flotte zugeordnet'}
         onFleet={(ship) => void changeFleet(ship)}
-onOpen={(id) => navigate(`/spacecraft/${id}`)}
+        onOpen={(id) => navigate(`/spacecraft/${id}`)}
       />
       <BuoyTable buoys={buoys} />
       {joinFleetId != null && (() => {
@@ -250,16 +223,6 @@ onOpen={(id) => navigate(`/spacecraft/${id}`)}
   );
 }
 
-const STATION_ROLES: Record<string, string> = {
-  CONSTRUCTION: 'Konstrukt',
-  DEPOT_SMALL: 'Versorgungsdepot',
-  DEPOT_LARGE: 'Logistikzentrum',
-  SHIPYARD: 'Raumwerft',
-  SENSOR: 'Sensorphalanx',
-  OUTPOST: 'Außenposten',
-  BASE: 'Raumstation',
-};
-
 function BuoyTable({ buoys }: { buoys: SpacecraftOwnBuoyDto[] }) {
   return (
     <section className="overflow-x-auto border border-swu-border bg-swu-surface/70">
@@ -277,47 +240,18 @@ function BuoyTable({ buoys }: { buoys: SpacecraftOwnBuoyDto[] }) {
   );
 }
 
-function StationTable({ stations, onOpen }: { stations: SpacecraftListDto[]; onOpen: (id: number) => void }) {
-  return (
-    <section className="overflow-x-auto border border-swu-border bg-swu-surface/70">
-      <header className="border-b border-swu-border bg-black/30 px-3 py-2 text-xs">
-        <h2 className="font-bold text-swu-primary">Stationen</h2>
-      </header>
-      <table className="w-full border-collapse text-xs">
-        <thead><tr className="bg-black/40 text-center font-bold text-swu-primary">{['Klasse', 'Name', 'Rolle', 'Position', 'Hülle', 'Schilde', 'EPS', 'Crew', 'Andockbelegung'].map((heading) => <th key={heading} className={cell}>{heading}</th>)}</tr></thead>
-        <tbody>{stations.length === 0 ? <tr><td colSpan={9} className={`${cell} py-4 text-center text-swu-muted`}>Du besitzt derzeit keine Stationen</td></tr> : stations.map((station) => {
-          const location = station.location.scope === 'SYSTEM'
-            ? `${station.location.galaxyX ?? 0}|${station.location.galaxyY ?? 0} (${station.location.x}|${station.location.y})`
-            : `${station.location.x}|${station.location.y}`;
-          return <tr key={station.id} onClick={() => onOpen(station.id)} className="cursor-pointer hover:bg-white/5">
-            <td className={cell}>{station.shipClassName}</td><td className={`${cell} text-swu-primary`}>{station.name}</td>
-            <td className={cell}>{STATION_ROLES[station.stationRole ?? ''] ?? station.stationRole}</td><td className={numberCell}>{location}</td>
-            <td className={numberCell}><Hull current={station.hull} max={station.hullMax} /></td><td className={numberCell}>{station.shields}/{station.shieldsMax}</td>
-            <td className={numberCell}>{station.energy}/{station.energyMax}</td><td className={numberCell}>{station.crew}/{station.crewRequired}/{station.crewMax}</td>
-            <td className={numberCell} aria-label={`Andockbelegung ${station.dockedShips} von ${station.dockCapacity}`}>{station.dockedShips}/{station.dockCapacity}</td>
-          </tr>;
-        })}</tbody>
-      </table>
-    </section>
-  );
-}
-
 function ShipTable({
-  title,
+  header,
   ships,
   leaderId,
-  actions,
-  message,
   emptyLabel,
   collapsed = false,
   onOpen,
   onFleet,
 }: {
-  title: string;
+  header: ReactNode;
   ships: SpacecraftListDto[];
   leaderId?: number | null;
-  actions?: ReactNode;
-  message?: string;
   emptyLabel?: string;
   collapsed?: boolean;
   onOpen: (id: number) => void;
@@ -325,42 +259,14 @@ function ShipTable({
 }) {
   return (
     <section className="overflow-x-auto border border-swu-border bg-swu-surface/70">
-      <header className="flex items-center justify-between gap-3 border-b border-swu-border bg-black/30 px-3 py-2 text-xs">
-        <h2 className="font-bold text-swu-primary">{title}</h2>
-        {actions && (
-          <div className="flex flex-wrap items-center justify-end gap-3 text-swu-muted">
-            {actions}
-          </div>
-        )}
-      </header>
-      {!collapsed && message && (
-        <p className="whitespace-pre-line border-b border-swu-border px-3 py-2 text-xs text-red-400">
-          {message}
-        </p>
-      )}
+      <header className="border-b border-swu-border bg-black/30 px-3 py-2 text-xs">{header}</header>
       {!collapsed && (
         <table className="w-full border-collapse text-xs">
           <thead>
             <tr className="bg-black/40 text-center font-bold text-swu-primary">
-              {[
-                'Klasse',
-                'Name',
-                'Alarm',
-                'Ebene',
-                'x|y',
-                'Hülle',
-                'Schilde',
-                'EPS',
-                'Hyperantrieb',
-                'Reaktor',
-                'Batterie',
-                'Crew',
-                'Systeme',
-                'Status',
-                'Flotte',
-              ].map((heading) => (
-                <th key={heading} className={cell}>
-                  {heading}
+              {SHIP_COLUMNS.map(([heading, tooltip], index) => (
+                <th key={`${heading}-${index}`} className={cell} title={tooltip}>
+                  <InfoHeading label={heading} tooltip={tooltip} />
                 </th>
               ))}
             </tr>
@@ -369,7 +275,7 @@ function ShipTable({
             {ships.length === 0 ? (
               <tr>
                 <td
-                  colSpan={15}
+                  colSpan={SHIP_COLUMNS.length}
                   className={`${cell} py-4 text-center text-swu-muted`}
                 >
                   {emptyLabel}
@@ -394,10 +300,10 @@ function ShipTable({
 }
 
 function ShipRow({ ship, leader = false, onOpen, onFleet }: { ship: SpacecraftListDto; leader?: boolean; onOpen: () => void; onFleet: () => void }) {
-  const alert = ALERT_PRESENTATION[ship.alertState];
+  const alertLabel = ALERT_LABELS[ship.alertState];
   const location = ship.location.scope === 'SYSTEM'
-    ? `${ship.location.galaxyX ?? 0}|${ship.location.galaxyY ?? 0} (${ship.location.x}|${ship.location.y})`
-    : `${ship.location.x}|${ship.location.y}`;
+    ? `${ship.location.x}|${ship.location.y} (${ship.location.galaxyX ?? 0}|${ship.location.galaxyY ?? 0})`
+    : `(${ship.location.x}|${ship.location.y})`;
   const crewOk = ship.crewRequired <= 0 || ship.crew >= ship.crewRequired;
   const crewLabel = `Crew ${ship.crew}/${ship.crewRequired}/${ship.crewMax}: ${crewOk ? 'ausreichend' : 'zu wenig'}`;
 
@@ -411,19 +317,21 @@ function ShipRow({ ship, leader = false, onOpen, onFleet }: { ship: SpacecraftLi
           cargoMax={ship.cargoMax}
         />
       </td>
-      <td className={`${cell} font-medium text-swu-primary`}>{leader ? <span aria-label={`Flottenführer ${ship.name}`} title="Flottenführer">◆ {ship.name}</span> : ship.name}{ship.dockedAtId != null && <img src="/assets/buttons/dock1.png" title={`Angedockt an ${ship.dockedAtName ?? 'Station'}`} alt={`Angedockt an ${ship.dockedAtName ?? 'Station'}`} className="ml-1 inline-block size-4 align-middle" />}</td>
-      <td className={`${cell} text-center`}><span role="img" title={alert.label} aria-label={alert.label} className={`inline-block size-3 border border-swu-border ${alert.className}`} /></td>
-      <td className={`${cell} text-center`}><span title={ship.layer.name} aria-label={`Ebene ${ship.layer.name}`} className="font-mono text-swu-primary">L{ship.layer.id}</span></td>
-      <td className={numberCell}>{location}</td>
+      <td className={`${cell} font-medium text-swu-primary`}>{ship.dockedAtId != null && <img src="/assets/buttons/dock2.png" title={`Angedockt an ${ship.dockedAtName ?? 'Station'}`} alt={`Angedockt an ${ship.dockedAtName ?? 'Station'}`} className="mr-1 inline-block size-5 align-middle" />}{leader ? <span aria-label={`Flottenführer ${ship.name}`} title="Flottenführer">{ship.name}</span> : ship.name}</td>
+      <td className={`${cell} text-center`}><img src={alertStateImage(ship.alertState)} title={alertLabel} alt={alertLabel} className="inline-block size-4" /></td>
+      <td className={`${numberCell} text-center`}>{location}</td>
       <td className={numberCell}><Hull current={ship.hull} max={ship.hullMax} /></td>
-      <td className={numberCell} title={SHIELD_REGENERATION_DESCRIPTION}><span className={ship.shieldActive ? 'text-swu-primary font-bold' : ''}>{ship.shields}/{ship.shieldsMax}</span>{ship.shieldRegeneration > 0 && <span className="text-green-500"> +{ship.shieldRegeneration}</span>}</td>
-      <td className={numberCell}>{ship.energy}/{ship.energyMax} <span className="text-green-500">+{ship.energyGain}</span> <span className="text-swu-muted">({ship.energyConsumption}/{ship.reactorUsage})</span></td>
-      <td className={numberCell}>{ship.warpdrive}/{ship.warpdriveMax} <span className="text-green-500">+{ship.warpdriveGain}</span></td>
-      <td className={numberCell}>{ship.reactorFuel}/{ship.reactorFuelMax}</td>
-      <td className={numberCell}>{ship.battery}/{ship.batteryMax}</td>
-      <td className={`${numberCell} ${crewOk ? 'text-green-500' : 'text-red-500'}`} aria-label={crewLabel}>{ship.crew}/{ship.crewRequired}/{ship.crewMax}</td>
-      <td className={`${cell} whitespace-nowrap text-center`}>{SYSTEMS.map(([key, short, label]) => <SystemIcon key={key} label={label} short={short} system={ship.systems[key]} />)}{ship.systems.CLOAK?.present && <CloakIcon system={ship.systems.CLOAK} />}</td>
-      <td className={`${cell} text-center`}>{ship.specialStatus && <span role="img" title={STATUS[ship.specialStatus]} aria-label={STATUS[ship.specialStatus]} className="inline-block size-3 border border-swu-accent bg-swu-accent/30" />}</td>
+      <td className={numberCell} title={SHIELD_REGENERATION_DESCRIPTION}><span className={ship.shieldActive ? 'text-swu-primary font-bold' : ''}>{ship.shields}/{ship.shieldsMax}</span>{!ship.shieldActive && ship.shieldRegeneration > 0 && <span className="text-green-500"> (+{ship.shieldRegeneration})</span>}</td>
+      <td className={numberCell} aria-label={`Energie ${ship.energy}/${ship.energyMax}`}>
+        {ship.energy}/{ship.energyMax} <span className="text-green-500">+{ship.energyGain}</span> (<span className="text-red-400">{ship.energyConsumption}</span>/<span className="text-red-400">{ship.reactorUsage}</span>)
+        {ship.warpdriveMax > 0 && <> {ship.warpdrive}/{ship.warpdriveMax} <span className="text-green-500">+{ship.warpdriveGain}</span></>}
+      </td>
+      <td className={`${cell} whitespace-nowrap`}>
+        {ship.reactorFuelMax > 0 && <span className="mr-2 inline-flex items-center gap-1" title="Reaktorladung"><img src="/assets/buttons/fusrkt.png" alt="Reaktorladung" className="size-4" />{ship.reactorFuel}</span>}
+        {ship.batteryMax > 0 && <span className="inline-flex items-center gap-1" title="Ersatzbatterie"><img src="/assets/buttons/batt.png" alt="Ersatzbatterie" className="size-4" />{ship.battery}</span>}
+      </td>
+      <td className={`${cell} text-center font-mono ${crewOk ? 'text-green-500' : 'text-red-500'}`} aria-label={crewLabel} title={`${ship.crew}/${ship.crewRequired}/${ship.crewMax}`}>{ship.crew}</td>
+      <td className={`${cell} whitespace-nowrap text-center`}>{SYSTEM_ICONS.map(([key, on, off, label, always]) => <SystemIcon key={key} system={ship.systems[key]} on={on} off={off} label={label} always={always} />)}</td>
       <td className={`${cell} text-center`}><FleetButton ship={ship} onClick={onFleet} /></td>
     </tr>
   );
@@ -520,13 +428,54 @@ function Hull({ current, max }: { current: number; max: number }) {
   return <span className={tone}>{current}/{max}</span>;
 }
 
-function CloakIcon({ system }: { system: SpacecraftListSystemDto }) {
-  const title = system.active ? 'Tarnung aktiviert' : 'Tarnung deaktiviert';
-  return <img src={`/assets/buttons/${system.active ? 'tarn1.png' : 'tarn2.png'}`} title={title} alt={title} className="mx-0.5 inline-block size-4 align-middle" />;
+function SystemIcon({ system, on, off, label, always }: { system?: SpacecraftListSystemDto; on: string; off: string; label: string; always: boolean }) {
+  if (!system?.present && !always) return null;
+  const title = `${label} ${system?.active ? 'aktiviert' : 'deaktiviert'}`;
+  return <img src={`/assets/buttons/${system?.active ? on : off}.png`} title={title} alt={title} className="mx-0.5 inline-block size-4 align-middle" />;
 }
 
-function SystemIcon({ label, short, system }: { label: string; short: string; system: SpacecraftListSystemDto }) {
-  const state = !system.present ? 'nicht vorhanden' : system.damaged ? 'beschädigt' : system.active ? 'aktiviert' : 'deaktiviert';
-  const tone = !system.present ? 'opacity-20' : system.damaged ? 'text-red-500' : system.active ? 'border-swu-primary text-swu-primary' : 'opacity-40';
-  return <span role="img" title={`${label} ${state}`} aria-label={`${label} ${state}`} className={`mx-0.5 inline-block min-w-5 border border-swu-border px-0.5 font-mono text-[10px] ${tone}`}>{short}</span>;
+/** STU shiplistFleetform: toggle, name and crew sum left; rename centre; add ship right. */
+function FleetHeader({
+  fleet,
+  pending,
+  onToggle,
+  onRename,
+  onAdd,
+}: {
+  fleet: { name: string; isHidden: boolean; members: SpacecraftListDto[] };
+  pending: boolean;
+  onToggle: () => void;
+  onRename: (name: string) => void;
+  onAdd: () => void;
+}) {
+  const [name, setName] = useState(fleet.name);
+  useEffect(() => setName(fleet.name), [fleet.name]);
+  const crewSum = fleet.members.reduce((sum, member) => sum + Math.max(0, member.crewRequired), 0);
+  const trimmed = name.trim();
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-1 items-center gap-2">
+        <button type="button" disabled={pending} title="zuklappen/aufklappen" aria-label={`${fleet.name} ${fleet.isHidden ? 'aufklappen' : 'zuklappen'}`} aria-expanded={!fleet.isHidden} onClick={onToggle} className="disabled:opacity-40">
+          <img src="/assets/buttons/fleet.png" alt="" aria-hidden="true" />
+        </button>
+        <h2 className="font-bold text-swu-primary">{fleet.name}</h2>
+        <span className="text-swu-muted">({crewSum}/{CREW_PER_FLEET} Crew)</span>
+      </div>
+      <form
+        className="flex items-center gap-1"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (trimmed && trimmed !== fleet.name) onRename(trimmed);
+        }}
+      >
+        <input aria-label={`Flottenname ${fleet.name}`} value={name} onChange={(event) => setName(event.target.value)} className="w-40 border border-swu-border bg-black/30 px-1 py-0.5" />
+        <button type="submit" title="Name ändern" aria-label={`Name von ${fleet.name} ändern`} disabled={!trimmed || trimmed === fleet.name} className="disabled:opacity-40">
+          <img src="/assets/buttons/knedit2.png" alt="" aria-hidden="true" />
+        </button>
+      </form>
+      <button type="button" title="Schiff hinzufügen" aria-label={`Schiff zu ${fleet.name} hinzufügen`} onClick={onAdd}>
+        <img src="/assets/buttons/fl_join2.png" alt="" aria-hidden="true" />
+      </button>
+    </div>
+  );
 }
