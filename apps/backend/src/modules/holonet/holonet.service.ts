@@ -13,7 +13,7 @@ import { HolonetRating } from './entities/holonet-rating.entity';
 import { HolonetCheckpoint } from './entities/holonet-checkpoint.entity';
 import { PlotPostRequest, PlotPostRequestStatus } from './entities/plot-post-request.entity';
 import { User } from '../auth/user.entity';
-import { withDeletedAuthor } from '../account-deletion/deleted-player';
+import { deletedPlayer, withDeletedAuthor } from '../account-deletion/deleted-player';
 import { MessagingService } from '../messaging/messaging.service';
 import { STU_PRESTIGE } from '../prestige/prestige.constants';
 import { PrestigeService } from '../prestige/prestige.service';
@@ -32,7 +32,8 @@ type PublicHolonetPost = Omit<HolonetPost, 'characters' | 'author'> & {
 function publicAuthor(author: User | null): PublicAuthor {
   return {
     id: author?.id ?? null,
-    username: author?.username ?? '',
+    // Content of a deleted account stays visible under "Gelöschter Siedler" (sh-AP-05b).
+    username: author?.username ?? deletedPlayer().username,
     avatar: author?.avatar ?? null,
     faction: author?.faction ?? null,
     isNpc: author?.isNpc ?? false,

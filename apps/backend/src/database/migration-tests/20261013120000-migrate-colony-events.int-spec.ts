@@ -86,14 +86,29 @@ describe('MigrateColonyEvents20261013120000 migration (Postgres)', () => {
       }),
     ]);
 
+    // The historical migration predates soc-AUD-07b, which dropped messages.subject.
+    await dataSource.query(
+      `ALTER TABLE "messages" ADD COLUMN IF NOT EXISTS "subject" varchar(255) NOT NULL DEFAULT ''`,
+    );
     const runner = dataSource.createQueryRunner();
     await runner.connect();
+    let subjects: Array<{ recipientId: number; subject: string }>;
     try {
       await new MigrateColonyEvents20261013120000().up(runner);
       await new MigrateColonyEvents20261013120000().up(runner);
+      subjects = await dataSource.query(
+        `SELECT "recipientId", "subject" FROM "messages" ORDER BY "recipientId"`,
+      );
     } finally {
       await runner.release();
+      await dataSource.query(`ALTER TABLE "messages" DROP COLUMN IF EXISTS "subject"`);
     }
+    expect(subjects).toEqual(
+      expect.arrayContaining([
+        { recipientId: leia.id, subject: unread.title },
+        { recipientId: han.id, subject: read.title },
+      ]),
+    );
 
     const messages = await dataSource.getRepository(Message).find({
       order: { recipientId: 'ASC' },
@@ -105,7 +120,6 @@ describe('MigrateColonyEvents20261013120000 migration (Postgres)', () => {
         expect.objectContaining({
           recipientId: leia.id,
           senderId: leia.id,
-          subject: unread.title,
           body: unread.message,
           isRead: false,
           isSystem: true,
@@ -116,7 +130,6 @@ describe('MigrateColonyEvents20261013120000 migration (Postgres)', () => {
         expect.objectContaining({
           recipientId: han.id,
           senderId: han.id,
-          subject: read.title,
           body: read.message,
           isRead: true,
           isSystem: true,

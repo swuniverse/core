@@ -35,11 +35,11 @@ describe('Resource conversion (PostgreSQL)', () => {
   const delivered = jest.fn();
   const messaging = {
     sendSystem: jest.fn(async (...args: unknown[]) => {
-      const transaction = args[7] as
+      const transaction = args[6] as
         | { afterCommit: Array<() => void> }
         | undefined;
-      if (transaction) transaction.afterCommit.push(() => delivered(args[2]));
-      else delivered(args[2]);
+      if (transaction) transaction.afterCommit.push(() => delivered(args[1]));
+      else delivered(args[1]);
     }),
   };
   const sendImplementation = messaging.sendSystem.getMockImplementation()!;

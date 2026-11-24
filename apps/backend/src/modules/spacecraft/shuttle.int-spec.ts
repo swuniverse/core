@@ -75,8 +75,8 @@ describe('Shuttles (PostgreSQL)', () => {
   let activeAirfield = true;
   const delivered = jest.fn();
   const send = async (...args: unknown[]) => {
-    (args[7] as { afterCommit: Array<() => void> }).afterCommit.push(() =>
-      delivered(args[2]),
+    (args[6] as { afterCommit: Array<() => void> }).afterCommit.push(() =>
+      delivered(args[1]),
     );
   };
   const messaging = { sendSystem: jest.fn(send) };

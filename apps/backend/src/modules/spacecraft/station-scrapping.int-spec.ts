@@ -41,8 +41,8 @@ describe('Station scrapping (PostgreSQL)', () => {
   let worker: Spacecraft;
   const delivered = jest.fn();
   const send = jest.fn(async (...args: unknown[]) => {
-    (args[7] as TransactionalNotifications).afterCommit.push(() =>
-      delivered(args[2]),
+    (args[6] as TransactionalNotifications).afterCommit.push(() =>
+      delivered(args[1]),
     );
   });
   const trade = { destroyForStation: jest.fn(async () => []) };
@@ -67,8 +67,8 @@ describe('Station scrapping (PostgreSQL)', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     send.mockImplementation(async (...args: unknown[]) => {
-      (args[7] as TransactionalNotifications).afterCommit.push(() =>
-        delivered(args[2]),
+      (args[6] as TransactionalNotifications).afterCommit.push(() =>
+        delivered(args[1]),
       );
     });
     await resetDatabase(db);

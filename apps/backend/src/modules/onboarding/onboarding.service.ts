@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import {
   Faction,
   STU_STARTER_PLANET_CLASS_IDS,
@@ -116,10 +116,13 @@ export class OnboardingService {
 
     const faction = await this.userRepo.manager.transaction(async (manager) => {
       const joinable = await lockJoinableFaction(manager, { key: factionKey });
-      await manager.update(User, userId, {
-        faction: joinable.key as Faction,
-        factionId: joinable.id,
-      });
+      // Conditional update: a parallel request must not switch an already chosen faction.
+      const { affected } = await manager.update(
+        User,
+        { id: userId, factionId: IsNull() },
+        { faction: joinable.key as Faction, factionId: joinable.id },
+      );
+      if (!affected) throw new BadRequestException('Faction is already selected');
       return joinable;
     });
 

@@ -85,6 +85,28 @@ describe('OnboardingService', () => {
     expect(onboardingRepo.save).not.toHaveBeenCalled();
   });
 
+  it('rejects when a parallel request already chose the faction', async () => {
+    mockLockJoinableFaction.mockResolvedValueOnce({ id: 2, key: Faction.REBEL_ALLIANCE });
+    const manager = { update: jest.fn(async () => ({ affected: 0 })) };
+    const userRepo = {
+      findOneBy: jest.fn(async () => ({ id: 7, factionId: null })),
+      manager: { transaction: jest.fn(async (fn: (m: typeof manager) => unknown) => fn(manager)) },
+    };
+    const onboardingRepo = { save: jest.fn() };
+    const service = new OnboardingService(
+      onboardingRepo as never, userRepo as never, {} as never, {} as never, {} as never, {} as never,
+      {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
+    );
+
+    await expect(service.selectFaction(7, Faction.REBEL_ALLIANCE)).rejects.toThrow('Faction is already selected');
+    expect(manager.update).toHaveBeenCalledWith(
+      expect.anything(),
+      { id: 7, factionId: expect.anything() },
+      { faction: Faction.REBEL_ALLIANCE, factionId: 2 },
+    );
+    expect(onboardingRepo.save).not.toHaveBeenCalled();
+  });
+
   it('excludes already claimed planets from the available homeworlds', async () => {
     const selection = { factionId: 1, selectedSystemId: null };
     const onboardingRepo = {

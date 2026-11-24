@@ -92,7 +92,7 @@ describe('maintenance handlers sh-AUD-11a (PostgreSQL)', () => {
       expect(remaining).toEqual([young.id, active.id]);
       expect(await source.getRepository('RpgPlotMember').countBy({ plotId: stale.id })).toBe(0);
       const text = 'Der Plot "Verwaist" wurde gelöscht, da er veraltet ist und keine Beiträge enthält.';
-      expect(sendSystem.mock.calls.map((call) => [(call as unknown[])[0], (call as unknown[])[2]])).toEqual([
+      expect(sendSystem.mock.calls.map((call) => [(call as unknown[])[0], (call as unknown[])[1]])).toEqual([
         [creator.id, text],
         [member.id, text],
       ]);
