@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 import { PlanetImg } from '../PlanetImg';
 import { starTileImage } from '../../lib/assets';
-import { terrainAppearance, nebulaEdgeMask } from '../../lib/map-terrain';
+import { terrainAppearance, nebulaEdgeMask, isNebulaTerrain } from '../../lib/map-terrain';
 import { getSystemFieldStyle } from '../spacecraft/field-styles';
 import {
   buildStarTileLayers,
@@ -140,7 +140,7 @@ export function SystemRasterMap({
                     !field ? 'cursor-default opacity-50' : 'hover:brightness-125',
                   ].join(' ')}
                 >
-                  {!showStarTile && terrain.image && (
+                  {!showStarTile && terrain.image && (!object || (fieldType && isNebulaTerrain(fieldType))) && (
                     <img src={terrain.image} alt="" className="absolute inset-0 h-full w-full object-cover"
                       style={{ opacity: terrain.alpha, filter: terrain.filter, ...mask }} />
                   )}

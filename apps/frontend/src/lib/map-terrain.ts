@@ -26,7 +26,9 @@ export function terrainAppearance(
   if (
     type.key === 'EMPTY_SPACE' ||
     type.key === 'DEEP_SPACE' ||
-    type.category === 'space'
+    type.key === 'STAR_SYSTEM' ||
+    type.category === 'space' ||
+    type.category === 'system'
   ) {
     return {
       image: spaceBackgroundTile(x, y),

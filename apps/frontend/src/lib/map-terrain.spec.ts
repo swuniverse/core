@@ -25,6 +25,7 @@ describe('map terrain appearance', () => {
     expect(
       terrainAppearance({ id: 1, key: 'EMPTY_SPACE' }, 5, 6).image,
     ).toContain('/map/starmap/0706.png');
+    expect(terrainAppearance({ id: 1001, key: 'STAR_SYSTEM', category: 'system' }, 5, 6).image).toContain('/map/starmap/0706.png');
     expect(
       terrainAppearance({ id: 999, key: 'ASTEROID_FIELD' }, 5, 6).image,
     ).toContain('/map/999.png');
