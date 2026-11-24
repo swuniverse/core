@@ -24,7 +24,11 @@ const NAV_ITEMS = [
   { label: 'Karte', path: '/starmap', icon: 'map' },
 ];
 
-const stationsNavItem = { label: 'Stationen', path: '/stations', icon: 'station' };
+const stationsNavItem = {
+  label: 'Stationen',
+  path: '/stations',
+  icon: 'station',
+};
 const adminNavItem = { label: 'Admin', path: '/admin', icon: 'admin' };
 const mapEditorNavItem = {
   label: 'Karteneditor',
@@ -45,12 +49,11 @@ export function Sidebar() {
       ? [mapEditorNavItem]
       : [];
   // STU: "Stationen" only once stations are available to the player.
-  const navItems =
-    user?.hasStationsNavigation || user?.isAdmin
-      ? NAV_ITEMS.flatMap((item) =>
-          item.path === '/spacecraft' ? [item, stationsNavItem] : [item],
-        )
-      : NAV_ITEMS;
+  const navItems = user?.hasStationsNavigation
+    ? NAV_ITEMS.flatMap((item) =>
+        item.path === '/spacecraft' ? [item, stationsNavItem] : [item],
+      )
+    : NAV_ITEMS;
   const items = [...navItems, ...extraItems];
 
   useEffect(() => {

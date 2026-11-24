@@ -1,6 +1,6 @@
 # Stations-Award wie STU vergeben, Menüpunkt „Stationen“ nur danach
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** S
 **Blocked by:** sc-AUD-27
@@ -24,13 +24,13 @@ Der Award wird wie bei STU mit „Raumkonstrukt“ erforscht. Danach gilt für d
 
 ## Akzeptanzkriterien
 
-- [ ] **game-data (Submodul):** `awardKey: RESEARCH_STATIONS` an den Raumkonstrukt-Forschungen. Rebellen: `12001201` in `data/research/rebels.yaml`. Imperium: `12001203` in `data/research/imperials.yaml`. Die übrigen STU-ids 12001202, 12001204 und 12001205 nur, wenn sie in SWU existieren.
-- [ ] Das Forschungs-UI zeigt den Award an der Technologie an. Das passiert über das vorhandene Feld `award` in `research.service.ts`, ohne Zusatzarbeit; ein Test sichert es ab.
-- [ ] **Nachtrag für Bestandsspieler:** Eine Migration oder ein einmaliger Lauf vergibt `RESEARCH_STATIONS` an alle Spieler, die Raumkonstrukt schon erforscht haben (Tabelle `research`, abgeschlossen), ohne doppelte Einträge (Unique `UQ_user_awards_user_award`).
+- [x] **game-data (Submodul):** `awardKey: RESEARCH_STATIONS` an den Raumkonstrukt-Forschungen. Rebellen: `12001201` in `data/research/rebels.yaml`. Imperium: `12001203` in `data/research/imperials.yaml`. Die übrigen STU-ids 12001202, 12001204 und 12001205 nur, wenn sie in SWU existieren.
+- [x] Das Forschungs-UI zeigt den Award an der Technologie an. Das passiert über das vorhandene Feld `award` in `research.service.ts`, ohne Zusatzarbeit; ein Test sichert es ab.
+- [x] **Nachtrag für Bestandsspieler:** Eine Migration oder ein einmaliger Lauf vergibt `RESEARCH_STATIONS` an alle Spieler, die Raumkonstrukt schon erforscht haben (Tabelle `research`, abgeschlossen), ohne doppelte Einträge (Unique `UQ_user_awards_user_award`).
   - Der Nachtrag vergibt die 10 Prestige des Katalogs wie eine normale Vergabe (über `AwardService.grant`, Entscheidung unten).
-- [ ] `hasStationsNavigation` folgt danach nur noch der STU-Regel (NPC, Award, Crew auf fremder Station). Die Übergangsbedingung „eigene Station“ fällt weg.
+- [x] `hasStationsNavigation` folgt danach nur noch der STU-Regel (NPC, Award, Crew auf fremder Station). Die Übergangsbedingung „eigene Station“ fällt weg.
   - Der Admin-Sonderfall in Sidebar und Mobil-Menü fällt weg, wie bei STU (Entscheidung unten).
-- [ ] **Tests:**
+- [x] **Tests:**
   - Unit: Der Abschluss von Raumkonstrukt vergibt `RESEARCH_STATIONS`.
   - PostgreSQL: Die Migration bzw. der Nachtrag vergibt den Award genau einmal.
   - `stations-navigation.int-spec.ts`: Eine eigene Station allein schaltet nicht mehr frei.
@@ -48,3 +48,13 @@ Spieler, die eine Station ohne die Forschung besitzen (zum Beispiel über eine �
 
 - **Prestige beim Nachtrag:** ja, wie bei einer normalen Vergabe. Voraussichtlich betrifft es niemanden, weil bisher wohl noch kein Spieler Raumkonstrukt erforscht hat. Der Nachtrag wird trotzdem eingeplant.
 - **Admins:** wie STU. Admins sehen „Stationen“ nur nach derselben Regel wie alle anderen.
+
+## Comments
+
+### 2026-11-24 — umgesetzt, Prüfung ausstehend
+
+- game-data: `awardKey: RESEARCH_STATIONS` an 12001201 (Rebellen) und 12001203 (Imperium); 12001202/04/05 gibt es in SWU nicht. Vergabe über den bestehenden Pfad `research.service.ts` (`tech.awardKey` → `AwardService.grant`, schon durch „grants the configured award when research completes“ getestet); das Forschungs-UI zeigt ihn über das vorhandene Feld `award`.
+- Migration `20261124120000-backfill-stations-award.ts`: legt den Award an falls nötig, vergibt ihn idempotent an alle mit abgeschlossenem Raumkonstrukt und bucht die Prestige wie `PrestigeService.change` (Verlauf, keine Prestige für NPCs).
+- `auth.service.ts`: Übergangsregel „eigene Station“ entfernt; Sidebar und Mobil-Menü ohne Admin-Sonderfall.
+- Tests: `game-data.service.spec.ts` (Award an genau beiden Raumkonstrukt-Forschungen), PostgreSQL `migration-tests/20261124-stations-award.int-spec.ts` (einmalig, Prestige 10, Verlauf, nicht für laufende Forschung, NPC ohne Prestige), `stations-navigation.int-spec.ts` (eigene Station allein schaltet nicht frei), `navigation.spec.tsx` (Admin ohne Sonderfall). Jest game-data/research/auth 135/135, PostgreSQL 6/6, Vitest layout/stations/research 36/36, `nx typecheck` ✓, ESLint ohne Befund.
+- Modell: Claude Opus 5.5 direkt.

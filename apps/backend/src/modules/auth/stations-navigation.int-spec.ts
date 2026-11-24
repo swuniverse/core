@@ -11,7 +11,7 @@ import { UserAward } from '../awards/entities/user-award.entity';
 import { AuthService } from './auth.service';
 import { User } from './user.entity';
 
-/** STU GameTwigRenderer::hasStationsNavigation plus own stations (sc-AUD-27). */
+/** STU GameTwigRenderer::hasStationsNavigation (sc-AUD-27, sc-AUD-28). */
 describe('stations navigation flag (PostgreSQL)', () => {
   let source: DataSource;
   beforeAll(async () => {
@@ -75,12 +75,10 @@ describe('stations navigation flag (PostgreSQL)', () => {
     expect(await flag(user.id)).toBe(true);
   });
 
-  it('shows it for an own station, not a destroyed one', async () => {
+  it('does not show it for an own station alone like STU (sc-AUD-28)', async () => {
     const owner = await createUser(source);
-    await station(owner.id, 'DESTROYED');
-    expect(await flag(owner.id)).toBe(false);
     await station(owner.id);
-    expect(await flag(owner.id)).toBe(true);
+    expect(await flag(owner.id)).toBe(false);
   });
 
   it('shows it with own crew on a foreign station', async () => {

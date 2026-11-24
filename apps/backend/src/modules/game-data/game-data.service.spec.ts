@@ -89,6 +89,19 @@ describe('GameDataService research ship rewards', () => {
     expect(() => loadWith(reward)).toThrow('has no module');
   });
 
+  it('grants the STU stations award with Raumkonstrukt (sc-AUD-28)', () => {
+    const productive = new GameDataService();
+    productive.onModuleInit();
+    const awarded = productive
+      .getTechTree()
+      .filter((tech) => tech.awardKey === 'RESEARCH_STATIONS')
+      .map((tech) => [tech.id, tech.faction, tech.name]);
+    expect(awarded).toEqual([
+      [12001201, 'REBEL_ALLIANCE', 'Raumkonstrukt'],
+      [12001203, 'GALACTIC_EMPIRE', 'Raumkonstrukt'],
+    ]);
+  });
+
   it('ships productive research data without reward mappings', () => {
     const productive = new GameDataService();
     productive.onModuleInit();

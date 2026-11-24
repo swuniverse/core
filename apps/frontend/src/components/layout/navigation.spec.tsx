@@ -119,7 +119,7 @@ describe('navigation icons', () => {
     unmount();
 
     user = { username: 'Han', hasStationsNavigation: true };
-    render(
+    const { unmount: unmount2 } = render(
       <MemoryRouter>
         <Sidebar />
         <BottomNav />
@@ -129,5 +129,17 @@ describe('navigation icons', () => {
     const links = screen.getAllByRole('link', { name: 'Stationen' });
     expect(links).toHaveLength(2);
     expect(links[0].getAttribute('href')).toBe('/stations');
+    unmount2();
+
+    // STU has no admin exception (sc-AUD-28).
+    user = { username: 'Leia', isAdmin: true };
+    render(
+      <MemoryRouter>
+        <Sidebar />
+        <BottomNav />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Mehr' }));
+    expect(screen.queryByRole('link', { name: 'Stationen' })).toBeNull();
   });
 });

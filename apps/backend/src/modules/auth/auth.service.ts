@@ -392,16 +392,14 @@ export class AuthService {
   }
 
   /**
-   * STU GameTwigRenderer::hasStationsNavigation (NPC, station research award,
-   * crew on a foreign station). SWU also counts own stations because no
-   * research grants RESEARCH_STATIONS yet.
+   * STU GameTwigRenderer::hasStationsNavigation: NPC, station research award
+   * (Raumkonstrukt, sc-AUD-28) or crew on a foreign station.
    */
   private async hasStationsNavigation(user: Pick<User, 'id' | 'isNpc'>): Promise<boolean> {
     if (user.isNpc) return true;
     const [row] = (await this.dataSource.query(
       `SELECT (
          EXISTS (SELECT 1 FROM user_awards WHERE "userId" = $1 AND "awardKey" = 'RESEARCH_STATIONS')
-         OR EXISTS (SELECT 1 FROM spacecraft WHERE "userId" = $1 AND kind = 'STATION' AND status <> 'DESTROYED')
          OR EXISTS (
            SELECT 1 FROM crew_assignments crew
            JOIN spacecraft station ON station.id = crew."spacecraftId"

@@ -35,12 +35,15 @@ export function BottomNav() {
   }, [location.pathname]);
 
   // STU: "Stationen" only once stations are available to the player.
-  const stationItems =
-    user?.hasStationsNavigation || user?.isAdmin
-      ? [{ label: 'Stationen', path: '/stations', icon: 'station' }]
-      : [];
+  const stationItems = user?.hasStationsNavigation
+    ? [{ label: 'Stationen', path: '/stations', icon: 'station' }]
+    : [];
   const allMoreItems = user?.isAdmin
-    ? [...stationItems, ...moreItems, { label: 'Admin', path: '/admin', icon: 'admin' }]
+    ? [
+        ...stationItems,
+        ...moreItems,
+        { label: 'Admin', path: '/admin', icon: 'admin' },
+      ]
     : [...stationItems, ...moreItems];
 
   return (
@@ -69,7 +72,11 @@ export function BottomNav() {
                 {({ isActive }) => (
                   <>
                     <span className="relative">
-                      <NavigationIcon name={item.icon} active={isActive} size="small" />
+                      <NavigationIcon
+                        name={item.icon}
+                        active={isActive}
+                        size="small"
+                      />
                       {item.path === '/holonet' && holonetUnread > 0 && (
                         <span
                           aria-label={`${holonetUnread} neue HoloNet-Beiträge`}
@@ -92,7 +99,9 @@ export function BottomNav() {
               className="group flex items-center gap-3 px-3 py-2.5 rounded text-sm text-swu-danger w-full text-left"
             >
               <NavigationIcon name="logout" active={false} size="small" />
-              <span>Logout (<PlayerName name={user?.username} />)</span>
+              <span>
+                Logout (<PlayerName name={user?.username} />)
+              </span>
             </button>
           </div>
         </div>
@@ -115,7 +124,11 @@ export function BottomNav() {
             >
               {({ isActive }) => (
                 <>
-                  <NavigationIcon name={tab.icon} active={isActive} size="small" />
+                  <NavigationIcon
+                    name={tab.icon}
+                    active={isActive}
+                    size="small"
+                  />
                   <span className="text-[9px]">{tab.label}</span>
                 </>
               )}
