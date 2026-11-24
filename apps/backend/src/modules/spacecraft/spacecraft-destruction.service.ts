@@ -26,7 +26,6 @@ import {
 } from './entities/spacecraft.entity';
 import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.service';
 import { GameEventService } from '../events/game-event.service';
-import { GameEventType } from '../events/entities/game-event.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { resolveSpacecraftLocation } from './spacecraft-field';
 import { SpacecraftModule } from './entities/spacecraft-module.entity';
@@ -131,7 +130,6 @@ export class SpacecraftDestructionService {
           location,
         });
         await this.gameEvents.recordSpacecraft(
-          GameEventType.SHIP,
           `${ship.name} hat sich in Sektor ${coordinates?.x ?? '?'}|${coordinates?.y ?? '?'} selbst zerstört.`,
           ship,
         );
@@ -238,7 +236,6 @@ export class SpacecraftDestructionService {
     await afterCommit();
     if (result) {
       await this.gameEvents.recordSpacecraft(
-        GameEventType.SHIP,
         `${result.destroyerName ?? 'Unbekannt'} zerstörte ${result.ship.name} (${result.ship.shipClass.name}).`,
         result.ship,
       );

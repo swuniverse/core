@@ -15,6 +15,7 @@ import { ColonyStorageService } from '../colony/colony-storage.service';
 import { ColonyDefenseService } from '../colony/colony-defense.service';
 import { ColonyDamageService } from '../colony/colony-damage.service';
 import { StatisticsModule } from '../statistics/statistics.module';
+import { EventsModule } from '../events/events.module';
 import { BattleResolverService } from './battle-resolver.service';
 import { CombatReportFormatter } from './combat-report.formatter';
 import { CombatRandom } from './combat-random';
@@ -33,6 +34,7 @@ import { BattlePreparationService } from './battle-preparation.service';
     WebsocketModule,
     SpacecraftModule,
     StatisticsModule,
+    EventsModule,
   ],
   controllers: [CombatController],
   providers: [

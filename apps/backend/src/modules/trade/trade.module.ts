@@ -24,6 +24,7 @@ import { AdminTradeDealController, AdminTradeLotteryController, TradeDealControl
 import { TradeLotteryService } from './trade-lottery.service';
 import { LotteryAwardListener } from './lottery-award.listener';
 import { TradeAuctionService } from './trade-auction.service';
+import { EventsModule } from '../events/events.module';
 import { PlayerTradePostService } from './player-trade-post.service';
 import { TradePostManagementService } from './trade-post-management.service';
 import { AwardsModule } from '../awards/awards.module';
@@ -59,6 +60,7 @@ import { TradeQueryService } from './trade-query.service';
     forwardRef(() => AuthModule),
     AllianceModule,
     AccountDeletionModule,
+    EventsModule,
     PrestigeModule,
     AwardsModule,
     TypeOrmModule.forFeature([

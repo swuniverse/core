@@ -45,7 +45,7 @@ describe('trade data on player deletion (PostgreSQL)', () => {
     });
 
     const deletions = new PlayerDeletionService(source);
-    new TradeDeletionHandler(deletions, new PlayerTradePostService({} as never)).onModuleInit();
+    new TradeDeletionHandler(deletions, new PlayerTradePostService({} as never, {} as never)).onModuleInit();
     await deletions.delete(doomed.id);
 
     for (const entity of ['TradeAccountStorage', 'TradeOffer', 'TradeLicense', 'TradeTransfer', 'TradeShoutboxEntry', 'LotteryTicket']) {

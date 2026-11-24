@@ -75,6 +75,9 @@ function createService() {
     } as any,
   );
   const gameData = {
+    getBuilding: jest.fn((id: number) =>
+      id === 100030100 ? { id, name: 'Schildgenerator' } : undefined,
+    ),
     getTorpedoType: jest.fn((id: number) =>
       id === 81
         ? { id: 81, commodityId: 81, name: 'Micro', baseDamage: 90 }
@@ -117,6 +120,7 @@ function createService() {
   const trackerService = {
     assertTrackedTarget: jest.fn(),
   };
+  const gameEvents = { recordColony: jest.fn(async () => undefined) };
   const interactionContext = {
     load: jest.fn(async () => ({
       targetOnVacation: false,
@@ -149,8 +153,10 @@ function createService() {
     interactionContext as any,
     battleResolver as any,
     trackerService as any,
+    gameEvents as any,
   );
   return {
+    gameEvents,
     service,
     shipRepo,
     moduleRepo,
@@ -273,6 +279,7 @@ describe('CombatService tracked attack', () => {
 describe('CombatService attackColony', () => {
   const attacker = () => ({
     id: 7,
+    name: 'Falke',
     userId: 1,
     status: SpacecraftStatus.IDLE,
     locationId: 40,
@@ -297,6 +304,7 @@ describe('CombatService attackColony', () => {
     ],
   ): any => ({
     id: 5,
+    name: 'Neu-Hoth',
     userId: 2,
     starSystemId: 10,
     systemFieldId: 30,
@@ -348,6 +356,7 @@ describe('CombatService attackColony', () => {
       colonyStatsRepo,
       colonyEventService,
       colonyDamageService,
+      gameEvents,
     } = createService();
     shipRepo.findOne.mockResolvedValue(attacker());
     colonyRepo.findOne.mockResolvedValue(
@@ -376,6 +385,7 @@ describe('CombatService attackColony', () => {
     expect(result.colonyShields).toBe(200);
     expect(result.damagedFields).toEqual([]);
     expect(colonyDamageService.damageField).not.toHaveBeenCalled();
+    expect(gameEvents.recordColony).not.toHaveBeenCalled();
     expect(colonyStatsRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ shields: 200 }),
     );
@@ -396,6 +406,7 @@ describe('CombatService attackColony', () => {
       moduleRepo,
       colonyDamageService,
       colonyFieldRepo,
+      gameEvents,
     } = createService();
     const target = colony([
       {
@@ -441,6 +452,10 @@ describe('CombatService attackColony', () => {
     );
     expect(result.rounds[0].log).toContainEqual(
       expect.objectContaining({ action: 'COLONY_SHIELD_ABSORB', value: 0 }),
+    );
+    expect(gameEvents.recordColony).toHaveBeenCalledWith(
+      'Das Gebäude Schildgenerator auf Kolonie Neu-Hoth wurde von der Falke zerstört',
+      target,
     );
   });
 

@@ -6,7 +6,6 @@ import { SpacecraftRuntimeStateService } from './spacecraft-runtime-state.servic
 import { GameGateway } from '../websocket/game.gateway';
 import { WsEventType } from '@swuniverse/shared';
 import { GameEventService } from '../events/game-event.service';
-import { GameEventType } from '../events/entities/game-event.entity';
 import {
   buildNearbyInteractionContext,
   decideNearbyInteraction,
@@ -156,7 +155,6 @@ export class HyperdriveDisruptionService {
     await this.shipRepo.save(target);
     const detail = `${target.name} wurde aus dem Hyperraum gezwungen`;
     await this.gameEvents.recordSpacecraft(
-      GameEventType.SHIP,
       interceptor
         ? `${target.name} wurde von ${interceptor.name} aus dem Hyperraum gezwungen.`
         : detail,

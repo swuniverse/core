@@ -1,6 +1,6 @@
 # Globale History: STATION- und COLONY-Ereignisse schreiben
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Priority:** P2
 **Size:** M
 **Blocked by:** —
@@ -32,14 +32,14 @@ Die globale History kennt die Typen STATION und COLONY, schreibt sie aber nie. S
 
 ## Akzeptanzkriterien
 
-- [ ] `GameEventService` leitet den Typ für Raumfahrzeuge selbst aus `kind` ab (Station → STATION, sonst SHIP), wie STU `EntryCreator`; Aufrufer übergeben den Typ nicht mehr frei. Die bestehenden Aufrufer (Zerstörung, Übernahme, Hyperraum-Abfang) schreiben damit Stationsereignisse als STATION.
-- [ ] Neue Methode für Kolonieereignisse mit Ortsauflösung (System, Koordinaten) analog zu `recordSpacecraft`.
-- [ ] Ein bei einem Kolonieangriff auf Integrität 0 gebrachtes Gebäude erzeugt einen COLONY-Eintrag „Das Gebäude <Name> auf Kolonie <Name> wurde von der <Schiff> zerstört“ (je zerstörtem Gebäude, im selben Kampf-Transaktionskontext).
-- [ ] Das Verlassen bzw. Aufgeben eines Spieler-Handelspostens (Kontolöschung, `abandonOwnedBy`) erzeugt einen STATION-Eintrag „Der Handelsposten in Sektor <x|y> wurde verlassen.“.
-- [ ] Die Typfilter „Stationen“ und „Kolonien“ in `/events` zeigen die neuen Einträge, die Zähler stimmen, Ortslink funktioniert.
-- [ ] Keine Rückwirkung auf bestehende SHIP-Einträge (keine Datenmigration nötig; optional dokumentieren).
-- [ ] Backend-Tests: Stationszerstörung → STATION, Schiffszerstörung → SHIP, Gebäudezerstörung → COLONY, Postenaufgabe → STATION; Integrationstest für Filter.
-- [ ] Frontend-Test: Filter Stationen/Kolonien listen passende Einträge.
+- [x] `GameEventService` leitet den Typ für Raumfahrzeuge selbst aus `kind` ab (Station → STATION, sonst SHIP), wie STU `EntryCreator`; Aufrufer übergeben den Typ nicht mehr frei. Die bestehenden Aufrufer (Zerstörung, Übernahme, Hyperraum-Abfang) schreiben damit Stationsereignisse als STATION.
+- [x] Neue Methode für Kolonieereignisse mit Ortsauflösung (System, Koordinaten) analog zu `recordSpacecraft`.
+- [x] Ein bei einem Kolonieangriff auf Integrität 0 gebrachtes Gebäude erzeugt einen COLONY-Eintrag „Das Gebäude <Name> auf Kolonie <Name> wurde von der <Schiff> zerstört“ (je zerstörtem Gebäude, im selben Kampf-Transaktionskontext).
+- [x] Das Verlassen bzw. Aufgeben eines Spieler-Handelspostens (Kontolöschung, `abandonOwnedBy`) erzeugt einen STATION-Eintrag „Der Handelsposten in Sektor <x|y> wurde verlassen.“.
+- [x] Die Typfilter „Stationen“ und „Kolonien“ in `/events` zeigen die neuen Einträge, die Zähler stimmen, Ortslink funktioniert.
+- [x] Keine Rückwirkung auf bestehende SHIP-Einträge (keine Datenmigration nötig; optional dokumentieren).
+- [x] Backend-Tests: Stationszerstörung → STATION, Schiffszerstörung → SHIP, Gebäudezerstörung → COLONY, Postenaufgabe → STATION; Integrationstest für Filter.
+- [x] Frontend-Test: Filter Stationen/Kolonien listen passende Einträge.
 
 ## Herkunft
 
@@ -47,3 +47,21 @@ Die globale History kennt die Typen STATION und COLONY, schreibt sie aber nie. S
 - `map.md`, Duplikattabelle: „Fehlende Prestigequellen, History-Erzeuger je Bereich → im jeweiligen Fachissue (soc-H2)“. Dieser Querverweis wurde nicht eingelöst: `sc-WP-COMBAT-3-zerstoerungsfolgen.md` und `sc-WP-CREW-4b` setzen nur SHIP um. Dieses Ticket übernimmt die History-Erzeuger für STATION/COLONY zentral; der map.md-Eintrag soc-H2 ist damit für die History überholt.
 
 ## Comments
+
+### 2026-11-24 – umgesetzt, Prüfung ausstehend
+
+Commit: `feat(events): STU station and colony history entries (stu-parity soc-AUD-04)`.
+
+- `GameEventService.recordSpacecraft(text, ship, manager?)` leitet den Typ aus `kind` ab (STATION/SHIP), Typ-Parameter entfernt; Aufrufer (Zerstörung, Selbstzerstörung, Übernahme, Hyperraum-Abfang) angepasst.
+- Neu: `recordColony(text, colony, manager?)` (SpaceLocation über `systemFieldId`, Fallback `resolveColonyLocation`) und `recordStation(text, locationId, manager?)`.
+- `CombatService.attackColony`: je Feld mit Status `DESTROYED` ein COLONY-Eintrag „Das Gebäude <Name> auf Kolonie <Name> wurde von der <Schiff> zerstört“, nach dem Speichern der Felder (attackColony hat keine eigene Transaktion). `EventsModule` in `CombatModule` importiert.
+- `PlayerTradePostService.abandonOwnedBy`: STATION-Eintrag „Der Handelsposten in Sektor x|y wurde verlassen.“ in der Löschtransaktion; `EventsModule` in `TradeModule`.
+- Bestehende SHIP-Einträge bleiben unverändert, keine Datenmigration.
+- Frontend unverändert (Labels Station/Kolonie entsprechen STU `HistoryTypeEnum`), Filtertest ergänzt.
+
+Checks gelaufen: `nx typecheck backend` grün; Jest unit (events, combat.service, spacecraft-destruction/-takeover, hyperdrive-disruption) 68/68; Jest integration (events.int-spec inkl. neuem STATION/COLONY-Filtertest, player-trade-post-lifecycle mit STATION-Eintrag, player-trade-post, trade-deletion, foreign-crew, trade-auctions, row-lock-relations) 38/38; vitest `events.spec.tsx` 7/7; eslint geänderte Backend-Dateien 0 Fehler; `nx lint frontend` grün.
+
+Offen: gesammelter Verifikationslauf (volle Backend-Unit-/Integrationssuite, Review des Diffs gegen die AK).
+
+Modell: Claude Opus 5.5 direkt implementiert (Sol/Luna in dieser Session nicht verfügbar).
+

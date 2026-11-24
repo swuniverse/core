@@ -3,7 +3,6 @@ import { DataSource, EntityManager, In } from 'typeorm';
 import { isVacationEffective, type SpacecraftTakeoverDto } from '@swuniverse/shared';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { GameEventService } from '../events/game-event.service';
-import { GameEventType } from '@swuniverse/shared';
 import { MessageFolder } from '../messaging/message-folder';
 import { MessagingService, type TransactionalNotifications } from '../messaging/messaging.service';
 import { PrestigeService } from '../prestige/prestige.service';
@@ -131,7 +130,7 @@ export class SpacecraftTakeoverService {
     });
     if (!outcome) return null;
     if (outcome.completed && outcome.target) {
-      await this.gameEvents.recordSpacecraft(GameEventType.SHIP, `${outcome.target.name} wurde übernommen.`, outcome.target);
+      await this.gameEvents.recordSpacecraft(`${outcome.target.name} wurde übernommen.`, outcome.target);
       await this.notify(outcome.takeover, 'Übernahme abgeschlossen', `${outcome.target.name} wurde erfolgreich übernommen.`);
     }
     return this.toDto(outcome.takeover, outcome.completed);

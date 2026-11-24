@@ -42,7 +42,7 @@ describe('player trade posts (PostgreSQL)', () => {
     const fieldType = await source.getRepository('GalaxyFieldType').findOneByOrFail({});
     const field = await source.getRepository('GalaxyField').save({ layerId: layer.id, cx: 1, cy: 1, fieldTypeId: fieldType.id });
     locationId = (await source.getRepository('SpaceLocation').findOneByOrFail({ galaxyFieldId: field.id })).id;
-    stations = new StationConstructionService(source, gameData as never, new FieldEffectQuery(), new PlayerTradePostService({} as never));
+    stations = new StationConstructionService(source, gameData as never, new FieldEffectQuery(), new PlayerTradePostService({} as never, {} as never));
   });
 
   async function stationUnderConstruction(role: string) {
@@ -85,7 +85,7 @@ describe('player trade posts (PostgreSQL)', () => {
   });
 
   it('keeps one post per station and none on a field that already has a post', async () => {
-    const posts = new PlayerTradePostService({} as never);
+    const posts = new PlayerTradePostService({} as never, {} as never);
     const station = await stationUnderConstruction('OUTPOST');
     const first = await posts.createForStation(source.manager, station);
     expect(await posts.createForStation(source.manager, station)).toMatchObject({ id: first?.id });

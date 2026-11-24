@@ -286,4 +286,51 @@ describe('global events HTTP contract (Postgres, HTTP)', () => {
       },
     });
   });
+
+  it('filters station and colony events written by the service', async () => {
+    const events = app.get(GameEventService);
+    const layer = await dataSource.getRepository('Layer').save({ name: 'Rand', width: 3, height: 3 });
+    const fieldType = await dataSource.getRepository('GalaxyFieldType').findOneByOrFail({});
+    const field = await dataSource.getRepository('GalaxyField').save({ layerId: layer.id, cx: 2, cy: 3, fieldTypeId: fieldType.id });
+    const locationId = (await dataSource.getRepository('SpaceLocation').findOneByOrFail({ galaxyFieldId: field.id })).id;
+    await dataSource.getRepository(ExplorationState).save({ userId: player.id, layerId: layer.id, cx: 2, cy: 3 });
+    await events.recordStation('Der Handelsposten in Sektor 2|3 wurde verlassen.', locationId);
+    await events.recordColony('Das Gebäude Mine auf Kolonie Hoth wurde von der Falke zerstört', {
+      starSystemId: null, posX: 0, posY: 0, systemFieldId: null,
+    });
+    await createEvent({ type: GameEventType.SHIP, text: 'Schiff', createdAt: new Date() });
+    const counts = {
+      [GameEventType.SHIP]: 1,
+      [GameEventType.STATION]: 1,
+      [GameEventType.COLONY]: 1,
+      [GameEventType.ALLIANCE]: 0,
+      [GameEventType.OTHER]: 0,
+    };
+
+    expect(await call('player', '?type=STATION')).toMatchObject({
+      status: 200,
+      body: {
+        events: [
+          {
+            type: GameEventType.STATION,
+            text: 'Der Handelsposten in Sektor 2|3 wurde verlassen.',
+            scope: 'GALAXY',
+            layerId: layer.id,
+            x: 2,
+            y: 3,
+            locationId,
+            location: { scope: 'GALAXY', locationId, layerId: layer.id, x: 2, y: 3 },
+          },
+        ],
+        counts,
+      },
+    });
+    expect(await call('player', '?type=COLONY')).toMatchObject({
+      status: 200,
+      body: {
+        events: [{ type: GameEventType.COLONY, text: 'Das Gebäude Mine auf Kolonie Hoth wurde von der Falke zerstört' }],
+        counts,
+      },
+    });
+  });
 });

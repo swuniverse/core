@@ -1,6 +1,8 @@
 import { DataSource } from 'typeorm';
 import type { User } from '../../modules/auth/user.entity';
 import { PlayerDeletionService } from '../../modules/account-deletion/player-deletion.service';
+import { GameEvent, GameEventType } from '../../modules/events/entities/game-event.entity';
+import { GameEventService } from '../../modules/events/game-event.service';
 import { MessagingService } from '../../modules/messaging/messaging.service';
 import { ABANDONED_TRADE_POST_NAME, PlayerTradePostService } from '../../modules/trade/player-trade-post.service';
 import { TradeAccountTransferService } from '../../modules/trade/trade-account-transfer.service';
@@ -53,7 +55,7 @@ describe('player trade post destruction and abandonment (PostgreSQL)', () => {
       source.getRepository('Message') as never, source.getRepository('User') as never, {} as never,
       { emitToUser: () => undefined } as never, {} as never,
     );
-    posts = new PlayerTradePostService(messaging);
+    posts = new PlayerTradePostService(messaging, new GameEventService(source.getRepository(GameEvent), {} as never));
     const layer = await source.getRepository('Layer').save({ name: 'Rand', width: 3, height: 1 });
     const fieldType = await source.getRepository('GalaxyFieldType').findOneByOrFail({});
     const locations: number[] = [];
@@ -168,6 +170,12 @@ describe('player trade post destruction and abandonment (PostgreSQL)', () => {
         }),
       ]);
       expect(await messagesOf(bystander.id)).toEqual([]);
+      expect(await source.getRepository(GameEvent).find()).toEqual([
+        expect.objectContaining({
+          type: GameEventType.STATION, text: 'Der Handelsposten in Sektor 1|1 wurde verlassen.',
+          scope: 'GALAXY', x: 1, y: 1, locationId,
+        }),
+      ]);
 
       const query = new TradeQueryService(
         source.getRepository('TradePost') as never, source.getRepository('TradeAccountStorage') as never,

@@ -3,6 +3,7 @@ import { EscapePod, EscapePodLaunchReason } from '../spacecraft/entities/escape-
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Not, type EntityManager } from 'typeorm';
+import { GameEventService } from '../events/game-event.service';
 import { MessageFolder } from '../messaging/message-folder';
 import { MessagingService, type TransactionalNotifications } from '../messaging/messaging.service';
 import { resolveSpaceLocation } from '../spacecraft/spacecraft-field';
@@ -45,7 +46,10 @@ export function assertNotAbandoned<T extends Pick<TradePost, 'ownerId'>>(
 export class PlayerTradePostService {
   private readonly logger = new Logger(PlayerTradePostService.name);
 
-  constructor(private readonly messaging: MessagingService) {}
+  constructor(
+    private readonly messaging: MessagingService,
+    private readonly gameEvents: GameEventService,
+  ) {}
 
   /** Runs inside the station completion transaction; repeat calls keep the existing post. */
   async createForStation(
@@ -203,6 +207,7 @@ export class PlayerTradePostService {
         description: ABANDONED_TRADE_POST_NAME,
       });
       await manager.delete(TradeLicenseCondition, { tradePostId: post.id });
+      await this.gameEvents.recordStation(`Der Handelsposten in Sektor ${coordinates} wurde verlassen.`, post.locationId, manager);
       const holders = [...new Set([...accounts, ...offers].map((entry) => entry.userId))].sort((left, right) => left - right);
       for (const holderId of holders) {
         await this.messaging.sendSystem(

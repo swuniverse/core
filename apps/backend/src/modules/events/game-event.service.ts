@@ -8,7 +8,13 @@ import {
   resolveSpacecraftField,
   resolveSpaceLocation,
 } from '../spacecraft/spacecraft-field';
-import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
+import {
+  Spacecraft,
+  SpacecraftKind,
+} from '../spacecraft/entities/spacecraft.entity';
+import { SpaceLocation } from '../starmap/entities/space-location.entity';
+import { resolveColonyLocation } from '../colony/colony-location';
+import type { Colony } from '../colony/entities/colony.entity';
 
 @Injectable()
 export class GameEventService {
@@ -34,10 +40,70 @@ export class GameEventService {
     );
   }
 
-  async recordSpacecraft(type: GameEventType, text: string, ship: Spacecraft) {
+  /** STU `EntryCreator`: the target decides the type (station → STATION). */
+  async recordSpacecraft(
+    text: string,
+    ship: Spacecraft,
+    manager: EntityManager = this.events.manager,
+  ) {
     const field = resolveSpacecraftField(ship);
-    return this.events.save(
-      this.events.create({
+    const type =
+      ship.kind === SpacecraftKind.STATION
+        ? GameEventType.STATION
+        : GameEventType.SHIP;
+    return this.save(manager, type, text, field, ship.locationId ?? null);
+  }
+
+  async recordColony(
+    text: string,
+    colony: Pick<Colony, 'starSystemId' | 'posX' | 'posY' | 'systemFieldId'> &
+      Partial<Pick<Colony, 'systemField'>>,
+    manager: EntityManager = this.events.manager,
+  ) {
+    const location = colony.systemFieldId
+      ? await manager.findOne(SpaceLocation, {
+          where: { systemFieldId: colony.systemFieldId },
+          relations: ['galaxyField', 'systemField'],
+        })
+      : null;
+    return this.save(
+      manager,
+      GameEventType.COLONY,
+      text,
+      resolveSpaceLocation(location) ?? resolveColonyLocation(colony),
+      location?.id ?? null,
+    );
+  }
+
+  /** Station events without a spacecraft, e.g. an abandoned trade post. */
+  async recordStation(
+    text: string,
+    locationId: number,
+    manager: EntityManager = this.events.manager,
+  ) {
+    const location = await manager.findOne(SpaceLocation, {
+      where: { id: locationId },
+      relations: ['galaxyField', 'systemField'],
+    });
+    return this.save(
+      manager,
+      GameEventType.STATION,
+      text,
+      resolveSpaceLocation(location),
+      location?.id ?? null,
+    );
+  }
+
+  private save(
+    manager: EntityManager,
+    type: GameEventType,
+    text: string,
+    field: ReturnType<typeof resolveSpaceLocation>,
+    locationId: number | null,
+  ) {
+    const events = manager.getRepository(GameEvent);
+    return events.save(
+      events.create({
         type,
         text,
         scope: field?.scope ?? null,
@@ -45,8 +111,7 @@ export class GameEventService {
         systemId: field?.scope === 'SYSTEM' ? field.systemId : null,
         x: field?.x ?? null,
         y: field?.y ?? null,
-        locationId: ship.locationId ?? null,
-        location: ship.location ?? null,
+        locationId,
       }),
     );
   }

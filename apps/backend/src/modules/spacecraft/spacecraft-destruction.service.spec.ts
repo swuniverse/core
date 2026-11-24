@@ -356,7 +356,6 @@ describe('SpacecraftDestructionService', () => {
     await service.destroyFromCombat(2, 9);
 
     expect(gameEvents.recordSpacecraft).toHaveBeenCalledWith(
-      expect.anything(),
       'Sieger zerstörte Opfer (X-Wing Jäger).',
       expect.objectContaining({ id: 2, name: 'Opfer' }),
     );

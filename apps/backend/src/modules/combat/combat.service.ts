@@ -24,6 +24,7 @@ import {
 import { SpacecraftModule } from '../spacecraft/entities/spacecraft-module.entity';
 import { CombatResult } from './combat.engine';
 import { BattleResolverService } from './battle-resolver.service';
+import { GameEventService } from '../events/game-event.service';
 import { attackedParty, attackingParty } from './battle-parties';
 import { SpacecraftCrewService } from '../spacecraft/spacecraft-crew.service';
 import { Colony } from '../colony/entities/colony.entity';
@@ -80,6 +81,7 @@ export class CombatService {
     private readonly interactionContext: InteractionContextService,
     private readonly battleResolver: BattleResolverService,
     private readonly trackerService: SpacecraftTrackerService,
+    private readonly gameEvents: GameEventService,
   ) {}
 
   async attackTracked(
@@ -354,6 +356,16 @@ export class CombatService {
     }
     await this.colonyStatsRepo.save(colony.stats);
     await this.colonyRepo.save(colony);
+    for (const damagedField of damagedFields) {
+      if (damagedField.status !== 'DESTROYED') continue;
+      const building =
+        this.gameData.getBuilding(damagedField.buildingId)?.name ??
+        `#${damagedField.buildingId}`;
+      await this.gameEvents.recordColony(
+        `Das Gebäude ${building} auf Kolonie ${colony.name} wurde von der ${attacker.name} zerstört`,
+        colony,
+      );
+    }
 
     await this.colonyEventService.createActionEvent({
       colonyId: colony.id,

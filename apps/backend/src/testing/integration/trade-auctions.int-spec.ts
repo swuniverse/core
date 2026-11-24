@@ -255,7 +255,7 @@ describe('Hutt Cartel auctions (PostgreSQL)', () => {
     await auctions.bid(id, han.id, 10, now);
     await auctions.bid(id, lando.id, 20, now);
     const deletions = new PlayerDeletionService(source);
-    new TradeDeletionHandler(deletions, new PlayerTradePostService({} as never)).onModuleInit();
+    new TradeDeletionHandler(deletions, new PlayerTradePostService({} as never, {} as never)).onModuleInit();
 
     await deletions.delete(lando.id);
 

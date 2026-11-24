@@ -314,7 +314,7 @@ describe('foreign crew recovery (PostgreSQL)', () => {
       });
     const post = await h.postAt(2, 1, 'Stationposten', station.id);
     const member = await h.member(h.owner.id, { tradePostId: post.id });
-    const service = new PlayerTradePostService(h.messaging);
+    const service = new PlayerTradePostService(h.messaging, {} as never);
     await source.transaction(async (manager) =>
       service.destroyForStation(
         manager,

@@ -165,6 +165,34 @@ describe('EventsPage', () => {
     expect(within(result as HTMLElement).getByText('Diplomatie')).toBeTruthy();
   });
 
+  it.each([
+    ['STATION', 'Station', 'Der Handelsposten in Sektor 2|3 wurde verlassen.'],
+    ['COLONY', 'Kolonie', 'Das Gebäude Mine auf Kolonie Hoth wurde von der Falke zerstört'],
+  ])('filters %s events and shows their count', async (type, label, text) => {
+    apiMocks.get.mockResolvedValueOnce(eventResponse).mockResolvedValueOnce({
+      events: [{ ...eventResponse.events[0], id: 9, type, text }],
+      counts: { ...eventResponse.counts, [type]: 1 },
+    });
+    renderPage('/events');
+
+    expect(await screen.findByText('Imperial corvette destroyed')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Ereignistyp'), {
+      target: { value: type },
+    });
+
+    await waitFor(() =>
+      expect(apiMocks.get).toHaveBeenLastCalledWith(
+        `/events/recent?type=${type}&limit=20`,
+      ),
+    );
+    const event = await screen.findByText(text);
+    expect(screen.getByText(`${label}: 1`)).toBeTruthy();
+    expect(screen.queryByText('Imperial corvette destroyed')).toBeNull();
+    expect(
+      within(event.closest('li') as HTMLElement).getByText(label),
+    ).toBeTruthy();
+  });
+
   it('renders a clear empty state', async () => {
     apiMocks.get.mockResolvedValueOnce({
       events: [],
