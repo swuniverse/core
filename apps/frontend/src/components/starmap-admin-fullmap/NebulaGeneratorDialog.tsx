@@ -5,11 +5,11 @@ import type {
   NebulaPreviewMapDto,
   NebulaSettingsDto,
 } from '@swuniverse/shared';
+import { buildNebulaCloudIndex, isNebulaCloudSpace } from '@swuniverse/shared';
 import { api } from '../../services/api';
 import { planetThumbnail, spaceBackgroundTile, systemTypeImage } from '../../lib/assets';
 import { nebulaEdgeMask, terrainAppearance, type TerrainFieldType } from '../../lib/map-terrain';
-import { organicNebulaEdgeMask } from '../../lib/nebula-contour';
-import { getNebulaDomStyle } from '../../lib/nebula-texture';
+import { getNebulaCloudDomStyle } from '../../lib/nebula-cloud';
 import { useFullmapEditorStore } from '../../stores/fullmap-editor.store';
 
 const DEFAULT_SETTINGS: NebulaSettingsDto = {
@@ -61,6 +61,16 @@ function NebulaMapPreview({
     const type = getTerrainType(typeId, fieldTypes);
     return type.key === 'UNKNOWN' ? undefined : type;
   };
+  const nebulaCloudIndex = useMemo(() => buildNebulaCloudIndex(map.fields.flatMap((field) => {
+    const currentType = getTerrainType(field.fieldTypeId, fieldTypes);
+    if (currentType.key === 'UNKNOWN') return [];
+    const change = changes.get(field.id);
+    const finalType = change ? getTerrainType(change.fieldTypeId, fieldTypes) : currentType;
+    const visual = change ? change.restore ? undefined : map.nebulaVisual : field.nebulaVisual;
+    return finalType.key !== 'UNKNOWN' && finalType.category === 'nebula' && visual
+      ? [{ x: field.x, y: field.y, visual }]
+      : [];
+  })), [changes, fieldTypes, map.fields, map.nebulaVisual]);
 
   return (
     <div className="max-h-[55vh] overflow-auto rounded border border-swu-border bg-black p-3" aria-label={`${mapLabel(map)} Feldvorschau`}>
@@ -102,11 +112,13 @@ function NebulaMapPreview({
                 bottom: neighbors[2],
                 left: neighbors[3],
               });
-          const organicEdgeMask = visual
-            ? organicNebulaEdgeMask(finalType, field.x, field.y, neighbors)
+          const isVisualSource = Boolean(visual && finalType.key !== 'UNKNOWN' && finalType.category === 'nebula');
+          const canReceiveCloud = isVisualSource || isNebulaCloudSpace(finalType);
+          const nebulaStyle = canReceiveCloud
+            ? getNebulaCloudDomStyle(nebulaCloudIndex, field.x, field.y)
             : undefined;
-          const baseImage = visual ? spaceBackgroundTile(field.x, field.y) : finalTerrain.image;
-          const nebulaStyle = visual ? getNebulaDomStyle(visual, field.x, field.y) : undefined;
+          const terrainEdgeMask = visual || nebulaStyle ? undefined : legacyEdgeMask;
+          const baseImage = nebulaStyle || isVisualSource ? spaceBackgroundTile(field.x, field.y) : finalTerrain.image;
           const marker = field.systemTypeId != null
             ? systemTypeImage(field.systemTypeId)
             : field.objectClassId != null
@@ -135,15 +147,15 @@ function NebulaMapPreview({
                   alt=""
                   loading="lazy"
                   className="absolute inset-0 h-full w-full object-cover"
-                  style={visual ? undefined : { opacity: finalTerrain.alpha, filter: finalTerrain.filter, ...legacyEdgeMask }}
+                  style={visual || nebulaStyle ? undefined : { opacity: finalTerrain.alpha, filter: finalTerrain.filter, ...terrainEdgeMask }}
                 />
               )}
-              {visual && (
+              {nebulaStyle && (
                 <div
                   aria-hidden="true"
                   data-nebula-visual="true"
                   className="absolute inset-0 bg-center bg-no-repeat"
-                  style={{ ...nebulaStyle, ...organicEdgeMask }}
+                  style={nebulaStyle}
                 />
               )}
               {marker && (
@@ -389,6 +401,7 @@ export function NebulaGeneratorDialog({
               {galaxyPreviewMap
                 ? <NebulaMapPreview map={galaxyPreviewMap} fieldTypes={fieldTypes} markChanges={markChanges} />
                 : <p className="text-sm text-swu-muted">Keine Galaxiekarte in der Vorschau enthalten.</p>}
+              <p className="text-xs text-swu-muted">Der schwache Außensaum ist rein optisch. Feldkosten und Nebeleffekte richten sich nach dem Feldtyp.</p>
               <label className="inline-flex items-center gap-2 text-xs text-swu-muted">
                 <input
                   type="checkbox"

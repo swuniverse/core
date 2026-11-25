@@ -1,16 +1,16 @@
 import { deflateSync } from 'node:zlib';
 import {
-  buildNebulaLandscape,
-  renderNebulaRaster,
-  type NebulaLandscape,
+  buildNebulaCloudIndex,
+  isNebulaCloudSpace,
+  nebulaCloudSignature,
+  renderNebulaCloudField,
+  type NebulaCloudIndex,
 } from '@swuniverse/shared';
 import {
   nebulaVisualForField,
   type NebulaGeneration,
 } from './nebula-generation';
 
-const landscapes = new Map<string, NebulaLandscape>();
-const rasters = new Map<string, Uint8ClampedArray>();
 const textures = new Map<string, string>();
 const crcTable = Array.from({ length: 256 }, (_, i) => {
   let crc = i;
@@ -44,54 +44,59 @@ function png(data: Buffer) {
     pngChunk('IEND', Buffer.alloc(0)),
   ]);
 }
-/** Return only this known field's image, never the world seed or hidden neighboring pixels. */
-export function nebulaTextureForField(field: {
+export interface NebulaTextureField {
   fieldTypeId: number;
   cx?: number;
   cy?: number;
+  fieldType?: { id: number; key: string; category?: string | null };
   nebulaGeneration?: NebulaGeneration | null;
-}): string | undefined {
-  if (typeof field.cx !== 'number' || typeof field.cy !== 'number')
+  redacted?: boolean;
+}
+
+/** Build only from fields the requesting viewer is allowed to know. */
+export function buildNebulaTextureContext(
+  knownFields: readonly NebulaTextureField[],
+): NebulaCloudIndex {
+  return buildNebulaCloudIndex(
+    knownFields.flatMap((field) => {
+      if (
+        field.redacted ||
+        field.fieldType?.key === 'UNKNOWN' ||
+        typeof field.cx !== 'number' ||
+        typeof field.cy !== 'number'
+      )
+        return [];
+      const visual = nebulaVisualForField(field);
+      return visual ? [{ x: field.cx, y: field.cy, visual }] : [];
+    }),
+  );
+}
+
+/** Only this known recipient's pixels are returned, including decorative space-field wisps.
+ * Seeds and unknown sources never leave the server. Context signatures include visibility.
+ */
+export function nebulaTextureForField(
+  field: NebulaTextureField,
+  context?: NebulaCloudIndex,
+): string | undefined {
+  if (
+    field.redacted ||
+    field.fieldType?.key === 'UNKNOWN' ||
+    typeof field.cx !== 'number' ||
+    typeof field.cy !== 'number'
+  )
     return undefined;
-  const visual = nebulaVisualForField(field);
-  if (!visual) return undefined;
-  const key = JSON.stringify([
-      visual.seed,
-      visual.width,
-      visual.height,
-      visual.density,
-    ]),
-    textureKey = `${key}:${field.cx},${field.cy}`;
-  const old = textures.get(textureKey);
+  if (!nebulaVisualForField(field) && !isNebulaCloudSpace(field.fieldType))
+    return undefined;
+  const known = context ?? buildNebulaTextureContext([field]);
+  const key = nebulaCloudSignature(known, field.cx, field.cy);
+  if (!key) return undefined;
+  const old = textures.get(key);
   if (old) return old;
-  let scene = landscapes.get(key);
-  if (!scene) {
-    scene = buildNebulaLandscape(visual);
-    landscapes.set(key, scene);
-    if (landscapes.size > 8) landscapes.delete(landscapes.keys().next().value!);
-  }
-  const x = Math.floor((field.cx - 1) / 8),
-    y = Math.floor((field.cy - 1) / 8),
-    chunkKey = `${key}:${x},${y}`;
-  let raster = rasters.get(chunkKey);
-  if (!raster) {
-    raster = renderNebulaRaster(scene, x * 8, y * 8, 240, 240);
-    rasters.set(chunkKey, raster);
-    if (rasters.size > 64) rasters.delete(rasters.keys().next().value!);
-  }
-  const left = ((field.cx - 1) % 8) * 30,
-    top = ((field.cy - 1) % 8) * 30,
-    data = Buffer.alloc(30 * 30 * 4);
-  for (let row = 0; row < 30; row++)
-    data.set(
-      raster.subarray(
-        ((top + row) * 240 + left) * 4,
-        ((top + row) * 240 + left + 30) * 4,
-      ),
-      row * 120,
-    );
-  const uri = `data:image/png;base64,${png(data).toString('base64')}`;
-  textures.set(textureKey, uri);
+  const raster = renderNebulaCloudField(known, field.cx, field.cy);
+  if (!raster) return undefined;
+  const uri = `data:image/png;base64,${png(Buffer.from(raster)).toString('base64')}`;
+  textures.set(key, uri);
   if (textures.size > 4096) textures.delete(textures.keys().next().value!);
   return uri;
 }

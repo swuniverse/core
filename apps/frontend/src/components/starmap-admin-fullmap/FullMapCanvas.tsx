@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Application, Container, Sprite, Graphics, Assets, Text, TextStyle } from 'pixi.js';
-import type { StarmapGalaxyFieldDto } from '@swuniverse/shared';
+import { buildNebulaCloudIndex, isNebulaCloudSpace, type StarmapGalaxyFieldDto } from '@swuniverse/shared';
 import { useAdminSignatureStore } from '../../stores/admin-signature.store';
 import { useAuthStore } from '../../stores/auth.store';
 import { drawFlightSignatures, signatureViewport } from './flight-signature-overlay';
@@ -8,8 +8,8 @@ import { useFullmapEditorStore } from '../../stores/fullmap-editor.store';
 import { spaceBackgroundTile, systemTypeImage } from '../../lib/assets';
 
 import { terrainAppearance } from '../../lib/map-terrain';
-import { featherNebulaSprite, organicNebulaSprite } from '../../lib/map-terrain-pixi';
-import { getNebulaPixiTexture } from '../../lib/nebula-texture-pixi';
+import { featherNebulaSprite } from '../../lib/map-terrain-pixi';
+import { getNebulaCloudPixiTexture } from '../../lib/nebula-cloud-pixi';
 
 const CELL = 30;
 const MIN_SCALE = 0.05;
@@ -274,6 +274,14 @@ export function FullMapCanvas() {
 
   const loadTiles = useCallback(async (container: Container) => {
     if (!layer) return;
+    const renderFields = fieldsRef.current;
+    const nebulaCloudIndex = buildNebulaCloudIndex(renderFields.flatMap((field) => (
+      field.fieldType.key !== 'UNKNOWN' &&
+      field.fieldType.category === 'nebula' &&
+      field.nebulaVisual
+        ? [{ x: field.cx, y: field.cy, visual: field.nebulaVisual }]
+        : []
+    )));
     const generation = ++tileLoadGeneration.current;
     const isCancelled = () => container.destroyed || generation !== tileLoadGeneration.current;
     const bg = new Graphics();
@@ -289,7 +297,7 @@ export function FullMapCanvas() {
       const type = fieldMapRef.current.get(`${x},${y}`)?.fieldType;
       return type?.key === 'UNKNOWN' ? undefined : type;
     };
-    const loadPromises = fields
+    const loadPromises = renderFields
       .filter((f) => f.fieldType.key !== 'UNKNOWN')
       .map(async (field) => {
         const cx = (field.cx - 1) * CELL;
@@ -306,7 +314,14 @@ export function FullMapCanvas() {
         ];
 
         try {
-          const nebulaTexture = field.nebulaTexture ? await Assets.load(field.nebulaTexture) : getNebulaPixiTexture(field.nebulaVisual, field.cx, field.cy);
+          const hasActiveNebulaVisual = field.fieldType.key !== 'UNKNOWN' &&
+            field.fieldType.category === 'nebula' && Boolean(field.nebulaVisual);
+          const canReceiveCloud = hasActiveNebulaVisual || isNebulaCloudSpace(field.fieldType);
+          const nebulaTexture = field.nebulaTexture
+            ? await Assets.load(field.nebulaTexture)
+            : canReceiveCloud
+              ? getNebulaCloudPixiTexture(nebulaCloudIndex, field.cx, field.cy)
+              : null;
           const appearance = terrainAppearance(nebulaTexture ? { id: 1, key: 'EMPTY_SPACE' } : field.fieldType, field.cx, field.cy);
           const tileUrl = appearance.image;
           if (!tileUrl) return;
@@ -322,7 +337,6 @@ export function FullMapCanvas() {
           if (nebulaTexture) {
             const cloud = new Sprite(nebulaTexture); cloud.position.set(cx, cy); cloud.width = cloud.height = CELL;
             tileLayer.addChild(cloud);
-            organicNebulaSprite(cloud, tileLayer, field.fieldType, field.cx, field.cy, neighbors);
           } else featherNebulaSprite(sprite, tileLayer, field.fieldType, neighbors.slice(0, 4));
         } catch {
           if (isCancelled()) return;
@@ -387,7 +401,7 @@ export function FullMapCanvas() {
     if (rectGfxRef.current) {
       container.addChild(rectGfxRef.current);
     }
-  }, [fields, layer]);
+  }, [layer]);
 
   const fitView = useCallback((app: Application) => {
     if (!layer) return;

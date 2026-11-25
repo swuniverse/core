@@ -1,4 +1,4 @@
-import { nebulaTextureForField } from './nebula-texture';
+import { buildNebulaTextureContext, nebulaTextureForField } from './nebula-texture';
 import {
   BadRequestException,
   Injectable,
@@ -192,6 +192,7 @@ export class StarmapQueryService {
       order: { cy: 'ASC', cx: 'ASC' },
     });
 
+    const nebulaTextures = buildNebulaTextureContext(fields);
     return fields.map((field) => ({
       id: field.id,
       cx: field.cx,
@@ -205,7 +206,7 @@ export class StarmapQueryService {
       borderTypeId: field.borderTypeId,
       effects: field.effects,
       passableOverride: field.passableOverride,
-      ...(nebulaTextureForField(field) ? { nebulaTexture: nebulaTextureForField(field) } : {}),
+      ...(nebulaTextureForField(field, nebulaTextures) ? { nebulaTexture: nebulaTextureForField(field, nebulaTextures) } : {}),
       fieldType: this.toFieldTypeDTO(field.fieldType),
       starSystem: field.starSystem
         ? this.toSystemListItemDTO(field.starSystem)
@@ -229,14 +230,15 @@ export class StarmapQueryService {
     const fields = await this.galaxyFieldRepo.find({
       where: {
         layerId,
-        cx: Between(minX, maxX),
-        cy: Between(minY, maxY),
+        cx: Between(minX - 2, maxX + 2),
+        cy: Between(minY - 2, maxY + 2),
       },
       relations: ['fieldType', 'starSystem'],
       order: { cy: 'ASC', cx: 'ASC' },
     });
 
-    return fields.map((field) => ({
+    const nebulaTextures = buildNebulaTextureContext(fields);
+    return fields.filter(field => field.cx >= minX && field.cx <= maxX && field.cy >= minY && field.cy <= maxY).map((field) => ({
       id: field.id,
       cx: field.cx,
       cy: field.cy,
@@ -249,7 +251,7 @@ export class StarmapQueryService {
       borderTypeId: field.borderTypeId,
       effects: field.effects,
       passableOverride: field.passableOverride,
-      ...(nebulaTextureForField(field) ? { nebulaTexture: nebulaTextureForField(field) } : {}),
+      ...(nebulaTextureForField(field, nebulaTextures) ? { nebulaTexture: nebulaTextureForField(field, nebulaTextures) } : {}),
       fieldType: this.toFieldTypeDTO(field.fieldType),
       starSystem: field.starSystem
         ? this.toSystemListItemDTO(field.starSystem)
@@ -476,11 +478,9 @@ export class StarmapQueryService {
       exploredStates.map((s) => [`${s.cx},${s.cy}`, s.explorationLevel]),
     );
 
-    return allFields
-      .filter(
-        (field) => fullyExplored || exploredMap.has(`${field.cx},${field.cy}`),
-      )
-      .map((field) => {
+    const knownFields = allFields.filter(field => fullyExplored || exploredMap.has(`${field.cx},${field.cy}`));
+    const nebulaTextures = buildNebulaTextureContext(knownFields);
+    return knownFields.map((field) => {
         const level = fullyExplored
           ? ExplorationLevel.FULL
           : exploredMap.get(`${field.cx},${field.cy}`)!;
@@ -498,7 +498,7 @@ export class StarmapQueryService {
             borderTypeId: null,
             effects: null,
             passableOverride: null,
-            ...(nebulaTextureForField(field) ? { nebulaTexture: nebulaTextureForField(field) } : {}),
+            ...(nebulaTextureForField(field, nebulaTextures) ? { nebulaTexture: nebulaTextureForField(field, nebulaTextures) } : {}),
             fieldType: this.toFieldTypeDTO(field.fieldType),
             starSystem: null,
           };
@@ -516,7 +516,7 @@ export class StarmapQueryService {
           borderTypeId: field.borderTypeId,
           effects: field.effects,
           passableOverride: field.passableOverride,
-          ...(nebulaTextureForField(field) ? { nebulaTexture: nebulaTextureForField(field) } : {}),
+          ...(nebulaTextureForField(field, nebulaTextures) ? { nebulaTexture: nebulaTextureForField(field, nebulaTextures) } : {}),
           fieldType: this.toFieldTypeDTO(field.fieldType),
           starSystem: field.starSystem
             ? this.toSystemListItemDTO(field.starSystem)
@@ -542,17 +542,17 @@ export class StarmapQueryService {
 
     const [allFields, exploredStates, fullyExplored] = await Promise.all([
       this.galaxyFieldRepo.find({
-        where: { layerId, cx: Between(minX, maxX), cy: Between(minY, maxY) },
+        where: { layerId, cx: Between(minX - 2, maxX + 2), cy: Between(minY - 2, maxY + 2) },
         relations: ['fieldType', 'starSystem'],
         order: { cy: 'ASC', cx: 'ASC' },
       }),
       explorationService.getExploredFieldsInSector(
         userId,
         layerId,
-        minX,
-        maxX,
-        minY,
-        maxY,
+        minX - 2,
+        maxX + 2,
+        minY - 2,
+        maxY + 2,
       ),
       this.isLayerFullyExplored(userId, layerId),
     ]);
@@ -561,10 +561,12 @@ export class StarmapQueryService {
       exploredStates.map((s) => [`${s.cx},${s.cy}`, s.explorationLevel]),
     );
 
+    const nebulaTextures = buildNebulaTextureContext(allFields.filter(field => fullyExplored || exploredMap.has(`${field.cx},${field.cy}`)));
     const fields: StarmapExploredGalaxyFieldDto[] = [];
     let hiddenCount = 0;
 
     for (const field of allFields) {
+      if (field.cx < minX || field.cx > maxX || field.cy < minY || field.cy > maxY) continue;
       const level = fullyExplored
         ? ExplorationLevel.FULL
         : exploredMap.get(`${field.cx},${field.cy}`);
@@ -615,7 +617,7 @@ export class StarmapQueryService {
           effects: null,
           passableOverride: null,
           explorationLevel: 'TERRAIN',
-          ...(nebulaTextureForField(field) ? { nebulaTexture: nebulaTextureForField(field) } : {}),
+          ...(nebulaTextureForField(field, nebulaTextures) ? { nebulaTexture: nebulaTextureForField(field, nebulaTextures) } : {}),
           fieldType: this.toFieldTypeDTO(field.fieldType),
           starSystem: null,
         });
@@ -634,7 +636,7 @@ export class StarmapQueryService {
           effects: field.effects,
           passableOverride: field.passableOverride,
           explorationLevel: 'FULL',
-          ...(nebulaTextureForField(field) ? { nebulaTexture: nebulaTextureForField(field) } : {}),
+          ...(nebulaTextureForField(field, nebulaTextures) ? { nebulaTexture: nebulaTextureForField(field, nebulaTextures) } : {}),
           fieldType: this.toFieldTypeDTO(field.fieldType),
           starSystem: field.starSystem
             ? this.toSystemListItemDTO(field.starSystem)

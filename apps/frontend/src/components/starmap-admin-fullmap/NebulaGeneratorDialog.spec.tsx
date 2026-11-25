@@ -6,8 +6,7 @@ import { FullMapToolbar } from './FullMapToolbar';
 
 const mocks = vi.hoisted(() => ({
   post: vi.fn(),
-  getNebulaDomStyle: vi.fn(),
-  organicNebulaEdgeMask: vi.fn(),
+  getNebulaCloudDomStyle: vi.fn(),
   storeState: {
     fieldTypes: [
       { id: 1, name: 'Leerer Raum', key: 'EMPTY_SPACE', category: 'space' },
@@ -34,8 +33,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../../services/api', () => ({ api: { post: mocks.post } }));
-vi.mock('../../lib/nebula-texture', () => ({ getNebulaDomStyle: mocks.getNebulaDomStyle }));
-vi.mock('../../lib/nebula-contour', () => ({ organicNebulaEdgeMask: mocks.organicNebulaEdgeMask }));
+vi.mock('../../lib/nebula-cloud', () => ({ getNebulaCloudDomStyle: mocks.getNebulaCloudDomStyle }));
 vi.mock('../../stores/fullmap-editor.store', () => ({
   useFullmapEditorStore: (selector: (state: typeof mocks.storeState) => unknown) =>
     selector(mocks.storeState),
@@ -111,10 +109,10 @@ describe('NebulaGeneratorDialog', () => {
     mocks.storeState.layers = [];
     mocks.storeState.selectedLayerId = null;
     mocks.storeState.status = '';
-    mocks.getNebulaDomStyle.mockImplementation((visual: NebulaVisualDto, x: number, y: number) => ({
-      backgroundImage: `url(/nebula-${visual.seed}-${x}-${y}.png)`,
+    mocks.getNebulaCloudDomStyle.mockImplementation((index, x: number, y: number) => ({
+      backgroundImage: `url(/nebula-${[...index.sources.values()].map((source) => source.visual.seed).join('-')}-${x}-${y}.png)`,
+      backgroundSize: '100% 100%',
     }));
-    mocks.organicNebulaEdgeMask.mockReturnValue({ maskImage: 'url(/organic-mask.png)' });
   });
 
   it('uses GALAXY defaults, shows only the galaxy, and renders generated, unchanged and restored visuals correctly', async () => {
@@ -133,6 +131,7 @@ describe('NebulaGeneratorDialog', () => {
       { seed: 'swu-nebula-v1', target: 'GALAXY', density: 'BALANCED' },
     );
     expect(screen.getByRole('grid', { name: 'Galaxie — Hauptgalaxie 5 mal 1' })).not.toBeNull();
+    expect(screen.getByText('Der schwache Außensaum ist rein optisch. Feldkosten und Nebeleffekte richten sich nach dem Feldtyp.')).not.toBeNull();
     expect(screen.getByText('2', { selector: 'strong' })).not.toBeNull();
     expect(screen.getByText('3', { selector: 'strong' })).not.toBeNull();
     expect(screen.getByText('Dünner Nebel')).not.toBeNull();
@@ -143,36 +142,28 @@ describe('NebulaGeneratorDialog', () => {
       name: 'Alderaan: Nebel wird erzeugt; aktuell Sternsystem (ID 2), danach Dünner Nebel (ID 100)',
     });
     expect(generatedCell.querySelector(`img[src="${spaceBackgroundTile(2, 1)}"]`)).not.toBeNull();
+    expect(generatedCell.querySelector(`img[src="${spaceBackgroundTile(2, 1)}"]`)?.getAttribute('style')).toBeNull();
     expect(generatedCell.querySelector(`img[src="${starTileImage(100)}"]`)).toBeNull();
-    expect(generatedCell.querySelector('[data-nebula-visual="true"]')?.getAttribute('style')).toContain('/nebula-nebula-new-2-1.png');
+    expect(generatedCell.querySelector('[data-nebula-visual="true"]')?.getAttribute('style')).toContain('/nebula-nebula-new-nebula-old-2-1.png');
     expect(generatedCell.querySelector(`img[src="${systemTypeImage(3)}"]`)).not.toBeNull();
-    expect(mocks.getNebulaDomStyle).toHaveBeenCalledWith(generatedVisual, 2, 1);
-    expect(mocks.organicNebulaEdgeMask).toHaveBeenCalledWith(
-      { id: 100, key: 'NEBULA', category: 'nebula' },
-      2, 1,
-      [
-        undefined,
-        { id: 1, key: 'EMPTY_SPACE', category: 'space' },
-        undefined,
-        { id: 1, key: 'EMPTY_SPACE', category: 'space' },
-        undefined, undefined, undefined, undefined,
-      ],
-    );
-    expect(mocks.organicNebulaEdgeMask).toHaveBeenCalledTimes(2);
+    const generatedIndex = mocks.getNebulaCloudDomStyle.mock.calls.find(([, x]) => x === 2)?.[0];
+    expect(generatedIndex?.sources.get('2,1')?.visual).toEqual(generatedVisual);
+    expect(generatedIndex?.sources.get('4,1')?.visual).toEqual(existingVisual);
+    expect(generatedIndex?.sources.has('3,1')).toBe(false);
+    expect(generatedIndex?.sources.has('5,1')).toBe(false);
 
     const restoredCell = screen.getByRole('gridcell', {
       name: 'Rücksetzfeld: Nebel wird zurückgenommen; aktuell Dünner Nebel (ID 100), danach Leerer Raum (ID 1)',
     });
-    expect(restoredCell.querySelector('[data-nebula-visual="true"]')).toBeNull();
+    expect(restoredCell.querySelector('[data-nebula-visual="true"]')?.getAttribute('style')).toContain('/nebula-nebula-new-nebula-old-3-1.png');
     expect(restoredCell.querySelector(`img[src="${starTileImage(100)}"]`)).toBeNull();
     expect(restoredCell.querySelector(`img[src="${spaceBackgroundTile(3, 1)}"]`)).not.toBeNull();
-    expect(mocks.getNebulaDomStyle).not.toHaveBeenCalledWith(existingVisual, 3, 1);
+    expect(restoredCell.querySelector(`img[src="${spaceBackgroundTile(3, 1)}"]`)?.getAttribute('style')).toBeNull();
 
     const unchangedCell = screen.getByRole('gridcell', {
       name: 'Bestehendes Nebelfeld, bestehender filmischer Nebel (ID 100)',
     });
-    expect(unchangedCell.querySelector('[data-nebula-visual="true"]')?.getAttribute('style')).toContain('/nebula-nebula-old-4-1.png');
-    expect(mocks.getNebulaDomStyle).toHaveBeenCalledWith(existingVisual, 4, 1);
+    expect(unchangedCell.querySelector('[data-nebula-visual="true"]')?.getAttribute('style')).toContain('/nebula-nebula-new-nebula-old-4-1.png');
     expect(mocks.storeState.loadFields).not.toHaveBeenCalled();
 
     expect((screen.getByLabelText('Änderungen markieren') as HTMLInputElement).checked).toBe(false);

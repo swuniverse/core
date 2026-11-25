@@ -1,8 +1,8 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { LssMap, type LocalMapGalaxy, type LocalMapSystem } from './LssMap';
 
-const organicMask = vi.hoisted(() => vi.fn());
-vi.mock('../../lib/nebula-contour', () => ({ organicNebulaEdgeMask: organicMask }));
+const cloud = vi.hoisted(() => ({ getNebulaCloudDomStyle: vi.fn() }));
+vi.mock('../../lib/nebula-cloud', () => ({ getNebulaCloudDomStyle: cloud.getNebulaCloudDomStyle }));
 
 vi.mock('../../lib/assets', () => ({
   anomalyImage: (type: string) => `/anomaly-${type.toLowerCase()}.png`,
@@ -52,27 +52,45 @@ function systemMap(
 
 describe('LssMap', () => {
   beforeEach(() => {
-    organicMask.mockReset().mockReturnValue({ maskImage: 'url(/organic-mask.png)' });
+    cloud.getNebulaCloudDomStyle.mockReset().mockImplementation((_index, x, y) => ({
+      backgroundImage: `url(/cloud-${x}-${y}.png)`,
+      backgroundSize: '100% 100%',
+    }));
   });
 
-  it('shows known galaxy nebula texture over space and ignores redacted texture metadata', () => {
+  it('shows supplied texture and a known empty-space halo while ignoring redacted metadata', () => {
+    const visual = { version: 2 as const, seed: 'known-cloud', width: 10, height: 10, density: 'RICH' as const };
     const localMap: LocalMapGalaxy = {
       mode: 'galaxy',
       shipX: 1,
       shipY: 1,
       sensorRange: 1,
-      bounds: { minX: 1, maxX: 3, minY: 1, maxY: 1 },
+      bounds: { minX: 1, maxX: 5, minY: 1, maxY: 1 },
       fields: [
         {
           id: 1,
           cx: 1,
           cy: 1,
-          fieldType: { id: 100, key: 'NEBULA', name: 'Nebel' },
+          fieldType: { id: 100, key: 'NEBULA', name: 'Nebel', category: 'nebula' },
           nebulaTexture: '/known-nebula.png',
+          nebulaVisual: visual,
         },
         {
           id: 2,
           cx: 2,
+          cy: 1,
+          fieldType: { id: 1, key: 'EMPTY_SPACE', name: 'Leerer Raum', category: 'space' },
+        },
+        {
+          id: 3,
+          cx: 3,
+          cy: 1,
+          fieldType: { id: 1, key: 'EMPTY_SPACE', name: 'Leerer Raum' },
+          nebulaTexture: '/known-space-halo.png',
+        },
+        {
+          id: 4,
+          cx: 4,
           cy: 1,
           redacted: true,
           fieldType: { id: 1, key: 'EMPTY_SPACE', name: 'Leerer Raum' },
@@ -86,8 +104,8 @@ describe('LssMap', () => {
           },
         },
         {
-          id: 3,
-          cx: 3,
+          id: 5,
+          cx: 5,
           cy: 1,
           fieldType: { id: 0, key: 'UNKNOWN', name: 'Unbekannt' },
           nebulaTexture: '/unknown-nebula.png',
@@ -120,20 +138,28 @@ describe('LssMap', () => {
     expect(nebulaOverlay?.style.backgroundImage).toContain(
       '/known-nebula.png',
     );
-    expect(organicMask).toHaveBeenCalledWith(
-      { id: 100, key: 'NEBULA', name: 'Nebel' },
-      1, 1,
-      [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined],
-    );
+    expect(knownField.querySelector('img')?.getAttribute('style')).not.toContain('mask-image');
+
+    const haloField = screen.getByRole('button', { name: /Feld 2,1/ });
+    expect(haloField.querySelector('img')?.getAttribute('src')).toBe('/space.png');
+    expect(haloField.querySelector('img')?.getAttribute('style')).not.toContain('mask-image');
+    expect(haloField.querySelector('div')?.getAttribute('style')).toContain('/cloud-2-1.png');
+    expect(cloud.getNebulaCloudDomStyle).toHaveBeenCalledTimes(1);
+    expect(cloud.getNebulaCloudDomStyle).toHaveBeenCalledWith(expect.objectContaining({
+      sources: expect.any(Map),
+    }), 2, 1);
+
+    const suppliedHaloField = screen.getByRole('button', { name: /Feld 3,1/ });
+    expect(suppliedHaloField.querySelector('div')?.getAttribute('style')).toContain('/known-space-halo.png');
+    expect(suppliedHaloField.querySelector('img')?.getAttribute('style')).not.toContain('mask-image');
 
     const redactedField = screen.getByLabelText(
-      'Feld 2,1: Sensordaten blockiert',
+      'Feld 4,1: Sensordaten blockiert',
     );
     expect(redactedField.querySelector('img')).toBeNull();
     expect(redactedField.querySelector('div')).toBeNull();
     expect((redactedField as HTMLElement).style.backgroundImage).toBe('');
-    expect(screen.getByLabelText('Feld 3,1: Sensordaten blockiert')).not.toBeNull();
-    expect(organicMask).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('Feld 5,1: Sensordaten blockiert')).not.toBeNull();
   });
 
   it('keeps legacy galaxy nebula on the existing edge mask', () => {
@@ -156,7 +182,43 @@ describe('LssMap', () => {
     render(<LssMap localMap={localMap} navTarget={null} onFieldClick={vi.fn()} />);
 
     expect(screen.getByRole('button').querySelector('img')?.getAttribute('style')).toContain('mask-image');
-    expect(organicMask).not.toHaveBeenCalled();
+    expect(cloud.getNebulaCloudDomStyle).not.toHaveBeenCalled();
+  });
+
+  it('keeps a legacy nebula tile beside an active source out of the cloud helper', () => {
+    const localMap: LocalMapGalaxy = {
+      mode: 'galaxy',
+      shipX: 1,
+      shipY: 1,
+      sensorRange: 1,
+      bounds: { minX: 1, maxX: 2, minY: 1, maxY: 1 },
+      fields: [
+        {
+          id: 1,
+          cx: 1,
+          cy: 1,
+          fieldType: { id: 120, key: 'NEBULA', name: 'Nebel', category: 'nebula' },
+          nebulaVisual: { version: 2, seed: 'active-cloud', width: 10, height: 10, density: 'RICH' },
+        },
+        {
+          id: 2,
+          cx: 2,
+          cy: 1,
+          fieldType: { id: 121, key: 'NEBULA', name: 'Alter Nebel', category: 'nebula' },
+        },
+      ],
+      canEnterSystem: false,
+      canLeaveSystem: false,
+    };
+
+    render(<LssMap localMap={localMap} navTarget={null} onFieldClick={vi.fn()} />);
+
+    const legacyField = screen.getByRole('button', { name: /Feld 2,1/ });
+    expect(legacyField.querySelector('img')?.getAttribute('src')).toBe('/star-121.png');
+    expect(legacyField.querySelector('img')?.getAttribute('style')).toContain('mask-image');
+    expect(cloud.getNebulaCloudDomStyle).toHaveBeenCalledTimes(1);
+    expect(cloud.getNebulaCloudDomStyle).toHaveBeenCalledWith(expect.anything(), 1, 1);
+    expect(cloud.getNebulaCloudDomStyle).not.toHaveBeenCalledWith(expect.anything(), 2, 1);
   });
 
   it('refreshes the count at scan expiry and cancels the timer on unmount', () => {

@@ -130,6 +130,39 @@ describe('nebula preview against migrated application schema', () => {
     const systemField = await database.getRepository(SystemField).findOneByOrFail({ starSystemId: system.id, sx: 3, sy: 3 });
     await expect(admin.updateSystemField(systemField.id, { fieldTypeId: 100 })).rejects.toThrow(BadRequestException);
   });
+  it('renders known space halos across sector boundaries without using unknown sources', async () => {
+    await resetDatabase(database);
+    const layer = await database.getRepository(Layer).save({ name: 'Cloud visibility', width: 40, height: 40, sectorSize: 10 });
+    const spaceType = await database.getRepository(GalaxyFieldType).findOneByOrFail({ id: 1 });
+    const nebulaType = await database.getRepository(GalaxyFieldType).findOneByOrFail({ id: 102 });
+    const visual = { version: 2 as const, seed: 'landscape-test', width: 40, height: 40, density: 'BALANCED' as const };
+    const baseline = { fieldTypeId: 1, isPassable: spaceType.passable, energyCost: spaceType.energyCost, damage: spaceType.damage, effects: spaceType.effects, effectFlags: spaceType.effects };
+    await database.getRepository(GalaxyField).save(Array.from({ length: 1600 }, (_, i) => ({ ...baseline, layerId: layer.id, cx: i % 40 + 1, cy: Math.floor(i / 40) + 1 })));
+    for (const cx of [10, 12]) {
+      const field = await database.getRepository(GalaxyField).findOneByOrFail({ layerId: layer.id, cx, cy: 8 });
+      await database.getRepository(GalaxyField).save({ ...field, fieldTypeId: 102, isPassable: nebulaType.passable, energyCost: nebulaType.energyCost, damage: nebulaType.damage, effects: nebulaType.effects, effectFlags: nebulaType.effects, nebulaGeneration: { visual, fieldTypeId: 102, baseline } });
+    }
+    const query: StarmapQueryService = Object.assign(Object.create(StarmapQueryService.prototype), { layerRepo: database.getRepository(Layer), galaxyFieldRepo: database.getRepository(GalaxyField) });
+    const states = [10, 11].map(cx => ({ cx, cy: 8, explorationLevel: 'TERRAIN' }));
+    const exploration = { getExploredFieldsInSector: jest.fn(async () => states), getExploredFields: async () => states } as unknown as ExplorationService;
+    const sector = await query.getExploredSectorFields(1, layer.id, 1, 0, exploration);
+    expect(sector.fields).toHaveLength(100);
+    expect(sector.fields.every(field => field.cx >= 11 && field.cx <= 20)).toBe(true);
+    const halo = sector.fields.find(field => field.cx === 11 && field.cy === 8)!;
+    expect(halo.fieldTypeId).toBe(1);
+    expect(halo.nebulaTexture).toMatch(/^data:image\/png;base64,/);
+    expect(halo.nebulaVisual).toBeUndefined();
+    expect(sector.fields.find(field => field.cx === 12 && field.cy === 8)?.nebulaTexture).toBeUndefined();
+    const full = await query.getExploredLayerFields(1, layer.id, exploration);
+    expect(full.find(field => field.cx === 11 && field.cy === 8)?.nebulaTexture).toBe(halo.nebulaTexture);
+    const hidden = await database.getRepository(GalaxyField).findOneByOrFail({ layerId: layer.id, cx: 12, cy: 8 });
+    hidden.nebulaGeneration!.visual.seed = 'changed-unseen-nebula';
+    await database.getRepository(GalaxyField).save(hidden);
+    const again = await query.getExploredSectorFields(1, layer.id, 1, 0, exploration);
+    expect(again.fields.find(field => field.cx === 11 && field.cy === 8)?.nebulaTexture).toBe(halo.nebulaTexture);
+    expect((await database.getRepository(GalaxyField).findOneByOrFail({ layerId: layer.id, cx: 11, cy: 8 })).energyCost).toBe(spaceType.energyCost);
+  });
+
   it('rolls back unchanged owned terrain while preserving edits and malformed metadata', async () => {
     await resetDatabase(database);
     const runner = database.createQueryRunner();

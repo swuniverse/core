@@ -1,6 +1,6 @@
-import { getNebulaDomStyle } from '../../lib/nebula-texture';
+import { buildNebulaCloudIndex, isNebulaCloudSpace } from '@swuniverse/shared';
 import type { NebulaVisualDto } from '@swuniverse/shared';
-import { Fragment, useEffect } from 'react';
+import { Fragment, useEffect, useMemo } from 'react';
 import {
   fieldEffectDefinition,
   knownFieldEffects,
@@ -21,13 +21,14 @@ import {
 } from '../../lib/assets';
 import { isStarObject } from '../../lib/starmap-render';
 import { terrainAppearance, nebulaEdgeMask } from '../../lib/map-terrain';
-import { organicNebulaEdgeMask } from '../../lib/nebula-contour';
 import { getStarTileConfig, getStarTileIdAt } from '../../lib/star-tiles';
+import { getNebulaCloudDomStyle } from '../../lib/nebula-cloud';
 
 interface FieldType {
   id: number;
   key: string;
   name: string;
+  category?: string | null;
   energyCost?: number;
   damage?: number;
   effects?: string[] | null;
@@ -252,6 +253,17 @@ export function LssMap({
   onFieldClick,
   onScanExpired,
 }: LssMapProps) {
+  const nebulaCloudIndex = useMemo(() => {
+    if (localMap.mode !== 'galaxy') return buildNebulaCloudIndex([]);
+    return buildNebulaCloudIndex(localMap.fields.flatMap((field) => (
+      !field.redacted &&
+      field.fieldType?.key !== 'UNKNOWN' &&
+      field.fieldType?.category === 'nebula' &&
+      field.nebulaVisual
+        ? [{ x: field.cx, y: field.cy, visual: field.nebulaVisual }]
+        : []
+    )));
+  }, [localMap]);
   useEffect(() => {
     const expiresAt = localMap.tachyonScanExpiresAt;
     if (expiresAt == null || !onScanExpired) return;
@@ -300,8 +312,6 @@ export function LssMap({
       bottom: neighbors[2], left: neighbors[3],
     });
   };
-  const organicTerrainMask = (x: number, y: number, type: FieldType) =>
-    organicNebulaEdgeMask(type, x, y, terrainNeighbors(x, y));
   const tracesByPosition = new Map<string, SubspaceTraceOverlay[]>();
   for (const trace of localMap.overlays?.subspaceTraces ?? []) {
     const key = `${trace.x},${trace.y}`;
@@ -386,8 +396,14 @@ export function LssMap({
                       />
                     );
                   }
-                  const nebulaStyle = field.nebulaTexture ? {backgroundImage: `url(${field.nebulaTexture})`, backgroundSize: '100% 100%'} : getNebulaDomStyle(field.nebulaVisual, x, y);
-                  const edgeMask = nebulaStyle ? organicTerrainMask(x, y, field.fieldType) : terrainMask(x, y, field.fieldType);
+                  const hasActiveNebulaVisual = field.fieldType.category === 'nebula' && Boolean(field.nebulaVisual);
+                  const canReceiveCloud = hasActiveNebulaVisual || isNebulaCloudSpace(field.fieldType);
+                  const nebulaStyle = field.nebulaTexture
+                    ? { backgroundImage: `url(${field.nebulaTexture})`, backgroundSize: '100% 100%' }
+                    : canReceiveCloud
+                      ? getNebulaCloudDomStyle(nebulaCloudIndex, x, y)
+                      : undefined;
+                  const edgeMask = nebulaStyle ? undefined : terrainMask(x, y, field.fieldType);
                   const terrain = terrainAppearance(nebulaStyle ? { id: 1, key: 'EMPTY_SPACE' } : field.fieldType, x, y);
                   const fieldTileImage = terrain.image;
                   const systemAsset = field.systemTypeId
@@ -434,7 +450,7 @@ export function LssMap({
                           }}
                         />
                       )}
-                      {nebulaStyle && <div className="absolute inset-0" style={{ ...nebulaStyle, ...edgeMask }} />}
+                      {nebulaStyle && <div className="absolute inset-0" style={nebulaStyle} />}
                       {field.starSystemId
                         ? '✦'
                         : getGalaxyFieldMarker(field.fieldType.key)}

@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   forwardRef,
   useState,
@@ -18,7 +19,11 @@ import type {
   StarmapSystemListItemDto,
   StarmapWormholeDto,
 } from '@swuniverse/shared';
-import { isSwuClassId } from '@swuniverse/shared';
+import {
+  buildNebulaCloudIndex,
+  isNebulaCloudSpace,
+  isSwuClassId,
+} from '@swuniverse/shared';
 import {
   planetThumbnail,
   SWU_TEST_PLANET_EMOJI,
@@ -34,8 +39,8 @@ import {
   STARMAP_CELL_SIZE,
 } from '../../lib/starmap-render';
 import { terrainAppearance } from '../../lib/map-terrain';
-import { featherNebulaSprite, organicNebulaSprite } from '../../lib/map-terrain-pixi';
-import { getNebulaPixiTexture } from '../../lib/nebula-texture-pixi';
+import { featherNebulaSprite } from '../../lib/map-terrain-pixi';
+import { getNebulaCloudPixiTexture } from '../../lib/nebula-cloud-pixi';
 
 const CELL_SIZE = STARMAP_CELL_SIZE;
 const MIN_SCALE = 0.08;
@@ -170,6 +175,17 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
     const showGridRef = useRef(showGrid);
     const onInlineSystemsVisibleChangeRef = useRef(onInlineSystemsVisibleChange);
     const inlineSystemsVisibleRef = useRef<boolean | null>(null);
+
+    const nebulaCloudIndex = useMemo(
+      () => buildNebulaCloudIndex(fields.flatMap((field) => (
+        field.fieldType.key !== 'UNKNOWN' &&
+        field.fieldType.category === 'nebula' &&
+        field.nebulaVisual
+          ? [{ x: field.cx, y: field.cy, visual: field.nebulaVisual }]
+          : []
+      ))),
+      [fields],
+    );
 
     useEffect(() => { fieldsRef.current = fields; }, [fields]);
     useEffect(() => { focusFieldRef.current = focusField; }, [focusField]);
@@ -528,7 +544,14 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
           visibleTerrainAt(field.cx - 1, field.cy + 1),
         ];
         try {
-          const nebulaTexture = field.nebulaTexture ? await Assets.load(field.nebulaTexture) : getNebulaPixiTexture(field.nebulaVisual, field.cx, field.cy);
+          const hasActiveNebulaVisual = field.fieldType.key !== 'UNKNOWN' &&
+            field.fieldType.category === 'nebula' && Boolean(field.nebulaVisual);
+          const canReceiveCloud = hasActiveNebulaVisual || isNebulaCloudSpace(field.fieldType);
+          const nebulaTexture = field.nebulaTexture
+            ? await Assets.load(field.nebulaTexture)
+            : canReceiveCloud
+              ? getNebulaCloudPixiTexture(nebulaCloudIndex, field.cx, field.cy)
+              : null;
           const appearance = terrainAppearance(nebulaTexture ? { id: 1, key: 'EMPTY_SPACE' } : field.fieldType, field.cx, field.cy);
           if (!appearance.image) return;
           const texture = await Assets.load(appearance.image);
@@ -544,7 +567,6 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
             const cloud = new Sprite(nebulaTexture);
             cloud.position.set(x, y); cloud.width = cloud.height = CELL_SIZE;
             terrain.addChild(cloud);
-            organicNebulaSprite(cloud, terrain, field.fieldType, field.cx, field.cy, neighbors);
           } else featherNebulaSprite(sprite, terrain, field.fieldType, neighbors.slice(0, 4));
         } catch {
           if (signal.aborted || container.destroyed) return;
@@ -572,7 +594,7 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
           icons.addChild(glow);
         }
       }
-    }, [fields, layer, wormholes]);
+    }, [fields, layer, nebulaCloudIndex, wormholes]);
 
     useEffect(() => {
       if (!containerRef.current) return;
