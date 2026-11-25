@@ -335,6 +335,28 @@ export function ShipHeaderTable({
           />
           <span className="text-swu-primary">{classLabel}</span>
         </div>
+        {/* Mobile counterpart of the desktop alert-level swatch (STU: only with a computer). */}
+        {systems?.COMPUTER && (
+          <button
+            type="button"
+            onClick={() => setAlertOpen(true)}
+            title="Alarmstufe ändern"
+            className="flex items-center justify-between gap-3 border-b border-swu-border/30 pb-1 text-left"
+          >
+            <span className="text-swu-muted">Alarmstufe</span>
+            <span className="flex items-center gap-2 text-swu-primary">
+              <span
+                className={`size-4 border border-swu-border ${alertState === 'GREEN' ? 'bg-green-500' : alertState === 'YELLOW' ? 'bg-yellow-400' : 'bg-red-500'}`}
+              />
+              {alertState === 'GREEN'
+                ? 'Grün'
+                : alertState === 'YELLOW'
+                  ? 'Gelb'
+                  : 'Rot'}
+              <span className="text-swu-muted">ändern</span>
+            </span>
+          </button>
+        )}
         {rows.map((row) => (
           <div
             key={row.label}
