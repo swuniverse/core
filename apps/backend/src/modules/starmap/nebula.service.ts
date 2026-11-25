@@ -279,8 +279,8 @@ export class NebulaService {
       [layerId],
     );
     const objects = await manager.query(
-      `SELECT o.id, o."starSystemId", o."posX", o."posY", o."classId", o.name
-      FROM celestial_objects o JOIN star_systems s ON s.id = o."starSystemId" WHERE s."layerId" = $1 ORDER BY o.id`,
+      `SELECT o.id, o."systemId" AS "starSystemId", o."posX", o."posY", o."classId", o.name
+      FROM celestial_objects o JOIN star_systems s ON s.id = o."systemId" WHERE s."layerId" = $1 ORDER BY o.id`,
       [layerId],
     );
     const wormholes = await manager.query(

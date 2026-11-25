@@ -10,6 +10,8 @@
 
 - [04 Worktree-Start](issues/04-worktree-startup.md): lokale Konfiguration und ursprüngliche Entwicklungsdatenbank eingebunden; Backend ONLINE.
 
+- [05 Vorschau-Schema](issues/05-preview-schema.md): Himmelskörper-Join korrigiert, echtes Anwendungsschema als Regressionstest, Vorschau auf Bestandskarte geprüft.
+
 ## Fog
 
 Keine offenen Umsetzungskriterien. Die Bestandskarte wird erst durch eine angewendete Vorschau verändert.

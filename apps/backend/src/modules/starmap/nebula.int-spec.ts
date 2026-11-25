@@ -38,7 +38,7 @@ describe('nebula preview and atomic application (Postgres)', () => {
         damage int DEFAULT 6, effects text, "effectFlags" text, "passableOverride" boolean, "borderTypeId" int, "adminRegionKey" text);
       CREATE TABLE system_fields (id int PRIMARY KEY, "starSystemId" int, sx int, sy int, "fieldTypeId" int DEFAULT 1,
         "celestialObjectId" int, "isPassable" boolean DEFAULT true, "energyCost" int DEFAULT 0, damage int DEFAULT 6, effects text);
-      CREATE TABLE celestial_objects (id int PRIMARY KEY, "starSystemId" int, "posX" int, "posY" int, "classId" int, name text);
+      CREATE TABLE celestial_objects (id int PRIMARY KEY, "systemId" int, "posX" int, "posY" int, "classId" int, name text);
       CREATE TABLE users (id int PRIMARY KEY, "starterColonyId" int);
       CREATE TABLE colonies (id int PRIMARY KEY, "starSystemId" int, "systemFieldId" int, "posX" int, "posY" int);
       CREATE TABLE onboarding_selections (id int PRIMARY KEY, "selectedSystemId" int);
