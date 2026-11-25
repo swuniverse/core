@@ -10,7 +10,14 @@ const pixi = vi.hoisted(() => ({
   strokes: [] as Array<{ color: number; lines: number[][] }>,
   assetLoads: [] as string[],
   sprites: [] as unknown[],
+  organicNebulaSprite: vi.fn(),
+  featherNebulaSprite: vi.fn(),
 }));
+vi.mock('../../lib/map-terrain-pixi', () => ({
+  organicNebulaSprite: pixi.organicNebulaSprite,
+  featherNebulaSprite: pixi.featherNebulaSprite,
+}));
+
 vi.mock('pixi.js', () => {
   class Container {
     children: unknown[] = [];
@@ -100,6 +107,8 @@ describe('FullMapCanvas flight signatures', () => {
     pixi.strokes = [];
     pixi.assetLoads = [];
     pixi.sprites = [];
+    pixi.organicNebulaSprite.mockClear();
+    pixi.featherNebulaSprite.mockClear();
     vi.mocked(Assets.load).mockClear();
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
     useAuthStore.setState({ user: { isAdmin: true } as never });
@@ -186,7 +195,7 @@ describe('FullMapCanvas flight signatures', () => {
       cx: 1,
       cy: 1,
       fieldTypeId: 120,
-      fieldType: { id: 120, key: 'NEBULA', name: 'Nebel' },
+      fieldType: { id: 120, key: 'NEBULA', category: 'nebula', name: 'Nebel' },
       systemTypeId: null,
       nebulaTexture: '/known-nebula.png',
     };
@@ -205,6 +214,12 @@ describe('FullMapCanvas flight signatures', () => {
     await waitFor(() => expect(pixi.sprites).toContainEqual({ url: '/known-nebula.png' }));
     expect(pixi.assetLoads).not.toContain('/hidden-nebula.png');
     expect(pixi.sprites).not.toContainEqual({ url: '/hidden-nebula.png' });
+    expect(pixi.organicNebulaSprite).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(), nebula.fieldType, 1, 1,
+      [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined],
+    );
+    expect(pixi.organicNebulaSprite).toHaveBeenCalledTimes(1);
+    expect(pixi.featherNebulaSprite).not.toHaveBeenCalled();
     unmount();
   });
 });

@@ -243,7 +243,12 @@ export function generateFilmicNebulaTerrain(visual: NebulaVisualDto) {
   );
 }
 
-/** Rasterize a world-coordinate chunk; adjacent chunks sample the same continuous functions. */
+function smoothstep(low: number, high: number, value: number) {
+  const t = Math.max(0, Math.min(1, (value - low) / (high - low)));
+  return t * t * (3 - 2 * t);
+}
+
+/** Rasterize world coordinates without changing the gameplay field selection. */
 export function renderNebulaRaster(
   scene: NebulaLandscape,
   originX: number,
@@ -253,19 +258,87 @@ export function renderNebulaRaster(
   pixelsPerField = 30,
 ) {
   const data = new Uint8ClampedArray(width * height * 4);
+  const detailSeed = seedHash(scene.visual.seed);
   for (let y = 0; y < height; y++)
     for (let x = 0; x < width; x++) {
-      const point = sampleNebulaLandscape(
-          scene,
-          originX + (x + 0.5) / pixelsPerField,
-          originY + (y + 0.5) / pixelsPerField,
-        ),
+      const wx = originX + (x + 0.5) / pixelsPerField,
+        wy = originY + (y + 0.5) / pixelsPerField;
+      const point = sampleNebulaLandscape(scene, wx, wy),
         i = (y * width + x) * 4;
-      const light = 1 - Math.exp(-point.density * 2.3);
-      data[i] = point.red;
-      data[i + 1] = point.green;
-      data[i + 2] = point.blue;
+      // Distort fine ridges into wisps; broad clouds retain their existing palette.
+      const warp = noise(wx * 0.8, wy * 0.8, detailSeed + 37);
+      const ridge =
+        1 -
+        Math.abs(
+          noise(wx * 4.6 + warp * 2, wy * 1.8 - warp, detailSeed + 541) * 2 - 1,
+        );
+      const filaments = ridge ** 6;
+      const dust = noise(wx * 3.2, wy * 3.2, detailSeed + 917);
+      const density = point.density * (0.78 + dust * 0.3);
+      const envelope = smoothstep(0.045, 0.16, density);
+      const brightness = 0.83 + dust * 0.2 + filaments * 0.32;
+      const light = (1 - Math.exp(-density * 2.3)) * envelope;
+      data[i] = point.red * brightness;
+      data[i + 1] = point.green * brightness;
+      data[i + 2] = point.blue * brightness;
       data[i + 3] = Math.round(Math.min(0.95, light) * 255);
+    }
+  return data;
+}
+
+/** Missing neighbors: N, E, S, W, NW, NE, SE, SW. */
+export const NEBULA_CONTOUR_NEIGHBORS = [
+  [0, -1],
+  [1, 0],
+  [0, 1],
+  [-1, 0],
+  [-1, -1],
+  [1, -1],
+  [1, 1],
+  [-1, 1],
+] as const;
+
+/** Smooth distance to the union's outside, with rounded corners and world-coordinate wisps.
+ * No pixels extend into another field, so protected/redacted terrain remains untouched.
+ */
+export function renderNebulaContourMask(
+  missingNeighbors: number,
+  width: number,
+  height: number,
+  originX: number,
+  originY: number,
+) {
+  const data = new Uint8ClampedArray(width * height * 4);
+  // A missing diagonal already covered by a missing side adds no new boundary.
+  // Counting it again would leave periodic dents along otherwise straight cloud edges.
+  const touchingSides = [1 | 8, 1 | 2, 2 | 4, 4 | 8];
+  const outside = NEBULA_CONTOUR_NEIGHBORS.filter(
+    (_, i) =>
+      missingNeighbors & (1 << i) &&
+      (i < 4 || !(missingNeighbors & touchingSides[i - 4])),
+  );
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      const px = (x + 0.5) / width,
+        py = (y + 0.5) / height;
+      let sum = 0;
+      for (const [dx, dy] of outside) {
+        const a = Math.max(dx - px, px - dx - 1, 0),
+          b = Math.max(dy - py, py - dy - 1, 0);
+        sum += Math.exp(-Math.hypot(a, b) / 0.14);
+      }
+      const distance = sum ? -0.14 * Math.log(sum) : Infinity;
+      const wx = originX + px,
+        wy = originY + py;
+      const fray =
+        0.015 +
+        noise(wx * 5.1, wy * 5.1, 719) * 0.055 +
+        noise(wx * 12.2, wy * 12.2, 2131) * 0.025;
+      const i = (y * width + x) * 4;
+      data[i] = data[i + 1] = data[i + 2] = 255;
+      data[i + 3] = outside.length
+        ? Math.round(smoothstep(0, 0.36, distance - fray) * 255)
+        : 255;
     }
   return data;
 }

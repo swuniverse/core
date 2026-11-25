@@ -1,6 +1,9 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { LssMap, type LocalMapGalaxy, type LocalMapSystem } from './LssMap';
 
+const organicMask = vi.hoisted(() => vi.fn());
+vi.mock('../../lib/nebula-contour', () => ({ organicNebulaEdgeMask: organicMask }));
+
 vi.mock('../../lib/assets', () => ({
   anomalyImage: (type: string) => `/anomaly-${type.toLowerCase()}.png`,
   planetThumbnail: (classId: number) => `/planet-${classId}.png`,
@@ -48,19 +51,23 @@ function systemMap(
 }
 
 describe('LssMap', () => {
+  beforeEach(() => {
+    organicMask.mockReset().mockReturnValue({ maskImage: 'url(/organic-mask.png)' });
+  });
+
   it('shows known galaxy nebula texture over space and ignores redacted texture metadata', () => {
     const localMap: LocalMapGalaxy = {
       mode: 'galaxy',
       shipX: 1,
       shipY: 1,
       sensorRange: 1,
-      bounds: { minX: 1, maxX: 2, minY: 1, maxY: 1 },
+      bounds: { minX: 1, maxX: 3, minY: 1, maxY: 1 },
       fields: [
         {
           id: 1,
           cx: 1,
           cy: 1,
-          fieldType: { id: 1, key: 'EMPTY_SPACE', name: 'Leerer Raum' },
+          fieldType: { id: 100, key: 'NEBULA', name: 'Nebel' },
           nebulaTexture: '/known-nebula.png',
         },
         {
@@ -73,6 +80,20 @@ describe('LssMap', () => {
           nebulaVisual: {
             version: 2,
             seed: 'hidden-seed',
+            width: 40,
+            height: 40,
+            density: 'RICH',
+          },
+        },
+        {
+          id: 3,
+          cx: 3,
+          cy: 1,
+          fieldType: { id: 0, key: 'UNKNOWN', name: 'Unbekannt' },
+          nebulaTexture: '/unknown-nebula.png',
+          nebulaVisual: {
+            version: 2,
+            seed: 'unknown-seed',
             width: 40,
             height: 40,
             density: 'RICH',
@@ -99,6 +120,11 @@ describe('LssMap', () => {
     expect(nebulaOverlay?.style.backgroundImage).toContain(
       '/known-nebula.png',
     );
+    expect(organicMask).toHaveBeenCalledWith(
+      { id: 100, key: 'NEBULA', name: 'Nebel' },
+      1, 1,
+      [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined],
+    );
 
     const redactedField = screen.getByLabelText(
       'Feld 2,1: Sensordaten blockiert',
@@ -106,6 +132,31 @@ describe('LssMap', () => {
     expect(redactedField.querySelector('img')).toBeNull();
     expect(redactedField.querySelector('div')).toBeNull();
     expect((redactedField as HTMLElement).style.backgroundImage).toBe('');
+    expect(screen.getByLabelText('Feld 3,1: Sensordaten blockiert')).not.toBeNull();
+    expect(organicMask).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps legacy galaxy nebula on the existing edge mask', () => {
+    const localMap: LocalMapGalaxy = {
+      mode: 'galaxy',
+      shipX: 1,
+      shipY: 1,
+      sensorRange: 1,
+      bounds: { minX: 1, maxX: 1, minY: 1, maxY: 1 },
+      fields: [{
+        id: 1,
+        cx: 1,
+        cy: 1,
+        fieldType: { id: 100, key: 'NEBULA', name: 'Nebel' },
+      }],
+      canEnterSystem: false,
+      canLeaveSystem: false,
+    };
+
+    render(<LssMap localMap={localMap} navTarget={null} onFieldClick={vi.fn()} />);
+
+    expect(screen.getByRole('button').querySelector('img')?.getAttribute('style')).toContain('mask-image');
+    expect(organicMask).not.toHaveBeenCalled();
   });
 
   it('refreshes the count at scan expiry and cancels the timer on unmount', () => {

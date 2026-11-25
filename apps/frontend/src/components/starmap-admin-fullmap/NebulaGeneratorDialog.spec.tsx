@@ -7,11 +7,13 @@ import { FullMapToolbar } from './FullMapToolbar';
 const mocks = vi.hoisted(() => ({
   post: vi.fn(),
   getNebulaDomStyle: vi.fn(),
+  organicNebulaEdgeMask: vi.fn(),
   storeState: {
     fieldTypes: [
       { id: 1, name: 'Leerer Raum', key: 'EMPTY_SPACE', category: 'space' },
       { id: 2, name: 'Sternsystem', key: 'STAR_CORE', category: 'star' },
       { id: 100, name: 'Dünner Nebel', key: 'NEBULA', category: 'nebula' },
+      { id: 0, name: 'Unbekannt', key: 'UNKNOWN', category: null },
     ],
     loadFields: vi.fn(),
     layers: [],
@@ -33,6 +35,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../../services/api', () => ({ api: { post: mocks.post } }));
 vi.mock('../../lib/nebula-texture', () => ({ getNebulaDomStyle: mocks.getNebulaDomStyle }));
+vi.mock('../../lib/nebula-contour', () => ({ organicNebulaEdgeMask: mocks.organicNebulaEdgeMask }));
 vi.mock('../../stores/fullmap-editor.store', () => ({
   useFullmapEditorStore: (selector: (state: typeof mocks.storeState) => unknown) =>
     selector(mocks.storeState),
@@ -62,7 +65,7 @@ const preview: NebulaPreviewDto = {
       scope: 'GALAXY',
       id: 12,
       name: 'Hauptgalaxie',
-      width: 4,
+      width: 5,
       height: 1,
       nebulaVisual: generatedVisual,
       fields: [
@@ -70,6 +73,7 @@ const preview: NebulaPreviewDto = {
         { id: 102, x: 2, y: 1, fieldTypeId: 2, label: 'Alderaan', objectClassId: null, systemTypeId: 3 },
         { id: 103, x: 3, y: 1, fieldTypeId: 100, label: 'Rücksetzfeld', objectClassId: null, systemTypeId: null, nebulaVisual: existingVisual },
         { id: 104, x: 4, y: 1, fieldTypeId: 100, label: 'Bestehendes Nebelfeld', objectClassId: null, systemTypeId: null, nebulaVisual: existingVisual },
+        { id: 105, x: 5, y: 1, fieldTypeId: 0, label: 'Unbekanntes Feld', objectClassId: null, systemTypeId: null, nebulaVisual: existingVisual },
       ],
       changes: [
         { fieldId: 102, x: 2, y: 1, fieldTypeId: 100 },
@@ -102,6 +106,7 @@ describe('NebulaGeneratorDialog', () => {
       { id: 1, name: 'Leerer Raum', key: 'EMPTY_SPACE', category: 'space' },
       { id: 2, name: 'Sternsystem', key: 'STAR_CORE', category: 'star' },
       { id: 100, name: 'Dünner Nebel', key: 'NEBULA', category: 'nebula' },
+      { id: 0, name: 'Unbekannt', key: 'UNKNOWN', category: null },
     ];
     mocks.storeState.layers = [];
     mocks.storeState.selectedLayerId = null;
@@ -109,6 +114,7 @@ describe('NebulaGeneratorDialog', () => {
     mocks.getNebulaDomStyle.mockImplementation((visual: NebulaVisualDto, x: number, y: number) => ({
       backgroundImage: `url(/nebula-${visual.seed}-${x}-${y}.png)`,
     }));
+    mocks.organicNebulaEdgeMask.mockReturnValue({ maskImage: 'url(/organic-mask.png)' });
   });
 
   it('uses GALAXY defaults, shows only the galaxy, and renders generated, unchanged and restored visuals correctly', async () => {
@@ -126,7 +132,7 @@ describe('NebulaGeneratorDialog', () => {
       '/starmap/admin/layers/12/nebula/preview',
       { seed: 'swu-nebula-v1', target: 'GALAXY', density: 'BALANCED' },
     );
-    expect(screen.getByRole('grid', { name: 'Galaxie — Hauptgalaxie 4 mal 1' })).not.toBeNull();
+    expect(screen.getByRole('grid', { name: 'Galaxie — Hauptgalaxie 5 mal 1' })).not.toBeNull();
     expect(screen.getByText('2', { selector: 'strong' })).not.toBeNull();
     expect(screen.getByText('3', { selector: 'strong' })).not.toBeNull();
     expect(screen.getByText('Dünner Nebel')).not.toBeNull();
@@ -141,6 +147,18 @@ describe('NebulaGeneratorDialog', () => {
     expect(generatedCell.querySelector('[data-nebula-visual="true"]')?.getAttribute('style')).toContain('/nebula-nebula-new-2-1.png');
     expect(generatedCell.querySelector(`img[src="${systemTypeImage(3)}"]`)).not.toBeNull();
     expect(mocks.getNebulaDomStyle).toHaveBeenCalledWith(generatedVisual, 2, 1);
+    expect(mocks.organicNebulaEdgeMask).toHaveBeenCalledWith(
+      { id: 100, key: 'NEBULA', category: 'nebula' },
+      2, 1,
+      [
+        undefined,
+        { id: 1, key: 'EMPTY_SPACE', category: 'space' },
+        undefined,
+        { id: 1, key: 'EMPTY_SPACE', category: 'space' },
+        undefined, undefined, undefined, undefined,
+      ],
+    );
+    expect(mocks.organicNebulaEdgeMask).toHaveBeenCalledTimes(2);
 
     const restoredCell = screen.getByRole('gridcell', {
       name: 'Rücksetzfeld: Nebel wird zurückgenommen; aktuell Dünner Nebel (ID 100), danach Leerer Raum (ID 1)',

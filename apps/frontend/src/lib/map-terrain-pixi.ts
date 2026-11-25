@@ -1,6 +1,9 @@
 import { Container, Sprite, Texture } from 'pixi.js';
 import { isNebulaTerrain, type TerrainFieldType } from './map-terrain';
 
+import { getOrganicNebulaMaskCanvas } from './nebula-contour';
+
+const organicTextures = new WeakMap<HTMLCanvasElement, Texture>();
 const masks = new Map<number, Texture>();
 
 /** Sixteen tiny cached alpha textures feather only the exposed sides of a nebula tile. */
@@ -46,6 +49,30 @@ export function featherNebulaSprite(
     });
     texture = Texture.from(canvas);
     masks.set(code, texture);
+  }
+  const mask = new Sprite(texture);
+  mask.position.copyFrom(sprite.position);
+  mask.width = sprite.width;
+  mask.height = sprite.height;
+  container.addChild(mask);
+  sprite.mask = mask;
+}
+
+/** Filmic contours share the DOM mask, including diagonal corners and frayed edges. */
+export function organicNebulaSprite(
+  sprite: Sprite,
+  container: Container,
+  type: TerrainFieldType,
+  x: number,
+  y: number,
+  neighbors: (TerrainFieldType | undefined)[],
+) {
+  const value = getOrganicNebulaMaskCanvas(type, x, y, neighbors);
+  if (!value) return;
+  let texture = organicTextures.get(value.canvas);
+  if (!texture) {
+    texture = Texture.from(value.canvas, true);
+    organicTextures.set(value.canvas, texture);
   }
   const mask = new Sprite(texture);
   mask.position.copyFrom(sprite.position);

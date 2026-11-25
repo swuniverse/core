@@ -21,6 +21,7 @@ import {
 } from '../../lib/assets';
 import { isStarObject } from '../../lib/starmap-render';
 import { terrainAppearance, nebulaEdgeMask } from '../../lib/map-terrain';
+import { organicNebulaEdgeMask } from '../../lib/nebula-contour';
 import { getStarTileConfig, getStarTileIdAt } from '../../lib/star-tiles';
 
 interface FieldType {
@@ -279,13 +280,28 @@ export function LssMap({
     (_, index) => bounds.minY + index,
   );
 
-  const visibleTerrain = new Map(localMap.fields.filter((field) => !field.redacted && field.fieldType).map((field) => [
+  const visibleTerrain = new Map(localMap.fields.filter((field) => !field.redacted && field.fieldType && field.fieldType.key !== 'UNKNOWN').map((field) => [
     'cx' in field ? `${field.cx},${field.cy}` : `${field.sx},${field.sy}`, field.fieldType,
   ]));
-  const terrainMask = (x: number, y: number, type: FieldType) => nebulaEdgeMask(type, {
-    top: visibleTerrain.get(`${x},${y - 1}`), right: visibleTerrain.get(`${x + 1},${y}`),
-    bottom: visibleTerrain.get(`${x},${y + 1}`), left: visibleTerrain.get(`${x - 1},${y}`),
-  });
+  const terrainNeighbors = (x: number, y: number) => [
+    visibleTerrain.get(`${x},${y - 1}`),
+    visibleTerrain.get(`${x + 1},${y}`),
+    visibleTerrain.get(`${x},${y + 1}`),
+    visibleTerrain.get(`${x - 1},${y}`),
+    visibleTerrain.get(`${x - 1},${y - 1}`),
+    visibleTerrain.get(`${x + 1},${y - 1}`),
+    visibleTerrain.get(`${x + 1},${y + 1}`),
+    visibleTerrain.get(`${x - 1},${y + 1}`),
+  ];
+  const terrainMask = (x: number, y: number, type: FieldType) => {
+    const neighbors = terrainNeighbors(x, y);
+    return nebulaEdgeMask(type, {
+      top: neighbors[0], right: neighbors[1],
+      bottom: neighbors[2], left: neighbors[3],
+    });
+  };
+  const organicTerrainMask = (x: number, y: number, type: FieldType) =>
+    organicNebulaEdgeMask(type, x, y, terrainNeighbors(x, y));
   const tracesByPosition = new Map<string, SubspaceTraceOverlay[]>();
   for (const trace of localMap.overlays?.subspaceTraces ?? []) {
     const key = `${trace.x},${trace.y}`;
@@ -360,7 +376,7 @@ export function LssMap({
                       />
                     );
                   }
-                  if (field.redacted || !field.fieldType) {
+                  if (field.redacted || !field.fieldType || field.fieldType.key === 'UNKNOWN') {
                     return (
                       <div
                         key={`redacted-${x}-${y}`}
@@ -371,6 +387,7 @@ export function LssMap({
                     );
                   }
                   const nebulaStyle = field.nebulaTexture ? {backgroundImage: `url(${field.nebulaTexture})`, backgroundSize: '100% 100%'} : getNebulaDomStyle(field.nebulaVisual, x, y);
+                  const edgeMask = nebulaStyle ? organicTerrainMask(x, y, field.fieldType) : terrainMask(x, y, field.fieldType);
                   const terrain = terrainAppearance(nebulaStyle ? { id: 1, key: 'EMPTY_SPACE' } : field.fieldType, x, y);
                   const fieldTileImage = terrain.image;
                   const systemAsset = field.systemTypeId
@@ -411,13 +428,13 @@ export function LssMap({
                           src={fieldTileImage ?? undefined}
                           alt=""
                           className="absolute inset-0 h-full w-full object-cover"
-                          style={{ opacity: terrain.alpha, filter: terrain.filter, ...(!nebulaStyle ? terrainMask(x, y, field.fieldType) : undefined) }}
+                          style={{ opacity: terrain.alpha, filter: terrain.filter, ...(!nebulaStyle ? edgeMask : undefined) }}
                           onError={(event) => {
                             event.currentTarget.style.display = 'none';
                           }}
                         />
                       )}
-                      {nebulaStyle && <div className="absolute inset-0" style={{ ...nebulaStyle, ...terrainMask(x, y, field.fieldType) }} />}
+                      {nebulaStyle && <div className="absolute inset-0" style={{ ...nebulaStyle, ...edgeMask }} />}
                       {field.starSystemId
                         ? '✦'
                         : getGalaxyFieldMarker(field.fieldType.key)}

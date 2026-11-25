@@ -8,6 +8,7 @@ import type {
 import { api } from '../../services/api';
 import { planetThumbnail, spaceBackgroundTile, systemTypeImage } from '../../lib/assets';
 import { nebulaEdgeMask, terrainAppearance, type TerrainFieldType } from '../../lib/map-terrain';
+import { organicNebulaEdgeMask } from '../../lib/nebula-contour';
 import { getNebulaDomStyle } from '../../lib/nebula-texture';
 import { useFullmapEditorStore } from '../../stores/fullmap-editor.store';
 
@@ -57,7 +58,8 @@ function NebulaMapPreview({
   const terrainType = (field: NebulaPreviewMapDto['fields'][number] | undefined): TerrainFieldType | undefined => {
     if (!field) return undefined;
     const typeId = changes.get(field.id)?.fieldTypeId ?? field.fieldTypeId;
-    return getTerrainType(typeId, fieldTypes);
+    const type = getTerrainType(typeId, fieldTypes);
+    return type.key === 'UNKNOWN' ? undefined : type;
   };
 
   return (
@@ -82,12 +84,27 @@ function NebulaMapPreview({
             ? change.restore ? undefined : map.nebulaVisual
             : field.nebulaVisual;
           const finalTerrain = terrainAppearance(finalType, field.x, field.y);
-          const edgeMask = nebulaEdgeMask(finalType, {
-            top: terrainType(fieldsAt.get(`${field.x},${field.y - 1}`)),
-            right: terrainType(fieldsAt.get(`${field.x + 1},${field.y}`)),
-            bottom: terrainType(fieldsAt.get(`${field.x},${field.y + 1}`)),
-            left: terrainType(fieldsAt.get(`${field.x - 1},${field.y}`)),
-          });
+          const neighbors = [
+            terrainType(fieldsAt.get(`${field.x},${field.y - 1}`)),
+            terrainType(fieldsAt.get(`${field.x + 1},${field.y}`)),
+            terrainType(fieldsAt.get(`${field.x},${field.y + 1}`)),
+            terrainType(fieldsAt.get(`${field.x - 1},${field.y}`)),
+            terrainType(fieldsAt.get(`${field.x - 1},${field.y - 1}`)),
+            terrainType(fieldsAt.get(`${field.x + 1},${field.y - 1}`)),
+            terrainType(fieldsAt.get(`${field.x + 1},${field.y + 1}`)),
+            terrainType(fieldsAt.get(`${field.x - 1},${field.y + 1}`)),
+          ];
+          const legacyEdgeMask = visual
+            ? undefined
+            : nebulaEdgeMask(finalType, {
+                top: neighbors[0],
+                right: neighbors[1],
+                bottom: neighbors[2],
+                left: neighbors[3],
+              });
+          const organicEdgeMask = visual
+            ? organicNebulaEdgeMask(finalType, field.x, field.y, neighbors)
+            : undefined;
           const baseImage = visual ? spaceBackgroundTile(field.x, field.y) : finalTerrain.image;
           const nebulaStyle = visual ? getNebulaDomStyle(visual, field.x, field.y) : undefined;
           const marker = field.systemTypeId != null
@@ -118,7 +135,7 @@ function NebulaMapPreview({
                   alt=""
                   loading="lazy"
                   className="absolute inset-0 h-full w-full object-cover"
-                  style={visual ? undefined : { opacity: finalTerrain.alpha, filter: finalTerrain.filter, ...edgeMask }}
+                  style={visual ? undefined : { opacity: finalTerrain.alpha, filter: finalTerrain.filter, ...legacyEdgeMask }}
                 />
               )}
               {visual && (
@@ -126,7 +143,7 @@ function NebulaMapPreview({
                   aria-hidden="true"
                   data-nebula-visual="true"
                   className="absolute inset-0 bg-center bg-no-repeat"
-                  style={{ ...nebulaStyle, ...edgeMask }}
+                  style={{ ...nebulaStyle, ...organicEdgeMask }}
                 />
               )}
               {marker && (

@@ -1,7 +1,10 @@
+import { createHash } from 'node:crypto';
 import {
   buildNebulaLandscape,
   generateFilmicNebulaTerrain,
   renderNebulaRaster,
+  renderNebulaContourMask,
+  sampleNebulaLandscape,
   type NebulaVisualDto,
 } from '@swuniverse/shared';
 import { inflateSync } from 'node:zlib';
@@ -79,5 +82,72 @@ describe('continuous filmic terrain', () => {
     expect(nebulaTextureForField({ ...field, fieldTypeId: 0 })).toBeUndefined();
     expect(nebulaTextureForField({ fieldTypeId, cx, cy })).toBeUndefined();
     expect(nebulaTextureForField(field)).toBe(uri);
+  });
+});
+
+describe('organic nebula contours', () => {
+  it('preserves the exact gameplay terrain selection from the filmic implementation', () => {
+    const terrain = generateFilmicNebulaTerrain(visual);
+    expect(
+      createHash('sha256')
+        .update(JSON.stringify([...terrain]))
+        .digest('hex'),
+    ).toBe('176ce2a522183f979dbd082ce400405edde017a7d61b24b790548296e9a881d8');
+  });
+  it('adds light filaments and darker dust within the existing cloud palette', () => {
+    const scene = buildNebulaLandscape(visual);
+    const image = renderNebulaRaster(scene, 7, 7, 180, 180);
+    const brightness: number[] = [];
+    for (let y = 0; y < 180; y += 3)
+      for (let x = 0; x < 180; x += 3) {
+        const i = (y * 180 + x) * 4;
+        if (image[i + 3] < 50) continue;
+        const point = sampleNebulaLandscape(
+          scene,
+          7 + (x + 0.5) / 30,
+          7 + (y + 0.5) / 30,
+        );
+        brightness.push(image[i] / point.red);
+      }
+    expect(brightness.length).toBeGreaterThan(20);
+    expect(Math.max(...brightness) - Math.min(...brightness)).toBeGreaterThan(
+      0.2,
+    );
+  });
+  const alpha = (mask: Uint8ClampedArray, x: number, y: number) =>
+    mask[(y * 30 + x) * 4 + 3];
+  it('rounds convex edges and diagonal concave corners without dimming connected interiors', () => {
+    expect(
+      renderNebulaContourMask(0, 30, 30, 0, 0)
+        .filter((_, i) => i % 4 === 3)
+        .every((v) => v === 255),
+    ).toBe(true);
+    const top = renderNebulaContourMask(1, 30, 30, 0, 0);
+    const convex = renderNebulaContourMask(1 | 8 | 16, 30, 30, 0, 0);
+    expect(alpha(convex, 3, 3)).toBeLessThan(alpha(top, 3, 3));
+    expect(alpha(convex, 25, 25)).toBe(255);
+    const concave = renderNebulaContourMask(1 << 6, 30, 30, 0, 0);
+    expect(alpha(concave, 28, 28)).toBeLessThan(10);
+    expect(alpha(concave, 15, 15)).toBe(255);
+    expect(alpha(concave, 28, 15)).toBe(255);
+  });
+  it('does not introduce field-boundary dents along a continuous straight edge', () => {
+    expect(renderNebulaContourMask(1 | 16 | 32, 30, 30, 8, 12)).toEqual(
+      renderNebulaContourMask(1, 30, 30, 8, 12),
+    );
+    const left = renderNebulaContourMask(1, 30, 30, 8, 12),
+      right = renderNebulaContourMask(1, 30, 30, 9, 12);
+    for (let y = 0; y < 30; y++)
+      expect(
+        Math.abs(alpha(left, 29, y) - alpha(right, 0, y)),
+      ).toBeLessThanOrEqual(20);
+  });
+  it('frays exposed edges deterministically in world coordinates', () => {
+    const a = renderNebulaContourMask(1, 30, 30, 8, 12);
+    expect(a).toEqual(renderNebulaContourMask(1, 30, 30, 8, 12));
+    const row = Array.from({ length: 30 }, (_, x) => alpha(a, x, 5));
+    expect(Math.max(...row) - Math.min(...row)).toBeGreaterThan(15);
+    expect(a).not.toEqual(renderNebulaContourMask(1, 30, 30, 9, 12));
+    for (let x = 0; x < 30; x++) expect(alpha(a, x, 0)).toBe(0);
   });
 });

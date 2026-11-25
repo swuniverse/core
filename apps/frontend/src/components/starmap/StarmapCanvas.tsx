@@ -34,7 +34,7 @@ import {
   STARMAP_CELL_SIZE,
 } from '../../lib/starmap-render';
 import { terrainAppearance } from '../../lib/map-terrain';
-import { featherNebulaSprite } from '../../lib/map-terrain-pixi';
+import { featherNebulaSprite, organicNebulaSprite } from '../../lib/map-terrain-pixi';
 import { getNebulaPixiTexture } from '../../lib/nebula-texture-pixi';
 
 const CELL_SIZE = STARMAP_CELL_SIZE;
@@ -509,10 +509,24 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
       const icons = new Container();
       container.addChild(terrain, icons);
       const terrainFields = new Map(fields.map((field) => [`${field.cx},${field.cy}`, field.fieldType]));
+      const visibleTerrainAt = (x: number, y: number) => {
+        const type = terrainFields.get(`${x},${y}`);
+        return type?.key === 'UNKNOWN' ? undefined : type;
+      };
       await Promise.all(fields.map(async (field) => {
         if (field.fieldType.key === 'UNKNOWN') return;
         const x = (field.cx - 1) * CELL_SIZE;
         const y = (field.cy - 1) * CELL_SIZE;
+        const neighbors = [
+          visibleTerrainAt(field.cx, field.cy - 1),
+          visibleTerrainAt(field.cx + 1, field.cy),
+          visibleTerrainAt(field.cx, field.cy + 1),
+          visibleTerrainAt(field.cx - 1, field.cy),
+          visibleTerrainAt(field.cx - 1, field.cy - 1),
+          visibleTerrainAt(field.cx + 1, field.cy - 1),
+          visibleTerrainAt(field.cx + 1, field.cy + 1),
+          visibleTerrainAt(field.cx - 1, field.cy + 1),
+        ];
         try {
           const nebulaTexture = field.nebulaTexture ? await Assets.load(field.nebulaTexture) : getNebulaPixiTexture(field.nebulaVisual, field.cx, field.cy);
           const appearance = terrainAppearance(nebulaTexture ? { id: 1, key: 'EMPTY_SPACE' } : field.fieldType, field.cx, field.cy);
@@ -530,8 +544,8 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
             const cloud = new Sprite(nebulaTexture);
             cloud.position.set(x, y); cloud.width = cloud.height = CELL_SIZE;
             terrain.addChild(cloud);
-            featherNebulaSprite(cloud, terrain, field.fieldType, [terrainFields.get(`${field.cx},${field.cy - 1}`), terrainFields.get(`${field.cx + 1},${field.cy}`), terrainFields.get(`${field.cx},${field.cy + 1}`), terrainFields.get(`${field.cx - 1},${field.cy}`)]);
-          } else featherNebulaSprite(sprite, terrain, field.fieldType, [terrainFields.get(`${field.cx},${field.cy - 1}`), terrainFields.get(`${field.cx + 1},${field.cy}`), terrainFields.get(`${field.cx},${field.cy + 1}`), terrainFields.get(`${field.cx - 1},${field.cy}`)]);
+            organicNebulaSprite(cloud, terrain, field.fieldType, field.cx, field.cy, neighbors);
+          } else featherNebulaSprite(sprite, terrain, field.fieldType, neighbors.slice(0, 4));
         } catch {
           if (signal.aborted || container.destroyed) return;
           const fallback = new Graphics();

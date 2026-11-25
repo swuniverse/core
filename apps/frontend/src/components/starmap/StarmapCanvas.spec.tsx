@@ -10,6 +10,13 @@ const pixiControl = vi.hoisted(() => ({
   sprites: [] as unknown[],
   resolveInit: null as null | (() => void),
   destroyedInsertions: 0,
+  organicNebulaSprite: vi.fn(),
+  featherNebulaSprite: vi.fn(),
+}));
+
+vi.mock('../../lib/map-terrain-pixi', () => ({
+  organicNebulaSprite: pixiControl.organicNebulaSprite,
+  featherNebulaSprite: pixiControl.featherNebulaSprite,
 }));
 
 vi.mock('pixi.js', () => {
@@ -134,6 +141,8 @@ describe('StarmapCanvas arrival focus', () => {
     pixiControl.sprites = [];
     pixiControl.resolveInit = null;
     pixiControl.destroyedInsertions = 0;
+    pixiControl.organicNebulaSprite.mockClear();
+    pixiControl.featherNebulaSprite.mockClear();
     vi.mocked(Assets.load).mockClear();
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
       setTransform: vi.fn(),
@@ -215,7 +224,7 @@ describe('StarmapCanvas arrival focus', () => {
   });
 
   it('loads and draws a nebula PNG for a known field, but ignores texture metadata on UNKNOWN fields', async () => {
-    const knownNebula = { ...fields[0], nebulaTexture: '/known-nebula.png' };
+    const knownNebula = { ...fields[0], fieldTypeId: 120, fieldType: { ...fields[0].fieldType, id: 120, key: 'NEBULA', category: 'nebula' }, nebulaTexture: '/known-nebula.png' };
     const unknown = {
       ...fields[0],
       id: 2,
@@ -247,7 +256,30 @@ describe('StarmapCanvas arrival focus', () => {
     await waitFor(() => expect(pixiControl.pendingLoads).toHaveLength(2));
     await act(async () => { pixiControl.pendingLoads[1].resolve({ name: 'space-background' }); await Promise.resolve(); });
     await waitFor(() => expect(pixiControl.sprites).toContain(nebulaPng));
+    expect(pixiControl.organicNebulaSprite).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(), knownNebula.fieldType, 12, 14,
+      [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined],
+    );
+    expect(pixiControl.organicNebulaSprite).toHaveBeenCalledTimes(1);
+    expect(pixiControl.featherNebulaSprite).not.toHaveBeenCalled();
     expect(pixiControl.sprites).not.toContain('/hidden-nebula.png');
+    view.unmount();
+  });
+
+  it('keeps legacy nebula tiles on the feather mask', async () => {
+    const legacyNebula = { ...fields[0], fieldTypeId: 120, fieldType: { ...fields[0].fieldType, id: 120, key: 'neon_nebel_120', category: 'nebula' } };
+    const unknown = { ...fields[0], id: 2, cx: 13, fieldType: { ...fields[0].fieldType, key: 'UNKNOWN' } };
+    const view = render(<StarmapCanvas {...basicProps} fields={[legacyNebula, unknown]} />);
+    await act(async () => { pixiControl.resolveInit?.(); await Promise.resolve(); });
+    await waitFor(() => expect(pixiControl.pendingLoads).toHaveLength(1));
+    await act(async () => { pixiControl.pendingLoads[0].resolve({ name: 'legacy-nebula' }); await Promise.resolve(); });
+
+    expect(pixiControl.featherNebulaSprite).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(), legacyNebula.fieldType,
+      [undefined, undefined, undefined, undefined],
+    );
+    expect(pixiControl.featherNebulaSprite).toHaveBeenCalledTimes(1);
+    expect(pixiControl.organicNebulaSprite).not.toHaveBeenCalled();
     view.unmount();
   });
 
