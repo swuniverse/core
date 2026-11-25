@@ -22,3 +22,11 @@ Die Tests liefen in der schreibbaren Staging-Kopie `/private/tmp/swu-starmap-neb
 Der erste breite Backend-Lauf wurde wegen fehlender Submodule abgebrochen und nach Initialisierung vollständig erfolgreich wiederholt. Der erste breite Frontend-Lauf erkannte eine Asteroiden-Bildreihenfolgeänderung; diese wurde korrigiert, gezielt und im vollständigen Lauf erfolgreich nachgeprüft. Der lokale Headless-Browser konnte auch mit Sandbox-Freigabe nicht gestartet werden; ein optionaler Screenshot liegt daher nicht vor. Ein Test-inclusive TypeScript-Lauf des Coding-Agenten meldete vorhandene Canvas-Kontexttypen in anderen Specs; die erforderliche App-Typprüfung ist erfolgreich. Keine manuellen Nutzerprüfungen ausstehend.
 
 Keine Bestandsmigration, kein Weltreset und keine Anwendung auf eine Live-Karte durchgeführt.
+
+## Worktree-Startkorrektur — 2026-11-25
+
+Beim ersten lokalen Start fehlte die ignorierte `.env` im neuen Workspace; sie wurde mit der vorhandenen lokalen Konfiguration des ursprünglichen Checkouts verknüpft. Die Verbindung wurde ohne Ausgabe von Zugangsdaten durch `SELECT 1` geprüft. Anschließend zeigte sich, dass der relative Docker-Bind-Mount ein neues, leeres Datenverzeichnis im Worktree angelegt hatte. Das ursprüngliche PostgreSQL-16-Datenverzeichnis blieb erhalten.
+
+`Justfile` exportiert nun `SWU_DEV_POSTGRES_DATA` standardmäßig aus dem gemeinsamen Git-Verzeichnis des ursprünglichen Checkouts. `docker-compose.dev.yml` verwendet diesen einstellbaren Pfad. Nur `swuniverse-dev-db` wurde mit dem vorhandenen Datenverzeichnis neu erstellt; keine Datenverzeichnisse gelöscht, keine Migrationen oder Kartenänderungen ausgeführt. Ein explizites `SWU_DEV_POSTGRES_DATA` erlaubt weiterhin eine eigene Entwicklungsdatenbank.
+
+Nachweise: `just --dry-run infra-detached`; ausgewerteter Just-Pfad und Docker-Compose-Konfiguration zeigen das ursprüngliche Verzeichnis; PostgreSQL enthält `factions`, `migrations`, `star_systems` und 2 Fraktionen / 40 Sternensysteme / 1.600 Galaxiefelder. Der laufende Backend-Prozess antwortet auf `/api/game-status` mit HTTP 200 und `ONLINE`; der Nebel-Vorschau-Endpunkt antwortet ohne Anmeldung mit HTTP 401. Der eigene wartende Startversuch wurde beendet, der bereits laufende Backend-Prozess blieb online. Diffprüfung erfolgreich.

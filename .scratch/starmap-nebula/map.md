@@ -8,6 +8,8 @@
 - [03 Darstellung](issues/03-rendering.md): gemeinsame Terrainpolitik, weiche Nebelränder, kein Galaxie-Hintergrundblitz; abgeschlossen.
 - [Verifikation](verification.md): alle erforderlichen Prüfungen erfolgreich.
 
+- [04 Worktree-Start](issues/04-worktree-startup.md): lokale Konfiguration und ursprüngliche Entwicklungsdatenbank eingebunden; Backend ONLINE.
+
 ## Fog
 
 Keine offenen Umsetzungskriterien. Die Bestandskarte wird erst durch eine angewendete Vorschau verändert.

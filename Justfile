@@ -1,5 +1,9 @@
 set dotenv-load := true
 
+# Worktrees share the existing development database unless explicitly overridden.
+git_common_dir := `git rev-parse --path-format=absolute --git-common-dir`
+export SWU_DEV_POSTGRES_DATA := env('SWU_DEV_POSTGRES_DATA', parent_directory(git_common_dir) / 'infra/postgres-data-dev')
+
 # Show the available local development commands.
 default: help
 
