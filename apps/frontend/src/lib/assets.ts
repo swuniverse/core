@@ -137,6 +137,11 @@ const SHIP_CLASS_KEY_FILES: Record<string, string> = {
   REBEL_FREIGHTER_GR75: 'gr75-medium-transport.png',
   EMPIRE_COLONIZER_SENTINEL: 'sentinel-class-landing-craft.png',
   EMPIRE_FREIGHTER_GOZANTI: 'gozanti-class-cruiser.png',
+  REBEL_ESCORT_HAMMERHEAD: 'hammerhead-corvette.png',
+  REBEL_CORVETTE_CR90: 'cr90-corvette.png',
+  EMPIRE_SHUTTLE_LAMBDA: 'lambda-shuttle.png',
+  EMPIRE_CORVETTE_RAIDER: 'raider-corvette.png',
+  EMPIRE_FRIGATE_LANCER: 'lancer-frigate.png',
   REBEL_FIGHTER_X_WING: 'x-wing.png',
   REBEL_FIGHTER_A_WING: 'a-wing.png',
   REBEL_SHUTTLE_U_WING: 'u-wing.png',
@@ -151,6 +156,15 @@ const SHIP_CLASS_KEY_FILES: Record<string, string> = {
 
 /** Top-down graphic drawn on the overview map in place of the position marker. */
 const SHIP_CLASS_KEY_CURSOR_FILES: Record<string, string> = {
+  REBEL_FREIGHTER_YT: 'yt-class-freighter-cursor.png',
+  REBEL_FREIGHTER_GR75: 'gr75-medium-transport-cursor.png',
+  EMPIRE_COLONIZER_SENTINEL: 'sentinel-class-landing-craft-cursor.png',
+  EMPIRE_FREIGHTER_GOZANTI: 'gozanti-class-cruiser-cursor.png',
+  REBEL_ESCORT_HAMMERHEAD: 'hammerhead-corvette-cursor.png',
+  REBEL_CORVETTE_CR90: 'cr90-corvette-cursor.png',
+  EMPIRE_SHUTTLE_LAMBDA: 'lambda-shuttle-cursor.png',
+  EMPIRE_CORVETTE_RAIDER: 'raider-corvette-cursor.png',
+  EMPIRE_FRIGATE_LANCER: 'lancer-frigate-cursor.png',
   REBEL_FIGHTER_X_WING: 'x-wing-cursor.png',
   REBEL_FIGHTER_A_WING: 'a-wing-cursor.png',
   REBEL_SHUTTLE_U_WING: 'u-wing-cursor.png',
