@@ -1700,7 +1700,7 @@ describe('ColonyDetail', () => {
     const ytFreighter: ShipClassDef = {
       ...shipClassFixture,
       id: 201,
-      key: 'REBEL_FREIGHTER_YT',
+      key: 'REBEL_FREIGHTER_HAWK',
       name: 'YT-1300 Frachter',
       category: 'FREIGHTER',
       allowedBuildingFunctionIds: [5, 22],

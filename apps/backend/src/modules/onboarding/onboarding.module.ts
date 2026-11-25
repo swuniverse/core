@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { OnboardingSelection } from './entities/onboarding-selection.entity';
 import { OnboardingController } from './onboarding.controller';
 import { OnboardingService } from './onboarding.service';
+import { ShipGiftModule } from '../ship-gift/ship-gift.module';
 import { User } from '../auth/user.entity';
 import { Layer } from '../starmap/entities/layer.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
@@ -29,6 +30,7 @@ import { StarmapModule } from '../starmap/starmap.module';
     ColonyModule,
     TutorialModule,
     StarmapModule,
+    ShipGiftModule,
   ],
   controllers: [OnboardingController],
   providers: [OnboardingService],

@@ -63,7 +63,7 @@ export function TransferDialog({
   const [colonyCargo, setColonyCargo] = useState<CargoItem[]>([]);
   const [amounts, setAmounts] = useState<Record<number, number>>({});
   const [transferType, setTransferType] = useState<
-    'CARGO' | 'CREW' | 'TORPEDO'
+    'CARGO' | 'CREW' | 'TORPEDO' | 'SETTLERS'
   >('CARGO');
   const [crewAmount, setCrewAmount] = useState(1);
   const [pending, setPending] = useState(false);
@@ -151,6 +151,32 @@ export function TransferDialog({
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : 'Crewtransfer fehlgeschlagen',
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function transferSettlers() {
+    const settlers = quote?.settlers;
+    if (!settlers) return;
+    const amount = Math.min(
+      crewAmount,
+      unload ? settlers.maxUnload : settlers.maxLoad,
+    );
+    if (amount < 1) return;
+    setPending(true);
+    setError(null);
+    try {
+      await api.post(
+        `/spacecraft/${shipId}/settlers/${unload ? 'unload' : 'load'}`,
+        { colonyId, amount },
+      );
+      await refresh();
+      onTransfer();
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : 'Siedlertransfer fehlgeschlagen',
       );
     } finally {
       setPending(false);
@@ -266,6 +292,16 @@ export function TransferDialog({
                 Crew
               </button>
             )}
+            {!isShipTransfer && quote?.settlers?.enabled && (
+              <button
+                type="button"
+                onClick={() => setTransferType('SETTLERS')}
+                aria-pressed={transferType === 'SETTLERS'}
+                className="px-3 py-1 aria-pressed:text-swu-accent"
+              >
+                Siedler
+              </button>
+            )}
             {isShipTransfer && (
               <button
                 type="button"
@@ -278,7 +314,41 @@ export function TransferDialog({
             )}
           </div>
         )}
-        {transferType === 'CREW' ? (
+        {transferType === 'SETTLERS' && quote?.settlers ? (
+          <div className="space-y-2 p-3 text-xs">
+            <p>
+              Kolonie: {quote.settlers.colonyWorkless} Arbeitslose ·{' '}
+              {quote.settlers.colonyPopulation}/
+              {quote.settlers.colonyPopulationMax} Bevölkerung · Schiff:{' '}
+              {quote.settlers.onShip} Siedler
+            </p>
+            <label>
+              Siedler{' '}
+              <input
+                aria-label="Siedlermenge"
+                type="number"
+                min={1}
+                max={unload ? quote.settlers.maxUnload : quote.settlers.maxLoad}
+                value={crewAmount}
+                onChange={(event) =>
+                  setCrewAmount(Math.max(1, Number(event.target.value) || 1))
+                }
+                className="ml-2 w-16 border border-swu-border bg-black px-1"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={
+                pending ||
+                (unload ? quote.settlers.maxUnload : quote.settlers.maxLoad) < 1
+              }
+              onClick={() => void transferSettlers()}
+              className="ml-2 border border-swu-accent px-2 py-0.5 text-swu-primary disabled:opacity-40"
+            >
+              {unload ? 'Ansiedeln' : 'Aufnehmen'}
+            </button>
+          </div>
+        ) : transferType === 'CREW' ? (
           <div className="space-y-2 p-3 text-xs">
             <p>
               {isShipTransfer ? (

@@ -12,6 +12,7 @@ import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { FactionModule } from '../faction/faction.module';
 import { AwardsModule } from '../awards/awards.module';
+import { ShipGiftModule } from '../ship-gift/ship-gift.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { AwardsModule } from '../awards/awards.module';
     WebsocketModule,
     FactionModule,
     AwardsModule,
+    ShipGiftModule,
   ],
   controllers: [ResearchController],
   providers: [

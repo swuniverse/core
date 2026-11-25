@@ -107,6 +107,9 @@ export function CargoDisposeDialog({
                 <label className="flex flex-1 items-center justify-between gap-2">
                   <span>
                     {name} (Bestand: {item.amount})
+                    {item.commodityId === 9990 && (
+                      <span className="text-red-300"> · −10 Prestige je Siedler</span>
+                    )}
                   </span>
                   <input
                     aria-label={`Menge ${name}`}

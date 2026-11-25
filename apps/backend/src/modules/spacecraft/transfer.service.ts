@@ -10,7 +10,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { GameDataService } from '../game-data/game-data.service';
-import { getColonyChangeable } from '../colony/colony-stats.service';
+import {
+  adjustColonyPopulationParts,
+  getColonyChangeable,
+} from '../colony/colony-stats.service';
+import { SETTLERS_COMMODITY_ID, settlersLimits } from './settlers';
+import { PrestigeService } from '../prestige/prestige.service';
+import { STU_PRESTIGE } from '../prestige/prestige.constants';
 import { ColonyCrewService } from '../colony/colony-crew.service';
 import { StationUplinkService, hasStationUplink } from './station-uplink.service';
 import { CrewType } from '../colony/entities/crew.entity';
@@ -73,6 +79,7 @@ export class TransferService {
     private readonly relationshipResolver: RelationshipResolverService,
     private readonly interactionContext: InteractionContextService,
     @Optional() private readonly anomalyQuery?: AnomalyQueryService,
+    @Optional() private readonly prestige?: PrestigeService,
   ) {}
 
   async getUplinkOverview(id: number, userId: number) {
@@ -208,6 +215,131 @@ export class TransferService {
       colonyId,
     );
     await this.crewService.transferCrewFromShipToColony(colony, ship, amount);
+  }
+
+  /** Beams unemployed colony population aboard a passenger ferry (regular cargo). */
+  async loadSettlers(
+    shipId: number,
+    userId: number,
+    colonyId: number,
+    amount: number,
+  ): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const { ship, colony } = await this.requireSettlersContext(
+        shipId,
+        userId,
+        colonyId,
+        manager,
+        'TO_SHIP',
+      );
+      const cargoRepo = manager.getRepository(CargoItem);
+      const item = await cargoRepo.findOne({
+        where: { spacecraftId: shipId, commodityId: SETTLERS_COMMODITY_ID },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const changeable = getColonyChangeable(colony);
+      const { maxLoad } = settlersLimits({
+        cargoMax: ship.cargoMax,
+        cargoUsed: await this.getCargoUsed(shipId, cargoRepo),
+        onShip: item?.amount ?? 0,
+        workless: changeable.workless,
+        population: changeable.workers + changeable.workless,
+        populationMax: changeable.maxPopulation,
+      });
+      if (amount > maxLoad) {
+        throw new BadRequestException(
+          `Es können maximal ${maxLoad} Siedler aufgenommen werden`,
+        );
+      }
+      this.contextService.chargeTransferEnergy(ship, colony, amount, 'SHIP');
+      adjustColonyPopulationParts(colony, 0, -amount);
+      const target =
+        item ??
+        cargoRepo.create({
+          spacecraftId: ship.id,
+          commodityId: SETTLERS_COMMODITY_ID,
+          amount: 0,
+        });
+      target.amount += amount;
+      await cargoRepo.save(target);
+      ship.cargoUsed = await this.getCargoUsed(shipId, cargoRepo);
+      await manager.save(ship);
+      await manager.save(getColonyChangeable(colony));
+      await manager.save(colony);
+    });
+  }
+
+  /** Settles the passengers of a ferry on one of the owner's colonies. */
+  async unloadSettlers(
+    shipId: number,
+    userId: number,
+    colonyId: number,
+    amount: number,
+  ): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const { ship, colony } = await this.requireSettlersContext(
+        shipId,
+        userId,
+        colonyId,
+        manager,
+        'TO_COLONY',
+      );
+      const cargoRepo = manager.getRepository(CargoItem);
+      const item = await cargoRepo.findOne({
+        where: { spacecraftId: shipId, commodityId: SETTLERS_COMMODITY_ID },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const changeable = getColonyChangeable(colony);
+      const { maxUnload } = settlersLimits({
+        cargoMax: ship.cargoMax,
+        cargoUsed: 0,
+        onShip: item?.amount ?? 0,
+        workless: changeable.workless,
+        population: changeable.workers + changeable.workless,
+        populationMax: changeable.maxPopulation,
+      });
+      if (!item || amount > maxUnload) {
+        throw new BadRequestException(
+          `Es können maximal ${maxUnload} Siedler abgesetzt werden`,
+        );
+      }
+      this.contextService.chargeTransferEnergy(ship, colony, amount, 'SHIP');
+      adjustColonyPopulationParts(colony, 0, amount);
+      item.amount -= amount;
+      if (item.amount === 0) await cargoRepo.remove(item);
+      else await cargoRepo.save(item);
+      ship.cargoUsed = await this.getCargoUsed(shipId, cargoRepo);
+      await manager.save(ship);
+      await manager.save(getColonyChangeable(colony));
+      await manager.save(colony);
+    });
+  }
+
+  private async requireSettlersContext(
+    shipId: number,
+    userId: number,
+    colonyId: number,
+    manager: EntityManager,
+    direction: ColonyTransferDirection,
+  ) {
+    const context = await this.requireColonyTransfer(
+      shipId,
+      userId,
+      colonyId,
+      manager,
+      'SHIP',
+      direction,
+    );
+    const shipClassKey = context.ship.shipClass?.key;
+    if (
+      !shipClassKey ||
+      !this.gameData.getShipClassDefByKey(shipClassKey)?.canTransportPopulation
+    ) {
+      throw new BadRequestException(
+        'Nur Personenfähren können Siedler transportieren',
+      );
+    }
+    return context;
   }
 
   async unloadCargo(
@@ -638,8 +770,9 @@ export class TransferService {
         commodity: this.gameData.getCommodity(item.commodityId),
       }))
       .filter(
-        ({ commodity }) =>
-          commodity?.visible !== false && commodity?.type !== 2,
+        ({ item, commodity }) =>
+          (commodity?.visible !== false && commodity?.type !== 2) ||
+          item.commodityId === SETTLERS_COMMODITY_ID,
       )
       .sort(
         (a, b) =>
@@ -718,6 +851,16 @@ export class TransferService {
           this.gameData.getCommodity(item.commodityId)?.name ??
           `Ware #${item.commodityId}`;
         messages.push(`${amount} ${name} entsorgt.`);
+        if (item.commodityId === SETTLERS_COMMODITY_ID) {
+          const loss = amount * STU_PRESTIGE.SETTLER_DISPOSAL_LOSS;
+          await this.prestige?.change(
+            userId,
+            -loss,
+            `${amount} Siedler entsorgt`,
+            manager,
+          );
+          messages.push(`Prestigeverlust: ${loss}`);
+        }
       }
       ship.cargoUsed = await this.getCargoUsed(shipId, repo);
       await manager.save(ship);

@@ -13,5 +13,6 @@ import { OrderBroadcastService } from './order-broadcast.service';
   ],
   controllers: [OrderBroadcastController],
   providers: [OrderBroadcastService],
+  exports: [OrderBroadcastService],
 })
 export class OrderBroadcastModule {}

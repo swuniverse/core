@@ -1957,6 +1957,34 @@ export class SpacecraftController {
     );
   }
 
+  @Post(':id/settlers/load')
+  loadSettlers(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body() dto: ColonyCrewTransferDto,
+  ) {
+    return this.transferService.loadSettlers(
+      id,
+      req.user.sub,
+      dto.colonyId,
+      dto.amount,
+    );
+  }
+
+  @Post(':id/settlers/unload')
+  unloadSettlers(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { sub: number } },
+    @Body() dto: ColonyCrewTransferDto,
+  ) {
+    return this.transferService.unloadSettlers(
+      id,
+      req.user.sub,
+      dto.colonyId,
+      dto.amount,
+    );
+  }
+
   @Post(':id/cargo/unload')
   unloadCargo(
     @Param('id', ParseIntPipe) id: number,

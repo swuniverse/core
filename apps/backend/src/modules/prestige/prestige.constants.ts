@@ -13,4 +13,6 @@ export const STU_PRESTIGE = {
   TOP_TEN_MAX: 20,
   BOARDING_BASE_LOSS: 200,
   BOARDING_MODULE_LEVEL_LOSS: 25,
+  /** Prestige lost per settler thrown out of the cargo hold. */
+  SETTLER_DISPOSAL_LOSS: 10,
 } as const;

@@ -652,7 +652,7 @@ describe('GameDataService hangar ship definitions', () => {
     expect(service.getHangarShipDefByCommodity(21401)).toMatchObject({
       shipClassKey: 'REBEL_SHUTTLE_LAAT',
     });
-    expect(service.getAllHangarShipDefs()).toHaveLength(18);
+    expect(service.getAllHangarShipDefs()).toHaveLength(20);
 
     expect(service.getHangarShipDef('REBEL_FIGHTER_X_WING')).toMatchObject({
       hangarCommodityId: 21201,
@@ -673,7 +673,7 @@ describe('GameDataService hangar ship definitions', () => {
     expect(service.hasFullyLoadedStart(1501)).toBe(true);
     expect(service.hasFullyLoadedStart(1503)).toBe(true);
     expect(service.hasFullyLoadedStart(6701)).toBe(false);
-    expect(service.getHangarShipDef('REBEL_FREIGHTER_YT')).toMatchObject({
+    expect(service.getHangarShipDef('REBEL_FREIGHTER_HAWK')).toMatchObject({
       startEnergyCost: 150,
       crewRequired: 2,
       defaultModuleCommodityIds: [
@@ -739,7 +739,7 @@ describe('GameDataService ship class slot rules', () => {
   });
 
   it('uses documented shipyard overrides for Rebel freight hulls', () => {
-    expect(service.getShipClassDefByKey('REBEL_FREIGHTER_YT')).toMatchObject({
+    expect(service.getShipClassDefByKey('REBEL_FREIGHTER_HAWK')).toMatchObject({
       allowedBuildingFunctionIds: [4, 5],
     });
     expect(service.getShipClassDefByKey('REBEL_FREIGHTER_GR75')).toMatchObject({

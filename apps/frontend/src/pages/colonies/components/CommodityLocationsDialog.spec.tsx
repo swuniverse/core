@@ -15,7 +15,7 @@ const locations: CommodityLocationsDto = {
       spacecraftId: 9,
       spacecraftName: 'Y-Frachter',
       shipClassId: 101,
-      shipClassKey: 'REBEL_FREIGHTER_YT',
+      shipClassKey: 'REBEL_FREIGHTER_HAWK',
       entityType: 'SHIP',
       amount: 12,
     },

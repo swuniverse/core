@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Research, ResearchStatus } from './entities/research.entity';
+import { ShipGiftService } from '../ship-gift/ship-gift.service';
 import { GameDataService, TechDef } from '../game-data/game-data.service';
 import { Faction, WsEventType } from '@swuniverse/shared';
 import { MessagingService } from '../messaging/messaging.service';
@@ -43,6 +44,7 @@ export class ResearchService {
     private readonly gameGateway: GameGateway,
     private readonly factionService?: FactionService,
     private readonly awardService?: AwardService,
+    private readonly shipGiftService?: ShipGiftService,
   ) {}
 
   /** Registered by the spacecraft module; avoids a module import cycle. */
@@ -781,6 +783,17 @@ export class ResearchService {
       await this.awardService?.grant(userId, tech.awardKey);
     }
     await this.grantShipReward(userId, tech);
+    await this.grantGiftShips(userId, tech.id);
+  }
+
+  private async grantGiftShips(userId: number, techId: number): Promise<void> {
+    try {
+      await this.shipGiftService?.onResearchCompleted(userId, techId);
+    } catch (error) {
+      this.logger.error(
+        `Gift ship for research ${techId} failed for user ${userId}: ${error instanceof Error ? error.message : error}`,
+      );
+    }
   }
 
   private async grantShipReward(userId: number, tech: TechDef): Promise<void> {

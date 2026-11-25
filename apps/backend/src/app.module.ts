@@ -98,6 +98,8 @@ import { ShipClassDiscovery } from './modules/spacecraft/entities/ship-class-dis
 import { StationClassDiscovery } from './modules/spacecraft/entities/station-class-discovery.entity';
 import { AdminShipBuildplan } from './modules/spacecraft/entities/admin-ship-buildplan.entity';
 import { Research } from './modules/research/entities/research.entity';
+import { ShipGift } from './modules/ship-gift/entities/ship-gift.entity';
+import { ShipGiftModule } from './modules/ship-gift/ship-gift.module';
 import { ResearchRewardGrant } from './modules/research/entities/research-reward-grant.entity';
 import { Message } from './modules/messaging/entities/message.entity';
 import { AdminBroadcastDelivery } from './modules/messaging/entities/admin-broadcast-delivery.entity';
@@ -261,6 +263,7 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
           AdminShipBuildplan,
           Research,
           ResearchRewardGrant,
+          ShipGift,
           Message,
           AdminBroadcastDelivery,
           UserMessageFolder,
@@ -331,6 +334,7 @@ import { AnomalyType } from './modules/anomaly/entities/anomaly-type.entity';
     NewsModule,
     AccountDeletionModule,
     OrderBroadcastModule,
+    ShipGiftModule,
     AuthModule,
     OnboardingModule,
     ColonyModule,

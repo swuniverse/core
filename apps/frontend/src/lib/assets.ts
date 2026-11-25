@@ -133,10 +133,17 @@ export function isSwuTestClassId(classId: number): boolean {
 }
 
 const SHIP_CLASS_KEY_FILES: Record<string, string> = {
-  REBEL_FREIGHTER_YT: 'yt-class-freighter.png',
+  REBEL_FREIGHTER_HAWK: 'hawk-freighter.png',
   REBEL_FREIGHTER_GR75: 'gr75-medium-transport.png',
+  REBEL_FREIGHTER_BFF1: 'bff1-bulk-freighter.png',
+  EMPIRE_FREIGHTER_ZETA: 'zeta-freighter.png',
+  EMPIRE_FREIGHTER_ETA: 'eta-freighter.png',
+  EMPIRE_FREIGHTER_MOSE: 'mose-freighter.png',
+  SALVAGE_SHUTTLE_SHEATHIPEDE: 'sheathipede-shuttle.png',
+  SALVAGE_FREIGHTER_MAXILLIPEDE: 'maxillipede-freighter.png',
+  NEUTRAL_FREIGHTER_YT1300: 'yt-class-freighter.png',
+  NEUTRAL_FREIGHTER_YT3100: 'yt3100-cargoweb.png',
   EMPIRE_COLONIZER_SENTINEL: 'sentinel-class-landing-craft.png',
-  EMPIRE_FREIGHTER_GOZANTI: 'gozanti-class-cruiser.png',
   REBEL_ESCORT_HAMMERHEAD: 'hammerhead-corvette.png',
   REBEL_CORVETTE_CR90: 'cr90-corvette.png',
   EMPIRE_SHUTTLE_LAMBDA: 'lambda-shuttle.png',
@@ -156,10 +163,17 @@ const SHIP_CLASS_KEY_FILES: Record<string, string> = {
 
 /** Top-down graphic drawn on the overview map in place of the position marker. */
 const SHIP_CLASS_KEY_CURSOR_FILES: Record<string, string> = {
-  REBEL_FREIGHTER_YT: 'yt-class-freighter-cursor.png',
+  REBEL_FREIGHTER_HAWK: 'hawk-freighter-cursor.png',
   REBEL_FREIGHTER_GR75: 'gr75-medium-transport-cursor.png',
+  REBEL_FREIGHTER_BFF1: 'bff1-bulk-freighter-cursor.png',
+  EMPIRE_FREIGHTER_ZETA: 'zeta-freighter-cursor.png',
+  EMPIRE_FREIGHTER_ETA: 'eta-freighter-cursor.png',
+  EMPIRE_FREIGHTER_MOSE: 'mose-freighter-cursor.png',
+  SALVAGE_SHUTTLE_SHEATHIPEDE: 'sheathipede-shuttle-cursor.png',
+  SALVAGE_FREIGHTER_MAXILLIPEDE: 'maxillipede-freighter-cursor.png',
+  NEUTRAL_FREIGHTER_YT1300: 'yt-class-freighter-cursor.png',
+  NEUTRAL_FREIGHTER_YT3100: 'yt3100-cargoweb-cursor.png',
   EMPIRE_COLONIZER_SENTINEL: 'sentinel-class-landing-craft-cursor.png',
-  EMPIRE_FREIGHTER_GOZANTI: 'gozanti-class-cruiser-cursor.png',
   REBEL_ESCORT_HAMMERHEAD: 'hammerhead-corvette-cursor.png',
   REBEL_CORVETTE_CR90: 'cr90-corvette-cursor.png',
   EMPIRE_SHUTTLE_LAMBDA: 'lambda-shuttle-cursor.png',

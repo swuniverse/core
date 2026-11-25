@@ -5,6 +5,7 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
+import { ShipGiftService } from '../ship-gift/ship-gift.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
 import {
@@ -88,6 +89,7 @@ export class OnboardingService {
     private readonly layerKnowledgeService: LayerKnowledgeService,
     @Optional()
     private readonly celestialClassDiscovery?: CelestialClassDiscoveryService,
+    @Optional() private readonly shipGiftService?: ShipGiftService,
   ) {}
 
   async getOrCreateSelection(userId: number): Promise<OnboardingSelection> {
@@ -502,6 +504,7 @@ export class OnboardingService {
       spacecraftId: null,
       source: 'FIRST_COLONY',
     });
+    await this.grantFirstColonyGift(user.id);
     await this.ensureBaseResearchCompleted(user.id, factionId);
     await this.tutorialService.activateForNewPlayer(user.id);
     await this.deliverWelcomeMessage(user.id, faction.key as Faction);
@@ -517,6 +520,17 @@ export class OnboardingService {
         href: '/research?focus=220101',
       },
     };
+  }
+
+  /** Story gift: the first colony brings a Sheathipede into its orbit. */
+  private async grantFirstColonyGift(userId: number): Promise<void> {
+    try {
+      await this.shipGiftService?.onFirstColony(userId);
+    } catch (error) {
+      this.logger.error(
+        `First colony gift failed for user ${userId}: ${error instanceof Error ? error.message : error}`,
+      );
+    }
   }
 
   private async deliverWelcomeMessage(

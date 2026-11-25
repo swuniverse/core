@@ -8,6 +8,10 @@ export class OrderBroadcast {
   @Column({ type: 'text' })
   message: string;
 
+  /** Null = for everyone; otherwise only this player receives it. */
+  @Column({ type: 'int', nullable: true })
+  targetUserId: number | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

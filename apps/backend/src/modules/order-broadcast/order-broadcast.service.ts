@@ -22,13 +22,21 @@ export class OrderBroadcastService {
     private readonly gateway: GameGateway,
   ) {}
 
-  async send(message: string): Promise<OrderBroadcastDto> {
+  /** Without `targetUserId` the order goes to every player, otherwise to that player only. */
+  async send(
+    message: string,
+    targetUserId: number | null = null,
+  ): Promise<OrderBroadcastDto> {
     const saved = await this.broadcasts.save(
-      this.broadcasts.create({ message: message.trim() }),
+      this.broadcasts.create({ message: message.trim(), targetUserId }),
     );
     const dto = this.toDto(saved);
     // Online-Spieler sofort benachrichtigen; alle anderen holen sie beim Login ab.
-    this.gateway.emitToAll(WsEventType.ORDER_BROADCAST, dto);
+    if (targetUserId == null) {
+      this.gateway.emitToAll(WsEventType.ORDER_BROADCAST, dto);
+    } else {
+      this.gateway.emitToUser(targetUserId, WsEventType.ORDER_BROADCAST, dto);
+    }
     return dto;
   }
 
@@ -38,6 +46,9 @@ export class OrderBroadcastService {
       .createQueryBuilder('b')
       .innerJoin('users', 'u', 'u.id = :userId', { userId })
       .where('b."createdAt" >= u."createdAt"')
+      .andWhere('(b."targetUserId" IS NULL OR b."targetUserId" = :userId)', {
+        userId,
+      })
       .andWhere(
         `NOT EXISTS (SELECT 1 FROM order_broadcast_acks a WHERE a."broadcastId" = b.id AND a."userId" = :userId)`,
         { userId },

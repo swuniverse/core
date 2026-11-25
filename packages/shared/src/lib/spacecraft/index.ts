@@ -1139,6 +1139,16 @@ export interface SpacecraftTransferQuoteDto {
     maxLoad: number;
     maxUnload: number;
   };
+  /** Colony population carried as cargo on passenger ferries. */
+  settlers?: {
+    enabled: boolean;
+    onShip: number;
+    colonyWorkless: number;
+    colonyPopulation: number;
+    colonyPopulationMax: number;
+    maxLoad: number;
+    maxUnload: number;
+  };
   energyPerCapacity: number;
 }
 

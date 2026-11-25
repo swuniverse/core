@@ -494,6 +494,8 @@ export interface ShipClassYamlDef {
   flightEnergyCost: number;
   shuttleSlots?: number;
   starterAllowed: boolean;
+  /** Passenger ferries may carry colony population as cargo (see settlers.ts). */
+  canTransportPopulation?: boolean;
   isNpc: boolean;
   isColonizer?: boolean;
   colonizerTier?: number | null;

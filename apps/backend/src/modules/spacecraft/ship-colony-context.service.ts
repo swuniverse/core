@@ -20,6 +20,8 @@ import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { ColonyStorageService } from '../colony/colony-storage.service';
 import { CargoItem } from './entities/cargo-item.entity';
 import { GameDataService } from '../game-data/game-data.service';
+import { getColonyChangeable } from '../colony/colony-stats.service';
+import { SETTLERS_COMMODITY_ID, settlersLimits } from './settlers';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { SpacecraftCrewService } from './spacecraft-crew.service';
 import { Spacecraft, SpacecraftStatus } from './entities/spacecraft.entity';
@@ -83,7 +85,7 @@ export class ShipColonyContextService {
       shipRepo.findOne({
         // A colony may beam with foreign ships in its orbit (STU Transfer).
         where: initiator === 'COLONY' ? { id: shipId } : { id: shipId, userId },
-        relations: ['location', 'location.systemField'],
+        relations: ['location', 'location.systemField', 'shipClass'],
         lock: lockFor('spacecraft'),
       }),
       colonyRepo.findOne({
@@ -260,6 +262,7 @@ export class ShipColonyContextService {
           ),
           maxUnload: Math.max(0, assignedCrew - shipMinimum),
         },
+        settlers: this.settlersQuote(ship, colony, shipCargo),
         energyPerCapacity: TRANSFER_CAPACITY_PER_EPS,
       };
     } catch (error) {
@@ -315,6 +318,39 @@ export class ShipColonyContextService {
       cargo: { shipUsed: ship.cargoUsed, shipMax: ship.cargoMax, colonyFree },
       shipCargo: named(shipCargo),
       colonyCargo: named(colonyStorage),
+    };
+  }
+
+  private settlersQuote(
+    ship: Spacecraft,
+    colony: Colony,
+    shipCargo: Array<{ commodityId: number; amount: number }>,
+  ): NonNullable<SpacecraftTransferQuoteDto['settlers']> {
+    const key = ship.shipClass?.key;
+    const enabled = Boolean(
+      key && this.gameData.getShipClassDefByKey(key)?.canTransportPopulation,
+    );
+    const onShip =
+      shipCargo.find((item) => item.commodityId === SETTLERS_COMMODITY_ID)
+        ?.amount ?? 0;
+    const changeable = getColonyChangeable(colony);
+    const population = changeable.workers + changeable.workless;
+    return {
+      enabled,
+      onShip,
+      colonyWorkless: changeable.workless,
+      colonyPopulation: population,
+      colonyPopulationMax: changeable.maxPopulation,
+      ...(enabled
+        ? settlersLimits({
+            cargoMax: ship.cargoMax,
+            cargoUsed: ship.cargoUsed,
+            onShip,
+            workless: changeable.workless,
+            population,
+            populationMax: changeable.maxPopulation,
+          })
+        : { maxLoad: 0, maxUnload: 0 }),
     };
   }
 
