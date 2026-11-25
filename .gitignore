@@ -18,8 +18,7 @@ node_modules
 *.sublime-workspace
 
 # IDE - VSCode
-.vscode/*
-!.vscode/extensions.json
+/.vscode/
 
 # misc
 /.sass-cache
@@ -68,34 +67,44 @@ vitest.config.*.timestamp*
 .nanocoder/
 .playwright-mcp/
 .claude/
-.codex/*
-!.codex/config.toml
-!.codex/agents/
-.codex/agents/*
-!.codex/agents/ticket-coder.toml
+/.codex/
+/.hallmark/
+/.ohmygame/
+/ohmygame.json
+/.agents/
 .interface-design/
 *.tsbuildinfo
 
 # Local dev environment
 nebula-demo.html
+/canvas/
 
 # Local hooks
 .github/hooks/workmux-status/
 
 # Plans & progress (local only)
 plans/
-docs/*
-!docs/agents/
-!docs/agents/**
-tools/
+/docs/
+/tools/
+/.scratch/
+/output/
+/generated/
+/mockups/
+/AGENTS.md
+/CONTEXT.md
+/CONTEXT-MAP.md
+/CONTRIBUTING.md
+/stu-swu-ui-parity-audit.md
+/pnpm-lock.yaml
+/pnpm-workspace.yaml
 PLAN.md
 progress.md
 
 # Local artifacts
 *.sqlite
 
-# Screenshots
-*.png
+# Local screenshots (application images remain trackable)
+/screenshots/
 
 # MemPalace per-project files (issue #185)
 mempalace.yaml

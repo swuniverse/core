@@ -1,9 +1,0 @@
-# Organische Nebelkonturen
-
-Aufbau auf c534488b/c275572d im bestehenden Workspace codex/starmap-nebula. Drei kombinierte Anpassungen: gemeinsame Kontur mit abgerundeten konvexen und konkaven Übergängen einschließlich Diagonalnachbarn; unregelmäßige, transparente Ausläufer; Staubfilamente und dunklere innere Strukturen. Reine Darstellung: Generator-Kandidaten, bestehende Felder, Kosten, Schaden, Seed-Metadaten und Schutzregeln bleiben unverändert. Kein Anwenden oder Regenerieren von Terrain. Unerforschte/redigierte Felder bleiben verborgen; Wolken werden nur innerhalb bekannter tatsächlicher Nebelfelder gerendert.
-
-Shared: renderNebulaContourMask(code,width,height,originX,originY) liefert weiße RGBA-Alpha-Maske, code kennzeichnet fehlende Nebelnachbarn in Reihenfolge oben/rechts/unten/links/oben-links/oben-rechts/unten-rechts/unten-links. Gemeinsame Weltkoordinaten-Störungen; diagonale Maskierung vermeidet L-förmige Quadrate. renderNebulaRaster ergänzt rein visuelles Density-Tapering, ausgefranste Konturen und innere Filamente; generateFilmicNebulaTerrain bleibt unverändert.
-
-Frontend: organicNebulaEdgeMask(type,x,y,neighbors) für DOM und organicNebulaSprite(sprite,container,type,x,y,neighbors) für Pixi. Beide verwenden dieselbe Shared-Maske und einen begrenzten Canvas-Cache; nur filmische/generated Texturen bekommen die neue Maske, Legacy-Terrain behält bestehende Maskierung. Alle vier Ansichten: Karteneditor-Vorschau, FullMapCanvas, StarmapCanvas, Galaxy-LSS. Systeme unverändert.
-
-Validierung: Kontinuität der Chunks und Masken, konvexe/konkave Rundung, Weltkoordinaten-Randvariation und innere Struktur; vorhandene Datenschutz-/UNKNOWN-/redacted-Tests; Typechecks, betroffene Integration, App-Builds und gesammelte Suites. Neue PNG-Vorschau für das Gerät ohne Inline-Visualisierung.

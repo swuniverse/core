@@ -2,21 +2,6 @@
 
 Star Wars Universe ist ein tickbasiertes Browser-Strategiespiel im Star-Wars-Setting, inspiriert von [Star Trek Universe](https://stuniverse.de). Dieses Repository enthält den aktuellen Nx-Monorepo-Stand für API, Web-Client und gemeinsame Typen.
 
-## Aktueller Stand
-
-Der Workspace deckt bereits die zentralen Spielsysteme und Verwaltungsoberflächen ab:
-
-- **Authentifizierung** — offene Registrierung mit E-Mail-Verifizierung, Login, Token-Refresh und Profilabruf
-- **Onboarding & Fraktionswahl** — Fraktion wählen, Startsektoren/Systeme/Planeten durchsuchen und Heimatwelt beanspruchen
-- **Kolonien** — 7x7-Felder, Gebäude, Terraforming, Aktivierung/Deaktivierung, Lager, Crew, Fabrication, Reparaturen, Bau-/Retrofit-Warteschlangen und Orbit-Befehle
-- **Kolonisierung** — Kolonieschiffe prüfen Ziele und gründen neue Kolonien direkt aus der Schiffsansicht
-- **Raumfahrzeuge** — Flotten, Navigation im System und auf der Galaxiekarte, Warp, Reaktorverteilung, Laufzeitsysteme, Module, Torpedos und Frachttransfer
-- **Scans & Karten** — Sternenkarte, lokale Schiffskarte, Oberflächen- und Koloniescans sowie Admin-Fullmap-Editor
-- **Kampf & Verteidigung** — Kampfsystem, Schilde, Orbit-Verteidigung/Blockade und torpedobasierte Kolonieverteidigung
-- **Forschung & Freischaltungen** — Forschungsübersicht, Forschungsbaum und Unlock-abhängige Inhalte
-- **Community & Spielerprofile** — Nachrichten, HoloNet, öffentliche Datenbank, Rankings, Spielerprofile, persönliche Notizen und Kontoeinstellungen
-- **Administration** — Admin-Dashboard, Benutzerrechte und Schiffs-Spawn-Werkzeuge
-
 ## Laufzeitarchitektur
 
 - **Monorepo:** Nx Workspace mit `apps/*` und `packages/*`
@@ -39,7 +24,9 @@ Der Workspace deckt bereits die zentralen Spielsysteme und Verwaltungsoberfläch
 
 ### Repository klonen
 
-Das Repository verwendet ein `game-data`-Submodule.
+Das Repository verwendet die Submodule `assets` und `game-data`. Für beide wird Zugriff auf die entsprechenden Repositories benötigt.
+
+Abhängigkeiten werden mit npm und dem versionierten `package-lock.json` installiert.
 
 ```bash
 git clone --recurse-submodules https://github.com/swuniverse/core.git
@@ -128,13 +115,18 @@ apps/
 packages/
   shared/        Gemeinsame TypeScript-Typen, DTOs und Konstanten
 game-data/       Spiel- und Balancingdaten (Git-Submodule)
-docs/            Projektdokumentation
-infra/           Lokale Persistenzdaten und Infrastrukturdateien
+assets/          Spielgrafiken (Git-Submodule)
+scripts/         Entwicklungsstarter
+.github/         CI und Deployment
 ```
 
-## Mitwirken
+## Deployment
 
-Weitere Konventionen und Workflows stehen in [CONTRIBUTING.md](CONTRIBUTING.md).
+Der Workflow `.github/workflows/deploy.yml` baut die Docker-Images und führt das Deployment mit `deploy-remote.sh` aus. Die Produktionskonfiguration liegt in `docker-compose.prod.yml`, `docker-compose.migrate.prod.yml` und `Caddyfile`; `.env.production.example` dokumentiert die benötigten Variablen.
+
+## Lokales Arbeitsmaterial
+
+Dokumentation unter `docs/`, Tickets und Specs unter `.scratch/`, Ergebnisse unter `output/` sowie persönliche Editor- und Agentenkonfiguration bleiben lokal und werden ignoriert. Sie werden für Installation, Build und Deployment nicht benötigt.
 
 ## Lizenz
 
