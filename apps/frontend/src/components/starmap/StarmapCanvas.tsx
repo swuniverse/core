@@ -35,6 +35,7 @@ import {
 } from '../../lib/starmap-render';
 import { terrainAppearance } from '../../lib/map-terrain';
 import { featherNebulaSprite } from '../../lib/map-terrain-pixi';
+import { getNebulaPixiTexture } from '../../lib/nebula-texture-pixi';
 
 const CELL_SIZE = STARMAP_CELL_SIZE;
 const MIN_SCALE = 0.08;
@@ -513,7 +514,8 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
         const x = (field.cx - 1) * CELL_SIZE;
         const y = (field.cy - 1) * CELL_SIZE;
         try {
-          const appearance = terrainAppearance(field.fieldType, field.cx, field.cy);
+          const nebulaTexture = field.nebulaTexture ? await Assets.load(field.nebulaTexture) : getNebulaPixiTexture(field.nebulaVisual, field.cx, field.cy);
+          const appearance = terrainAppearance(nebulaTexture ? { id: 1, key: 'EMPTY_SPACE' } : field.fieldType, field.cx, field.cy);
           if (!appearance.image) return;
           const texture = await Assets.load(appearance.image);
           if (signal.aborted || container.destroyed) return;
@@ -524,7 +526,12 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
           sprite.width = CELL_SIZE;
           sprite.height = CELL_SIZE;
           terrain.addChild(sprite);
-          featherNebulaSprite(sprite, terrain, field.fieldType, [terrainFields.get(`${field.cx},${field.cy - 1}`), terrainFields.get(`${field.cx + 1},${field.cy}`), terrainFields.get(`${field.cx},${field.cy + 1}`), terrainFields.get(`${field.cx - 1},${field.cy}`)]);
+          if (nebulaTexture) {
+            const cloud = new Sprite(nebulaTexture);
+            cloud.position.set(x, y); cloud.width = cloud.height = CELL_SIZE;
+            terrain.addChild(cloud);
+            featherNebulaSprite(cloud, terrain, field.fieldType, [terrainFields.get(`${field.cx},${field.cy - 1}`), terrainFields.get(`${field.cx + 1},${field.cy}`), terrainFields.get(`${field.cx},${field.cy + 1}`), terrainFields.get(`${field.cx - 1},${field.cy}`)]);
+          } else featherNebulaSprite(sprite, terrain, field.fieldType, [terrainFields.get(`${field.cx},${field.cy - 1}`), terrainFields.get(`${field.cx + 1},${field.cy}`), terrainFields.get(`${field.cx},${field.cy + 1}`), terrainFields.get(`${field.cx - 1},${field.cy}`)]);
         } catch {
           if (signal.aborted || container.destroyed) return;
           const fallback = new Graphics();

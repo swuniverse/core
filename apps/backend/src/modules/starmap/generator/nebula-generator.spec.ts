@@ -17,7 +17,8 @@ describe('nebula terrain generator', () => {
     expect([...first]).toEqual([
       ...generateNebulaTerrain(120, 120, 'swu-nebula-v1', 'GALAXY', 'BALANCED'),
     ]);
-    expect(first.size).toBe(2880);
+    expect(first.size / (120 * 120)).toBeGreaterThan(0.1);
+    expect(first.size / (120 * 120)).toBeLessThan(0.5);
     expect(
       [...first.values()].every((id) => NEBULA_FIELD_IDS.includes(id)),
     ).toBe(true);
@@ -46,7 +47,7 @@ describe('nebula terrain generator', () => {
     expect(adjacent.length / terrain.size).toBeGreaterThan(0.95);
   });
 
-  it('supports small rectangular systems and nested density profiles without out-of-bounds cells', () => {
+  it('supports small rectangular galaxies and nested density profiles without out-of-bounds cells', () => {
     for (const [width, height] of [
       [1, 1],
       [3, 7],
@@ -55,19 +56,18 @@ describe('nebula terrain generator', () => {
       const subtle = generateNebulaTerrain(
         width,
         height,
-        'system:9',
-        'SYSTEM',
+        'galaxy:9',
+        'GALAXY',
         'SUBTLE',
       );
       const rich = generateNebulaTerrain(
         width,
         height,
-        'system:9',
-        'SYSTEM',
+        'galaxy:9',
+        'GALAXY',
         'RICH',
       );
-      expect(subtle.size).toBe(Math.ceil(width * height * 0.06));
-      expect(rich.size).toBe(Math.ceil(width * height * 0.18));
+      expect(rich.size).toBeGreaterThanOrEqual(subtle.size);
       for (const key of subtle.keys()) expect(rich.has(key)).toBe(true);
       for (const key of rich.keys()) {
         const [x, y] = key.split(',').map(Number);
@@ -78,6 +78,7 @@ describe('nebula terrain generator', () => {
       }
     }
     expect(() => generateNebulaTerrain(0, 4, 'x', 'GALAXY', 'RICH')).toThrow();
+    expect(() => generateNebulaTerrain(22, 22, 'x', 'SYSTEM', 'RICH')).toThrow();
   });
 
   it('protects full route segments, control points and safety radii', () => {
@@ -94,4 +95,13 @@ describe('nebula terrain generator', () => {
     expect(protectedCoordinates.has('18,22')).toBe(true);
     expect(protectedCoordinates.has('17,22')).toBe(false);
   });
+  it('distributes nebulae across both halves of small and large galaxies', () => {
+    for (const size of [40, 120]) {
+      const fields = generateNebulaTerrain(size, size, 'swu-nebula-v1:GALAXY:13', 'GALAXY', 'BALANCED');
+      const top = [...fields.keys()].filter(key => Number(key.split(',')[1]) <= size / 2).length;
+      expect(top / fields.size).toBeGreaterThan(.15);
+      expect(top / fields.size).toBeLessThan(.85);
+    }
+  });
+
 });

@@ -7,6 +7,7 @@ import type { StarmapGalaxyFieldDto } from '@swuniverse/shared';
 
 const pixiControl = vi.hoisted(() => ({
   pendingLoads: [] as Array<{ resolve: (asset: object) => void; reject: () => void }>,
+  sprites: [] as unknown[],
   resolveInit: null as null | (() => void),
   destroyedInsertions: 0,
 }));
@@ -51,7 +52,9 @@ vi.mock('pixi.js', () => {
     width = 0;
     height = 0;
     alpha = 1;
-    constructor(public texture: unknown) {}
+    constructor(public texture: unknown) {
+      pixiControl.sprites.push(texture);
+    }
   }
   class Text {
     position = { set: vi.fn() };
@@ -128,6 +131,7 @@ const contacts: [] = [];
 describe('StarmapCanvas arrival focus', () => {
   beforeEach(() => {
     pixiControl.pendingLoads = [];
+    pixiControl.sprites = [];
     pixiControl.resolveInit = null;
     pixiControl.destroyedInsertions = 0;
     vi.mocked(Assets.load).mockClear();
@@ -207,6 +211,43 @@ describe('StarmapCanvas arrival focus', () => {
     expect(String(vi.mocked(Assets.load).mock.calls[0][0])).toContain('/map/120.png');
     await act(async () => { pixiControl.pendingLoads[0].reject(); await Promise.resolve(); });
     await waitFor(() => expect(view.queryByRole('status')).toBeNull());
+    view.unmount();
+  });
+
+  it('loads and draws a nebula PNG for a known field, but ignores texture metadata on UNKNOWN fields', async () => {
+    const knownNebula = { ...fields[0], nebulaTexture: '/known-nebula.png' };
+    const unknown = {
+      ...fields[0],
+      id: 2,
+      cx: 13,
+      fieldType: { ...fields[0].fieldType, key: 'UNKNOWN' },
+      nebulaTexture: '/hidden-nebula.png',
+    };
+    const props = {
+      layer,
+      fields: [knownNebula, unknown],
+      routes,
+      selectedSystem: null,
+      openedSystemIds: [] as number[],
+      systemGrids,
+      wormholes,
+      onSelectSystem: vi.fn(),
+      onOpenSystem: vi.fn(),
+      selectedField: null,
+      influence,
+      contacts,
+    };
+    const view = render(<StarmapCanvas {...props} />);
+    await act(async () => { pixiControl.resolveInit?.(); await new Promise((resolve) => setTimeout(resolve, 0)); });
+
+    await waitFor(() => expect(Assets.load).toHaveBeenCalledWith('/known-nebula.png'));
+    expect(vi.mocked(Assets.load).mock.calls.some(([url]) => url === '/hidden-nebula.png')).toBe(false);
+    const nebulaPng = { name: 'known-nebula-png' };
+    await act(async () => { pixiControl.pendingLoads[0].resolve(nebulaPng); await Promise.resolve(); });
+    await waitFor(() => expect(pixiControl.pendingLoads).toHaveLength(2));
+    await act(async () => { pixiControl.pendingLoads[1].resolve({ name: 'space-background' }); await Promise.resolve(); });
+    await waitFor(() => expect(pixiControl.sprites).toContain(nebulaPng));
+    expect(pixiControl.sprites).not.toContain('/hidden-nebula.png');
     view.unmount();
   });
 

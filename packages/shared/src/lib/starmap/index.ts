@@ -107,11 +107,15 @@ export interface StarmapFieldTypeDto {
 
 export * from './field-effects.js';
 export * from './nebula.js';
+export * from './nebula-landscape.js';
 
 export type StarmapFactionZone =
   'REBEL' | 'EMPIRE' | 'CONTESTED' | 'UNKNOWN' | 'NEUTRAL';
 
 export interface StarmapGalaxyFieldDto {
+  /** Visual descriptors are editor-only; player views receive a cropped texture. */
+  nebulaVisual?: import('./nebula.js').NebulaVisualDto | null;
+  nebulaTexture?: string;
   id: number;
   cx: number;
   cy: number;

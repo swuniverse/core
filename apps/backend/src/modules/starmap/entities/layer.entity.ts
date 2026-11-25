@@ -6,6 +6,9 @@ import {
 
 @Entity('layers')
 export class Layer {
+  @Column({ type: 'uuid', default: () => 'gen_random_uuid()', select: false })
+  nebulaSeedSalt: string;
+
   @PrimaryGeneratedColumn()
   id: number;
 

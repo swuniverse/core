@@ -1,6 +1,14 @@
 export type NebulaTarget = 'GALAXY' | 'SYSTEMS' | 'BOTH';
 export type NebulaDensity = 'SUBTLE' | 'BALANCED' | 'RICH';
 
+export interface NebulaVisualDto {
+  version: 2;
+  seed: string;
+  width: number;
+  height: number;
+  density: NebulaDensity;
+}
+
 export interface NebulaSettingsDto {
   seed: string;
   target: NebulaTarget;
@@ -15,9 +23,11 @@ export interface NebulaPreviewFieldDto {
   label: string;
   objectClassId: number | null;
   systemTypeId: number | null;
+  nebulaVisual?: NebulaVisualDto | null;
 }
 
 export interface NebulaChangeDto {
+  restore?: boolean;
   fieldId: number;
   x: number;
   y: number;
@@ -31,6 +41,7 @@ export interface NebulaPreviewMapDto {
   width: number;
   height: number;
   systemTypeId?: number;
+  nebulaVisual?: NebulaVisualDto;
   fields: NebulaPreviewFieldDto[];
   changes: NebulaChangeDto[];
 }

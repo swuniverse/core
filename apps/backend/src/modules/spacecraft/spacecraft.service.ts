@@ -1,3 +1,4 @@
+import { nebulaTextureForField } from '../starmap/nebula-texture';
 import { isRpgHidden } from './rpg-visibility';
 import { ResourceConversionService } from './resource-conversion.service';
 import { ResourceCollectionService } from './resource-collection.service';
@@ -4930,6 +4931,7 @@ export class SpacecraftService {
           id: f.id,
           cx: f.cx,
           cy: f.cy,
+          ...(nebulaTextureForField(f) ? { nebulaTexture: nebulaTextureForField(f) } : {}),
           effects: f.effects,
           anomalies: anomaliesByField.get(f.id) ?? [],
           fieldType: {

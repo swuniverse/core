@@ -6,7 +6,7 @@ import { NEBULA_FIELD_IDS } from './generator/nebula-generator';
 
 const settings = {
   seed: 'swu-nebula-v1',
-  target: 'BOTH' as const,
+  target: 'GALAXY' as const,
   density: 'BALANCED' as const,
 };
 
@@ -29,13 +29,13 @@ describe('nebula preview and atomic application (Postgres)', () => {
     }).initialize();
     service = new NebulaService(database);
     await database.query(`
-      CREATE TABLE layers (id int PRIMARY KEY, name text, width int, height int);
+      CREATE TABLE layers (id int PRIMARY KEY, name text, width int, height int, "nebulaSeedSalt" uuid DEFAULT gen_random_uuid());
       CREATE TABLE galaxy_field_types (id int PRIMARY KEY, key text, name text, category text,
         passable boolean, "energyCost" int, damage int, "specialDamage" int DEFAULT 0, effects text, "miningResources" jsonb DEFAULT '[]');
       CREATE TABLE star_systems (id int PRIMARY KEY, "layerId" int, name text, cx int, cy int, "maxX" int, "maxY" int, "systemTypeId" int, "landmarkKey" text);
       CREATE TABLE galaxy_fields (id int PRIMARY KEY, "layerId" int, cx int, cy int, "fieldTypeId" int DEFAULT 1,
         "starSystemId" int, "systemTypeId" int, "isPassable" boolean DEFAULT true, "energyCost" int DEFAULT 0,
-        damage int DEFAULT 6, effects text, "effectFlags" text, "passableOverride" boolean, "borderTypeId" int, "adminRegionKey" text);
+        damage int DEFAULT 6, effects text, "effectFlags" text, "passableOverride" boolean, "borderTypeId" int, "adminRegionKey" text, "nebulaGeneration" jsonb);
       CREATE TABLE system_fields (id int PRIMARY KEY, "starSystemId" int, sx int, sy int, "fieldTypeId" int DEFAULT 1,
         "celestialObjectId" int, "isPassable" boolean DEFAULT true, "energyCost" int DEFAULT 0, damage int DEFAULT 6, effects text);
       CREATE TABLE celestial_objects (id int PRIMARY KEY, "systemId" int, "posX" int, "posY" int, "classId" int, name text);
@@ -60,7 +60,7 @@ describe('nebula preview and atomic application (Postgres)', () => {
       (id, key, name, category, passable, "energyCost", damage, "miningResources") VALUES ($1,$2,$2,'nebula',true,$3,$4,'[{"commodityId":3,"rate":100}]')`,
         [id, `Nebel ${id}`, id % 10, 8 + 2 * (id % 10)],
       );
-    await database.query(`INSERT INTO layers VALUES (1,'Test Galaxy',40,40);
+    await database.query(`INSERT INTO layers (id,name,width,height) VALUES (1,'Test Galaxy',40,40);
       INSERT INTO star_systems VALUES (1,1,'Starter',20,20,22,22,1001,'starter'), (2,1,'Destination',30,30,22,22,1001,NULL);
       INSERT INTO galaxy_fields (id,"layerId",cx,cy) SELECT (y-1)*40+x,1,x,y FROM generate_series(1,40) x CROSS JOIN generate_series(1,40) y;
       UPDATE galaxy_fields SET "starSystemId" = 1, "systemTypeId" = 1001 WHERE cx = 20 AND cy = 20;
@@ -129,7 +129,7 @@ describe('nebula preview and atomic application (Postgres)', () => {
       }
   });
 
-  it('applies both scopes with canonical costs/resources and does not expand when repeated', async () => {
+  it('applies galaxy terrain with canonical costs/resources and does not expand when repeated', async () => {
     await database.query(
       `UPDATE galaxy_field_types SET effects = '["SCAN_PENALTY"]' WHERE id IN (100,101,102,120,121,122,140,141,142,170,171,172)`,
     );
@@ -141,7 +141,7 @@ describe('nebula preview and atomic application (Postgres)', () => {
     expect(
       await service.apply(1, { ...settings, fingerprint: preview.fingerprint }),
     ).toEqual({ changedFields: preview.summary.changedFields });
-    for (const table of ['galaxy_fields', 'system_fields']) {
+    for (const table of ['galaxy_fields']) {
       const rows =
         await database.query(`SELECT f.*, t."energyCost" AS expected_cost, t.damage AS expected_damage, t.effects AS expected_effects
         FROM ${table} f JOIN galaxy_field_types t ON t.id = f."fieldTypeId" WHERE t.category = 'nebula'`);
@@ -194,13 +194,11 @@ describe('nebula preview and atomic application (Postgres)', () => {
     ).toBe(0);
   });
 
-  it('rolls back galaxy changes if a system update fails', async () => {
+  it('rolls back all chunks when a galaxy update fails', async () => {
     const preview = await service.preview(1, settings);
-    expect(
-      preview.maps.some((map) => map.scope === 'SYSTEM' && map.changes.length),
-    ).toBe(true);
+    expect(preview.maps.every((map) => map.scope === 'GALAXY')).toBe(true);
     await database.query(`CREATE FUNCTION reject_nebula() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'test failure'; END $$;
-      CREATE TRIGGER reject_nebula BEFORE UPDATE ON system_fields FOR EACH ROW EXECUTE FUNCTION reject_nebula()`);
+      CREATE TRIGGER reject_nebula BEFORE UPDATE ON galaxy_fields FOR EACH ROW EXECUTE FUNCTION reject_nebula()`);
     try {
       await expect(
         service.apply(1, { ...settings, fingerprint: preview.fingerprint }),
@@ -214,7 +212,7 @@ describe('nebula preview and atomic application (Postgres)', () => {
       ).toBe(0);
     } finally {
       await database.query(
-        'DROP TRIGGER reject_nebula ON system_fields; DROP FUNCTION reject_nebula()',
+        'DROP TRIGGER reject_nebula ON galaxy_fields; DROP FUNCTION reject_nebula()',
       );
     }
   });
@@ -244,4 +242,29 @@ describe('nebula preview and atomic application (Postgres)', () => {
       BadRequestException,
     );
   });
+  it('replaces its generation with a new seed while preserving manual edits and systems', async () => {
+    const first = await service.preview(1, settings);
+    await service.apply(1, { ...settings, fingerprint: first.fingerprint });
+    const manual = first.maps[0].changes[0];
+    await database.query('UPDATE galaxy_fields SET damage = 77 WHERE id=$1', [manual.fieldId]);
+    const nextSettings = { ...settings, seed: 'replacement-seed' };
+    const provisional = await service.preview(1, nextSettings);
+    const cleared = provisional.maps[0].changes.find(change => !change.restore && first.maps[0].changes.some(old => old.fieldId === change.fieldId) && change.fieldId !== manual.fieldId)!;
+    expect(cleared).toBeDefined();
+    await database.query('UPDATE galaxy_fields SET "fieldTypeId"=1,"isPassable"=true,"energyCost"=1,damage=6,effects=NULL,"effectFlags"=NULL WHERE id=$1', [cleared.fieldId]);
+    const next = await service.preview(1, nextSettings);
+    expect(next.maps[0].changes.map(change => change.fieldId)).not.toContain(cleared.fieldId);
+    expect(next.maps[0].changes.some(change => change.restore)).toBe(true);
+    expect(next.maps[0].changes.map(change => change.fieldId)).not.toContain(manual.fieldId);
+    await service.apply(1, { ...nextSettings, fingerprint: next.fingerprint });
+    expect((await database.query('SELECT damage FROM galaxy_fields WHERE id=$1',[manual.fieldId]))[0].damage).toBe(77);
+    expect((await database.query('SELECT "fieldTypeId" FROM galaxy_fields WHERE id=$1',[cleared.fieldId]))[0].fieldTypeId).toBe(1);
+    const restored = next.maps[0].changes.find(change => change.restore)!;
+    expect((await database.query('SELECT "fieldTypeId", "nebulaGeneration" FROM galaxy_fields WHERE id=$1',[restored.fieldId]))[0]).toEqual({fieldTypeId:1,nebulaGeneration:null});
+    expect((await database.query('SELECT count(*)::int AS count FROM system_fields WHERE "fieldTypeId" <> 1 AND "fieldTypeId" <> 9001'))[0].count).toBe(0);
+  });
+  it.each(['SYSTEMS','BOTH'])('rejects legacy %s targets without writing', async target => {
+    await expect(service.preview(1,{...settings,target:target as typeof settings.target})).rejects.toThrow(BadRequestException);
+  });
+
 });

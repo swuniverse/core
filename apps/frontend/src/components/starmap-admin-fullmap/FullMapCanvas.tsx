@@ -9,6 +9,7 @@ import { spaceBackgroundTile, systemTypeImage } from '../../lib/assets';
 
 import { terrainAppearance } from '../../lib/map-terrain';
 import { featherNebulaSprite } from '../../lib/map-terrain-pixi';
+import { getNebulaPixiTexture } from '../../lib/nebula-texture-pixi';
 
 const CELL = 30;
 const MIN_SCALE = 0.05;
@@ -290,10 +291,11 @@ export function FullMapCanvas() {
         const cx = (field.cx - 1) * CELL;
         const cy = (field.cy - 1) * CELL;
 
-        const appearance = terrainAppearance(field.fieldType, field.cx, field.cy);
-        const tileUrl = appearance.image;
-        if (!tileUrl) return;
         try {
+          const nebulaTexture = field.nebulaTexture ? await Assets.load(field.nebulaTexture) : getNebulaPixiTexture(field.nebulaVisual, field.cx, field.cy);
+          const appearance = terrainAppearance(nebulaTexture ? { id: 1, key: 'EMPTY_SPACE' } : field.fieldType, field.cx, field.cy);
+          const tileUrl = appearance.image;
+          if (!tileUrl) return;
           const texture = await Assets.load(tileUrl);
           if (isCancelled()) return;
           const sprite = new Sprite(texture);
@@ -303,7 +305,11 @@ export function FullMapCanvas() {
           sprite.width = CELL;
           sprite.height = CELL;
           tileLayer.addChild(sprite);
-          featherNebulaSprite(sprite, tileLayer, field.fieldType, [fieldMapRef.current.get(`${field.cx},${field.cy - 1}`)?.fieldType, fieldMapRef.current.get(`${field.cx + 1},${field.cy}`)?.fieldType, fieldMapRef.current.get(`${field.cx},${field.cy + 1}`)?.fieldType, fieldMapRef.current.get(`${field.cx - 1},${field.cy}`)?.fieldType]);
+          if (nebulaTexture) {
+            const cloud = new Sprite(nebulaTexture); cloud.position.set(cx, cy); cloud.width = cloud.height = CELL;
+            tileLayer.addChild(cloud);
+            featherNebulaSprite(cloud, tileLayer, field.fieldType, [fieldMapRef.current.get(`${field.cx},${field.cy - 1}`)?.fieldType, fieldMapRef.current.get(`${field.cx + 1},${field.cy}`)?.fieldType, fieldMapRef.current.get(`${field.cx},${field.cy + 1}`)?.fieldType, fieldMapRef.current.get(`${field.cx - 1},${field.cy}`)?.fieldType]);
+          } else featherNebulaSprite(sprite, tileLayer, field.fieldType, [fieldMapRef.current.get(`${field.cx},${field.cy - 1}`)?.fieldType, fieldMapRef.current.get(`${field.cx + 1},${field.cy}`)?.fieldType, fieldMapRef.current.get(`${field.cx},${field.cy + 1}`)?.fieldType, fieldMapRef.current.get(`${field.cx - 1},${field.cy}`)?.fieldType]);
         } catch {
           if (isCancelled()) return;
           // Fallback: try procedural background, then black rect

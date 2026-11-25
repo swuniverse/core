@@ -1,11 +1,12 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import type { NebulaPreviewDto } from '@swuniverse/shared';
-import { planetThumbnail, starTileImage, systemTypeImage } from '../../lib/assets';
+import type { NebulaPreviewDto, NebulaVisualDto } from '@swuniverse/shared';
+import { spaceBackgroundTile, starTileImage, systemTypeImage } from '../../lib/assets';
 import { NebulaGeneratorDialog } from './NebulaGeneratorDialog';
 import { FullMapToolbar } from './FullMapToolbar';
 
 const mocks = vi.hoisted(() => ({
   post: vi.fn(),
+  getNebulaDomStyle: vi.fn(),
   storeState: {
     fieldTypes: [
       { id: 1, name: 'Leerer Raum', key: 'EMPTY_SPACE', category: 'space' },
@@ -31,40 +32,49 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../../services/api', () => ({ api: { post: mocks.post } }));
+vi.mock('../../lib/nebula-texture', () => ({ getNebulaDomStyle: mocks.getNebulaDomStyle }));
 vi.mock('../../stores/fullmap-editor.store', () => ({
   useFullmapEditorStore: (selector: (state: typeof mocks.storeState) => unknown) =>
     selector(mocks.storeState),
 }));
 
+const generatedVisual: NebulaVisualDto = {
+  version: 2,
+  seed: 'nebula-new',
+  width: 4,
+  height: 1,
+  density: 'BALANCED',
+};
+const existingVisual: NebulaVisualDto = {
+  version: 2,
+  seed: 'nebula-old',
+  width: 4,
+  height: 1,
+  density: 'SUBTLE',
+};
+
 const preview: NebulaPreviewDto = {
   layerId: 12,
-  settings: { seed: 'swu-nebula-v1', target: 'BOTH', density: 'BALANCED' },
+  settings: { seed: 'swu-nebula-v1', target: 'GALAXY', density: 'BALANCED' },
   fingerprint: 'preview-fingerprint',
   maps: [
     {
       scope: 'GALAXY',
       id: 12,
       name: 'Hauptgalaxie',
-      width: 2,
+      width: 4,
       height: 1,
+      nebulaVisual: generatedVisual,
       fields: [
         { id: 101, x: 1, y: 1, fieldTypeId: 1, label: 'Leerer Raum', objectClassId: null, systemTypeId: null },
         { id: 102, x: 2, y: 1, fieldTypeId: 2, label: 'Alderaan', objectClassId: null, systemTypeId: 3 },
+        { id: 103, x: 3, y: 1, fieldTypeId: 100, label: 'Rücksetzfeld', objectClassId: null, systemTypeId: null, nebulaVisual: existingVisual },
+        { id: 104, x: 4, y: 1, fieldTypeId: 100, label: 'Bestehendes Nebelfeld', objectClassId: null, systemTypeId: null, nebulaVisual: existingVisual },
       ],
-      changes: [{ fieldId: 102, x: 2, y: 1, fieldTypeId: 100 }],
-    },
-    {
-      scope: 'SYSTEM',
-      id: 44,
-      name: 'Alderaan',
-      width: 8,
-      height: 8,
-      systemTypeId: 1049,
-      fields: [
-        { id: 201, x: 1, y: 1, fieldTypeId: 1, label: 'Organischer Planet', objectClassId: 55, systemTypeId: null },
-        { id: 202, x: 4, y: 4, fieldTypeId: 2, label: 'Stern A', objectClassId: 9001, systemTypeId: null },
+      changes: [
+        { fieldId: 102, x: 2, y: 1, fieldTypeId: 100 },
+        { fieldId: 103, x: 3, y: 1, fieldTypeId: 1, restore: true },
       ],
-      changes: [{ fieldId: 201, x: 1, y: 1, fieldTypeId: 100 }],
     },
   ],
   summary: {
@@ -74,7 +84,7 @@ const preview: NebulaPreviewDto = {
       {
         id: 100,
         name: 'Dünner Nebel',
-        count: 2,
+        count: 1,
         energyCost: 4,
         damage: 5,
         specialDamage: 6,
@@ -96,60 +106,64 @@ describe('NebulaGeneratorDialog', () => {
     mocks.storeState.layers = [];
     mocks.storeState.selectedLayerId = null;
     mocks.storeState.status = '';
+    mocks.getNebulaDomStyle.mockImplementation((visual: NebulaVisualDto, x: number, y: number) => ({
+      backgroundImage: `url(/nebula-${visual.seed}-${x}-${y}.png)`,
+    }));
   });
 
-  it('uses the standard settings and previews galaxy and system maps with current tile values', async () => {
+  it('uses GALAXY defaults, shows only the galaxy, and renders generated, unchanged and restored visuals correctly', async () => {
     mocks.post.mockResolvedValue(preview);
     render(<NebulaGeneratorDialog layerId={12} onClose={vi.fn()} />);
 
     expect(screen.getByLabelText('Seed')).toHaveProperty('value', 'swu-nebula-v1');
-    expect(screen.getByLabelText('Ziel')).toHaveProperty('value', 'BOTH');
     expect(screen.getByLabelText('Dichte')).toHaveProperty('value', 'BALANCED');
+    expect(screen.queryByLabelText('Ziel')).toBeNull();
+    expect(screen.queryByLabelText('Vorschaukarte')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Vorschau erstellen' }));
 
     await screen.findByText('Spezialschaden');
     expect(mocks.post).toHaveBeenCalledWith(
       '/starmap/admin/layers/12/nebula/preview',
-      { seed: 'swu-nebula-v1', target: 'BOTH', density: 'BALANCED' },
+      { seed: 'swu-nebula-v1', target: 'GALAXY', density: 'BALANCED' },
     );
+    expect(screen.getByRole('grid', { name: 'Galaxie — Hauptgalaxie 4 mal 1' })).not.toBeNull();
     expect(screen.getByText('2', { selector: 'strong' })).not.toBeNull();
     expect(screen.getByText('3', { selector: 'strong' })).not.toBeNull();
     expect(screen.getByText('Dünner Nebel')).not.toBeNull();
     expect(screen.getByText('SENSORSCHATTEN')).not.toBeNull();
     expect(screen.getByText('Ware 27: 12')).not.toBeNull();
-    const galaxyChangedCell = screen.getByRole('gridcell', { name: 'Alderaan, aktuell Sternsystem (ID 2), Vorschau Dünner Nebel (ID 100)' });
-    expect(galaxyChangedCell.querySelector(`img[src="${systemTypeImage(3)}"]`)).not.toBeNull();
-    expect(galaxyChangedCell.querySelector('img[src="/assets/map/100.png"]')).not.toBeNull();
-    expect(galaxyChangedCell.querySelectorAll('img').length).toBe(2);
-    expect((screen.getByLabelText('Änderungen markieren') as HTMLInputElement).checked).toBe(false);
-    expect(galaxyChangedCell.className).toContain('border-white/10');
-    fireEvent.click(screen.getByLabelText('Änderungen markieren'));
-    expect(galaxyChangedCell.className).toContain('border-emerald-300/70');
+
+    const generatedCell = screen.getByRole('gridcell', {
+      name: 'Alderaan: Nebel wird erzeugt; aktuell Sternsystem (ID 2), danach Dünner Nebel (ID 100)',
+    });
+    expect(generatedCell.querySelector(`img[src="${spaceBackgroundTile(2, 1)}"]`)).not.toBeNull();
+    expect(generatedCell.querySelector(`img[src="${starTileImage(100)}"]`)).toBeNull();
+    expect(generatedCell.querySelector('[data-nebula-visual="true"]')?.getAttribute('style')).toContain('/nebula-nebula-new-2-1.png');
+    expect(generatedCell.querySelector(`img[src="${systemTypeImage(3)}"]`)).not.toBeNull();
+    expect(mocks.getNebulaDomStyle).toHaveBeenCalledWith(generatedVisual, 2, 1);
+
+    const restoredCell = screen.getByRole('gridcell', {
+      name: 'Rücksetzfeld: Nebel wird zurückgenommen; aktuell Dünner Nebel (ID 100), danach Leerer Raum (ID 1)',
+    });
+    expect(restoredCell.querySelector('[data-nebula-visual="true"]')).toBeNull();
+    expect(restoredCell.querySelector(`img[src="${starTileImage(100)}"]`)).toBeNull();
+    expect(restoredCell.querySelector(`img[src="${spaceBackgroundTile(3, 1)}"]`)).not.toBeNull();
+    expect(mocks.getNebulaDomStyle).not.toHaveBeenCalledWith(existingVisual, 3, 1);
+
+    const unchangedCell = screen.getByRole('gridcell', {
+      name: 'Bestehendes Nebelfeld, bestehender filmischer Nebel (ID 100)',
+    });
+    expect(unchangedCell.querySelector('[data-nebula-visual="true"]')?.getAttribute('style')).toContain('/nebula-nebula-old-4-1.png');
+    expect(mocks.getNebulaDomStyle).toHaveBeenCalledWith(existingVisual, 4, 1);
     expect(mocks.storeState.loadFields).not.toHaveBeenCalled();
 
-    fireEvent.change(screen.getByLabelText('Vorschaukarte'), { target: { value: 'SYSTEM:44' } });
-    const systemChangedCell = screen.getByRole('gridcell', { name: 'Organischer Planet, aktuell Leerer Raum (ID 1), Vorschau Dünner Nebel (ID 100)' });
-    expect(systemChangedCell.querySelector(`img[src="${planetThumbnail(55)}"]`)).not.toBeNull();
-    const starCell = screen.getByRole('gridcell', { name: 'Stern A, Sternsystem (ID 2)' });
-    expect(starCell.querySelector(`img[src="${starTileImage(104913)}"]`)).not.toBeNull();
-    expect(starCell.querySelector(`img[src="${planetThumbnail(9001)}"]`)).toBeNull();
+    expect((screen.getByLabelText('Änderungen markieren') as HTMLInputElement).checked).toBe(false);
+    expect(generatedCell.className).toContain('border-white/10');
+    fireEvent.click(screen.getByLabelText('Änderungen markieren'));
+    expect(generatedCell.className).toContain('border-emerald-300/70');
   });
 
-  it('uses a system marker for a star object when system type metadata is missing', async () => {
-    mocks.post.mockResolvedValue({
-      ...preview,
-      maps: [{ ...preview.maps[1], systemTypeId: undefined }],
-    });
-    render(<NebulaGeneratorDialog layerId={12} onClose={vi.fn()} />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Vorschau erstellen' }));
-    await screen.findByRole('gridcell', { name: 'Stern A, Sternsystem (ID 2)' });
-    const starCell = screen.getByRole('gridcell', { name: 'Stern A, Sternsystem (ID 2)' });
-    expect(starCell.querySelector(`img[src="${systemTypeImage(1001)}"]`)).not.toBeNull();
-    expect(starCell.querySelector(`img[src="${planetThumbnail(9001)}"]`)).toBeNull();
-  });
-
-  it('discards the preview when a setting changes and ignores an older pending response', async () => {
+  it('invalidates a pending preview when density changes', async () => {
     let resolvePreview!: (value: NebulaPreviewDto) => void;
     mocks.post.mockImplementationOnce(() => new Promise((resolve) => { resolvePreview = resolve; }));
     render(<NebulaGeneratorDialog layerId={12} onClose={vi.fn()} />);
@@ -160,11 +174,11 @@ describe('NebulaGeneratorDialog', () => {
     await act(async () => resolvePreview(preview));
 
     expect(screen.queryByText('2', { selector: 'strong' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Nebelgebiete übernehmen' })).toBeNull();
+    expect(document.querySelector('[data-nebula-visual="true"]')).toBeNull();
     expect(screen.getByLabelText('Dichte')).toHaveProperty('value', 'RICH');
   });
 
-  it('keeps preview and apply requests bound to the layer captured when the dialog opened', async () => {
+  it('keeps preview and apply bound to the captured layer and sends the fingerprint unchanged', async () => {
     const canonicalPreview = { ...preview, settings: { ...preview.settings, seed: 'nebula-custom' } };
     mocks.post.mockResolvedValueOnce(canonicalPreview).mockResolvedValueOnce({ changedFields: 2 });
     const onClose = vi.fn();
@@ -179,16 +193,16 @@ describe('NebulaGeneratorDialog', () => {
     expect(mocks.post).toHaveBeenNthCalledWith(
       1,
       '/starmap/admin/layers/12/nebula/preview',
-      { seed: 'nebula-custom', target: 'BOTH', density: 'BALANCED' },
+      { seed: 'nebula-custom', target: 'GALAXY', density: 'BALANCED' },
     );
     expect(mocks.post).toHaveBeenNthCalledWith(
       2,
       '/starmap/admin/layers/12/nebula/apply',
-      { seed: 'nebula-custom', target: 'BOTH', density: 'BALANCED', fingerprint: 'preview-fingerprint' },
+      { seed: 'nebula-custom', target: 'GALAXY', density: 'BALANCED', fingerprint: 'preview-fingerprint' },
     );
     expect(screen.getByLabelText('Seed')).toHaveProperty('value', 'nebula-custom');
     expect(mocks.storeState.loadFields).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('status').textContent).toContain('2 Felder wurden mit Nebelgebieten ergänzt.');
+    expect(screen.getByRole('status').textContent).toContain('2 Felder wurden durch die Nebelvorschau geändert.');
     expect(screen.queryByText('2', { selector: 'strong' })).toBeNull();
   });
 
@@ -203,7 +217,7 @@ describe('NebulaGeneratorDialog', () => {
     expect(mocks.post).toHaveBeenCalledTimes(1);
   });
 
-  it('closes without sending a preview or apply request and disables the toolbar action without a layer', () => {
+  it('closes without mutation and disables the toolbar action without a layer', () => {
     const onClose = vi.fn();
     const { rerender } = render(<NebulaGeneratorDialog layerId={12} onClose={onClose} />);
     fireEvent.click(screen.getByRole('button', { name: 'Abbrechen' }));

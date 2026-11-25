@@ -1,3 +1,5 @@
+import { getNebulaDomStyle } from '../../lib/nebula-texture';
+import type { NebulaVisualDto } from '@swuniverse/shared';
 import { Fragment, useEffect } from 'react';
 import {
   fieldEffectDefinition,
@@ -31,6 +33,8 @@ interface FieldType {
 }
 
 interface GalaxyLocalField {
+  nebulaVisual?: NebulaVisualDto | null;
+  nebulaTexture?: string;
   id?: number;
   cx: number;
   cy: number;
@@ -366,7 +370,8 @@ export function LssMap({
                       />
                     );
                   }
-                  const terrain = terrainAppearance(field.fieldType, x, y);
+                  const nebulaStyle = field.nebulaTexture ? {backgroundImage: `url(${field.nebulaTexture})`, backgroundSize: '100% 100%'} : getNebulaDomStyle(field.nebulaVisual, x, y);
+                  const terrain = terrainAppearance(nebulaStyle ? { id: 1, key: 'EMPTY_SPACE' } : field.fieldType, x, y);
                   const fieldTileImage = terrain.image;
                   const systemAsset = field.systemTypeId
                     ? systemTypeImage(field.systemTypeId)
@@ -406,12 +411,13 @@ export function LssMap({
                           src={fieldTileImage ?? undefined}
                           alt=""
                           className="absolute inset-0 h-full w-full object-cover"
-                          style={{ opacity: terrain.alpha, filter: terrain.filter, ...terrainMask(x, y, field.fieldType) }}
+                          style={{ opacity: terrain.alpha, filter: terrain.filter, ...(!nebulaStyle ? terrainMask(x, y, field.fieldType) : undefined) }}
                           onError={(event) => {
                             event.currentTarget.style.display = 'none';
                           }}
                         />
                       )}
+                      {nebulaStyle && <div className="absolute inset-0" style={{ ...nebulaStyle, ...terrainMask(x, y, field.fieldType) }} />}
                       {field.starSystemId
                         ? '✦'
                         : getGalaxyFieldMarker(field.fieldType.key)}

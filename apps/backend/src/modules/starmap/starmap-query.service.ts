@@ -1,3 +1,4 @@
+import { nebulaTextureForField } from './nebula-texture';
 import {
   BadRequestException,
   Injectable,
@@ -204,6 +205,7 @@ export class StarmapQueryService {
       borderTypeId: field.borderTypeId,
       effects: field.effects,
       passableOverride: field.passableOverride,
+      ...(nebulaTextureForField(field) ? { nebulaTexture: nebulaTextureForField(field) } : {}),
       fieldType: this.toFieldTypeDTO(field.fieldType),
       starSystem: field.starSystem
         ? this.toSystemListItemDTO(field.starSystem)
@@ -247,6 +249,7 @@ export class StarmapQueryService {
       borderTypeId: field.borderTypeId,
       effects: field.effects,
       passableOverride: field.passableOverride,
+      ...(nebulaTextureForField(field) ? { nebulaTexture: nebulaTextureForField(field) } : {}),
       fieldType: this.toFieldTypeDTO(field.fieldType),
       starSystem: field.starSystem
         ? this.toSystemListItemDTO(field.starSystem)
@@ -495,6 +498,7 @@ export class StarmapQueryService {
             borderTypeId: null,
             effects: null,
             passableOverride: null,
+            ...(nebulaTextureForField(field) ? { nebulaTexture: nebulaTextureForField(field) } : {}),
             fieldType: this.toFieldTypeDTO(field.fieldType),
             starSystem: null,
           };
@@ -512,6 +516,7 @@ export class StarmapQueryService {
           borderTypeId: field.borderTypeId,
           effects: field.effects,
           passableOverride: field.passableOverride,
+          ...(nebulaTextureForField(field) ? { nebulaTexture: nebulaTextureForField(field) } : {}),
           fieldType: this.toFieldTypeDTO(field.fieldType),
           starSystem: field.starSystem
             ? this.toSystemListItemDTO(field.starSystem)
@@ -610,6 +615,7 @@ export class StarmapQueryService {
           effects: null,
           passableOverride: null,
           explorationLevel: 'TERRAIN',
+          ...(nebulaTextureForField(field) ? { nebulaTexture: nebulaTextureForField(field) } : {}),
           fieldType: this.toFieldTypeDTO(field.fieldType),
           starSystem: null,
         });
@@ -628,6 +634,7 @@ export class StarmapQueryService {
           effects: field.effects,
           passableOverride: field.passableOverride,
           explorationLevel: 'FULL',
+          ...(nebulaTextureForField(field) ? { nebulaTexture: nebulaTextureForField(field) } : {}),
           fieldType: this.toFieldTypeDTO(field.fieldType),
           starSystem: field.starSystem
             ? this.toSystemListItemDTO(field.starSystem)

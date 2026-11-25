@@ -4,27 +4,21 @@ import type {
   NebulaPreviewDto,
   NebulaPreviewMapDto,
   NebulaSettingsDto,
-  NebulaTarget,
-  StarmapSystemGridDto,
 } from '@swuniverse/shared';
 import { api } from '../../services/api';
-import { planetThumbnail, starTileImage, systemTypeImage } from '../../lib/assets';
+import { planetThumbnail, spaceBackgroundTile, systemTypeImage } from '../../lib/assets';
 import { nebulaEdgeMask, terrainAppearance, type TerrainFieldType } from '../../lib/map-terrain';
-import { buildStarTileLayers, calculateRenderedStarAreaSize, getStarTileIdAt, isStarObject } from '../../lib/starmap-render';
+import { getNebulaDomStyle } from '../../lib/nebula-texture';
 import { useFullmapEditorStore } from '../../stores/fullmap-editor.store';
 
 const DEFAULT_SETTINGS: NebulaSettingsDto = {
   seed: 'swu-nebula-v1',
-  target: 'BOTH',
+  target: 'GALAXY',
   density: 'BALANCED',
 };
 
-function mapKey(map: NebulaPreviewMapDto) {
-  return `${map.scope}:${map.id}`;
-}
-
 function mapLabel(map: NebulaPreviewMapDto) {
-  return map.scope === 'GALAXY' ? `Galaxie — ${map.name}` : `System — ${map.name}`;
+  return `Galaxie — ${map.name}`;
 }
 
 function changedTypeName(
@@ -54,58 +48,12 @@ function NebulaMapPreview({
   markChanges: boolean;
 }) {
   const changes = useMemo(() => new Map(map.changes.map((change) => [change.fieldId, change])), [map.changes]);
-  const minX = map.fields.length ? Math.min(...map.fields.map((field) => field.x)) : 0;
-  const minY = map.fields.length ? Math.min(...map.fields.map((field) => field.y)) : 0;
+  const minX = map.fields.length ? map.fields.reduce((min, field) => Math.min(min, field.x), Infinity) : 0;
+  const minY = map.fields.length ? map.fields.reduce((min, field) => Math.min(min, field.y), Infinity) : 0;
   const fieldsAt = useMemo(
     () => new Map(map.fields.map((field) => [`${field.x},${field.y}`, field])),
     [map.fields],
   );
-  const starTiles = useMemo(() => {
-    const tiles = new Map<string, number>();
-    if (map.scope !== 'SYSTEM' || map.systemTypeId == null) return tiles;
-    const systemGrid: StarmapSystemGridDto = {
-      system: {
-        id: map.id,
-        name: map.name,
-        cx: 0,
-        cy: 0,
-        maxX: map.width,
-        maxY: map.height,
-        systemTypeId: map.systemTypeId,
-      },
-      fields: [],
-      celestialObjects: map.fields
-        .filter((field) => isStarObject(field.objectClassId))
-        .map((field) => ({
-          id: field.id,
-          objectType: 0,
-          name: field.label,
-          description: null,
-          posX: field.x,
-          posY: field.y,
-          classId: field.objectClassId,
-          isColonizable: false,
-        })),
-    };
-    for (const layer of buildStarTileLayers(systemGrid)) {
-      const renderedSize = calculateRenderedStarAreaSize(layer.config.gridSize, Math.min(map.width, map.height));
-      for (let row = 0; row < renderedSize; row++) {
-        for (let col = 0; col < renderedSize; col++) {
-          const x = layer.center.x - Math.floor(renderedSize / 2) + col;
-          const y = layer.center.y - Math.floor(renderedSize / 2) + row;
-          if (x < 1 || y < 1 || x > map.width || y > map.height) continue;
-          const tileId = getStarTileIdAt(layer.config, x, y, layer.center.x, layer.center.y);
-          if (tileId) tiles.set(`${x},${y}`, tileId);
-        }
-      }
-    }
-    return tiles;
-  }, [map]);
-  const fallbackStarPosition = map.scope === 'SYSTEM' && map.systemTypeId == null
-    ? map.fields.find((field) => field.objectClassId === 9001) ??
-      map.fields.find((field) => isStarObject(field.objectClassId)) ??
-      { x: Math.ceil(map.width / 2), y: Math.ceil(map.height / 2) }
-    : null;
   const terrainType = (field: NebulaPreviewMapDto['fields'][number] | undefined): TerrainFieldType | undefined => {
     if (!field) return undefined;
     const typeId = changes.get(field.id)?.fieldTypeId ?? field.fieldTypeId;
@@ -128,29 +76,32 @@ function NebulaMapPreview({
           const change = changes.get(field.id);
           const currentType = getTerrainType(field.fieldTypeId, fieldTypes);
           if (currentType.key === 'UNKNOWN') return null;
-          const currentTerrain = terrainAppearance(currentType, field.x, field.y);
           const nextType = change ? getTerrainType(change.fieldTypeId, fieldTypes) : undefined;
-          const nextTerrain = change && nextType ? terrainAppearance(nextType, field.x, field.y) : null;
           const finalType = nextType ?? currentType;
-          const finalTerrain = nextTerrain ?? currentTerrain;
+          const visual = change
+            ? change.restore ? undefined : map.nebulaVisual
+            : field.nebulaVisual;
+          const finalTerrain = terrainAppearance(finalType, field.x, field.y);
           const edgeMask = nebulaEdgeMask(finalType, {
             top: terrainType(fieldsAt.get(`${field.x},${field.y - 1}`)),
             right: terrainType(fieldsAt.get(`${field.x + 1},${field.y}`)),
             bottom: terrainType(fieldsAt.get(`${field.x},${field.y + 1}`)),
             left: terrainType(fieldsAt.get(`${field.x - 1},${field.y}`)),
           });
-          const marker = field.objectClassId != null && !isStarObject(field.objectClassId)
-            ? planetThumbnail(field.objectClassId)
-            : field.systemTypeId != null
-              ? systemTypeImage(field.systemTypeId)
+          const baseImage = visual ? spaceBackgroundTile(field.x, field.y) : finalTerrain.image;
+          const nebulaStyle = visual ? getNebulaDomStyle(visual, field.x, field.y) : undefined;
+          const marker = field.systemTypeId != null
+            ? systemTypeImage(field.systemTypeId)
+            : field.objectClassId != null
+              ? planetThumbnail(field.objectClassId)
               : null;
-          const starTile = starTiles.get(`${field.x},${field.y}`);
-          const fallbackStar = fallbackStarPosition?.x === field.x && fallbackStarPosition.y === field.y;
           const currentName = changedTypeName(field.fieldTypeId, fieldTypes);
           const nextName = change ? changedTypeName(change.fieldTypeId, fieldTypes) : null;
-          const ariaLabel = change
-            ? `${field.label}, aktuell ${currentName} (ID ${field.fieldTypeId}), Vorschau ${nextName} (ID ${change.fieldTypeId})`
-            : `${field.label}, ${currentName} (ID ${field.fieldTypeId})`;
+          const ariaLabel = change?.restore
+            ? `${field.label}: Nebel wird zurückgenommen; aktuell ${currentName} (ID ${field.fieldTypeId}), danach ${nextName} (ID ${change.fieldTypeId})`
+            : change
+              ? `${field.label}: Nebel wird erzeugt; aktuell ${currentName} (ID ${field.fieldTypeId}), danach ${nextName} (ID ${change.fieldTypeId})`
+              : `${field.label}, ${field.nebulaVisual ? 'bestehender filmischer Nebel' : currentName} (ID ${field.fieldTypeId})`;
 
           return (
             <div
@@ -161,29 +112,21 @@ function NebulaMapPreview({
               className={`relative h-7 w-7 overflow-hidden border bg-black ${markChanges && change ? 'border-emerald-300/70' : 'border-white/10'}`}
               style={{ gridColumn: field.x - minX + 1, gridRow: field.y - minY + 1 }}
             >
-              {finalTerrain.image && (
+              {baseImage && (
                 <img
-                  src={finalTerrain.image}
+                  src={baseImage}
                   alt=""
                   loading="lazy"
                   className="absolute inset-0 h-full w-full object-cover"
-                  style={{ opacity: finalTerrain.alpha, filter: finalTerrain.filter, ...edgeMask }}
+                  style={visual ? undefined : { opacity: finalTerrain.alpha, filter: finalTerrain.filter, ...edgeMask }}
                 />
               )}
-              {starTile != null && (
-                <img
-                  src={starTileImage(starTile)}
-                  alt=""
-                  loading="lazy"
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-              )}
-              {fallbackStar && (
-                <img
-                  src={systemTypeImage(1001)}
-                  alt=""
-                  loading="lazy"
-                  className="absolute inset-0 m-auto h-[82%] w-[82%] object-contain drop-shadow-md"
+              {visual && (
+                <div
+                  aria-hidden="true"
+                  data-nebula-visual="true"
+                  className="absolute inset-0 bg-center bg-no-repeat"
+                  style={{ ...nebulaStyle, ...edgeMask }}
                 />
               )}
               {marker && (
@@ -215,7 +158,6 @@ export function NebulaGeneratorDialog({
   const loadFields = useFullmapEditorStore((state) => state.loadFields);
   const [settings, setSettings] = useState<NebulaSettingsDto>(DEFAULT_SETTINGS);
   const [preview, setPreview] = useState<NebulaPreviewDto | null>(null);
-  const [selectedMap, setSelectedMap] = useState('');
   const [markChanges, setMarkChanges] = useState(false);
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -254,7 +196,7 @@ export function NebulaGeneratorDialog({
     };
   }, [applying, onClose]);
 
-  const selectedPreviewMap = preview?.maps.find((map) => mapKey(map) === selectedMap) ?? preview?.maps[0] ?? null;
+  const galaxyPreviewMap = preview?.maps.find((map) => map.scope === 'GALAXY') ?? null;
   const canApply = Boolean(
     preview &&
       preview.layerId === capturedLayerId &&
@@ -269,7 +211,6 @@ export function NebulaGeneratorDialog({
     setSettings((current) => ({ ...current, ...patch }));
     requestVersion.current += 1;
     setPreview(null);
-    setSelectedMap('');
     setLoading(false);
     setError(null);
     setNotice(null);
@@ -291,10 +232,9 @@ export function NebulaGeneratorDialog({
       if (nextPreview.layerId !== capturedLayerId) {
         throw new Error('Die Vorschau gehört zu einem anderen Layer.');
       }
-      setPreview(nextPreview);
+      const galaxyMaps = nextPreview.maps.filter((map) => map.scope === 'GALAXY');
+      setPreview({ ...nextPreview, maps: galaxyMaps });
       setSettings(nextPreview.settings);
-      const defaultMap = nextPreview.maps.find((map) => map.scope === 'GALAXY') ?? nextPreview.maps[0];
-      setSelectedMap(defaultMap ? mapKey(defaultMap) : '');
     } catch (requestError) {
       if (requestId !== requestVersion.current) return;
       setError(requestError instanceof Error ? requestError.message : 'Vorschau konnte nicht erstellt werden.');
@@ -316,8 +256,7 @@ export function NebulaGeneratorDialog({
       );
       requestVersion.current += 1;
       setPreview(null);
-      setSelectedMap('');
-      setNotice(`${result.changedFields} Felder wurden mit Nebelgebieten ergänzt.`);
+      setNotice(`${result.changedFields} Felder wurden durch die Nebelvorschau geändert.`);
       await loadFields();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Nebelgebiete konnten nicht übernommen werden.');
@@ -351,7 +290,7 @@ export function NebulaGeneratorDialog({
           </button>
         </header>
 
-        <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
+        <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
           <label className="block text-xs">
             Seed
             <input
@@ -360,19 +299,6 @@ export function NebulaGeneratorDialog({
               onChange={(event) => updateSettings({ seed: event.target.value })}
               className="mt-1 w-full rounded border border-swu-border bg-swu-surface px-2 py-1.5 text-sm"
             />
-          </label>
-          <label className="block text-xs">
-            Ziel
-            <select
-              value={settings.target}
-              disabled={applying}
-              onChange={(event) => updateSettings({ target: event.target.value as NebulaTarget })}
-              className="mt-1 w-full rounded border border-swu-border bg-swu-surface px-2 py-1.5 text-sm"
-            >
-              <option value="BOTH">Galaxie und Systeme</option>
-              <option value="GALAXY">Nur Galaxie</option>
-              <option value="SYSTEMS">Nur Systeme</option>
-            </select>
           </label>
           <label className="block text-xs">
             Dichte
@@ -443,22 +369,9 @@ export function NebulaGeneratorDialog({
             </section>
 
             <section className="space-y-2">
-              <label className="block max-w-sm text-xs">
-                Karte
-                <select
-                  aria-label="Vorschaukarte"
-                  value={selectedPreviewMap ? mapKey(selectedPreviewMap) : ''}
-                  onChange={(event) => setSelectedMap(event.target.value)}
-                  className="mt-1 w-full rounded border border-swu-border bg-swu-surface px-2 py-1.5 text-sm"
-                >
-                  {preview.maps.map((map) => (
-                    <option key={mapKey(map)} value={mapKey(map)}>{mapLabel(map)}</option>
-                  ))}
-                </select>
-              </label>
-              {selectedPreviewMap
-                ? <NebulaMapPreview map={selectedPreviewMap} fieldTypes={fieldTypes} markChanges={markChanges} />
-                : <p className="text-sm text-swu-muted">Keine Karten in der Vorschau enthalten.</p>}
+              {galaxyPreviewMap
+                ? <NebulaMapPreview map={galaxyPreviewMap} fieldTypes={fieldTypes} markChanges={markChanges} />
+                : <p className="text-sm text-swu-muted">Keine Galaxiekarte in der Vorschau enthalten.</p>}
               <label className="inline-flex items-center gap-2 text-xs text-swu-muted">
                 <input
                   type="checkbox"
@@ -467,7 +380,7 @@ export function NebulaGeneratorDialog({
                 />
                 Änderungen markieren
               </label>
-              <p className="text-xs text-swu-muted">Feldtitel zeigen bei Änderungen aktuellen und geplanten Feldtyp samt ID.</p>
+              <p className="text-xs text-swu-muted">Feldtitel kennzeichnen erzeugte und zurückgesetzte Nebel mit aktuellem und geplantem Feldtyp.</p>
             </section>
 
           </div>

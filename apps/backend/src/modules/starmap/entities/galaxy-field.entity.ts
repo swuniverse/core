@@ -6,6 +6,7 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
+import type { NebulaGeneration } from '../nebula-generation';
 import { Layer } from './layer.entity';
 import { StarSystem } from './star-system.entity';
 import { GalaxyFieldType } from './galaxy-field-type.entity';
@@ -25,6 +26,9 @@ export enum FactionZone {
 @Index(['layerId', 'factionZone'])
 @Index(['starSystemId'])
 export class GalaxyField {
+  @Column({ type: 'jsonb', nullable: true })
+  nebulaGeneration: NebulaGeneration | null;
+
   @PrimaryGeneratedColumn()
   id: number;
 

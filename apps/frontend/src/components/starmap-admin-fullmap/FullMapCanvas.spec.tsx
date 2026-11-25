@@ -1,4 +1,5 @@
 import { act, render, waitFor } from '@testing-library/react';
+import { Assets } from 'pixi.js';
 import { FullMapCanvas } from './FullMapCanvas';
 import { useFullmapEditorStore } from '../../stores/fullmap-editor.store';
 import { useAdminSignatureStore } from '../../stores/admin-signature.store';
@@ -7,6 +8,8 @@ import { useAuthStore } from '../../stores/auth.store';
 const pixi = vi.hoisted(() => ({
   resolveInit: null as (() => void) | null,
   strokes: [] as Array<{ color: number; lines: number[][] }>,
+  assetLoads: [] as string[],
+  sprites: [] as unknown[],
 }));
 vi.mock('pixi.js', () => {
   class Container {
@@ -63,12 +66,22 @@ vi.mock('pixi.js', () => {
       this.stage.removeChildren();
     }
   }
+  class Sprite {
+    position = { set: vi.fn() };
+    width = 0;
+    height = 0;
+    alpha = 1;
+    tint = 0xffffff;
+    constructor(public texture: unknown) {
+      pixi.sprites.push(texture);
+    }
+  }
   return {
     Application,
     Container,
     Graphics,
-    Assets: { load: vi.fn() },
-    Sprite: class Sprite {},
+    Assets: { load: vi.fn((url: string) => { pixi.assetLoads.push(url); return { url }; }) },
+    Sprite,
     Text: class Text {},
     TextStyle: class TextStyle {},
   };
@@ -85,6 +98,10 @@ describe('FullMapCanvas flight signatures', () => {
   beforeEach(() => {
     pixi.resolveInit = null;
     pixi.strokes = [];
+    pixi.assetLoads = [];
+    pixi.sprites = [];
+    vi.mocked(Assets.load).mockClear();
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
     useAuthStore.setState({ user: { isAdmin: true } as never });
     useFullmapEditorStore.setState({
       fields: [],
@@ -100,6 +117,10 @@ describe('FullMapCanvas flight signatures', () => {
       fields: [],
       viewport: { layerId: 5, xStart: 1, xEnd: 2, yStart: 1, yEnd: 2 },
     });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('draws signature data arriving before asynchronous canvas initialization and redraws new directions', async () => {
@@ -157,5 +178,33 @@ describe('FullMapCanvas flight signatures', () => {
     expect(pixi.strokes.some((stroke) => stroke.color === 0xc2b942)).toBe(
       false,
     );
+  });
+
+  it('loads and draws texture PNGs for known galaxy fields while skipping UNKNOWN metadata', async () => {
+    const nebula = {
+      id: 1,
+      cx: 1,
+      cy: 1,
+      fieldTypeId: 120,
+      fieldType: { id: 120, key: 'NEBULA', name: 'Nebel' },
+      systemTypeId: null,
+      nebulaTexture: '/known-nebula.png',
+    };
+    const unknown = {
+      ...nebula,
+      id: 2,
+      cx: 2,
+      fieldType: { id: 0, key: 'UNKNOWN', name: 'Unbekannt' },
+      nebulaTexture: '/hidden-nebula.png',
+    };
+    useFullmapEditorStore.setState({ fields: [nebula, unknown] as never });
+    const { unmount } = render(<FullMapCanvas />);
+
+    await act(async () => { pixi.resolveInit?.(); await Promise.resolve(); });
+    await waitFor(() => expect(pixi.assetLoads).toContain('/known-nebula.png'));
+    await waitFor(() => expect(pixi.sprites).toContainEqual({ url: '/known-nebula.png' }));
+    expect(pixi.assetLoads).not.toContain('/hidden-nebula.png');
+    expect(pixi.sprites).not.toContainEqual({ url: '/hidden-nebula.png' });
+    unmount();
   });
 });

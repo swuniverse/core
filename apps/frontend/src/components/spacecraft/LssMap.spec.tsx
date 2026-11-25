@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { LssMap, type LocalMapSystem } from './LssMap';
+import { LssMap, type LocalMapGalaxy, type LocalMapSystem } from './LssMap';
 
 vi.mock('../../lib/assets', () => ({
   anomalyImage: (type: string) => `/anomaly-${type.toLowerCase()}.png`,
@@ -48,6 +48,66 @@ function systemMap(
 }
 
 describe('LssMap', () => {
+  it('shows known galaxy nebula texture over space and ignores redacted texture metadata', () => {
+    const localMap: LocalMapGalaxy = {
+      mode: 'galaxy',
+      shipX: 1,
+      shipY: 1,
+      sensorRange: 1,
+      bounds: { minX: 1, maxX: 2, minY: 1, maxY: 1 },
+      fields: [
+        {
+          id: 1,
+          cx: 1,
+          cy: 1,
+          fieldType: { id: 1, key: 'EMPTY_SPACE', name: 'Leerer Raum' },
+          nebulaTexture: '/known-nebula.png',
+        },
+        {
+          id: 2,
+          cx: 2,
+          cy: 1,
+          redacted: true,
+          fieldType: { id: 1, key: 'EMPTY_SPACE', name: 'Leerer Raum' },
+          nebulaTexture: '/hidden-nebula.png',
+          nebulaVisual: {
+            version: 2,
+            seed: 'hidden-seed',
+            width: 40,
+            height: 40,
+            density: 'RICH',
+          },
+        },
+      ],
+      canEnterSystem: false,
+      canLeaveSystem: false,
+    };
+
+    render(
+      <LssMap
+        localMap={localMap}
+        navTarget={null}
+        onFieldClick={vi.fn()}
+      />,
+    );
+
+    const knownField = screen.getByRole('button', { name: /Feld 1,1/ });
+    expect(knownField.querySelector('img')?.getAttribute('src')).toBe(
+      '/space.png',
+    );
+    const nebulaOverlay = knownField.querySelector('div');
+    expect(nebulaOverlay?.style.backgroundImage).toContain(
+      '/known-nebula.png',
+    );
+
+    const redactedField = screen.getByLabelText(
+      'Feld 2,1: Sensordaten blockiert',
+    );
+    expect(redactedField.querySelector('img')).toBeNull();
+    expect(redactedField.querySelector('div')).toBeNull();
+    expect((redactedField as HTMLElement).style.backgroundImage).toBe('');
+  });
+
   it('refreshes the count at scan expiry and cancels the timer on unmount', () => {
     vi.useFakeTimers();
     try {
