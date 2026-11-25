@@ -15,14 +15,14 @@ describe('Personal starmap image and browser downloads', () => {
   afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
   it('rejects an empty explored map without allocating a canvas', async () => {
-    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext');
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype as { getContext: (contextId: string) => unknown }, 'getContext');
     await expect(createStarmapPng({ ...data, fields: [] })).rejects.toThrow('Noch keine Felder erkundet.');
     expect(getContext).not.toHaveBeenCalled();
   });
 
   it('scales a large explored extent to portable browser canvas limits', async () => {
     let dimensions: number[] = [];
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ fillRect: vi.fn(), strokeRect: vi.fn(), fillText: vi.fn() } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype as { getContext: (contextId: string) => unknown }, 'getContext').mockReturnValue({ fillRect: vi.fn(), strokeRect: vi.fn(), fillText: vi.fn() } as unknown as CanvasRenderingContext2D);
     vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (this: HTMLCanvasElement, callback, type) {
       dimensions = [this.width, this.height];
       callback(new Blob(['png'], { type }));
@@ -34,7 +34,7 @@ describe('Personal starmap image and browser downloads', () => {
   });
 
   it('handles a densely explored layer without exceeding the JavaScript argument limit', async () => {
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ fillRect: vi.fn(), strokeRect: vi.fn(), fillText: vi.fn() } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype as { getContext: (contextId: string) => unknown }, 'getContext').mockReturnValue({ fillRect: vi.fn(), strokeRect: vi.fn(), fillText: vi.fn() } as unknown as CanvasRenderingContext2D);
     vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) => callback(new Blob(['png'], { type: 'image/png' })));
     const fields = Array.from({ length: 150_000 }, (_, index) => ({ ...data.fields[0], cx: index % 500 + 1, cy: Math.floor(index / 500) + 1 }));
     await expect(createStarmapPng({ ...data, fields })).resolves.toHaveProperty('type', 'image/png');
@@ -42,7 +42,7 @@ describe('Personal starmap image and browser downloads', () => {
 
   it('releases the canvas after PNG encoding fails', async () => {
     const canvases: HTMLCanvasElement[] = [];
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function (this: HTMLCanvasElement) {
+    vi.spyOn(HTMLCanvasElement.prototype as { getContext: (contextId: string) => unknown }, 'getContext').mockImplementation(function (this: HTMLCanvasElement) {
       canvases.push(this);
       return { fillRect: vi.fn(), strokeRect: vi.fn(), fillText: vi.fn() } as unknown as CanvasRenderingContext2D;
     });
@@ -71,7 +71,7 @@ describe('Personal starmap image and browser downloads', () => {
 
   it('keeps own-colony markers visible when large maps hide cell labels', async () => {
     const fillRect = vi.fn();
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ fillRect, strokeRect: vi.fn(), fillText: vi.fn() } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype as { getContext: (contextId: string) => unknown }, 'getContext').mockReturnValue({ fillRect, strokeRect: vi.fn(), fillText: vi.fn() } as unknown as CanvasRenderingContext2D);
     vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) => callback(new Blob(['png'], { type: 'image/png' })));
     await createStarmapPng({ ...data, fields: [data.fields[0], { ...data.fields[1], cx: 1000, cy: 1000 }] });
     // Background, two known fields and the colony's distinct inset mark.
@@ -82,7 +82,7 @@ describe('Personal starmap image and browser downloads', () => {
     const context = { fillRect: vi.fn(), strokeRect: vi.fn(), fillText: vi.fn() };
     const canvases: HTMLCanvasElement[] = [];
     const dimensions: number[][] = [];
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function (this: HTMLCanvasElement) {
+    vi.spyOn(HTMLCanvasElement.prototype as { getContext: (contextId: string) => unknown }, 'getContext').mockImplementation(function (this: HTMLCanvasElement) {
       canvases.push(this);
       return context as unknown as CanvasRenderingContext2D;
     });

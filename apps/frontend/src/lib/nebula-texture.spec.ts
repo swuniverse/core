@@ -5,7 +5,7 @@ it('shares a chunk and texture frames while crossing large-map chunk boundaries 
     data: new Uint8ClampedArray(width * height * 4),
   }));
   const putImageData = vi.fn();
-  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+  vi.spyOn(HTMLCanvasElement.prototype as { getContext: (contextId: string) => unknown }, 'getContext').mockReturnValue({
     createImageData,
     putImageData,
   } as unknown as CanvasRenderingContext2D);

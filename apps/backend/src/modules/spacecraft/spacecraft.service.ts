@@ -4327,6 +4327,7 @@ export class SpacecraftService {
     const shipQuery = this.shipRepo
       .createQueryBuilder('target')
       .leftJoinAndSelect('target.user', 'user')
+      .leftJoinAndSelect('target.shipClass', 'targetShipClass')
       .leftJoinAndSelect('target.fleet', 'fleet')
       .leftJoinAndSelect('target.modules', 'targetModules')
       .leftJoinAndSelect('target.location', 'targetLocation')
@@ -4493,6 +4494,7 @@ export class SpacecraftService {
             id: target.id,
             name: target.name,
             shipClassId: target.shipClassId,
+            shipClassKey: target.shipClass?.key ?? null,
             username: target.user?.username ?? null,
             hull: target.hull,
             hullMax: target.hullMax,

@@ -255,7 +255,7 @@ describe('StarmapPage exports', () => {
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
       downloads.push({ filename: this.download, connected: this.isConnected });
     });
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+    vi.spyOn(HTMLCanvasElement.prototype as { getContext: (contextId: string) => unknown }, 'getContext').mockReturnValue({
       fillRect: vi.fn(), strokeRect: vi.fn(), fillText: vi.fn(),
     } as unknown as CanvasRenderingContext2D);
     vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) => callback(new Blob(['png'], { type: 'image/png' })));

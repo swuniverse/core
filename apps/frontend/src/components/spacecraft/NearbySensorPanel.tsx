@@ -506,14 +506,14 @@ export function NearbySensorPanel({
         {target.isOwn ? (
           <Link to={`/spacecraft/${target.id}`}>
             <img
-              src={shipImage(target.shipClassId)}
+              src={shipImage(target.shipClassId, target.shipClassKey)}
               alt=""
               className="h-6 w-12 object-contain"
             />
           </Link>
         ) : (
           <img
-            src={shipImage(target.shipClassId)}
+            src={shipImage(target.shipClassId, target.shipClassKey)}
             alt=""
             className="h-6 w-12 object-contain"
           />

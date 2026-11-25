@@ -853,6 +853,7 @@ export interface SpacecraftNearbyTargetDto {
   id: number;
   name: string;
   shipClassId: number;
+  shipClassKey?: string | null;
   username: string | null;
   hull: number;
   hullMax: number;
