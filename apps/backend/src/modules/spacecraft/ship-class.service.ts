@@ -16,7 +16,37 @@ export class ShipClassService {
     private readonly gameData: GameDataService,
   ) {}
 
+  /**
+   * Freighter classes whose key changed. The deploy starts the new backend before the
+   * migration container runs, so the rename must also happen here, ahead of the upsert:
+   * otherwise the seeder creates the new key as a second row and existing ships stay behind.
+   */
+  private static readonly LEGACY_KEYS: Array<[string, string]> = [
+    ['REBEL_FREIGHTER_YT', 'REBEL_FREIGHTER_HAWK'],
+    ['EMPIRE_FREIGHTER_GOZANTI', 'EMPIRE_FREIGHTER_ZETA'],
+    ['EMPIRE_FREIGHTER_IMPERIAL', 'EMPIRE_FREIGHTER_ETA'],
+    ['EMPIRE_FREIGHTER_HEAVY', 'EMPIRE_FREIGHTER_MOSE'],
+  ];
+
+  private async renameLegacyKeys(): Promise<void> {
+    for (const [oldKey, newKey] of ShipClassService.LEGACY_KEYS) {
+      const legacy = await this.shipClassRepo.findOne({ where: { key: oldKey } });
+      if (!legacy) continue;
+      const fresh = await this.shipClassRepo.findOne({ where: { key: newKey } });
+      if (fresh) {
+        try {
+          // A row created by an earlier seed run has no references yet.
+          await this.shipClassRepo.delete({ id: fresh.id });
+        } catch {
+          continue;
+        }
+      }
+      await this.shipClassRepo.update({ id: legacy.id }, { key: newKey });
+    }
+  }
+
   async seedDefaults(): Promise<void> {
+    await this.renameLegacyKeys();
     const factions = await this.factionRepo.find();
     const factionMap = new Map(factions.map((f) => [f.key, f.id]));
 
