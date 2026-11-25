@@ -1,3 +1,4 @@
+import { buildNebulaTextureContext, nebulaTextureForField } from '../starmap/nebula-texture';
 import { isRpgHidden } from './rpg-visibility';
 import { ResourceConversionService } from './resource-conversion.service';
 import { ResourceCollectionService } from './resource-collection.service';
@@ -4916,6 +4917,7 @@ export class SpacecraftService {
         sensorView.fields.flatMap((field) => ('redacted' in field ? [] : [field.id])),
       )) ?? new Map<number, AnomalyViewDto[]>();
 
+    const nebulaTextures = buildNebulaTextureContext(sensorView.fields.flatMap(field => 'redacted' in field ? [] : [field]));
     return {
       mode: 'galaxy' as const,
       tachyonScanExpiresAt: scanExpiresAt,
@@ -4930,6 +4932,7 @@ export class SpacecraftService {
           id: f.id,
           cx: f.cx,
           cy: f.cy,
+          ...(nebulaTextureForField(f, nebulaTextures) ? { nebulaTexture: nebulaTextureForField(f, nebulaTextures) } : {}),
           effects: f.effects,
           anomalies: anomaliesByField.get(f.id) ?? [],
           fieldType: {

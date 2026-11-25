@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useFullmapEditorStore } from '../../stores/fullmap-editor.store';
 import { LayerCreateDialog } from './LayerCreateDialog';
 import { FullMapActions } from './FullMapActions';
+import { NebulaGeneratorDialog } from './NebulaGeneratorDialog';
 
 export function FullMapToolbar() {
   const layers = useFullmapEditorStore((s) => s.layers);
@@ -12,6 +13,8 @@ export function FullMapToolbar() {
   const status = useFullmapEditorStore((s) => s.status);
 
   const [showCreate, setShowCreate] = useState(false);
+  const [showNebula, setShowNebula] = useState(false);
+  const closeNebula = useCallback(() => setShowNebula(false), []);
 
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 border-b border-swu-border bg-[#0d121c] flex-wrap">
@@ -47,6 +50,16 @@ export function FullMapToolbar() {
       <FullMapActions />
 
       <button
+        type="button"
+        onClick={() => setShowNebula(true)}
+        disabled={!selectedLayerId}
+        className="rounded border border-purple-600 px-2 py-1 text-xs text-purple-300 hover:bg-purple-950/40 disabled:opacity-40"
+        title="Nebelgebiete vorschauen und übernehmen"
+      >
+        Nebelgebiete
+      </button>
+
+      <button
         onClick={() => void loadFields()}
         className="rounded border border-swu-border px-2 py-1 text-xs text-swu-text hover:bg-swu-surface"
       >
@@ -56,6 +69,9 @@ export function FullMapToolbar() {
       {status && <span className="text-xs text-swu-muted">{status}</span>}
 
       {showCreate && <LayerCreateDialog onClose={() => setShowCreate(false)} />}
+      {showNebula && selectedLayerId != null && (
+        <NebulaGeneratorDialog layerId={selectedLayerId} onClose={closeNebula} />
+      )}
     </div>
   );
 }

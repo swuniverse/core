@@ -1,6 +1,7 @@
 import { Fragment } from 'react';
 import { PlanetImg } from '../PlanetImg';
-import { spaceBackgroundTile, starTileImage } from '../../lib/assets';
+import { starTileImage } from '../../lib/assets';
+import { terrainAppearance, nebulaEdgeMask, isNebulaTerrain } from '../../lib/map-terrain';
 import { getSystemFieldStyle } from '../spacecraft/field-styles';
 import {
   buildStarTileLayers,
@@ -114,6 +115,8 @@ export function SystemRasterMap({
               const isStar = object ? isStarObject(object.classId) : false;
               const showStarTile = starTileId != null && (!object || isStar);
               const fieldType = field?.fieldType;
+              const terrain = terrainAppearance(fieldType, x, y);
+              const mask = nebulaEdgeMask(fieldType, { top: fieldsByCoordinate.get(`${x}:${y - 1}`)?.fieldType, right: fieldsByCoordinate.get(`${x + 1}:${y}`)?.fieldType, bottom: fieldsByCoordinate.get(`${x}:${y + 1}`)?.fieldType, left: fieldsByCoordinate.get(`${x - 1}:${y}`)?.fieldType });
               const label = field
                 ? `Feld ${x}:${y}: ${object?.name ?? fieldType?.name ?? 'Unbekannt'}`
                 : `Feld ${x}:${y}: Unkartographiertes Rasterfeld`;
@@ -137,17 +140,9 @@ export function SystemRasterMap({
                     !field ? 'cursor-default opacity-50' : 'hover:brightness-125',
                   ].join(' ')}
                 >
-                  {!showStarTile && !object && (
-                    <img
-                      src={
-                        fieldType?.key === 'EMPTY_SPACE' ||
-                        fieldType?.key === 'DEEP_SPACE'
-                          ? spaceBackgroundTile(x, y)
-                          : starTileImage(fieldType?.id ?? 1)
-                      }
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-cover opacity-90"
-                    />
+                  {!showStarTile && terrain.image && (!object || (fieldType && isNebulaTerrain(fieldType))) && (
+                    <img src={terrain.image} alt="" className="absolute inset-0 h-full w-full object-cover"
+                      style={{ opacity: terrain.alpha, filter: terrain.filter, ...mask }} />
                   )}
                   {showStarTile && (
                     <img

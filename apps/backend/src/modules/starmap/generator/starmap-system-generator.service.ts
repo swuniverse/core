@@ -428,8 +428,6 @@ export class StarmapSystemGeneratorService {
     return null;
   }
 
-  // ponytail: STU nebula IDs for background variety, upgrade to config-driven if needed
-  private static readonly NEBULA_IDS = [100, 101, 110, 111, 120, 121, 130, 131, 140, 141, 150, 151, 160, 161, 170, 171, 180, 181];
   private static readonly ASTEROID_IDS = [701, 702, 703];
 
   private backgroundFieldType(
@@ -441,14 +439,7 @@ export class StarmapSystemGeneratorService {
     rng: SeededRNG,
   ): string {
     const distance = Math.abs(cx - sx) + Math.abs(cy - sy);
-    if (
-      systemTypeId >= 1064 &&
-      systemTypeId <= 1066 &&
-      distance > 7 &&
-      rng.nextBoolean(0.25)
-    ) {
-      return 'NEBULA';
-    }
+
     if (
       systemTypeId >= 1069 &&
       systemTypeId <= 1070 &&
@@ -470,14 +461,7 @@ export class StarmapSystemGeneratorService {
     rng: SeededRNG,
   ): number {
     const distance = Math.abs(cx - sx) + Math.abs(cy - sy);
-    if (
-      systemTypeId >= 1064 &&
-      systemTypeId <= 1066 &&
-      distance > 7 &&
-      rng.nextBoolean(0.25)
-    ) {
-      return rng.choice(StarmapSystemGeneratorService.NEBULA_IDS);
-    }
+
     if (
       systemTypeId >= 1069 &&
       systemTypeId <= 1070 &&

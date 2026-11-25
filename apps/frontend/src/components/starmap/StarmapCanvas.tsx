@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   forwardRef,
   useState,
@@ -18,12 +19,14 @@ import type {
   StarmapSystemListItemDto,
   StarmapWormholeDto,
 } from '@swuniverse/shared';
-import { isSwuClassId } from '@swuniverse/shared';
 import {
-  galaxyMapBackground,
+  buildNebulaCloudIndex,
+  isNebulaCloudSpace,
+  isSwuClassId,
+} from '@swuniverse/shared';
+import {
   planetThumbnail,
   SWU_TEST_PLANET_EMOJI,
-  spaceBackgroundTile,
   starTileImage,
   starWarsMarkerImage,
   systemTypeImage,
@@ -35,6 +38,9 @@ import {
   getStarTileIdAt,
   STARMAP_CELL_SIZE,
 } from '../../lib/starmap-render';
+import { terrainAppearance } from '../../lib/map-terrain';
+import { featherNebulaSprite } from '../../lib/map-terrain-pixi';
+import { getNebulaCloudPixiTexture } from '../../lib/nebula-cloud-pixi';
 
 const CELL_SIZE = STARMAP_CELL_SIZE;
 const MIN_SCALE = 0.08;
@@ -140,6 +146,7 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
     const mapOverlaysRef = useRef<Graphics | null>(null);
     const inlineSystemsRef = useRef<Container | null>(null);
     const [ready, setReady] = useState(false);
+    const [loadingTerrain, setLoadingTerrain] = useState(true);
     const focusFieldRef = useRef(focusField);
     const stateRef = useRef({
       viewX: 0,
@@ -168,6 +175,17 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
     const showGridRef = useRef(showGrid);
     const onInlineSystemsVisibleChangeRef = useRef(onInlineSystemsVisibleChange);
     const inlineSystemsVisibleRef = useRef<boolean | null>(null);
+
+    const nebulaCloudIndex = useMemo(
+      () => buildNebulaCloudIndex(fields.flatMap((field) => (
+        field.fieldType.key !== 'UNKNOWN' &&
+        field.fieldType.category === 'nebula' &&
+        field.nebulaVisual
+          ? [{ x: field.cx, y: field.cy, visual: field.nebulaVisual }]
+          : []
+      ))),
+      [fields],
+    );
 
     useEffect(() => { fieldsRef.current = fields; }, [fields]);
     useEffect(() => { focusFieldRef.current = focusField; }, [focusField]);
@@ -371,6 +389,7 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
     const loadInlineSystem = useCallback(async (container: Container, grid: StarmapSystemGridDto, anchor: StarmapSystemListItemDto) => {
       const placement = getInlineSystemPlacement(grid, anchor);
       const { system, fields: systemFields, celestialObjects, colonyShields } = grid;
+      const terrainFields = new Map(systemFields.map((field) => [`${field.sx},${field.sy}`, field.fieldType]));
       const objects = new Map((celestialObjects ?? []).map((object) => [object.id, object]));
       const stars = buildStarTileLayers(grid);
       const label = `${anchor.name} · ${anchor.cx}|${anchor.cy}`;
@@ -393,12 +412,20 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
       await Promise.all(systemFields.map(async (field) => {
         const position = at(field.sx, field.sy);
         try {
-          const sprite = new Sprite(await Assets.load(spaceBackgroundTile(field.sx, field.sy)));
+          const appearance = terrainAppearance(field.fieldType, field.sx, field.sy);
+          if (!appearance.image || container.destroyed) return;
+          const texture = await Assets.load(appearance.image);
+          if (container.destroyed) return;
+          const sprite = new Sprite(texture);
+          sprite.alpha = appearance.alpha;
+          sprite.tint = appearance.tint;
           sprite.position.set(position.x, position.y);
           sprite.width = placement.fieldPixelSize;
           sprite.height = placement.fieldPixelSize;
           backgrounds.addChild(sprite);
+          featherNebulaSprite(sprite, backgrounds, field.fieldType, [terrainFields.get(`${field.sx},${field.sy - 1}`), terrainFields.get(`${field.sx + 1},${field.sy}`), terrainFields.get(`${field.sx},${field.sy + 1}`), terrainFields.get(`${field.sx - 1},${field.sy}`)]);
         } catch {
+          if (container.destroyed) return;
           const fallback = new Graphics();
           fallback.rect(position.x, position.y, placement.fieldPixelSize, placement.fieldPixelSize).fill({ color: 0x0a0a1a });
           backgrounds.addChild(fallback);
@@ -406,7 +433,9 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
         const tileId = stars.map((star) => getStarTileIdAt(star.config, field.sx, field.sy, star.center.x, star.center.y)).find((id) => id !== null) ?? null;
         if (tileId !== null) {
           try {
-            const sprite = new Sprite(await Assets.load(starTileImage(tileId)));
+            const texture = await Assets.load(starTileImage(tileId));
+            if (container.destroyed) return;
+            const sprite = new Sprite(texture);
             sprite.position.set(position.x, position.y);
             sprite.width = placement.fieldPixelSize;
             sprite.height = placement.fieldPixelSize;
@@ -441,16 +470,19 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
                 shielded,
               });
             });
+            if (container.destroyed) return;
             const sprite = new Sprite(Texture.from(image));
             sprite.position.set(position.x + placement.fieldPixelSize * 0.075, position.y + placement.fieldPixelSize * 0.075);
             sprite.width = placement.fieldPixelSize * 0.85;
             sprite.height = placement.fieldPixelSize * 0.85;
             icons.addChild(sprite);
           } catch {
+            if (container.destroyed) return;
             drawEmojiFallback();
           }
         }
       }));
+      if (container.destroyed) return;
       for (const shield of colonyShields ?? []) {
         if (!shield.shielded) continue;
         // SWU-Planetengrafiken tragen den Schild selbst (…S-Variante) - kein zweiter Ring.
@@ -473,46 +505,80 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
     const renderInlineSystems = useCallback(() => {
       const container = inlineSystemsRef.current;
       if (!container) return;
-      container.removeChildren();
+      for (const child of container.removeChildren()) child.destroy({ children: true });
       for (const id of openedSystemIdsRef.current) {
         const grid = systemGridsRef.current.get(id);
         const anchor = fieldsRef.current.find((field) => field.starSystem?.id === id)?.starSystem;
-        if (grid && anchor) void loadInlineSystem(container, grid, anchor);
+        if (grid && anchor) {
+          const view = new Container();
+          container.addChild(view);
+          void loadInlineSystem(view, grid, anchor);
+        }
       }
     }, [loadInlineSystem]);
 
-    const renderGalaxy = useCallback(async (container: Container) => {
+    const renderGalaxy = useCallback(async (container: Container, signal: AbortSignal) => {
       const base = new Graphics();
       base.rect(0, 0, layer.width * CELL_SIZE, layer.height * CELL_SIZE).fill({ color: 0x000000 });
       container.addChild(base);
-      try {
-        const background = new Sprite(await Assets.load(galaxyMapBackground()));
-        background.width = layer.width * CELL_SIZE;
-        background.height = layer.height * CELL_SIZE;
-        background.alpha = 0.22;
-        container.addChild(background);
-      } catch { /* procedural fields remain */ }
       const terrain = new Container();
       const icons = new Container();
       container.addChild(terrain, icons);
+      const terrainFields = new Map(fields.map((field) => [`${field.cx},${field.cy}`, field.fieldType]));
+      const visibleTerrainAt = (x: number, y: number) => {
+        const type = terrainFields.get(`${x},${y}`);
+        return type?.key === 'UNKNOWN' ? undefined : type;
+      };
       await Promise.all(fields.map(async (field) => {
         if (field.fieldType.key === 'UNKNOWN') return;
         const x = (field.cx - 1) * CELL_SIZE;
         const y = (field.cy - 1) * CELL_SIZE;
+        const neighbors = [
+          visibleTerrainAt(field.cx, field.cy - 1),
+          visibleTerrainAt(field.cx + 1, field.cy),
+          visibleTerrainAt(field.cx, field.cy + 1),
+          visibleTerrainAt(field.cx - 1, field.cy),
+          visibleTerrainAt(field.cx - 1, field.cy - 1),
+          visibleTerrainAt(field.cx + 1, field.cy - 1),
+          visibleTerrainAt(field.cx + 1, field.cy + 1),
+          visibleTerrainAt(field.cx - 1, field.cy + 1),
+        ];
         try {
-          const sprite = new Sprite(await Assets.load(field.fieldTypeId > 1 && !field.systemTypeId ? starTileImage(field.fieldTypeId) : spaceBackgroundTile(field.cx, field.cy)));
+          const hasActiveNebulaVisual = field.fieldType.key !== 'UNKNOWN' &&
+            field.fieldType.category === 'nebula' && Boolean(field.nebulaVisual);
+          const canReceiveCloud = hasActiveNebulaVisual || isNebulaCloudSpace(field.fieldType);
+          const nebulaTexture = field.nebulaTexture
+            ? await Assets.load(field.nebulaTexture)
+            : canReceiveCloud
+              ? getNebulaCloudPixiTexture(nebulaCloudIndex, field.cx, field.cy)
+              : null;
+          const appearance = terrainAppearance(nebulaTexture ? { id: 1, key: 'EMPTY_SPACE' } : field.fieldType, field.cx, field.cy);
+          if (!appearance.image) return;
+          const texture = await Assets.load(appearance.image);
+          if (signal.aborted || container.destroyed) return;
+          const sprite = new Sprite(texture);
+          sprite.alpha = appearance.alpha;
+          sprite.tint = appearance.tint;
           sprite.position.set(x, y);
           sprite.width = CELL_SIZE;
           sprite.height = CELL_SIZE;
           terrain.addChild(sprite);
+          if (nebulaTexture) {
+            const cloud = new Sprite(nebulaTexture);
+            cloud.position.set(x, y); cloud.width = cloud.height = CELL_SIZE;
+            terrain.addChild(cloud);
+          } else featherNebulaSprite(sprite, terrain, field.fieldType, neighbors.slice(0, 4));
         } catch {
+          if (signal.aborted || container.destroyed) return;
           const fallback = new Graphics();
           fallback.rect(x, y, CELL_SIZE, CELL_SIZE).fill({ color: FIELD_TYPE_COLORS[field.fieldType.key] ?? 0x0a0a1a });
           terrain.addChild(fallback);
         }
-        if (!field.systemTypeId) return;
+        if (signal.aborted || container.destroyed || !field.systemTypeId) return;
         try {
-          const sprite = new Sprite(await Assets.load(field.starSystem?.isMapOnly ? starWarsMarkerImage(field.starSystem.landmarkKey, field.systemTypeId) : systemTypeImage(field.systemTypeId)));
+          const texture = await Assets.load(field.starSystem?.isMapOnly ? starWarsMarkerImage(field.starSystem.landmarkKey, field.systemTypeId) : systemTypeImage(field.systemTypeId));
+          if (signal.aborted || container.destroyed) return;
+          const sprite = new Sprite(texture);
           const size = field.starSystem?.isMapOnly ? CELL_SIZE * 0.6 : CELL_SIZE * 1.15;
           sprite.position.set(x + (CELL_SIZE - size) / 2, y + (CELL_SIZE - size) / 2);
           sprite.width = size;
@@ -520,6 +586,7 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
           icons.addChild(sprite);
         } catch { /* optional system asset */ }
       }));
+      if (signal.aborted || container.destroyed) return;
       for (const wormhole of wormholes) {
         for (const endpoint of [{ cx: wormhole.entryCx, cy: wormhole.entryCy }, { cx: wormhole.exitCx, cy: wormhole.exitCy }]) {
           const glow = new Graphics();
@@ -527,11 +594,12 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
           icons.addChild(glow);
         }
       }
-    }, [fields, layer, wormholes]);
+    }, [fields, layer, nebulaCloudIndex, wormholes]);
 
     useEffect(() => {
       if (!containerRef.current) return;
       const abort = new AbortController();
+      setLoadingTerrain(true);
       const app = new Application();
       const initPromise = app.init({
         resizeTo: containerRef.current,
@@ -547,8 +615,9 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
         galaxyRef.current = galaxy;
         setReady(true);
         app.stage.addChild(galaxy);
-        void renderGalaxy(galaxy).then(() => {
+        void renderGalaxy(galaxy, abort.signal).then(() => {
           if (abort.signal.aborted) return;
+          setLoadingTerrain(false);
           const mapOverlays = new Graphics();
           mapOverlaysRef.current = mapOverlays;
           galaxy.addChild(mapOverlays);
@@ -742,6 +811,7 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
 
     return (
       <div ref={containerRef} className="relative w-full h-[calc(100vh-160px)] min-h-[400px] rounded-lg border border-swu-border overflow-hidden bg-black">
+        {loadingTerrain && <div role="status" className="absolute inset-0 z-20 flex items-center justify-center bg-black text-sm text-swu-muted">Sternenkarte wird geladen …</div>}
         <div
           ref={worldOverlayRef}
           className="absolute left-0 top-0 z-10 pointer-events-none origin-top-left"

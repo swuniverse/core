@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: swuniverse
       POSTGRES_PASSWORD: devpassword
     volumes:
-      - ./infra/postgres-data-dev:/var/lib/postgresql/data
+      - ${SWU_DEV_POSTGRES_DATA:-./infra/postgres-data-dev}:/var/lib/postgresql/data
     ports:
       - '5490:5432'
     healthcheck:

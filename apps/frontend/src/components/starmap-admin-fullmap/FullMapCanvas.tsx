@@ -1,11 +1,15 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Application, Container, Sprite, Graphics, Assets, Text, TextStyle } from 'pixi.js';
-import type { StarmapGalaxyFieldDto } from '@swuniverse/shared';
+import { buildNebulaCloudIndex, isNebulaCloudSpace, type StarmapGalaxyFieldDto } from '@swuniverse/shared';
 import { useAdminSignatureStore } from '../../stores/admin-signature.store';
 import { useAuthStore } from '../../stores/auth.store';
 import { drawFlightSignatures, signatureViewport } from './flight-signature-overlay';
 import { useFullmapEditorStore } from '../../stores/fullmap-editor.store';
-import { spaceBackgroundTile, systemTypeImage, starTileImage } from '../../lib/assets';
+import { spaceBackgroundTile, systemTypeImage } from '../../lib/assets';
+
+import { terrainAppearance } from '../../lib/map-terrain';
+import { featherNebulaSprite } from '../../lib/map-terrain-pixi';
+import { getNebulaCloudPixiTexture } from '../../lib/nebula-cloud-pixi';
 
 const CELL = 30;
 const MIN_SCALE = 0.05;
@@ -24,6 +28,7 @@ export function FullMapCanvas() {
   const signatureFields = useAdminSignatureStore((s) => s.fields);
   const signaturesEnabled = useAdminSignatureStore((s) => s.enabled);
   const isAdmin = useAuthStore((s) => s.user?.isAdmin === true);
+  const tileLoadGeneration = useRef(0);
   const gridGfxRef = useRef<Graphics | null>(null);
   const selectionGfxRef = useRef<Graphics | null>(null);
   const overlayContainerRef = useRef<Container | null>(null);
@@ -149,7 +154,7 @@ export function FullMapCanvas() {
   const drawImpassableOverlay = useCallback(() => {
     const container = overlayContainerRef.current;
     if (!container) return;
-    container.removeChildren();
+    for (const child of container.removeChildren()) child.destroy({ children: true });
     if (!overlays.impassable) return;
 
     const style = new TextStyle({ fontSize: 10, fill: 0xffffff, fontWeight: 'bold' });
@@ -227,6 +232,7 @@ export function FullMapCanvas() {
 
     return () => {
       ac.abort();
+      tileLoadGeneration.current++;
       appRef.current = null;
       galaxyRef.current = null;
       gridGfxRef.current = null;
@@ -249,7 +255,7 @@ export function FullMapCanvas() {
     }
     const container = galaxyRef.current;
     if (!container || !appRef.current) return;
-    container.removeChildren();
+    for (const child of container.removeChildren()) child.destroy({ children: true });
     const overlayContainer = new Container();
     overlayContainerRef.current = overlayContainer;
     container.addChild(overlayContainer);
@@ -268,6 +274,16 @@ export function FullMapCanvas() {
 
   const loadTiles = useCallback(async (container: Container) => {
     if (!layer) return;
+    const renderFields = fieldsRef.current;
+    const nebulaCloudIndex = buildNebulaCloudIndex(renderFields.flatMap((field) => (
+      field.fieldType.key !== 'UNKNOWN' &&
+      field.fieldType.category === 'nebula' &&
+      field.nebulaVisual
+        ? [{ x: field.cx, y: field.cy, visual: field.nebulaVisual }]
+        : []
+    )));
+    const generation = ++tileLoadGeneration.current;
+    const isCancelled = () => container.destroyed || generation !== tileLoadGeneration.current;
     const bg = new Graphics();
     bg.rect(0, 0, layer.width * CELL, layer.height * CELL).fill({ color: 0x000000 });
     container.addChildAt(bg, 0);
@@ -277,33 +293,65 @@ export function FullMapCanvas() {
     container.addChild(tileLayer);
     container.addChild(iconLayer);
 
-    const loadPromises = fields
+    const visibleTerrainAt = (x: number, y: number) => {
+      const type = fieldMapRef.current.get(`${x},${y}`)?.fieldType;
+      return type?.key === 'UNKNOWN' ? undefined : type;
+    };
+    const loadPromises = renderFields
       .filter((f) => f.fieldType.key !== 'UNKNOWN')
       .map(async (field) => {
         const cx = (field.cx - 1) * CELL;
         const cy = (field.cy - 1) * CELL;
+        const neighbors = [
+          visibleTerrainAt(field.cx, field.cy - 1),
+          visibleTerrainAt(field.cx + 1, field.cy),
+          visibleTerrainAt(field.cx, field.cy + 1),
+          visibleTerrainAt(field.cx - 1, field.cy),
+          visibleTerrainAt(field.cx - 1, field.cy - 1),
+          visibleTerrainAt(field.cx + 1, field.cy - 1),
+          visibleTerrainAt(field.cx + 1, field.cy + 1),
+          visibleTerrainAt(field.cx - 1, field.cy + 1),
+        ];
 
-        const tileUrl = field.fieldTypeId > 1
-          ? starTileImage(field.fieldTypeId)
-          : spaceBackgroundTile(field.cx, field.cy);
         try {
+          const hasActiveNebulaVisual = field.fieldType.key !== 'UNKNOWN' &&
+            field.fieldType.category === 'nebula' && Boolean(field.nebulaVisual);
+          const canReceiveCloud = hasActiveNebulaVisual || isNebulaCloudSpace(field.fieldType);
+          const nebulaTexture = field.nebulaTexture
+            ? await Assets.load(field.nebulaTexture)
+            : canReceiveCloud
+              ? getNebulaCloudPixiTexture(nebulaCloudIndex, field.cx, field.cy)
+              : null;
+          const appearance = terrainAppearance(nebulaTexture ? { id: 1, key: 'EMPTY_SPACE' } : field.fieldType, field.cx, field.cy);
+          const tileUrl = appearance.image;
+          if (!tileUrl) return;
           const texture = await Assets.load(tileUrl);
+          if (isCancelled()) return;
           const sprite = new Sprite(texture);
+          sprite.alpha = appearance.alpha;
+          sprite.tint = appearance.tint;
           sprite.position.set(cx, cy);
           sprite.width = CELL;
           sprite.height = CELL;
           tileLayer.addChild(sprite);
+          if (nebulaTexture) {
+            const cloud = new Sprite(nebulaTexture); cloud.position.set(cx, cy); cloud.width = cloud.height = CELL;
+            tileLayer.addChild(cloud);
+          } else featherNebulaSprite(sprite, tileLayer, field.fieldType, neighbors.slice(0, 4));
         } catch {
+          if (isCancelled()) return;
           // Fallback: try procedural background, then black rect
           try {
             const bgUrl = spaceBackgroundTile(field.cx, field.cy);
             const texture = await Assets.load(bgUrl);
+            if (isCancelled()) return;
             const sprite = new Sprite(texture);
             sprite.position.set(cx, cy);
             sprite.width = CELL;
             sprite.height = CELL;
             tileLayer.addChild(sprite);
           } catch {
+            if (isCancelled()) return;
             const g = new Graphics();
             g.rect(cx, cy, CELL, CELL).fill({ color: 0x0a0a1a });
             tileLayer.addChild(g);
@@ -314,6 +362,7 @@ export function FullMapCanvas() {
           try {
             const iconUrl = systemTypeImage(field.systemTypeId);
             const texture = await Assets.load(iconUrl);
+            if (isCancelled()) return;
             const sprite = new Sprite(texture);
             const s = CELL * 1.4;
             sprite.width = s;
@@ -325,6 +374,7 @@ export function FullMapCanvas() {
       });
 
     await Promise.all(loadPromises);
+    if (isCancelled()) return;
 
     // Grid
     const grid = new Graphics();
@@ -351,7 +401,7 @@ export function FullMapCanvas() {
     if (rectGfxRef.current) {
       container.addChild(rectGfxRef.current);
     }
-  }, [fields, layer]);
+  }, [layer]);
 
   const fitView = useCallback((app: Application) => {
     if (!layer) return;

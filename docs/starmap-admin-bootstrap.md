@@ -173,3 +173,19 @@ Content-Type: application/json
 - Sektorübersicht mit Feldfarben bauen
 - `FieldType` Katalog erweitern
 - optional später: batchweise Systeminitialisierung wie STU
+
+## Automatische Nebelgebiete (optional)
+
+Im Vollkarteneditor öffnet **Nebelgebiete erzeugen** eine schreibfreie Vorschau für die ausgewählte Ebene. Seed, Ziel (Galaxie, Systeme oder beide) und Flächenanteil sind einstellbar. Standard: `swu-nebula-v1`, beide Ebenen, ausgewogen. Die Vorschau zeigt Feldkosten, Schäden und Ressourcen; erst **Anwenden** schreibt die Änderungen gemeinsam. Ändert sich der Kartenstand zwischenzeitlich, muss eine neue Vorschau erzeugt werden.
+
+Die Erzeugung ergänzt ausschließlich gewöhnliche freie Weltraumfelder. Startsysteme, Wurmlöcher, Hyperraumrouten, Himmelskörper, alle Systemränder als mögliche Eintrittspositionen, belegte Felder und individuelle Feldeinstellungen werden geschützt. Vorhandene Nebel und anderes Sondergelände bleiben erhalten. Derselbe Seed und dieselbe Dichte erzeugen beim erneuten Anwenden keine weiteren Nebelfelder.
+
+Verwendet werden vorhandene sehr dünne, dünne und mittlere Nebeltypen mit ihren bestehenden Spielwerten. Es gibt keine automatische Bestandsmigration und keine Änderung beim Laden der Karte. `MAP_EDITOR` berechtigt zu beiden Endpunkten:
+
+```http
+POST /starmap/admin/layers/:id/nebula/preview
+{ "seed": "swu-nebula-v1", "target": "BOTH", "density": "BALANCED" }
+
+POST /starmap/admin/layers/:id/nebula/apply
+{ "seed": "swu-nebula-v1", "target": "BOTH", "density": "BALANCED", "fingerprint": "<aus der Vorschau>" }
+```

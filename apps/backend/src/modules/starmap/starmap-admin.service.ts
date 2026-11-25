@@ -1,3 +1,4 @@
+import { nebulaVisualForField } from './nebula-generation';
 import { isStuClassColonizable } from './generator/stu-class-colonizable';
 import {
   TACTICAL_CANON_NAMES,
@@ -2185,6 +2186,7 @@ export class StarmapAdminService {
       id: input.defaultFieldTypeId,
     });
     if (!fieldType) throw new NotFoundException('Field type not found');
+    if (fieldType.category === 'nebula' || fieldType.category === 'system_nebula' || fieldType.key === 'NEBULA') throw new BadRequestException('Nebelfelder sind nur auf der Galaxiekarte erlaubt');
 
     const existing = await this.systemFieldRepo.count({
       where: { starSystemId: systemId },
@@ -2232,6 +2234,7 @@ export class StarmapAdminService {
         id: patch.fieldTypeId,
       });
       if (!fieldType) throw new NotFoundException('Field type not found');
+      if (fieldType.category === 'nebula' || fieldType.category === 'system_nebula' || fieldType.key === 'NEBULA') throw new BadRequestException('Nebelfelder sind nur auf der Galaxiekarte erlaubt');
       field.fieldTypeId = fieldType.id;
       field.isPassable = fieldType.passable;
       field.energyCost = fieldType.energyCost;
@@ -2771,6 +2774,7 @@ export class StarmapAdminService {
       borderTypeId: field.borderTypeId,
       effects: field.effects,
       passableOverride: field.passableOverride,
+      ...(nebulaVisualForField(field) ? { nebulaVisual: nebulaVisualForField(field) } : {}),
       fieldType: this.toFieldTypeDto(field.fieldType),
       starSystem: field.starSystem
         ? this.toSystemListItemDto(field.starSystem)

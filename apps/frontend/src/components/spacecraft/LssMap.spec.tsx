@@ -1,5 +1,8 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { LssMap, type LocalMapSystem } from './LssMap';
+import { LssMap, type LocalMapGalaxy, type LocalMapSystem } from './LssMap';
+
+const cloud = vi.hoisted(() => ({ getNebulaCloudDomStyle: vi.fn() }));
+vi.mock('../../lib/nebula-cloud', () => ({ getNebulaCloudDomStyle: cloud.getNebulaCloudDomStyle }));
 
 vi.mock('../../lib/assets', () => ({
   anomalyImage: (type: string) => `/anomaly-${type.toLowerCase()}.png`,
@@ -48,6 +51,176 @@ function systemMap(
 }
 
 describe('LssMap', () => {
+  beforeEach(() => {
+    cloud.getNebulaCloudDomStyle.mockReset().mockImplementation((_index, x, y) => ({
+      backgroundImage: `url(/cloud-${x}-${y}.png)`,
+      backgroundSize: '100% 100%',
+    }));
+  });
+
+  it('shows supplied texture and a known empty-space halo while ignoring redacted metadata', () => {
+    const visual = { version: 2 as const, seed: 'known-cloud', width: 10, height: 10, density: 'RICH' as const };
+    const localMap: LocalMapGalaxy = {
+      mode: 'galaxy',
+      shipX: 1,
+      shipY: 1,
+      sensorRange: 1,
+      bounds: { minX: 1, maxX: 5, minY: 1, maxY: 1 },
+      fields: [
+        {
+          id: 1,
+          cx: 1,
+          cy: 1,
+          fieldType: { id: 100, key: 'NEBULA', name: 'Nebel', category: 'nebula' },
+          nebulaTexture: '/known-nebula.png',
+          nebulaVisual: visual,
+        },
+        {
+          id: 2,
+          cx: 2,
+          cy: 1,
+          fieldType: { id: 1, key: 'EMPTY_SPACE', name: 'Leerer Raum', category: 'space' },
+        },
+        {
+          id: 3,
+          cx: 3,
+          cy: 1,
+          fieldType: { id: 1, key: 'EMPTY_SPACE', name: 'Leerer Raum' },
+          nebulaTexture: '/known-space-halo.png',
+        },
+        {
+          id: 4,
+          cx: 4,
+          cy: 1,
+          redacted: true,
+          fieldType: { id: 1, key: 'EMPTY_SPACE', name: 'Leerer Raum' },
+          nebulaTexture: '/hidden-nebula.png',
+          nebulaVisual: {
+            version: 2,
+            seed: 'hidden-seed',
+            width: 40,
+            height: 40,
+            density: 'RICH',
+          },
+        },
+        {
+          id: 5,
+          cx: 5,
+          cy: 1,
+          fieldType: { id: 0, key: 'UNKNOWN', name: 'Unbekannt' },
+          nebulaTexture: '/unknown-nebula.png',
+          nebulaVisual: {
+            version: 2,
+            seed: 'unknown-seed',
+            width: 40,
+            height: 40,
+            density: 'RICH',
+          },
+        },
+      ],
+      canEnterSystem: false,
+      canLeaveSystem: false,
+    };
+
+    render(
+      <LssMap
+        localMap={localMap}
+        navTarget={null}
+        onFieldClick={vi.fn()}
+      />,
+    );
+
+    const knownField = screen.getByRole('button', { name: /Feld 1,1/ });
+    expect(knownField.querySelector('img')?.getAttribute('src')).toBe(
+      '/space.png',
+    );
+    const nebulaOverlay = knownField.querySelector('div');
+    expect(nebulaOverlay?.style.backgroundImage).toContain(
+      '/known-nebula.png',
+    );
+    expect(knownField.querySelector('img')?.getAttribute('style')).not.toContain('mask-image');
+
+    const haloField = screen.getByRole('button', { name: /Feld 2,1/ });
+    expect(haloField.querySelector('img')?.getAttribute('src')).toBe('/space.png');
+    expect(haloField.querySelector('img')?.getAttribute('style')).not.toContain('mask-image');
+    expect(haloField.querySelector('div')?.getAttribute('style')).toContain('/cloud-2-1.png');
+    expect(cloud.getNebulaCloudDomStyle).toHaveBeenCalledTimes(1);
+    expect(cloud.getNebulaCloudDomStyle).toHaveBeenCalledWith(expect.objectContaining({
+      sources: expect.any(Map),
+    }), 2, 1);
+
+    const suppliedHaloField = screen.getByRole('button', { name: /Feld 3,1/ });
+    expect(suppliedHaloField.querySelector('div')?.getAttribute('style')).toContain('/known-space-halo.png');
+    expect(suppliedHaloField.querySelector('img')?.getAttribute('style')).not.toContain('mask-image');
+
+    const redactedField = screen.getByLabelText(
+      'Feld 4,1: Sensordaten blockiert',
+    );
+    expect(redactedField.querySelector('img')).toBeNull();
+    expect(redactedField.querySelector('div')).toBeNull();
+    expect((redactedField as HTMLElement).style.backgroundImage).toBe('');
+    expect(screen.getByLabelText('Feld 5,1: Sensordaten blockiert')).not.toBeNull();
+  });
+
+  it('keeps legacy galaxy nebula on the existing edge mask', () => {
+    const localMap: LocalMapGalaxy = {
+      mode: 'galaxy',
+      shipX: 1,
+      shipY: 1,
+      sensorRange: 1,
+      bounds: { minX: 1, maxX: 1, minY: 1, maxY: 1 },
+      fields: [{
+        id: 1,
+        cx: 1,
+        cy: 1,
+        fieldType: { id: 100, key: 'NEBULA', name: 'Nebel' },
+      }],
+      canEnterSystem: false,
+      canLeaveSystem: false,
+    };
+
+    render(<LssMap localMap={localMap} navTarget={null} onFieldClick={vi.fn()} />);
+
+    expect(screen.getByRole('button').querySelector('img')?.getAttribute('style')).toContain('mask-image');
+    expect(cloud.getNebulaCloudDomStyle).not.toHaveBeenCalled();
+  });
+
+  it('keeps a legacy nebula tile beside an active source out of the cloud helper', () => {
+    const localMap: LocalMapGalaxy = {
+      mode: 'galaxy',
+      shipX: 1,
+      shipY: 1,
+      sensorRange: 1,
+      bounds: { minX: 1, maxX: 2, minY: 1, maxY: 1 },
+      fields: [
+        {
+          id: 1,
+          cx: 1,
+          cy: 1,
+          fieldType: { id: 120, key: 'NEBULA', name: 'Nebel', category: 'nebula' },
+          nebulaVisual: { version: 2, seed: 'active-cloud', width: 10, height: 10, density: 'RICH' },
+        },
+        {
+          id: 2,
+          cx: 2,
+          cy: 1,
+          fieldType: { id: 121, key: 'NEBULA', name: 'Alter Nebel', category: 'nebula' },
+        },
+      ],
+      canEnterSystem: false,
+      canLeaveSystem: false,
+    };
+
+    render(<LssMap localMap={localMap} navTarget={null} onFieldClick={vi.fn()} />);
+
+    const legacyField = screen.getByRole('button', { name: /Feld 2,1/ });
+    expect(legacyField.querySelector('img')?.getAttribute('src')).toBe('/star-121.png');
+    expect(legacyField.querySelector('img')?.getAttribute('style')).toContain('mask-image');
+    expect(cloud.getNebulaCloudDomStyle).toHaveBeenCalledTimes(1);
+    expect(cloud.getNebulaCloudDomStyle).toHaveBeenCalledWith(expect.anything(), 1, 1);
+    expect(cloud.getNebulaCloudDomStyle).not.toHaveBeenCalledWith(expect.anything(), 2, 1);
+  });
+
   it('refreshes the count at scan expiry and cancels the timer on unmount', () => {
     vi.useFakeTimers();
     try {
@@ -310,4 +483,21 @@ describe('LssMap', () => {
       'Subraumellipse (noch 2 Ticks)',
     );
   });
+  it('shows persisted nebula terrain in sensors without revealing redacted neighbors', () => {
+    const localMap = systemMap(201);
+    localMap.systemTypeId = 0;
+    localMap.stars = [];
+    localMap.bounds = { minX: 1, maxX: 2, minY: 14, maxY: 14 };
+    localMap.fields = [
+      { id: 1, sx: 1, sy: 14, fieldType: { id: 120, key: 'neon_nebel_120', name: 'Neon-Nebel' } },
+      { id: 2, sx: 2, sy: 14, redacted: true, fieldType: { id: 121, key: 'neon_nebel_121', name: 'Geheimer Nebel' } },
+    ];
+    render(<LssMap localMap={localMap} navTarget={null} onFieldClick={vi.fn()} />);
+    const cloud = screen.getByRole('button', { name: /Feld 1,14: Neon-Nebel/ });
+    expect(cloud.querySelector('img')?.getAttribute('src')).toBe('/star-120.png');
+    const redacted = screen.getByLabelText('Feld 2,14: Sensordaten blockiert');
+    expect(redacted.querySelector('img')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Geheimer Nebel/ })).toBeNull();
+  });
+
 });

@@ -1,4 +1,6 @@
-import { Fragment, useEffect } from 'react';
+import { buildNebulaCloudIndex, isNebulaCloudSpace } from '@swuniverse/shared';
+import type { NebulaVisualDto } from '@swuniverse/shared';
+import { Fragment, useEffect, useMemo } from 'react';
 import {
   fieldEffectDefinition,
   knownFieldEffects,
@@ -14,23 +16,27 @@ import { PlanetImg } from '../PlanetImg';
 import { AnomalyMarkers, formatAnomaly } from '../starmap/AnomalyMarker';
 import {
   planetThumbnail,
-  spaceBackgroundTile,
   starTileImage,
   systemTypeImage,
 } from '../../lib/assets';
 import { isStarObject } from '../../lib/starmap-render';
+import { terrainAppearance, nebulaEdgeMask } from '../../lib/map-terrain';
 import { getStarTileConfig, getStarTileIdAt } from '../../lib/star-tiles';
+import { getNebulaCloudDomStyle } from '../../lib/nebula-cloud';
 
 interface FieldType {
   id: number;
   key: string;
   name: string;
+  category?: string | null;
   energyCost?: number;
   damage?: number;
   effects?: string[] | null;
 }
 
 interface GalaxyLocalField {
+  nebulaVisual?: NebulaVisualDto | null;
+  nebulaTexture?: string;
   id?: number;
   cx: number;
   cy: number;
@@ -247,6 +253,17 @@ export function LssMap({
   onFieldClick,
   onScanExpired,
 }: LssMapProps) {
+  const nebulaCloudIndex = useMemo(() => {
+    if (localMap.mode !== 'galaxy') return buildNebulaCloudIndex([]);
+    return buildNebulaCloudIndex(localMap.fields.flatMap((field) => (
+      !field.redacted &&
+      field.fieldType?.key !== 'UNKNOWN' &&
+      field.fieldType?.category === 'nebula' &&
+      field.nebulaVisual
+        ? [{ x: field.cx, y: field.cy, visual: field.nebulaVisual }]
+        : []
+    )));
+  }, [localMap]);
   useEffect(() => {
     const expiresAt = localMap.tachyonScanExpiresAt;
     if (expiresAt == null || !onScanExpired) return;
@@ -275,6 +292,26 @@ export function LssMap({
     (_, index) => bounds.minY + index,
   );
 
+  const visibleTerrain = new Map(localMap.fields.filter((field) => !field.redacted && field.fieldType && field.fieldType.key !== 'UNKNOWN').map((field) => [
+    'cx' in field ? `${field.cx},${field.cy}` : `${field.sx},${field.sy}`, field.fieldType,
+  ]));
+  const terrainNeighbors = (x: number, y: number) => [
+    visibleTerrain.get(`${x},${y - 1}`),
+    visibleTerrain.get(`${x + 1},${y}`),
+    visibleTerrain.get(`${x},${y + 1}`),
+    visibleTerrain.get(`${x - 1},${y}`),
+    visibleTerrain.get(`${x - 1},${y - 1}`),
+    visibleTerrain.get(`${x + 1},${y - 1}`),
+    visibleTerrain.get(`${x + 1},${y + 1}`),
+    visibleTerrain.get(`${x - 1},${y + 1}`),
+  ];
+  const terrainMask = (x: number, y: number, type: FieldType) => {
+    const neighbors = terrainNeighbors(x, y);
+    return nebulaEdgeMask(type, {
+      top: neighbors[0], right: neighbors[1],
+      bottom: neighbors[2], left: neighbors[3],
+    });
+  };
   const tracesByPosition = new Map<string, SubspaceTraceOverlay[]>();
   for (const trace of localMap.overlays?.subspaceTraces ?? []) {
     const key = `${trace.x},${trace.y}`;
@@ -349,7 +386,7 @@ export function LssMap({
                       />
                     );
                   }
-                  if (field.redacted || !field.fieldType) {
+                  if (field.redacted || !field.fieldType || field.fieldType.key === 'UNKNOWN') {
                     return (
                       <div
                         key={`redacted-${x}-${y}`}
@@ -359,10 +396,16 @@ export function LssMap({
                       />
                     );
                   }
-                  const fieldTileImage =
-                    field.fieldType.key === 'EMPTY_SPACE'
-                      ? spaceBackgroundTile(x, y)
-                      : starTileImage(field.fieldType.id);
+                  const hasActiveNebulaVisual = field.fieldType.category === 'nebula' && Boolean(field.nebulaVisual);
+                  const canReceiveCloud = hasActiveNebulaVisual || isNebulaCloudSpace(field.fieldType);
+                  const nebulaStyle = field.nebulaTexture
+                    ? { backgroundImage: `url(${field.nebulaTexture})`, backgroundSize: '100% 100%' }
+                    : canReceiveCloud
+                      ? getNebulaCloudDomStyle(nebulaCloudIndex, x, y)
+                      : undefined;
+                  const edgeMask = nebulaStyle ? undefined : terrainMask(x, y, field.fieldType);
+                  const terrain = terrainAppearance(nebulaStyle ? { id: 1, key: 'EMPTY_SPACE' } : field.fieldType, x, y);
+                  const fieldTileImage = terrain.image;
                   const systemAsset = field.systemTypeId
                     ? systemTypeImage(field.systemTypeId)
                     : null;
@@ -398,14 +441,16 @@ export function LssMap({
                         />
                       ) : (
                         <img
-                          src={fieldTileImage}
+                          src={fieldTileImage ?? undefined}
                           alt=""
-                          className="absolute inset-0 h-full w-full object-cover opacity-90"
+                          className="absolute inset-0 h-full w-full object-cover"
+                          style={{ opacity: terrain.alpha, filter: terrain.filter, ...(!nebulaStyle ? edgeMask : undefined) }}
                           onError={(event) => {
                             event.currentTarget.style.display = 'none';
                           }}
                         />
                       )}
+                      {nebulaStyle && <div className="absolute inset-0" style={nebulaStyle} />}
                       {field.starSystemId
                         ? '✦'
                         : getGalaxyFieldMarker(field.fieldType.key)}
@@ -502,11 +547,8 @@ export function LssMap({
                     : null;
                 const objectAsset =
                   obj?.classId != null ? planetThumbnail(obj.classId) : null;
-                const fieldTileImage =
-                  field.fieldType.key === 'EMPTY_SPACE' ||
-                  field.fieldType.key === 'DEEP_SPACE'
-                    ? spaceBackgroundTile(x, y)
-                    : starTileImage(field.fieldType.id);
+                const terrain = terrainAppearance(field.fieldType, x, y);
+                const fieldTileImage = terrain.image;
                 const fallbackLabel = obj
                   ? OBJECT_TYPE_EMOJI[obj.objectType] || '●'
                   : field.fieldType.key === 'STAR_CORE'
@@ -539,20 +581,8 @@ export function LssMap({
                         : '',
                     ].join(' ')}
                   >
-                    {!showStarTile && !objectAsset && (
-                      <img
-                        src={fieldTileImage}
-                        alt=""
-                        className="absolute inset-0 h-full w-full object-cover opacity-90"
-                        onError={(event) => {
-                          event.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    )}
                     {obj?.isColonizable && !isShip && (
-                      <span className="absolute right-0.5 top-0.5 z-10 rounded bg-emerald-500/80 px-0.5 text-[7px] leading-none text-black">
-                        K
-                      </span>
+                      <span className="absolute right-0.5 top-0.5 z-10 rounded bg-emerald-500/80 px-0.5 text-[7px] leading-none text-black">K</span>
                     )}
                     {starTileAsset ? (
                       <img
@@ -567,11 +597,12 @@ export function LssMap({
                         objectType={obj!.objectType}
                         shielded={obj!.shielded}
                         thumbnail
-                        className="h-full w-full object-contain"
+                        className="relative z-10 h-full w-full object-contain"
                       />
                     ) : (
                       fallbackLabel
                     )}
+                    {!starTileAsset && fieldTileImage && <img src={fieldTileImage} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ opacity: terrain.alpha, filter: terrain.filter, ...terrainMask(x, y, field.fieldType) }} />}
                     <AnomalyMarkers anomalies={field.anomalies} />
                     <SubspaceTraces traces={subspaceTraces} />
                     {isShip && shipCursorUrl && (

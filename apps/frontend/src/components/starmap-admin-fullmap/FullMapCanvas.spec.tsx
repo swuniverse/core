@@ -1,4 +1,5 @@
 import { act, render, waitFor } from '@testing-library/react';
+import { Assets } from 'pixi.js';
 import { FullMapCanvas } from './FullMapCanvas';
 import { useFullmapEditorStore } from '../../stores/fullmap-editor.store';
 import { useAdminSignatureStore } from '../../stores/admin-signature.store';
@@ -7,7 +8,20 @@ import { useAuthStore } from '../../stores/auth.store';
 const pixi = vi.hoisted(() => ({
   resolveInit: null as (() => void) | null,
   strokes: [] as Array<{ color: number; lines: number[][] }>,
+  assetLoads: [] as string[],
+  sprites: [] as unknown[],
+  organicNebulaSprite: vi.fn(),
+  featherNebulaSprite: vi.fn(),
+  getNebulaCloudPixiTexture: vi.fn(),
 }));
+vi.mock('../../lib/map-terrain-pixi', () => ({
+  organicNebulaSprite: pixi.organicNebulaSprite,
+  featherNebulaSprite: pixi.featherNebulaSprite,
+}));
+vi.mock('../../lib/nebula-cloud-pixi', () => ({
+  getNebulaCloudPixiTexture: pixi.getNebulaCloudPixiTexture,
+}));
+
 vi.mock('pixi.js', () => {
   class Container {
     children: unknown[] = [];
@@ -63,12 +77,22 @@ vi.mock('pixi.js', () => {
       this.stage.removeChildren();
     }
   }
+  class Sprite {
+    position = { set: vi.fn() };
+    width = 0;
+    height = 0;
+    alpha = 1;
+    tint = 0xffffff;
+    constructor(public texture: unknown) {
+      pixi.sprites.push(texture);
+    }
+  }
   return {
     Application,
     Container,
     Graphics,
-    Assets: { load: vi.fn() },
-    Sprite: class Sprite {},
+    Assets: { load: vi.fn((url: string) => { pixi.assetLoads.push(url); return { url }; }) },
+    Sprite,
     Text: class Text {},
     TextStyle: class TextStyle {},
   };
@@ -85,6 +109,13 @@ describe('FullMapCanvas flight signatures', () => {
   beforeEach(() => {
     pixi.resolveInit = null;
     pixi.strokes = [];
+    pixi.assetLoads = [];
+    pixi.sprites = [];
+    pixi.organicNebulaSprite.mockClear();
+    pixi.featherNebulaSprite.mockClear();
+    pixi.getNebulaCloudPixiTexture.mockReset();
+    vi.mocked(Assets.load).mockClear();
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
     useAuthStore.setState({ user: { isAdmin: true } as never });
     useFullmapEditorStore.setState({
       fields: [],
@@ -100,6 +131,10 @@ describe('FullMapCanvas flight signatures', () => {
       fields: [],
       viewport: { layerId: 5, xStart: 1, xEnd: 2, yStart: 1, yEnd: 2 },
     });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('draws signature data arriving before asynchronous canvas initialization and redraws new directions', async () => {
@@ -157,5 +192,104 @@ describe('FullMapCanvas flight signatures', () => {
     expect(pixi.strokes.some((stroke) => stroke.color === 0xc2b942)).toBe(
       false,
     );
+  });
+
+  it('loads and draws texture PNGs for known galaxy fields while skipping UNKNOWN metadata', async () => {
+    const nebula = {
+      id: 1,
+      cx: 1,
+      cy: 1,
+      fieldTypeId: 120,
+      fieldType: { id: 120, key: 'NEBULA', category: 'nebula', name: 'Nebel' },
+      systemTypeId: null,
+      nebulaTexture: '/known-nebula.png',
+    };
+    const spaceHalo = {
+      id: 2,
+      cx: 2,
+      cy: 1,
+      fieldTypeId: 1,
+      fieldType: { id: 1, key: 'EMPTY_SPACE', category: 'space', name: 'Leer' },
+      systemTypeId: null,
+      nebulaTexture: '/known-space-halo.png',
+    };
+    const unknown = {
+      ...nebula,
+      id: 3,
+      cx: 3,
+      fieldType: { id: 0, key: 'UNKNOWN', name: 'Unbekannt' },
+      nebulaTexture: '/hidden-nebula.png',
+    };
+    useFullmapEditorStore.setState({ fields: [nebula, spaceHalo, unknown] as never });
+    const { unmount } = render(<FullMapCanvas />);
+
+    await act(async () => { pixi.resolveInit?.(); await Promise.resolve(); });
+    await waitFor(() => expect(pixi.assetLoads).toContain('/known-nebula.png'));
+    await waitFor(() => expect(pixi.assetLoads).toContain('/known-space-halo.png'));
+    await waitFor(() => expect(pixi.sprites).toContainEqual({ url: '/known-nebula.png' }));
+    expect(pixi.sprites).toContainEqual({ url: '/known-space-halo.png' });
+    expect(pixi.assetLoads).not.toContain('/hidden-nebula.png');
+    expect(pixi.sprites).not.toContainEqual({ url: '/hidden-nebula.png' });
+    expect(pixi.organicNebulaSprite).not.toHaveBeenCalled();
+    expect(pixi.featherNebulaSprite).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('draws source and empty-space halos without tile masks and skips unknown sources', async () => {
+    const visual = { version: 2, seed: 'editor-cloud', width: 10, height: 10, density: 'RICH' };
+    const source = {
+      id: 1,
+      cx: 1,
+      cy: 1,
+      fieldTypeId: 120,
+      fieldType: { id: 120, key: 'NEBULA', category: 'nebula', name: 'Nebel' },
+      systemTypeId: null,
+      nebulaVisual: visual,
+    };
+    const legacyNebula = {
+      id: 2,
+      cx: 2,
+      cy: 1,
+      fieldTypeId: 120,
+      fieldType: { id: 120, key: 'NEBULA', category: 'nebula', name: 'Altnebel' },
+      systemTypeId: null,
+    };
+    const receiver = {
+      id: 3,
+      cx: 3,
+      cy: 1,
+      fieldTypeId: 1,
+      fieldType: { id: 1, key: 'EMPTY_SPACE', category: 'space', name: 'Leer' },
+      systemTypeId: null,
+    };
+    const unknown = {
+      ...source,
+      id: 4,
+      cx: 4,
+      fieldType: { id: 0, key: 'UNKNOWN', name: 'Unbekannt' },
+      nebulaTexture: '/hidden-cloud.png',
+    };
+    pixi.getNebulaCloudPixiTexture.mockImplementation((_index, x, y) => ({ url: `cloud-${x}-${y}` }));
+    useFullmapEditorStore.setState({ fields: [source, legacyNebula, receiver, unknown] as never });
+    const { unmount } = render(<FullMapCanvas />);
+
+    await act(async () => { pixi.resolveInit?.(); await Promise.resolve(); });
+    await waitFor(() => expect(pixi.getNebulaCloudPixiTexture).toHaveBeenCalledTimes(2));
+    expect(pixi.getNebulaCloudPixiTexture).toHaveBeenCalledWith(expect.objectContaining({
+      sources: expect.any(Map),
+    }), 1, 1);
+    expect(pixi.getNebulaCloudPixiTexture).not.toHaveBeenCalledWith(expect.anything(), 2, 1);
+    expect(pixi.getNebulaCloudPixiTexture).toHaveBeenCalledWith(expect.anything(), 3, 1);
+    expect(pixi.getNebulaCloudPixiTexture).not.toHaveBeenCalledWith(expect.anything(), 4, 1);
+    expect(pixi.sprites).toContainEqual({ url: 'cloud-1-1' });
+    expect(pixi.sprites).toContainEqual({ url: 'cloud-3-1' });
+    expect(pixi.assetLoads).not.toContain('/hidden-cloud.png');
+    expect(pixi.organicNebulaSprite).not.toHaveBeenCalled();
+    expect(pixi.featherNebulaSprite).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(), legacyNebula.fieldType,
+      [undefined, receiver.fieldType, undefined, source.fieldType],
+    );
+    expect(pixi.featherNebulaSprite).toHaveBeenCalledTimes(1);
+    unmount();
   });
 });
