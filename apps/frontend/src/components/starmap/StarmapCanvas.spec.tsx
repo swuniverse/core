@@ -225,6 +225,41 @@ describe('StarmapCanvas arrival focus', () => {
   const basicProps = { layer, fields, selectedSystem: null, openedSystemIds: [], systemGrids,
     onSelectSystem: vi.fn(), onOpenSystem: vi.fn(), influence, contacts };
 
+  it('marks fields with a trade post, independent of overlays', async () => {
+    const post = { ...fields[0], details: {
+      territoryOwner: null, tradePost: { id: 20, name: 'Posten', licenseCondition: null },
+      region: null, effectTexts: [], isImpassable: false, databaseSystemId: null,
+    } };
+    const view = render(<StarmapCanvas {...basicProps} fields={[post]} />);
+    await act(async () => { pixiControl.resolveInit?.(); await Promise.resolve(); });
+    await act(async () => {
+      for (let flush = 0; flush < 4; flush++) {
+        for (const load of pixiControl.pendingLoads.splice(0)) load.resolve({ width: 1, height: 1 });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    });
+    const x = (post.cx - 1) * STARMAP_CELL_SIZE + 7;
+    const y = post.cy * STARMAP_CELL_SIZE - 7;
+    await waitFor(() => {
+      expect(pixiControl.graphicsCalls).toContainEqual({ method: 'circle', args: [x, y, 4.5] });
+    });
+    view.unmount();
+  });
+
+  it('draws no trade post marker on fields without a post', async () => {
+    const view = render(<StarmapCanvas {...basicProps} />);
+    await act(async () => { pixiControl.resolveInit?.(); await Promise.resolve(); });
+    await act(async () => {
+      for (let flush = 0; flush < 4; flush++) {
+        for (const load of pixiControl.pendingLoads.splice(0)) load.resolve({ width: 1, height: 1 });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    });
+    expect(view.queryByRole('status')).toBeNull();
+    expect(pixiControl.graphicsCalls.some((call) => call.method === 'circle' && call.args[2] === 4.5)).toBe(false);
+    view.unmount();
+  });
+
   it('draws the optional sensor coverage circles', async () => {
     const view = render(
       <StarmapCanvas

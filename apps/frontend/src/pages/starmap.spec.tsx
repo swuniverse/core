@@ -235,6 +235,17 @@ describe('StarmapPage known layer choices', () => {
   });
 });
 
+describe('StarmapPage legend', () => {
+  it('explains the trade post marker', async () => {
+    apiMocks.get.mockReset();
+    contactsByLayer = { 3: [] };
+    viewerAlliance = null;
+    mockApi();
+    renderPage();
+    expect(await screen.findByText('Handelsposten')).toBeTruthy();
+  });
+});
+
 describe('StarmapPage exports', () => {
   const exported = {
     version: 1, exportedAt: '2026-11-04T12:00:00Z', layer: layers[0],
