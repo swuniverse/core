@@ -57,7 +57,7 @@ describe('ColonyMap', () => {
     expect(shield.getAttribute('aria-valuemax')).toBe('100');
   });
 
-  it('shows the build progress as a proportional overlay instead of pulsing', () => {
+  it('marks a construction site with a striped frame and reveals the building by progress', () => {
     const site = {
       ...field,
       buildingId: 1,
@@ -66,11 +66,24 @@ describe('ColonyMap', () => {
     };
     render(<ColonyMap {...props} surfaceFields={[site]} />);
 
-    expect(screen.getByTestId('build-progress-overlay').style.height).toBe(
-      '40%',
+    const cell = screen.getByRole('button', { name: /Feld 1.*\(im Bau, 40 %\)/ });
+    expect(cell.className).toContain('border-image');
+    expect(cell.className).not.toContain('animate-pulse');
+    expect(screen.getByTestId('construction-ghost').className).toContain('grayscale');
+    expect(screen.getByTestId('build-progress-reveal').style.clipPath).toBe(
+      'inset(0 60% 0 0)',
     );
-    expect(screen.getByRole('button', { name: /Feld 1/ }).className).not.toContain(
-      'animate-pulse',
+  });
+
+  it('shows a finished building without construction marks', () => {
+    render(
+      <ColonyMap
+        {...props}
+        surfaceFields={[{ ...field, buildingId: 1, isBuilding: false }]}
+      />,
     );
+
+    expect(screen.getByRole('button', { name: /Feld 1/ }).className).not.toContain('border-image');
+    expect(screen.queryByTestId('construction-ghost')).toBeNull();
   });
 });
