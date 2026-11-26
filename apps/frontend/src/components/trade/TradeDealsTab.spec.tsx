@@ -170,6 +170,7 @@ describe('TradeDealsTab', () => {
     expect(row.textContent).toContain('12 Aurodium');
     expect(within(row).getByRole('link', { name: 'Han' }).getAttribute('href')).toBe('/players/4');
     expect(row.textContent).toMatch(/18\.11\.2026/);
+    expect(within(ended).getByRole('rowgroup', { name: 'Waren gegen Waren' }).contains(row)).toBe(true);
   });
 
   it('explains that a Hutt Cartel license is required', async () => {

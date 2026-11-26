@@ -256,16 +256,19 @@ export function TradeDealsTab() {
                   <th className="px-2 py-1">Beendet</th>
                 </tr>
               </thead>
-              <tbody>
-                {data.endedAuctions.map((ended) => (
-                  <tr key={ended.id} className="border-t border-swu-border/60 align-top">
-                    <td className="px-2 py-1"><DealOffer deal={ended} /></td>
-                    <td className="px-2 py-1">{formatNumber(ended.price)} {currencyLabel(ended.currency)}</td>
-                    <td className="px-2 py-1"><Bidder bidder={ended.highestBidder} /></td>
-                    <td className="px-2 py-1">{formatDateTime(ended.endedAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
+              {groupByTypeAndCurrency(data.endedAuctions, (ended) => ended.currency === null).map((group) => (
+                <tbody key={group.label} aria-label={group.label}>
+                  <tr><th colSpan={4} className="bg-swu-bg/60 px-2 py-1 text-left text-xs uppercase text-swu-muted">{group.label}</th></tr>
+                  {group.entries.map((ended) => (
+                    <tr key={ended.id} className="border-t border-swu-border/60 align-top">
+                      <td className="px-2 py-1"><DealOffer deal={ended} /></td>
+                      <td className="px-2 py-1">{formatNumber(ended.price)} {currencyLabel(ended.currency)}</td>
+                      <td className="px-2 py-1"><Bidder bidder={ended.highestBidder} /></td>
+                      <td className="px-2 py-1">{formatDateTime(ended.endedAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              ))}
             </table>
           </div>
         </section>

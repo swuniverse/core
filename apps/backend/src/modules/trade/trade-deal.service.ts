@@ -73,7 +73,8 @@ export class TradeDealService {
         order: { endsAt: 'DESC', id: 'DESC' },
       }),
     ]);
-    const endedAuctions = ended.filter(ownFaction);
+    // Like STU, own unclaimed wins stay under "Gewonnene Auktionen" only.
+    const endedAuctions = ended.filter((deal) => ownFaction(deal) && !(deal.auctionUserId === userId && deal.takenAt === null));
     const all = [...deals, ...auctions, ...won, ...endedAuctions];
     const bidderIds = [...new Set([...auctions, ...endedAuctions].flatMap((deal) => (deal.auctionUserId === null ? [] : [deal.auctionUserId])))];
     const wanted = [...new Set(all.flatMap((deal) => (deal.wantCommodityId === null ? [] : [deal.wantCommodityId])))];

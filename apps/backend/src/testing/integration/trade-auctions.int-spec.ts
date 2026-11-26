@@ -106,6 +106,10 @@ describe('Hutt Cartel auctions (PostgreSQL)', () => {
       const unsold = await auction();
       await end(unsold);
 
+      const winner = await deals.list(lando.id, now);
+      expect(winner.endedAuctions).toEqual([]);
+      expect(winner.wonAuctions.map((entry) => entry.id)).toEqual([id]);
+
       const { endedAuctions } = await deals.list(leia.id, now);
       expect(endedAuctions).toEqual([
         expect.objectContaining({ id, price: 6, highestBidder: { id: lando.id, name: 'Lando' }, endedAt: (await dealOf(id)).endsAt.toISOString() }),
