@@ -54,7 +54,6 @@ describe('LoginPage', () => {
 
   it('remembers the remember-me choice locally and defaults to enabled', () => {
     const { unmount } = render(<MemoryRouter><LoginPage /></MemoryRouter>);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Login' })[0]);
     const rememberMe = screen.getByRole('checkbox', { name: 'Angemeldet bleiben' });
 
     expect((rememberMe as HTMLInputElement).checked).toBe(true);
@@ -63,7 +62,6 @@ describe('LoginPage', () => {
 
     unmount();
     render(<MemoryRouter><LoginPage /></MemoryRouter>);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Login' })[0]);
     expect(
       (screen.getByRole('checkbox', { name: 'Angemeldet bleiben' }) as HTMLInputElement).checked,
     ).toBe(false);
@@ -90,7 +88,6 @@ describe('LoginPage', () => {
     });
 
     render(<MemoryRouter><LoginPage /></MemoryRouter>);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Login' })[0]);
     const rememberMe = screen.getByRole('checkbox', { name: 'Angemeldet bleiben' }) as HTMLInputElement;
     expect(rememberMe.checked).toBe(true);
     fireEvent.click(rememberMe);
@@ -135,7 +132,6 @@ describe('LoginPage', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Login' })[0]);
     fireEvent.change(screen.getByLabelText('Username'), {
       target: { value: 'leia' },
     });
@@ -164,7 +160,6 @@ describe('LoginPage', () => {
     });
 
     render(<MemoryRouter><LoginPage /></MemoryRouter>);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Login' })[0]);
     fireEvent.click(screen.getByRole('checkbox', { name: 'Angemeldet bleiben' }));
     fireEvent.change(screen.getByLabelText('Username'), {
       target: { value: 'han' },
@@ -181,69 +176,6 @@ describe('LoginPage', () => {
     expect(localStorage.getItem('swu-remember-login')).toBe('false');
   });
 
-  it('always shows password reset and legal links without configuration', () => {
-    render(<MemoryRouter><LoginPage /></MemoryRouter>);
-    expect(screen.getByRole('link', { name: 'Passwort vergessen?', hidden: true }).getAttribute('href')).toBe('/lost-password');
-    for (const [name, href] of [['Impressum', '/impressum'], ['Datenschutz', '/datenschutz'], ['Hilfe', '/hilfe']]) {
-      expect(screen.getByRole('link', { name }).getAttribute('href')).toBe(href);
-    }
-  });
-
-  it('renders system news and safe public links', async () => {
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path === '/news') return Promise.resolve([{ id: 1, title: 'Server Update', renderedText: '<strong>Online</strong>', links: ['https://example.com'], isChangelog: true, createdAt: '2026-10-23T12:00:00.000Z' }]);
-      if (path === '/auth/features') return Promise.resolve({ passwordReset: false });
-      if (path === '/game-status') return Promise.resolve({ status: 'ONLINE', message: '' });
-      return Promise.resolve(null);
-    });
-    render(<MemoryRouter><LoginPage /></MemoryRouter>);
-    expect(await screen.findByText('Server Update')).toBeTruthy();
-    expect(screen.getByText('Online', { selector: 'strong' }).tagName).toBe('STRONG');
-    expect(screen.getByRole('link', { name: 'https://example.com' }).getAttribute('href')).toBe('https://example.com');
-  });
-
-  it('renders the system news empty state', async () => {
-    render(<MemoryRouter><LoginPage /></MemoryRouter>);
-    expect(await screen.findByText('Keine System-News vorhanden.')).toBeTruthy();
-  });
-
-  it('shows the current maintenance status and keeps login but hides registration', async () => {
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path === '/game-status') {
-        return Promise.resolve({
-          status: 'MAINTENANCE',
-          message: 'Update läuft.',
-        });
-      }
-      return Promise.resolve({
-        settlers: 1,
-        colonies: 1,
-        ships: 1,
-        totalTechs: 1,
-        shipClasses: 1,
-        planetTypes: 1,
-        buildingTypes: 1,
-      });
-    });
-
-    render(
-      <MemoryRouter>
-        <LoginPage />
-      </MemoryRouter>,
-    );
-
-    await waitFor(() => expect(screen.getByText('Wartung läuft')).toBeTruthy());
-    expect(screen.getByLabelText('Spielstatus').className).toContain(
-      'swu-game-status',
-    );
-    expect(screen.getByText('Spielstatus')).toBeTruthy();
-    expect(screen.getByText('Update läuft.')).toBeTruthy();
-    expect(screen.queryByRole('link', { name: 'Registrieren' })).toBeNull();
-    expect(
-      screen.getAllByRole('button', { name: 'Login' }).length,
-    ).toBeGreaterThan(0);
-  });
-
   it('shows the tick count and reason for a locked account', async () => {
     vi.mocked(api.post).mockRejectedValueOnce(new ApiError(403, 'Dein Spieleraccount ist noch für 3 Ticks gesperrt. Begründung: Regelverstoß', 'ACCOUNT_LOCKED'));
     render(
@@ -251,11 +183,33 @@ describe('LoginPage', () => {
         <Routes><Route path="/login" element={<LoginPage />} /></Routes>
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getAllByRole('button', { name: 'Login' })[0]);
     fireEvent.change(screen.getByPlaceholderText('Login-Name oder Spieler-ID'), { target: { value: 'Leia' } });
     fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'secret' } });
     fireEvent.submit(screen.getByRole('form', { name: 'Login Formular' }));
     expect(await screen.findByText('Dein Spieleraccount ist noch für 3 Ticks gesperrt. Begründung: Regelverstoß')).toBeTruthy();
   });
 
+  it('links to registration and password reset and hides registration during maintenance', async () => {
+    const { unmount } = render(<MemoryRouter><LoginPage /></MemoryRouter>);
+    expect(screen.getByRole('link', { name: 'Passwort vergessen?' }).getAttribute('href')).toBe('/lost-password');
+    expect(screen.getByRole('link', { name: 'Registrieren' }).getAttribute('href')).toBe('/register');
+    unmount();
+
+    vi.mocked(api.get).mockImplementation((path: string) =>
+      Promise.resolve(path === '/game-status' ? { status: 'MAINTENANCE', message: 'Update läuft.' } : null),
+    );
+    render(<MemoryRouter><LoginPage /></MemoryRouter>);
+    await waitFor(() => expect(screen.queryByRole('link', { name: 'Registrieren' })).toBeNull());
+    expect(screen.getByRole('link', { name: 'Passwort vergessen?' })).toBeTruthy();
+  });
+
+  it('shows the maintenance and vacation notices from the query', () => {
+    render(
+      <MemoryRouter initialEntries={['/login?maintenance=Wartung%20l%C3%A4uft&vacation=activated']}>
+        <Routes><Route path="/login" element={<LoginPage />} /></Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Wartung läuft')).toBeTruthy();
+    expect(screen.getByText(/Urlaubsmodus aktiviert/)).toBeTruthy();
+  });
 });

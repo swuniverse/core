@@ -1,25 +1,7 @@
 import { useState, type SyntheticEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { AuthLayout } from '../components/auth/AuthLayout';
+import { AuthShell } from '../components/auth/AuthShell';
 import { ApiError, api } from '../services/api';
-
-function AuthPageHeader({
-  eyebrow,
-  title,
-  copy,
-}: {
-  eyebrow: string;
-  title: string;
-  copy: string;
-}) {
-  return (
-    <header className="mb-6 text-center">
-      <p className="swu-eyebrow">{eyebrow}</p>
-      <h1 className="mt-2 text-2xl font-bold text-swu-primary">{title}</h1>
-      <p className="mt-3 text-sm text-swu-muted">{copy}</p>
-    </header>
-  );
-}
 
 function SubmitButton({
   loading,
@@ -64,23 +46,21 @@ export function LostPasswordPage() {
   }
 
   return (
-    <AuthLayout>
-      <AuthPageHeader
-        eyebrow="ACCOUNT RECOVERY"
-        title="Passwort vergessen?"
-        copy="Fordere einen Link an, um ein neues Passwort festzulegen."
-      />
+    <AuthShell
+      title="Passwort vergessen?"
+      lead="Fordere einen Link an, um ein neues Passwort festzulegen."
+    >
       {error && (
         <div className="auth-error" role="alert">
           {error}
         </div>
       )}
       {sent ? (
-        <p className="text-center text-sm text-swu-primary" role="status">
+        <p className="swu-auth__notice" role="status">
           Wenn die E-Mail-Adresse bekannt ist, wurde ein Reset-Link gesendet.
         </p>
       ) : (
-        <form className="space-y-4" onSubmit={handleSubmit}>
+        <form className="swu-auth__form" onSubmit={handleSubmit}>
           <label className="swu-field">
             <span>Login-Name oder E-Mail-Adresse</span>
             <input
@@ -94,12 +74,10 @@ export function LostPasswordPage() {
           <SubmitButton loading={loading}>Reset-Link senden</SubmitButton>
         </form>
       )}
-      <p className="mt-5 text-center text-sm">
-        <Link className="text-swu-accent hover:underline" to="/login">
-          Zurück zum Login
-        </Link>
-      </p>
-    </AuthLayout>
+      <div className="swu-auth__meta">
+        <Link to="/login">Zurück zum Login</Link>
+      </div>
+    </AuthShell>
   );
 }
 
@@ -138,31 +116,24 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <AuthLayout>
-      <AuthPageHeader
-        eyebrow="SECURITY OVERRIDE"
-        title="Neues Passwort"
-        copy="Lege ein neues Passwort für deinen Commander-Zugang fest."
-      />
+    <AuthShell
+      title="Passwort erneuern"
+      lead="Lege ein neues Passwort für deinen Commander-Zugang fest."
+    >
       {error && (
         <div className="auth-error" role="alert">
           {error}
         </div>
       )}
       {complete ? (
-        <div className="text-center" role="status">
-          <p className="text-sm text-swu-primary">
-            Dein Passwort wurde geändert.
-          </p>
-          <Link
-            className="mt-4 inline-block text-swu-accent hover:underline"
-            to="/login"
-          >
+        <div className="swu-auth__form" role="status">
+          <p className="swu-auth__notice">Dein Passwort wurde geändert.</p>
+          <Link className="swu-btn swu-btn--primary swu-btn--wide" to="/login">
             Zum Login
           </Link>
         </div>
       ) : (
-        <form className="space-y-4" onSubmit={handleSubmit}>
+        <form className="swu-auth__form" onSubmit={handleSubmit}>
           <label className="swu-field">
             <span>Neues Passwort</span>
             <input
@@ -190,6 +161,6 @@ export function ResetPasswordPage() {
           </SubmitButton>
         </form>
       )}
-    </AuthLayout>
+    </AuthShell>
   );
 }

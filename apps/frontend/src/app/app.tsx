@@ -1,9 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ToastProvider } from '../components/Toast';
 import { DatabaseNotices } from '../components/database/DatabaseNotices';
 import { useAuthStore } from '../stores/auth.store';
 import { AppShell } from '../components/layout/app-shell';
 import { LoginPage } from '../pages/login';
+import { LandingPage } from '../pages/landing';
 import { RegisterPage } from '../pages/register';
 import { LostPasswordPage, ResetPasswordPage } from '../pages/password-reset';
 import { VerifyEmailPage } from '../pages/verify-email';
@@ -64,6 +65,9 @@ import {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const accessToken = useAuthStore((s) => s.accessToken);
+  const location = useLocation();
+  // Besucher ohne Anmeldung sehen auf `/` die Landing-Page, sonst geht es zum Login.
+  if (!accessToken && location.pathname === '/') return <LandingPage />;
   if (!accessToken) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }

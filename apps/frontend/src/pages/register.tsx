@@ -1,27 +1,9 @@
 import { useEffect, useState, type SyntheticEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../services/api';
-import { StarField } from '../components/auth/StarField';
-import { LegalLinks } from '../components/legal/LegalLinks';
+import { AuthShell } from '../components/auth/AuthShell';
 import { useAuthStore } from '../stores/auth.store';
 import type { AuthResponse, RegisterResponse } from '@swuniverse/shared';
-
-interface FactionModifiers {
-  researchMultiplier: number;
-}
-
-const MODIFIER_LABELS: Record<keyof FactionModifiers, string> = {
-  researchMultiplier: 'Forschung',
-};
-
-function getBonuses(m: FactionModifiers): { label: string; value: string }[] {
-  return (Object.keys(MODIFIER_LABELS) as (keyof FactionModifiers)[])
-    .filter((k) => m[k] !== 1)
-    .map((k) => ({
-      label: MODIFIER_LABELS[k],
-      value: `+${Math.round((m[k] - 1) * 100)}%`,
-    }));
-}
 
 interface FactionOption {
   id: number;
@@ -32,37 +14,26 @@ interface FactionOption {
   playerLimit: number;
   isSelectable: boolean;
   hasFreePlayerSlots: boolean;
-  modifiers: FactionModifiers[];
 }
 
-function CinematicBg() {
-  return (
-    <div className="swu-bg" aria-hidden="true">
-      <div className="swu-bg__nebula" />
-      <div className="swu-bg__planet" />
-      <div className="swu-bg__flare" />
-    </div>
-  );
+function passwordStrength(pw: string): number {
+  if (pw.length === 0) return 0;
+  if (pw.length < 8) return 1;
+  const hasDigit = /\d/.test(pw);
+  const hasSpecial = /[^a-zA-Z0-9]/.test(pw);
+  if (hasDigit && hasSpecial) return 4;
+  if (hasDigit || hasSpecial) return 3;
+  return 2;
 }
 
 export function RegisterPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const [step, setStep] = useState<1 | 2>(1);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-
-  function passwordStrength(pw: string): number {
-    if (pw.length === 0) return 0;
-    if (pw.length < 8) return 1;
-    const hasDigit = /\d/.test(pw);
-    const hasSpecial = /[^a-zA-Z0-9]/.test(pw);
-    if (hasDigit && hasSpecial) return 4;
-    if (hasDigit || hasSpecial) return 3;
-    return 2;
-  }
   const [factionId, setFactionId] = useState<number | null>(null);
   const [factions, setFactions] = useState<FactionOption[]>([]);
   const [error, setError] = useState('');
@@ -76,14 +47,13 @@ export function RegisterPage() {
     api.get<FactionOption[]>('/factions').then(setFactions);
   }, []);
 
+  const selected = factions.find((f) => f.id === factionId);
+
   async function handleSubmit(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!factionId) {
       setError('Wähle eine Fraktion');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError('Passwörter stimmen nicht überein');
+      setStep(1);
       return;
     }
     setError('');
@@ -123,122 +93,150 @@ export function RegisterPage() {
 
   if (registeredEmail) {
     return (
-      <main className="swu-page swu-page--register">
-        <StarField />
-        <CinematicBg />
-        <section
-          className="swu-register-shell"
-          aria-labelledby="register-confirm-title"
-        >
-          <div className="swu-register-card">
-            <div className="swu-register-card__header">
-              <p className="swu-eyebrow">SUBSPACE // BESTÄTIGUNG AUSSTEHEND</p>
-              <h1 id="register-confirm-title">Prüfe dein Postfach.</h1>
-              <p>
-                Wir haben einen Bestätigungslink an <strong>{registeredEmail}</strong>{' '}
-                geschickt. Sobald du ihn geöffnet hast, ist dein Konto aktiv und
-                du kannst dich anmelden. Der Link ist 24 Stunden gültig.
-              </p>
-            </div>
-            <button
-              className="swu-btn swu-btn--ghost swu-btn--wide"
-              type="button"
-              onClick={handleResend}
-              disabled={resendState !== 'idle'}
-            >
-              {resendState === 'sending'
-                ? 'Wird gesendet...'
-                : resendState === 'sent'
-                  ? 'Mail wurde erneut gesendet'
-                  : 'Mail erneut senden'}
-            </button>
-            <Link className="swu-register-card__back" to="/login">
-              Zurück zum Login
-            </Link>
+      <AuthShell
+        title="Prüfe dein Postfach."
+        lead={
+          <>
+            Wir haben einen Bestätigungslink an <strong>{registeredEmail}</strong>{' '}
+            geschickt. Sobald du ihn geöffnet hast, ist dein Konto aktiv und du
+            kannst dich anmelden. Der Link ist 24 Stunden gültig.
+          </>
+        }
+      >
+        <div className="swu-auth__form">
+          <button
+            className="swu-btn swu-btn--ghost swu-btn--wide"
+            type="button"
+            onClick={handleResend}
+            disabled={resendState !== 'idle'}
+          >
+            {resendState === 'sending'
+              ? 'Wird gesendet...'
+              : resendState === 'sent'
+                ? 'Mail wurde erneut gesendet'
+                : 'Mail erneut senden'}
+          </button>
+          <div className="swu-auth__meta">
+            <Link to="/login">Zurück zum Login</Link>
           </div>
-        </section>
-      </main>
+        </div>
+      </AuthShell>
     );
   }
 
   return (
-    <main className="swu-page swu-page--register">
-      <StarField />
-      <CinematicBg />
+    <AuthShell
+      wide
+      title={step === 1 ? 'Wähle deine Fraktion.' : 'Lege deinen Zugang an.'}
+      lead={
+        step === 1
+          ? 'Sie bestimmt deine Seite im Konflikt.'
+          : selected
+            ? `Du startest bei ${selected.name}.`
+            : undefined
+      }
+    >
+      <ol className="swu-steps-bar" aria-label="Fortschritt">
+        <li aria-current={step === 1 ? 'step' : undefined}>1 Fraktion</li>
+        <li aria-current={step === 2 ? 'step' : undefined}>2 Zugang</li>
+        <li>3 E-Mail bestätigen</li>
+      </ol>
 
-      <nav className="swu-nav" aria-label="Navigation">
-        <Link
-          className="swu-nav__brand"
-          to="/login"
-          aria-label="Star Wars Universe Start"
-        >
-          <span className="swu-nav__sigil" aria-hidden="true" />
-          <span>SWU</span>
-        </Link>
-        <div className="swu-nav__links">
-          <Link to="/login">Zur Landing Page</Link>
-          <a
-            href="https://github.com/swuniverse"
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            GitHub
-          </a>
-          <a
-            className="swu-nav__discord"
-            href="https://discord.com/invite/vvUwR6UZbB"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Discord
-          </a>
-        </div>
-      </nav>
-
-      <section className="swu-register-shell" aria-labelledby="register-title">
-        <form className="swu-register-card" onSubmit={handleSubmit}>
-          <div className="swu-register-card__header">
-            <p className="swu-eyebrow">NEW COMMANDER // SECTOR ACCESS</p>
-            <h1 id="register-title">Dein Befehl beginnt hier.</h1>
-            <p>
-              Sichere dein Rufzeichen, wähle eine Doktrin und bestätige deine
-              E-Mail-Adresse, um Zugang zur persistenten Galaxis zu erhalten. Plane deine Entwicklung per Tick und greife
-              live ein, sobald deine Flotte den Raum betritt.
-            </p>
+      <form className="swu-auth__form" onSubmit={handleSubmit}>
+        {error && (
+          <div className="auth-error" role="alert" tabIndex={-1}>
+            {error}
           </div>
+        )}
 
-          {error && (
-            <div className="auth-error" role="alert" tabIndex={-1}>
-              <strong>Übertragung abgebrochen.</strong> {error}
+        {step === 1 && (
+          <>
+            <fieldset className="swu-factions">
+              <legend className="visually-hidden">Fraktion wählen</legend>
+              <div className="swu-factions__row">
+                {factions
+                  .filter((f) => f.isSelectable)
+                  .map((f) => (
+                    <button
+                      className={`swu-faction ${factionId === f.id ? 'swu-faction--selected' : ''}`}
+                      key={f.id}
+                      type="button"
+                      aria-pressed={factionId === f.id}
+                      disabled={!f.hasFreePlayerSlots}
+                      title={
+                        f.hasFreePlayerSlots
+                          ? undefined
+                          : 'Alle vorgesehenen Spielerplätze dieser Fraktion sind belegt'
+                      }
+                      onClick={() => setFactionId(f.id)}
+                      style={{ color: f.colorPrimary }}
+                    >
+                      <span
+                        className="swu-faction__mark"
+                        style={{ backgroundColor: f.colorPrimary }}
+                        aria-hidden="true"
+                      />
+                      <span>{f.name}</span>
+                      <span className="swu-faction__count">
+                        {f.playerLimit > 0
+                          ? `${f.playerCount}/${f.playerLimit}`
+                          : f.playerCount}{' '}
+                        Siedler
+                        {!f.hasFreePlayerSlots && ', voll'}
+                      </span>
+                    </button>
+                  ))}
+              </div>
+            </fieldset>
+            <button
+              className="swu-btn swu-btn--primary swu-btn--wide"
+              type="button"
+              disabled={!factionId}
+              onClick={() => {
+                setError('');
+                setStep(2);
+              }}
+            >
+              Weiter
+            </button>
+          </>
+        )}
+
+        {step === 2 && (
+          <>
+            <div className="swu-register-card__fields">
+              <label className="swu-field">
+                <span>
+                  Commander Name{' '}
+                  <small className="swu-field__hint">3 bis 32 Zeichen</small>
+                </span>
+                <input
+                  name="commander"
+                  autoComplete="username"
+                  placeholder="z. B. TarkinShadow"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  minLength={3}
+                  maxLength={32}
+                />
+              </label>
+              <label className="swu-field">
+                <span>
+                  E-Mail{' '}
+                  <small className="swu-field__hint">zur Kontobestätigung</small>
+                </span>
+                <input
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="commander@galaxy.net"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </label>
             </div>
-          )}
-
-          <div className="swu-register-card__fields">
-            <label className="swu-field">
-              <span>Commander Name <small className="swu-field__hint">3–32 Zeichen</small></span>
-              <input
-                name="commander"
-                autoComplete="username"
-                placeholder="z. B. TarkinShadow"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                minLength={3}
-                maxLength={32}
-              />
-            </label>
-            <label className="swu-field">
-              <span>E-Mail <small className="swu-field__hint">zur Kontobestätigung</small></span>
-              <input
-                name="email"
-                type="email"
-                autoComplete="email"
-                placeholder="commander@galaxy.net"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </label>
             <label className="swu-field">
               <span>Passwort</span>
               <div className="swu-password-field">
@@ -277,78 +275,27 @@ export function RegisterPage() {
                 <span className="swu-password-strength__seg" />
               </div>
             )}
-            <label className="swu-field">
-              <span>Passwort bestätigen</span>
-              <input
-                name="confirm-password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="new-password"
-                placeholder="Passwort wiederholen"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={8}
-              />
-            </label>
-          </div>
+            <button
+              className="swu-btn swu-btn--primary swu-btn--wide"
+              type="submit"
+              disabled={loading || !factionId}
+            >
+              {loading ? 'Wird registriert...' : 'Commander registrieren'}
+            </button>
+            <button
+              className="swu-btn swu-btn--ghost swu-btn--wide"
+              type="button"
+              onClick={() => setStep(1)}
+            >
+              Fraktion ändern
+            </button>
+          </>
+        )}
 
-          <fieldset className="swu-factions">
-            <legend>Doktrin wählen <small className="swu-field__hint">dein Startbonus für Bau, Forschung und Flotte</small></legend>
-            <div className="swu-factions__row">
-              {factions.filter((f) => f.isSelectable).map((f) => (
-                <button
-                  className={`swu-faction ${factionId === f.id ? 'swu-faction--selected' : ''}`}
-                  key={f.id}
-                  type="button"
-                  aria-pressed={factionId === f.id}
-                  disabled={!f.hasFreePlayerSlots}
-                  title={
-                    f.hasFreePlayerSlots
-                      ? undefined
-                      : 'Alle vorgesehenen Spielerplätze dieser Fraktion sind belegt'
-                  }
-                  onClick={() => setFactionId(f.id)}
-                  style={{ color: f.colorPrimary }}
-                >
-                  <span
-                    className="swu-faction__mark"
-                    style={{ backgroundColor: f.colorPrimary }}
-                    aria-hidden="true"
-                  />
-                  <span>{f.name}</span>
-                  <span className="swu-faction__count">
-                    {f.playerLimit > 0 ? `${f.playerCount}/${f.playerLimit}` : f.playerCount} Siedler
-                    {!f.hasFreePlayerSlots && ' – voll'}
-                  </span>
-                  {f.modifiers?.[0] && (
-                    <span className="swu-faction__bonuses">
-                      {getBonuses(f.modifiers[0]).map((b) => (
-                        <span key={b.label} className="swu-faction__bonus-chip">
-                          <span className="swu-faction__bonus-value" style={{ color: f.colorPrimary }}>{b.value}</span>
-                          {' '}{b.label}
-                        </span>
-                      ))}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </fieldset>
-
-          <button
-            className="swu-btn swu-btn--primary swu-btn--wide"
-            type="submit"
-            disabled={loading || !factionId}
-          >
-            {loading ? 'Zugang wird verschlüsselt...' : 'Commander registrieren'}
-          </button>
-
-          <Link className="swu-register-card__back" to="/login">
-            Zurück zum Login
-          </Link>
-        </form>
-        <LegalLinks className="mt-6 flex flex-wrap justify-center gap-4 text-sm text-swu-primary" />
-      </section>
-    </main>
+        <div className="swu-auth__meta">
+          <Link to="/login">Zurück zum Login</Link>
+        </div>
+      </form>
+    </AuthShell>
   );
 }

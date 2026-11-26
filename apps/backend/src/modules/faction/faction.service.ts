@@ -34,7 +34,7 @@ const DEFAULT_FACTIONS: Array<{
     startResearchTechId: 1001,
     startBuildingId: 82010100,
     modifiers: {
-      researchMultiplier: 1.1,
+      researchMultiplier: 1,
     },
   },
   {

@@ -27,7 +27,7 @@ describe('RegisterPage', () => {
     vi.mocked(api.post).mockReset();
   });
 
-  it('shows no colony growth bonus, even if an old API still sends one', async () => {
+  it('shows no faction bonus, even if an old API still sends modifiers', async () => {
     vi.mocked(api.get).mockResolvedValue([
       { ...faction, modifiers: [{ researchMultiplier: 1.1, colonyGrowthMultiplier: 1.1 }] },
     ]);
@@ -38,7 +38,8 @@ describe('RegisterPage', () => {
     );
 
     await screen.findByText('Galaktisches Imperium');
-    expect(screen.getByText('+10%')).toBeTruthy();
+    expect(screen.queryByText('+10%')).toBeNull();
+    expect(screen.queryByText(/Forschung/)).toBeNull();
     expect(screen.queryByText(/Koloniewachstum/)).toBeNull();
   });
 
@@ -56,7 +57,7 @@ describe('RegisterPage', () => {
 
     const full = (await screen.findByText('Galaktisches Imperium')).closest('button')!;
     expect(full.disabled).toBe(true);
-    expect(full.textContent).toContain('3/3 Siedler – voll');
+    expect(full.textContent).toContain('3/3 Siedler, voll');
     const open = screen.getByText('Rebellenallianz').closest('button')!;
     expect(open.disabled).toBe(false);
     expect(open.textContent).toContain('1/5 Siedler');
@@ -92,10 +93,10 @@ describe('RegisterPage', () => {
       });
 
     fireEvent.click(await screen.findByText('Galaktisches Imperium'));
+    fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
     type('commander', 'Tarkin');
     type('email', 'tarkin@galaxy.net');
     type('password', 'correct-horse');
-    type('confirm-password', 'correct-horse');
     fireEvent.click(
       screen.getByRole('button', { name: 'Commander registrieren' }),
     );
@@ -117,5 +118,24 @@ describe('RegisterPage', () => {
         email: 'tarkin@galaxy.net',
       }),
     );
+  });
+
+  it('asks for the doctrine first and needs one before continuing', async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <RegisterPage />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Galaktisches Imperium');
+    expect(container.querySelector('[name=password]')).toBeNull();
+    const next = screen.getByRole('button', { name: 'Weiter' }) as HTMLButtonElement;
+    expect(next.disabled).toBe(true);
+
+    fireEvent.click(screen.getByText('Galaktisches Imperium'));
+    expect(next.disabled).toBe(false);
+    fireEvent.click(next);
+    expect(container.querySelector('[name=password]')).toBeTruthy();
+    expect(container.querySelector('[name=confirm-password]')).toBeNull();
   });
 });

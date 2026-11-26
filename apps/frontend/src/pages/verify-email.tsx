@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../services/api';
-import { StarField } from '../components/auth/StarField';
+import { AuthShell } from '../components/auth/AuthShell';
 
 type Status = 'pending' | 'success' | 'error';
 
@@ -35,46 +35,30 @@ export function VerifyEmailPage() {
     };
   }, [token]);
 
+  const title =
+    status === 'pending'
+      ? 'Bestätigung läuft...'
+      : status === 'success'
+        ? 'Konto aktiviert.'
+        : 'Bestätigung fehlgeschlagen.';
+
   return (
-    <main className="swu-page swu-page--register">
-      <StarField />
-      <section
-        className="swu-register-shell"
-        aria-labelledby="verify-email-title"
-      >
-        <div className="swu-register-card">
-          <div className="swu-register-card__header">
-            <p className="swu-eyebrow">SUBSPACE // KONTOBESTÄTIGUNG</p>
-            {status === 'pending' && (
-              <>
-                <h1 id="verify-email-title">Bestätigung läuft...</h1>
-                <p>Dein Link wird geprüft.</p>
-              </>
-            )}
-            {status === 'success' && (
-              <>
-                <h1 id="verify-email-title">Konto aktiviert.</h1>
-                <p>
-                  Deine E-Mail-Adresse ist bestätigt. Du kannst dich jetzt
-                  anmelden.
-                </p>
-              </>
-            )}
-            {status === 'error' && (
-              <>
-                <h1 id="verify-email-title">Bestätigung fehlgeschlagen.</h1>
-                <p role="alert">{message}</p>
-                <p>
-                  Melde dich an und fordere dort eine neue Bestätigungsmail an.
-                </p>
-              </>
-            )}
-          </div>
-          <Link className="swu-btn swu-btn--primary swu-btn--wide" to="/login">
-            Zum Login
-          </Link>
-        </div>
-      </section>
-    </main>
+    <AuthShell title={title}>
+      <div className="swu-auth__form">
+        {status === 'pending' && <p>Dein Link wird geprüft.</p>}
+        {status === 'success' && (
+          <p>Deine E-Mail-Adresse ist bestätigt. Du kannst dich jetzt anmelden.</p>
+        )}
+        {status === 'error' && (
+          <>
+            <p role="alert">{message}</p>
+            <p>Melde dich an und fordere dort eine neue Bestätigungsmail an.</p>
+          </>
+        )}
+        <Link className="swu-btn swu-btn--primary swu-btn--wide" to="/login">
+          Zum Login
+        </Link>
+      </div>
+    </AuthShell>
   );
 }
