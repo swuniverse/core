@@ -41,6 +41,12 @@ type SectorScanResult = {
       objectType?: number;
       shielded?: boolean;
     } | null;
+    starSystem?: {
+      id: number;
+      name: string | null;
+      systemTypeId: number;
+      systemTypeName: string | null;
+    } | null;
   };
   discovery?: {
     discovered: boolean;
@@ -1267,6 +1273,7 @@ function SectorScanDialog({
 }) {
   const field = scan.result.field;
   const object = field.celestialObject;
+  const starSystem = field.starSystem ?? null;
   const signatures = scan.result.signatures ?? [];
   const fadedSignatures = scan.result.fadedSignatures ?? {
     uncloaked: 0,
@@ -1301,6 +1308,12 @@ function SectorScanDialog({
             className="h-14 w-14 object-contain"
             emojiClassName="text-4xl"
           />
+        ) : starSystem ? (
+          <img
+            src={systemTypeImage(starSystem.systemTypeId)}
+            alt={starSystem.systemTypeName ?? ''}
+            className="h-14 w-14 object-contain"
+          />
         ) : (
           <img
             src={starTileImage(field.fieldType.id)}
@@ -1310,7 +1323,9 @@ function SectorScanDialog({
         )}
         <div>
           <h4 className="border-b border-swu-border pb-1 font-bold text-swu-primary">
-            {object?.name ?? field.fieldType.name}
+            {object?.name ??
+              starSystem?.systemTypeName ??
+              field.fieldType.name}
           </h4>
           <div className="mt-2 grid grid-cols-2 gap-y-1">
             <span className="text-swu-muted">Energiekosten</span>
