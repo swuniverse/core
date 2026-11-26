@@ -8,6 +8,7 @@ import {
 } from '../../../components/starmap/AnomalyMarker';
 import { SettlementBadge } from '../../../lib/settlement-rating';
 import {
+  commodityImage,
   planetThumbnail,
   starTileImage,
   systemTypeImage,
@@ -51,11 +52,16 @@ export function PanelInfo({
   const storageIds = new Set(
     (colony.storage ?? []).map((item) => item.commodityId),
   );
+  const deposits = detail?.deposits ?? [];
+  const depositIds = new Set(deposits.map((deposit) => deposit.commodityId));
+  // Deposits have their own row with the amount left; zero balances say nothing (STU shows neither).
   const effects =
     detail?.productionDeltas.filter(
-      (delta) => !storageIds.has(delta.commodityId),
+      (delta) =>
+        delta.amount !== 0 &&
+        !storageIds.has(delta.commodityId) &&
+        !depositIds.has(delta.commodityId),
     ) ?? [];
-  const deposits = detail?.deposits ?? [];
 
   return (
     <div className="space-y-2">
@@ -261,8 +267,11 @@ export function PanelInfo({
           <h3 className={headingClass}>Effekte</h3>
           <div className="grid grid-cols-1 gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
             {effects.map((effect) => (
-              <div key={effect.commodityId} className="flex justify-between">
-                <span className="text-swu-muted">{effect.name}</span>
+              <div key={effect.commodityId} className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-swu-muted">
+                  <CommodityIcon commodityId={effect.commodityId} name={effect.name} />
+                  {effect.name}
+                </span>
                 <span
                   className={
                     effect.amount >= 0 ? 'text-green-400' : 'text-red-400'
@@ -275,13 +284,14 @@ export function PanelInfo({
             {deposits.map((deposit) => (
               <div
                 key={deposit.commodityId}
-                className="flex justify-between gap-2"
+                className="flex items-center justify-between gap-2"
               >
                 <span
-                  className={
+                  className={`flex items-center gap-1.5 ${
                     deposit.depleted ? 'text-red-400' : 'text-swu-muted'
-                  }
+                  }`}
                 >
+                  <CommodityIcon commodityId={deposit.commodityId} name={deposit.name} />
                   {deposit.name}
                 </span>
                 <span className="ml-auto text-swu-primary">
@@ -307,6 +317,17 @@ export function PanelInfo({
         </section>
       )}
     </div>
+  );
+}
+
+function CommodityIcon({ commodityId, name }: { commodityId: number; name: string }) {
+  return (
+    <img
+      src={commodityImage(commodityId)}
+      alt=""
+      className="h-5 w-5 shrink-0 object-contain"
+      loading="lazy"
+    />
   );
 }
 

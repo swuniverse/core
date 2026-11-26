@@ -887,7 +887,7 @@ export function TechDetailModal({
                   >
                     {module.commodityId != null && (
                       <img
-                        src={commodityImage(module.commodityId, module.name)}
+                        src={commodityImage(module.commodityId)}
                         alt={module.name}
                         className="size-8 object-contain"
                       />

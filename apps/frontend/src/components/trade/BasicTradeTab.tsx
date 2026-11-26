@@ -92,7 +92,7 @@ export function BasicTradeTab() {
                   <tr key={item.commodityId} className="border-t border-swu-border/60">
                     <td className="px-2 py-1">
                       <span className="flex items-center gap-2">
-                        <img src={commodityImage(item.commodityId, item.commodityName)} alt="" className="size-6 object-contain" />
+                        <img src={commodityImage(item.commodityId)} alt="" className="size-6 object-contain" />
                         {item.commodityName}
                         <span className="text-swu-muted">({formatNumber(item.stored)})</span>
                       </span>

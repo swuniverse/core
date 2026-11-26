@@ -100,7 +100,7 @@ export function CargoDisposeDialog({
             return (
               <div key={item.commodityId} className="flex items-center gap-2">
                 <img
-                  src={commodityImage(item.commodityId, name)}
+                  src={commodityImage(item.commodityId)}
                   alt=""
                   className="size-5 object-contain"
                 />

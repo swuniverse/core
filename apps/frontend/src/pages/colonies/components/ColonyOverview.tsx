@@ -203,10 +203,7 @@ export function ColonyOverview({
                                 className="flex items-center gap-1"
                               >
                                 <img
-                                  src={commodityImage(
-                                    item.commodityId,
-                                    commodityMap[item.commodityId]?.name,
-                                  )}
+                                  src={commodityImage(item.commodityId)}
                                   alt=""
                                   className="size-4 object-contain"
                                   loading="lazy"
@@ -415,10 +412,7 @@ export function ColonyOverview({
                     >
                       <td className="flex items-center gap-2 px-4 py-2">
                         <img
-                          src={commodityImage(
-                            commodityId,
-                            commodityMap[commodityId]?.name,
-                          )}
+                          src={commodityImage(commodityId)}
                           alt=""
                           className="size-5 object-contain"
                           loading="lazy"

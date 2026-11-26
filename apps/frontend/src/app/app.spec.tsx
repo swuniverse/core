@@ -783,7 +783,7 @@ describe('ColonyDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Baumenü' }));
     fireEvent.click(screen.getByRole('button', { name: mineBuilding.name }));
     const field = screen.getByRole('button', {
-      name: `Feld 1: ${fz1Building.name}`,
+      name: `Feld 1: ${fz1Building.name} (im Bau)`,
     });
     expect(field.title).toContain(`Ersetzt: ${fz1Building.name}`);
     fireEvent.click(field);
@@ -888,7 +888,7 @@ describe('ColonyDetail', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Feld 1: Koloniezentrale' }),
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Feld 2' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Feld 2 (Terraforming)' }));
 
     expect(onBuild).not.toHaveBeenCalled();
   });

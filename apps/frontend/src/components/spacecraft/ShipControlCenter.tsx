@@ -300,7 +300,7 @@ export function ShipControlCenter({
                       onChange={() => void selectTorpedo(torpedo.torpedoTypeId)}
                     />
                     <img
-                      src={commodityImage(torpedo.commodityId, torpedo.name)}
+                      src={commodityImage(torpedo.commodityId)}
                       alt=""
                       className="size-5"
                     />

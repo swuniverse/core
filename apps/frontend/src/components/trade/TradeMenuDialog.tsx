@@ -164,7 +164,7 @@ function GoodsColumn({
             const key = `${direction}:${good.commodityId}`;
             return (
               <div key={good.commodityId} className="flex items-center gap-2 p-2">
-                <img src={commodityImage(good.commodityId, good.commodityName)} alt="" className="size-6 object-contain" />
+                <img src={commodityImage(good.commodityId)} alt="" className="size-6 object-contain" />
                 <span className="flex-1">
                   {good.commodityName} · {formatNumber(good.amount)}
                 </span>

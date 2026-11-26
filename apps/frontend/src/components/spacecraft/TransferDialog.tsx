@@ -482,10 +482,7 @@ export function TransferDialog({
                   className="flex items-center gap-2 p-2 text-xs"
                 >
                   <img
-                    src={commodityImage(
-                      item.commodityId,
-                      item.commodityName ?? undefined,
-                    )}
+                    src={commodityImage(item.commodityId)}
                     alt=""
                     className="size-6 object-contain"
                   />

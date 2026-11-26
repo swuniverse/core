@@ -129,10 +129,7 @@ export function SupplyDock({
                   className="flex h-7 w-7 items-center justify-center rounded border border-swu-border/50 bg-swu-bg/50 hover:border-swu-accent focus:outline-none focus:ring-1 focus:ring-swu-accent"
                 >
                   <img
-                    src={commodityImage(
-                      item.commodityId,
-                      commodityMap[item.commodityId]?.name,
-                    )}
+                    src={commodityImage(item.commodityId)}
                     alt=""
                     className="h-6 w-6 object-contain"
                     loading="lazy"

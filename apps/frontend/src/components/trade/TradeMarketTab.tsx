@@ -79,7 +79,7 @@ export function TradeMarketTab() {
                 onClick={() => filter(() => setCommodityId(commodity.id))}
                 className={`border p-0.5 ${commodityId === commodity.id ? 'border-swu-accent bg-swu-accent/10' : 'border-swu-border'}`}
               >
-                <img src={commodityImage(commodity.id, commodity.name)} alt="" className="size-6 object-contain" />
+                <img src={commodityImage(commodity.id)} alt="" className="size-6 object-contain" />
               </button>
             ))}
           </div>
@@ -173,7 +173,7 @@ export function TradeMarketTab() {
 function Goods({ id, name, amount }: { id: number; name: string; amount: number }) {
   return (
     <span className="flex items-center gap-1">
-      <img src={commodityImage(id, name)} alt="" className="size-5 object-contain" />
+      <img src={commodityImage(id)} alt="" className="size-5 object-contain" />
       {formatNumber(amount)} {name}
     </span>
   );
