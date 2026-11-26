@@ -326,6 +326,23 @@ export interface BasicTradeRequestDto {
 
 export type TradeDealItemKind = 'COMMODITY' | 'SHIP' | 'BUILDPLAN';
 
+/** Ship or buildplan offer (STU `deals.twig`): hull, buildplan modules and the crew it needs. */
+export interface TradeDealBuildplanDto {
+  id: number;
+  name: string;
+  shipClassId: number;
+  shipClassKey: string | null;
+  shipClassName: string;
+  /** Hull minimum crew plus the crew of every module. */
+  crew: number;
+  modules: Array<{ commodityId: number; name: string; type: string | null }>;
+}
+
+export interface TradeDealPlayerDto {
+  id: number;
+  name: string;
+}
+
 /** An active Hutt Cartel instant deal (`GET trade/deals`). */
 export interface TradeDealDto {
   id: number;
@@ -334,7 +351,7 @@ export interface TradeDealDto {
   amount: number | null;
   give: { commodityId: number; commodityName: string; amount: number } | null;
   /** Ship or buildplan deals: the admin buildplan and its hull. */
-  buildplan: { id: number; name: string; shipClassName: string } | null;
+  buildplan: TradeDealBuildplanDto | null;
   want: { commodityId: number; commodityName: string; amount: number } | null;
   wantPrestige: number | null;
   factionName: string | null;
@@ -355,6 +372,8 @@ export interface TradeDealsDto {
   auctions: TradeAuctionDto[];
   /** Ended auctions won by the player and not yet claimed. */
   wonAuctions: TradeWonAuctionDto[];
+  /** STU `HASENDEDAUCTIONS`: auctions with a winner that ended in the last 30 days, newest first. */
+  endedAuctions: TradeEndedAuctionDto[];
 }
 
 /** Auction currency: a commodity, or prestige when `null`. */
@@ -364,11 +383,13 @@ export interface TradeAuctionDto {
   id: number;
   kind: TradeDealItemKind;
   give: { commodityId: number; commodityName: string; amount: number } | null;
-  buildplan: { id: number; name: string; shipClassName: string } | null;
+  buildplan: TradeDealBuildplanDto | null;
   currency: TradeAuctionCurrencyDto;
   /** Current price; `null` without bids. */
   currentAmount: number | null;
   isHighestBidder: boolean;
+  /** Public like STU; other players' maximum bids stay secret. */
+  highestBidder: TradeDealPlayerDto | null;
   /** Own maximum bid while the player is the highest bidder. */
   ownMaxAmount: number | null;
   factionName: string | null;
@@ -379,11 +400,22 @@ export interface TradeWonAuctionDto {
   id: number;
   kind: TradeDealItemKind;
   give: { commodityId: number; commodityName: string; amount: number } | null;
-  buildplan: { id: number; name: string; shipClassName: string } | null;
+  buildplan: TradeDealBuildplanDto | null;
   currency: TradeAuctionCurrencyDto;
   price: number;
   /** Part of the maximum bid returned when claiming. */
   refund: number;
+  endedAt: string;
+}
+
+export interface TradeEndedAuctionDto {
+  id: number;
+  kind: TradeDealItemKind;
+  give: { commodityId: number; commodityName: string; amount: number } | null;
+  buildplan: TradeDealBuildplanDto | null;
+  currency: TradeAuctionCurrencyDto;
+  price: number;
+  highestBidder: TradeDealPlayerDto;
   endedAt: string;
 }
 

@@ -17,7 +17,9 @@ const DOONIUM = 2;
 const HOUR_MS = 60 * 60 * 1000;
 const gameData = {
   getCommodity: (id: number) => ({ id, name: id === AURODIUM ? 'Aurodium' : id === DOONIUM ? 'Doonium' : `Ware ${id}` }),
-  getFabricationItemByOutputCommodity: () => ({ moduleType: 'HULL' }),
+  getFabricationItemByOutputCommodity: () => ({
+    moduleType: 'HULL', displayName: 'Durastahlhülle', shipyardType: 'HULL', shipyardModuleStats: { crew: 2 },
+  }),
 };
 
 /** tmw-T8a: Hutt Cartel instant deals. */
@@ -49,7 +51,7 @@ describe('Hutt Cartel deals (PostgreSQL)', () => {
     locationId = (await source.getRepository('SpaceLocation').findOneByOrFail({ galaxyFieldId: field.id })).id;
     postId = (await source.getRepository('TradePost').save({ name: 'Hutten-Handelsposten', networkId: 3, ownerId: hutts.id, locationId, storageLimit: 1000 })).id;
     await license(player);
-    shipClassId = (await source.getRepository('ShipClassDef').save({ key: 'HUTT_FREIGHTER', name: 'Hutten-Frachter', category: 'SHIP', role: 'FREIGHTER' })).id;
+    shipClassId = (await source.getRepository('ShipClassDef').save({ key: 'HUTT_FREIGHTER', name: 'Hutten-Frachter', category: 'SHIP', role: 'FREIGHTER', crewMin: 3 })).id;
     buildplanId = (await source.getRepository('AdminShipBuildplan').save({ name: 'Kartellfrachter', shipClassId, moduleSelections: [{ slotId: 'hull', commodityId: 901 }] })).id;
     deals = service();
   });
@@ -215,7 +217,11 @@ describe('Hutt Cartel deals (PostgreSQL)', () => {
     ]);
     expect(await stock(player, AURODIUM)).toBe(60);
     expect((await deals.list(player.id, now)).deals[0]).toMatchObject({
-      kind: 'SHIP', give: null, buildplan: { id: buildplanId, name: 'Kartellfrachter', shipClassName: 'Hutten-Frachter' },
+      kind: 'SHIP', give: null,
+      buildplan: {
+        id: buildplanId, name: 'Kartellfrachter', shipClassId, shipClassKey: 'HUTT_FREIGHTER', shipClassName: 'Hutten-Frachter',
+        crew: 5, modules: [{ commodityId: 901, name: 'Durastahlhülle', type: 'HULL' }],
+      },
     });
   });
 
