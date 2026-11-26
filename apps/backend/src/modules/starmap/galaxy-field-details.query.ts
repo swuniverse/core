@@ -12,7 +12,7 @@ import { In, Repository } from 'typeorm';
 import { AllianceMembership } from '../alliance/entities/alliance-membership.entity';
 import { User } from '../auth/user.entity';
 import { GameDataService } from '../game-data/game-data.service';
-import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
+import { Spacecraft, SpacecraftKind } from '../spacecraft/entities/spacecraft.entity';
 import { TradeLicenseCondition } from '../trade/entities/trade-license-condition.entity';
 import { TradePost } from '../trade/entities/trade-post.entity';
 import { GalaxyField } from './entities/galaxy-field.entity';
@@ -102,15 +102,10 @@ export class GalaxyFieldDetailsQuery {
       where: { layerId, sourceType: InfluenceSourceType.STATION },
       order: { strength: 'DESC', id: 'ASC' },
     });
-    const stationByCell = new Map<string, number>();
-    for (const area of areas) {
-      const cell = `${area.cx}:${area.cy}`;
-      if (!stationByCell.has(cell)) stationByCell.set(cell, area.sourceId);
-    }
-    const stationIds = unique([...stationByCell.values()]);
+    const stationIds = unique(areas.map((area) => area.sourceId));
     const stations = stationIds.length
       ? await this.spacecraftRepo.find({
-          where: { id: In(stationIds) },
+          where: { id: In(stationIds), kind: SpacecraftKind.STATION },
           select: ['id', 'userId'],
         })
       : [];
@@ -138,10 +133,12 @@ export class GalaxyFieldDetailsQuery {
       });
     }
 
+    // Areas arrive strongest first; areas of deleted stations are skipped, so a weaker live station wins.
     const owners = new Map<string, StarmapTerritoryOwnerDto>();
-    for (const [cell, stationId] of stationByCell) {
-      const owner = ownerByStation.get(stationId);
-      if (owner) owners.set(cell, owner);
+    for (const area of areas) {
+      const cell = `${area.cx}:${area.cy}`;
+      const owner = ownerByStation.get(area.sourceId);
+      if (owner && !owners.has(cell)) owners.set(cell, owner);
     }
     return owners;
   }

@@ -28,6 +28,8 @@ function setup() {
       { id: 2, cx: 1, cy: 1, sourceType: InfluenceSourceType.STATION, sourceId: 51, strength: 0.4 },
       { id: 3, cx: 2, cy: 1, sourceType: InfluenceSourceType.STATION, sourceId: 51, strength: 0.8 },
       { id: 4, cx: 3, cy: 1, sourceType: InfluenceSourceType.STATION, sourceId: 50, strength: 0.8 },
+      { id: 5, cx: 4, cy: 1, sourceType: InfluenceSourceType.STATION, sourceId: 99, strength: 0.9 },
+      { id: 6, cx: 4, cy: 1, sourceType: InfluenceSourceType.STATION, sourceId: 51, strength: 0.2 },
     ]),
     spacecraft: repo([
       { id: 50, userId: 7 },
@@ -91,6 +93,16 @@ describe('GalaxyFieldDetailsQuery', () => {
     });
   });
 
+  it('falls back to the strongest station that still exists', async () => {
+    const { query, repos } = setup();
+    const details = await query.load(7, 1, [field({ id: 4, cx: 4 })]);
+
+    expect(details.get(4)?.territoryOwner?.playerName).toBe('Lando');
+    expect(repos.spacecraft.find).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ kind: 'STATION' }) }),
+    );
+  });
+
   it('has no territory owner in admin regions or without station influence', async () => {
     const { query } = setup();
     const details = await query.load(7, 1, [
@@ -133,6 +145,11 @@ describe('GalaxyFieldDetailsQuery', () => {
     expect(unknown.get(5)).toMatchObject({ region: null, databaseSystemId: null });
 
     const known = await query.load(7, 1, [field({ id: 5, regionId: 4, starSystemId: 90 })]);
+    for (const knowledge of [repos.regionDiscoveries, repos.systemExplorations]) {
+      expect(knowledge.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ userId: 7 }) }),
+      );
+    }
     expect(known.get(5)).toMatchObject({
       region: { id: 4, name: 'Kernwelten', description: 'Zentrum' },
       databaseSystemId: 90,
