@@ -13,6 +13,7 @@ import {
   type SwuBodyFeature,
   type SwuRotationType,
 } from './swu-planet-archetypes.generator';
+import { findArchetypeBySwuClassId } from './swu-archetype-registry';
 import { getSwuArchetypeForStuClassId } from './swu-stu-class-mapping';
 import { buildSwuTestClassId } from './swu-system-generator';
 
@@ -42,14 +43,13 @@ export interface SwuTypeSource {
 
 const SWU_CLASS_ID_BASE = 90000;
 
+/** Index 0 stands for "no variant" and for variant A (buildSwuTestClassId); the registry resolves both. */
 function decodeSwuClassId(
   classId: number,
 ): { typeId: number; variant: string | null } | null {
   if (classId < SWU_CLASS_ID_BASE) return null;
-  const rest = classId - SWU_CLASS_ID_BASE;
-  const typeId = Math.floor(rest / 10);
-  const index = rest % 10;
-  return { typeId, variant: index ? String.fromCharCode(65 + index) : null };
+  const archetype = findArchetypeBySwuClassId(classId);
+  return archetype ? { typeId: archetype.typeId, variant: archetype.variant } : null;
 }
 
 export function resolveSwuPlanetType(
