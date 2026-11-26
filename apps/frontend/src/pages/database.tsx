@@ -17,12 +17,13 @@ import { DatabaseProgress } from '../components/database/DatabaseProgress';
 import { PageHeader } from '../components/PageHeader';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { PmLink } from '../components/PmLink';
-import { commodityImage, systemTypeImage } from '../lib/assets';
+import { commodityImage, shipImage, systemTypeImage } from '../lib/assets';
 import { formatNumber } from '../lib/format';
 import { api } from '../services/api';
 import type {
   CommodityLocationsOverviewDto,
   CommodityOverviewEntryDto,
+  DatabaseHullCatalogDto,
   DatabaseLayerChoiceDto,
   DatabaseSystemTypesDto,
   DatabasePlanetTypesDto,
@@ -160,13 +161,7 @@ type SystemDetail =
   | AvailableSystemDetail
   | { availability: 'ASTROMETRY_REQUIRED' };
 
-type ShipClass = {
-  key: string;
-  discovered: boolean;
-  name: string | null;
-  discoveredAt: string | null;
-};
-type ShipClasses = { discovered: number; total: number; entries: ShipClass[] };
+type ShipClasses = DatabaseHullCatalogDto;
 type PlanetTypes = DatabasePlanetTypesDto;
 type PrestigeHistory = {
   prestige: number;
@@ -1265,7 +1260,20 @@ function ShipClasses({
           {data.entries.map((entry) => (
             <tr key={entry.key} className="border-t border-swu-border/60">
               <td className="px-2 py-1">
-                {entry.discovered ? entry.name : '???'}
+                {entry.discovered ? (
+                  <Link
+                    to={`/database/${station ? 'station-classes' : 'ship-classes'}/${encodeURIComponent(entry.key)}`}
+                    className="flex items-center gap-2 text-swu-accent hover:underline"
+                  >
+                    <img src={shipImage(entry.id, entry.key)} alt="" className="h-8 w-8 object-contain" />
+                    {entry.name}
+                  </Link>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block h-8 w-8" aria-hidden="true" />
+                    ???
+                  </span>
+                )}
               </td>
               <td>
                 {entry.discoveredAt

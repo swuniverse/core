@@ -29,6 +29,7 @@ import {
 import { OnboardingPage } from '../pages/onboarding';
 import { SettingsPage } from '../pages/settings';
 import { DatabasePage, DatabaseSystemDetailPage } from '../pages/database';
+import { DatabaseHullDetailPage } from '../pages/database-hull';
 import { PlayerProfilePage } from '../pages/player-profile';
 import { AllianceMemberOverviewPage } from '../pages/alliance-member-overview';
 import { StarmapAdminFullmapPage } from '../pages/starmap-admin-fullmap';
@@ -232,6 +233,8 @@ export function App() {
             <Route path="/holonet/plots/:id" element={<RpgPlotDetailPage />} />
             <Route path="/holonet/:id" element={<HolonetPage />} />
             <Route path="/database/systems/:id" element={<DatabaseSystemDetailPage />} />
+            <Route path="/database/ship-classes/:key" element={<DatabaseHullDetailPage kind="SHIP" />} />
+            <Route path="/database/station-classes/:key" element={<DatabaseHullDetailPage kind="STATION" />} />
             <Route path="/database" element={<DatabasePage />} />
             <Route path="/players/:id" element={<PlayerProfilePage />} />
             <Route path="/alliances" element={<AllianceIndexPage />} />

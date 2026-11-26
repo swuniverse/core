@@ -9,7 +9,13 @@ import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { FLIGHT_SIGNATURE_RETENTION_MS } from '../spacecraft/flight-signature.service';
 import { profileLogbooks } from '../spacecraft/ship-logbook';
 import { FlightSignature } from '../spacecraft/entities/flight-signature.entity';
-import { isVacationEffective, type ProfileFriendDto } from '@swuniverse/shared';
+import {
+  isVacationEffective,
+  type DatabaseHullCatalogDto,
+  type DatabaseHullDetailDto,
+  type DatabaseHullEntryDto,
+  type ProfileFriendDto,
+} from '@swuniverse/shared';
 import { User } from '../auth/user.entity';
 import { NON_NPC_USER_WHERE } from '../auth/non-npc-users';
 import { Colony } from '../colony/entities/colony.entity';
@@ -95,6 +101,21 @@ type RankingResult = {
   metricLabel: string;
   entries: RankingEntry[];
 };
+
+function hullEntry(
+  definition: ShipClassDef,
+  discovery: { discoveredAt: Date } | undefined,
+): DatabaseHullEntryDto {
+  return discovery
+    ? {
+        id: definition.id,
+        key: definition.key,
+        discovered: true,
+        name: definition.name,
+        discoveredAt: discovery.discoveredAt.toISOString(),
+      }
+    : { id: definition.id, key: definition.key, discovered: false, name: null, discoveredAt: null };
+}
 
 @Injectable()
 export class DatabaseService {
@@ -679,7 +700,7 @@ export class DatabaseService {
     };
   }
 
-  async getShipClasses(userId: number) {
+  async getShipClasses(userId: number): Promise<DatabaseHullCatalogDto> {
     const [definitions, discoveries] = await Promise.all([
       this.shipClassRepo.find({
         where: NON_NPC_USER_WHERE,
@@ -695,24 +716,12 @@ export class DatabaseService {
       total: definitions.length,
       entries: definitions.map((definition) => {
         const discovery = discoveredByClass.get(definition.id);
-        return discovery
-          ? {
-              key: definition.key,
-              discovered: true,
-              name: definition.name,
-              discoveredAt: discovery.discoveredAt.toISOString(),
-            }
-          : {
-              key: definition.key,
-              discovered: false,
-              name: null,
-              discoveredAt: null,
-            };
+        return hullEntry(definition, discovery);
       }),
     };
   }
 
-  async getShipClassDetail(userId: number, key: string) {
+  async getShipClassDetail(userId: number, key: string): Promise<DatabaseHullDetailDto> {
     const definition = await this.shipClassRepo.findOne({
       where: { key, isNpc: false },
     });
@@ -724,10 +733,10 @@ export class DatabaseService {
     ) {
       throw new NotFoundException('Schiffsrumpf nicht katalogisiert');
     }
-    return definition;
+    return this.toHullDetail(definition, 'SHIP');
   }
 
-  async getStationClasses(userId: number) {
+  async getStationClasses(userId: number): Promise<DatabaseHullCatalogDto> {
     const stationClassIds = await this.shipRepo
       .createQueryBuilder('station')
       .select('DISTINCT station.shipClassId', 'shipClassId')
@@ -753,24 +762,12 @@ export class DatabaseService {
       total: definitions.length,
       entries: definitions.map((definition) => {
         const discovery = discoveredByClass.get(definition.id);
-        return discovery
-          ? {
-              key: definition.key,
-              discovered: true,
-              name: definition.name,
-              discoveredAt: discovery.discoveredAt.toISOString(),
-            }
-          : {
-              key: definition.key,
-              discovered: false,
-              name: null,
-              discoveredAt: null,
-            };
+        return hullEntry(definition, discovery);
       }),
     };
   }
 
-  async getStationClassDetail(userId: number, key: string) {
+  async getStationClassDetail(userId: number, key: string): Promise<DatabaseHullDetailDto> {
     const definition = await this.shipClassRepo.findOne({
       where: { key, isNpc: false },
     });
@@ -788,7 +785,57 @@ export class DatabaseService {
     if (!isStationClass || !isDiscovered) {
       throw new NotFoundException('Stationsrumpf nicht katalogisiert');
     }
-    return definition;
+    return this.toHullDetail(definition, 'STATION');
+  }
+
+  /** STU `shiprump.twig`: class entity plus hull rules, costs and station data from game data. */
+  private async toHullDetail(
+    definition: ShipClassDef,
+    kind: DatabaseHullDetailDto['kind'],
+  ): Promise<DatabaseHullDetailDto> {
+    const yaml = this.gameData.getShipClassDefByKey(definition.key);
+    const stuRumpId = yaml?.stuRumpId;
+    const stats = this.gameData.getShipyardRumpStats(stuRumpId);
+    const rules = this.gameData.getShipyardRumpModuleRules(stuRumpId)?.moduleRules ?? {};
+    const faction = definition.factionId
+      ? await this.factionService.findById(definition.factionId)
+      : null;
+    return {
+      id: definition.id,
+      key: definition.key,
+      kind,
+      name: definition.name,
+      factionName: faction?.name ?? null,
+      category: definition.category,
+      role: definition.role,
+      moduleLevel: stats?.moduleLevel ?? null,
+      modules: Object.entries(rules)
+        .filter(([, rule]) => rule && rule.level > 0)
+        .map(([type, rule]) => ({
+          type,
+          minLevel: rule!.min,
+          maxLevel: rule!.max,
+          mandatory: rule!.mandatory > 0,
+        })),
+      flightEnergyCost: definition.flightEnergyCost,
+      cargoCapacity: definition.cargoCapacity,
+      sensorRange: definition.sensorRangeBase,
+      torpedoCapacity: definition.torpedoStorageBase,
+      crewMin: definition.crewMin,
+      crewMax: definition.crewMax,
+      epsCapacity: definition.epsBase,
+      hull: definition.hullBase,
+      shield: definition.shieldBase,
+      requiredWorkbees: kind === 'STATION' ? (yaml?.station?.requiredWorkbees ?? null) : null,
+      buildEnergyCost: stats?.epsCost ?? null,
+      buildCosts: (yaml?.buildCosts ?? []).map((cost) => ({
+        commodityId: cost.commodityId,
+        commodityName:
+          this.gameData.getCommodity(cost.commodityId)?.name ?? `Ware #${cost.commodityId}`,
+        amount: cost.amount,
+      })),
+      buildTimeSeconds: definition.buildTimeTicks,
+    };
   }
 
   getModules() {
