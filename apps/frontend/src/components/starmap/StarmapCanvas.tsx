@@ -39,6 +39,7 @@ import {
 import { terrainAppearance } from '../../lib/map-terrain';
 import { featherNebulaSprite } from '../../lib/map-terrain-pixi';
 import { getNebulaCloudPixiTexture } from '../../lib/nebula-cloud-pixi';
+import { fieldTooltipLines, TRADE_POST_COLOR } from '../../lib/starmap-field-info';
 
 const CELL_SIZE = STARMAP_CELL_SIZE;
 const MIN_SCALE = 0.08;
@@ -340,6 +341,10 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
         }
         if (showFieldEffects && field.effects?.length) {
           graphics.circle(x + CELL_SIZE - 7, y + 7, 4).fill({ color: 0xa855f7, alpha: 0.95 });
+        }
+        if (field.details?.tradePost) {
+          graphics.circle(x + 7, y + CELL_SIZE - 7, 4.5).fill({ color: TRADE_POST_COLOR, alpha: 0.95 });
+          graphics.circle(x + 7, y + CELL_SIZE - 7, 4.5).stroke({ color: 0x111111, width: 1 });
         }
       }
       if (showSensorCoverage) {
@@ -715,10 +720,7 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
         state.hoveredField = field;
         const tooltip = tooltipRef.current;
         if (tooltip && field) {
-          const effects = showFieldEffects && field.effects?.length
-            ? ` · Effekte: ${field.effects.join(', ')}`
-            : '';
-          tooltip.textContent = `${field.cx}, ${field.cy}${field.starSystem ? ` · ${field.starSystem.name}` : ''}${effects}`;
+          tooltip.textContent = fieldTooltipLines(field).join('\n');
           tooltip.style.display = 'block';
           tooltip.style.left = `${state.mouseX + 12}px`;
           tooltip.style.top = `${state.mouseY + 12}px`;
@@ -785,7 +787,7 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
           {worldOverlay}
         </div>
         <canvas ref={overlayRef} className="absolute inset-0 pointer-events-none z-10" />
-        <div ref={tooltipRef} className="absolute z-20 pointer-events-none hidden rounded bg-black/90 border border-swu-border px-2 py-1 text-[11px] text-swu-primary whitespace-nowrap" />
+        <div ref={tooltipRef} className="absolute z-20 pointer-events-none hidden rounded bg-black/90 border border-swu-border px-2 py-1 text-[11px] text-swu-primary whitespace-pre-line max-w-72" />
       </div>
     );
   },

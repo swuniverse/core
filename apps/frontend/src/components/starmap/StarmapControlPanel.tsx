@@ -1,4 +1,6 @@
+import { Link } from 'react-router-dom';
 import type { StarmapGalaxyFieldDto, StarmapLayerDto, StarmapSystemListItemDto } from '@swuniverse/shared';
+import { territoryOwnerTitle, tradePostTitle } from '../../lib/starmap-field-info';
 
 export type StarmapOverlayKey = 'territory' | 'impassable' | 'fieldEffects' | 'sensorCoverage';
 export type StarmapOverlays = Record<StarmapOverlayKey, boolean>;
@@ -169,8 +171,33 @@ export function StarmapControlPanel({
               return `Sektor ${info.num} (${info.minCx}|${info.minCy} bis ${info.maxCx}|${info.maxCy})`;
             })()}</p>
             <p className="text-xs text-swu-muted">{selectedField.fieldType.name || 'Weltraum'}</p>
-            {selectedField.factionZone && selectedField.factionZone !== 'UNKNOWN' && <p className="text-xs text-swu-muted">Gebiet: {FACTION_LABELS[selectedField.factionZone] ?? selectedField.factionZone}</p>}
+            {selectedField.details?.effectTexts.map((text) => <p key={text} className="text-xs text-purple-300">{text}</p>)}
+            {selectedField.details?.isImpassable && <p className="text-xs text-red-400">Unpassierbar</p>}
+            {selectedField.factionZone && selectedField.factionZone !== 'UNKNOWN' && <p className="text-xs text-swu-muted">Fraktionszone: {FACTION_LABELS[selectedField.factionZone] ?? selectedField.factionZone}</p>}
+            {selectedField.details?.territoryOwner && <p className="text-xs text-swu-muted">{territoryOwnerTitle(selectedField.details.territoryOwner)}</p>}
+            {selectedField.details?.tradePost && (
+              <p className="text-xs text-amber-400">
+                Handelsposten:{' '}
+                <Link to={`/trade?tab=posts&post=${selectedField.details.tradePost.id}`} className="underline hover:text-amber-300">
+                  {tradePostTitle(selectedField.details.tradePost)}
+                </Link>
+              </p>
+            )}
             {selectedField.starSystem && <p className="text-xs text-swu-accent">{selectedField.starSystem.isMapOnly ? 'POI' : 'System'}: {selectedField.starSystem.name}</p>}
+            {selectedField.details?.region && (
+              <>
+                <p className="text-xs text-swu-muted">Region: {selectedField.details.region.name}</p>
+                {selectedField.details.region.description && <p className="text-xs italic text-swu-muted">{selectedField.details.region.description}</p>}
+              </>
+            )}
+            {selectedField.details?.databaseSystemId != null && (
+              <Link
+                to={`/database/systems/${selectedField.details.databaseSystemId}`}
+                className="mt-1 block w-full border border-swu-border rounded px-2 py-1 text-center text-xs text-swu-accent hover:bg-swu-accent/10"
+              >
+                Datenbank
+              </Link>
+            )}
           </>
         ) : <p className="text-xs text-swu-muted">Feld anklicken</p>}
       </div>

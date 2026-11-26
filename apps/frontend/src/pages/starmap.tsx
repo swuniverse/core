@@ -464,6 +464,7 @@ export function StarmapPage() {
             <ul className="space-y-1 text-xs text-swu-muted">
               <li><span aria-hidden="true" className="mr-2 text-swu-primary">✦</span>Sternensystem</li>
               <li><span aria-hidden="true" className="mr-2 text-swu-primary">◆</span>Schiff</li>
+              <li><span aria-hidden="true" className="mr-2 text-amber-500">●</span>Handelsposten</li>
             </ul>
           </section>
 
