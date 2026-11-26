@@ -56,7 +56,7 @@ describe('DatabaseRegionCatalogService region map', () => {
     { cx: 3, cy: 4, regionId: null, fieldTypeId: 1, fieldType, effects: null, starSystem: null },
     { cx: 6, cy: 4, regionId: 9, fieldTypeId: 1, fieldType, effects: null, starSystem: null },
   ];
-  function regionService(discovered: boolean, explored: Array<{ cx: number; cy: number }>) {
+  function regionService(discovered: boolean, explored: Array<{ cx: number; cy: number }>, fullyExplored = false) {
     const fieldRepo = {
       find: jest.fn(async (options: { where: { regionId?: number } }) =>
         options.where.regionId ? area.filter((field) => field.regionId === 3) : area),
@@ -66,7 +66,7 @@ describe('DatabaseRegionCatalogService region map', () => {
       { exists: jest.fn(async () => discovered) } as never,
       fieldRepo as never,
       { find: jest.fn(async () => explored) } as never,
-      { exists: jest.fn(async () => false) } as never,
+      { exists: jest.fn(async () => fullyExplored) } as never,
     );
   }
 
@@ -76,6 +76,12 @@ describe('DatabaseRegionCatalogService region map', () => {
     expect(detail).toMatchObject({ name: 'Anoat', bounds: { minX: 3, maxX: 6, minY: 3, maxY: 5 } });
     expect(detail.fields.map((field) => [field.cx, field.inRegion])).toEqual([[4, true], [5, true], [3, false]]);
     expect(detail.fields[0]).toMatchObject({ effectTexts: ['Leck am EPS'], starSystemName: 'Bespin' });
+  });
+
+  it('shows every margin field once the whole layer is explored', async () => {
+    const detail = await regionService(true, [], true).getRegion(7, 3);
+
+    expect(detail.fields.map((field) => field.cx)).toEqual([4, 5, 3, 6]);
   });
 
   it('hides undiscovered regions', async () => {

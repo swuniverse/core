@@ -25,6 +25,18 @@ describe('DatabaseTypeDetailService', () => {
     expect((await detail.getPlanetType(7, planetKey)).zones).toEqual(result.zones);
   });
 
+  it('resolves every listed key, including variant A, planets, moons, rings and tidal-locked bodies', async () => {
+    const keys = SWU_PLANET_ARCHETYPES.flatMap((type) =>
+      ['RB', 'GB', 'RR', 'RM'].map((code) => `${buildSwuTestClassId(type.typeId, type.variant)}:${code}`),
+    );
+    const resolvable = await Promise.all(
+      keys.map((key) => service(true).service.getPlanetType(7, key).then(() => key, () => null)),
+    );
+    // Gas giant A shares index 0 with "no variant" in the class id (tmw-AUD-03b review).
+    const gasGiantA = `${buildSwuTestClassId(15, 'A')}:RB`;
+    expect(resolvable).toContain(gasGiantA);
+  });
+
   it('hides undiscovered and unknown planet types', async () => {
     await expect(service(false).service.getPlanetType(7, planetKey)).rejects.toThrow(NotFoundException);
     await expect(service(true).service.getPlanetType(7, '1:XX')).rejects.toThrow(NotFoundException);
