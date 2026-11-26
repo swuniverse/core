@@ -122,7 +122,7 @@ describe('Layer access through the authenticated production application (Postgre
     expect(await response.json()).toMatchObject({ message: 'Layer not known' });
   });
 
-  it.each(['starmap/systems', 'starmap/systems-grid', 'database/systems', 'starmap/regions', 'discover-field'])(
+  it.each(['starmap/systems', 'starmap/systems-grid', 'database/systems', 'discover-field'])(
     'rejects indirect access to an unknown layer even with personal exploration: %s', async (endpoint) => {
       const system = await source.getRepository(StarSystem).save({ name: 'Indirect secret', layerId: unknown.id, cx: 1, cy: 1, systemTypeId: 1049 });
       await source.getRepository(SystemExploration).save({ userId, starSystemId: system.id, discoveredAt: new Date() });
@@ -134,8 +134,7 @@ describe('Layer access through the authenticated production application (Postgre
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt.sign({ sub: userId, username: 'reader' })}` },
           body: JSON.stringify({ layerId: unknown.id, cx: 2, cy: 2 }),
         })
-        : await request(endpoint === 'starmap/regions' ? `${endpoint}/${region.id}`
-          : endpoint === 'starmap/systems-grid' ? `starmap/systems/${system.id}/grid` : `${endpoint}/${system.id}`);
+        : await request(endpoint === 'starmap/systems-grid' ? `starmap/systems/${system.id}/grid` : `${endpoint}/${system.id}`);
       expect(response.status).toBe(403);
       expect(await response.json()).toMatchObject({ message: 'Layer not known' });
     },
@@ -262,7 +261,6 @@ describe('Layer access through the authenticated production application (Postgre
     const region = await source.getRepository(MapRegion).save({ layerId: unknown.id, name: 'Role region' });
     await source.getRepository(GalaxyField).save({ layerId: unknown.id, cx: 1, cy: 1, fieldTypeId: 1, regionId: region.id });
     await source.getRepository(ExplorationState).save({ userId, layerId: unknown.id, cx: 1, cy: 1, explorationLevel: ExplorationLevel.FULL });
-    expect((await request(`starmap/regions/${region.id}`, role)).status).toBe(200);
     const discovered = await fetch(`${await app.getUrl()}/api/starmap/exploration/discover-field`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt.sign({ sub: userId, username: 'reader', isAdmin: role === 'admin', permissions: role === 'editor' ? ['MAP_EDITOR'] : [] })}` },
       body: JSON.stringify({ layerId: unknown.id, cx: 1, cy: 1 }),

@@ -70,7 +70,7 @@ describe('Personal starmap export HTTP API', () => {
         { id: 72, userId: 99, name: 'Other layer colony', starSystemId: 10, starSystem: { id: 10, layerId: 4, cx: 9, cy: 9 } },
         { id: 73, userId: 99, name: 'Outside explored extent', starSystemId: 7, starSystem: { id: 7, layerId: 3, cx: 2, cy: 4 } },
         { id: 74, userId: 99, name: 'Ruins', starSystemId: null, starSystem: null },
-      ]) as never, repository() as never, db,
+      ]) as never, db, undefined, { load: async () => new Map() } as never,
     );
     const module = await Test.createTestingModule({
       controllers: [StarmapController],
@@ -139,7 +139,7 @@ describe('Personal starmap export HTTP API', () => {
         repository([{ id: 3 }]) as never,
         repository() as never, repository() as never, repository() as never,
         repository() as never, repository() as never, repository() as never,
-        repository() as never, db,
+        db,
       );
       await expect(otherInstance.exportExploredLayer(55, 3,
         new ExplorationService(repository() as never, repository() as never),
