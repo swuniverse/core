@@ -187,3 +187,39 @@ describe('StarmapQueryService shields', () => {
     );
   });
 });
+
+describe('StarmapQueryService layer field details', () => {
+  it('attaches details only to fully explored fields and omits unexplored ones', async () => {
+    const fieldType = { id: 1, key: 'SPACE', name: 'Weltraum', passable: true, energyCost: 1, damage: 0, isSystem: false, colorKey: null };
+    const galaxyFieldRepo = repo({
+      find: jest.fn(async () => [
+        { id: 1, cx: 1, cy: 1, fieldType },
+        { id: 2, cx: 2, cy: 1, fieldType },
+        { id: 3, cx: 3, cy: 1, fieldType },
+      ]),
+    });
+    const fieldDetails = {
+      load: jest.fn(async (_viewer: number, _layer: number, fields: Array<{ id: number }>) =>
+        new Map(fields.map((field) => [field.id, { territoryOwner: null }])),
+      ),
+    };
+    const service = new StarmapQueryService(
+      repo(), galaxyFieldRepo, repo(), repo(), repo(), repo(), repo(), repo(),
+      undefined, undefined, fieldDetails as never,
+    );
+    const explorationService = {
+      getExploredFields: jest.fn(async () => [
+        { cx: 1, cy: 1, explorationLevel: 'FULL' },
+        { cx: 2, cy: 1, explorationLevel: 'TERRAIN' },
+      ]),
+    } as never;
+
+    const fields = await service.getExploredLayerFields(12, 1, explorationService);
+
+    expect(fields.map((field) => [field.id, field.details])).toEqual([
+      [1, { territoryOwner: null }],
+      [2, undefined],
+    ]);
+    expect(fieldDetails.load).toHaveBeenCalledWith(12, 1, [expect.objectContaining({ id: 1 })]);
+  });
+});

@@ -142,7 +142,7 @@ describe('nebula preview against migrated application schema', () => {
       const field = await database.getRepository(GalaxyField).findOneByOrFail({ layerId: layer.id, cx, cy: 8 });
       await database.getRepository(GalaxyField).save({ ...field, fieldTypeId: 102, isPassable: nebulaType.passable, energyCost: nebulaType.energyCost, damage: nebulaType.damage, effects: nebulaType.effects, effectFlags: nebulaType.effects, nebulaGeneration: { visual, fieldTypeId: 102, baseline } });
     }
-    const query: StarmapQueryService = Object.assign(Object.create(StarmapQueryService.prototype), { layerRepo: database.getRepository(Layer), galaxyFieldRepo: database.getRepository(GalaxyField) });
+    const query: StarmapQueryService = Object.assign(Object.create(StarmapQueryService.prototype), { layerRepo: database.getRepository(Layer), galaxyFieldRepo: database.getRepository(GalaxyField), fieldDetails: { load: async () => new Map() } });
     const states = [10, 11].map(cx => ({ cx, cy: 8, explorationLevel: 'TERRAIN' }));
     const exploration = { getExploredFieldsInSector: jest.fn(async () => states), getExploredFields: async () => states } as unknown as ExplorationService;
     const sector = await query.getExploredSectorFields(1, layer.id, 1, 0, exploration);

@@ -139,7 +139,7 @@ export class StarmapController {
     req: { user: { sub: number; isAdmin?: boolean; permissions?: string[] } },
   ): Promise<StarmapGalaxyFieldDto[]> {
     if (this.bypassFog(req.user)) {
-      return this.starmapQueryService.getAllLayerFields(layerId);
+      return this.starmapQueryService.getAllLayerFields(req.user.sub, layerId);
     }
     return this.starmapQueryService.getExploredLayerFields(
       req.user.sub,

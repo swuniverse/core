@@ -131,6 +131,38 @@ export interface StarmapGalaxyFieldDto {
   passableOverride: boolean | null;
   fieldType: StarmapFieldTypeDto;
   starSystem: StarmapSystemListItemDto | null;
+  /** STU field info; only on fully explored fields of the layer field list. */
+  details?: StarmapGalaxyFieldDetailsDto;
+}
+
+export interface StarmapGalaxyFieldDetailsDto {
+  /** Owner of the strongest station influence; null in admin regions or without station influence. */
+  territoryOwner: StarmapTerritoryOwnerDto | null;
+  tradePost: StarmapFieldTradePostDto | null;
+  /** Only when the viewer discovered the region (ADR-0009). */
+  region: StarmapRegionInfoDto | null;
+  effectTexts: string[];
+  isImpassable: boolean;
+  /** Target of `/database/systems/:id`; only when the viewer discovered the system. */
+  databaseSystemId: number | null;
+}
+
+export interface StarmapTerritoryOwnerDto {
+  playerId: number;
+  playerName: string;
+  allianceId: number | null;
+  allianceName: string | null;
+}
+
+export interface StarmapFieldTradePostDto {
+  id: number;
+  name: string;
+  licenseCondition: {
+    commodityId: number;
+    commodityName: string;
+    amount: number;
+    durationDays: number;
+  } | null;
 }
 
 export interface StarmapExportDto {
