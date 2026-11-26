@@ -3,6 +3,9 @@ import { ColonySocialService } from '../colony/colony-social.service';
 import { MapRegion } from '../starmap/entities/map-region.entity';
 import { RegionDiscovery } from '../starmap/entities/region-discovery.entity';
 import { DatabaseRegionCatalogService } from './database-region-catalog.service';
+import { DatabaseTypeDetailService } from './database-type-detail.service';
+import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
+import { LayerKnowledge } from '../starmap/entities/layer-knowledge.entity';
 import { CelestialObject } from '../starmap/entities/celestial-object.entity';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -99,6 +102,8 @@ import { StarmapModule } from '../starmap/starmap.module';
       DatabaseCategoryAward,
       MapRegion,
       RegionDiscovery,
+      GalaxyField,
+      LayerKnowledge,
     ]),
     FactionModule,
     GameDataModule,
@@ -118,6 +123,7 @@ import { StarmapModule } from '../starmap/starmap.module';
     ColonyStatsService,
     ColonySocialService,
     DatabaseRegionCatalogService,
+    DatabaseTypeDetailService,
     DatabaseCompletionService,
     DatabaseDiscoveryListener,
     ColonyScanProjectionService,

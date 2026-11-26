@@ -166,3 +166,49 @@ export interface DatabaseHullDetailDto {
   buildCosts: Array<{ commodityId: number; commodityName: string; amount: number }>;
   buildTimeSeconds: number;
 }
+
+/** STU `planettype.twig`: a discovered planet type with example surfaces per landing zone. */
+export interface DatabasePlanetTypeDetailDto {
+  key: string;
+  classId: number;
+  objectTypeId: number;
+  imageName: string;
+  name: string;
+  description: string | null;
+  objectType: string;
+  /** Example colony surfaces (tile codes, row by row) for each colonizable landing zone. */
+  zones: Array<{ label: string; surface: string[][] }>;
+}
+
+/** STU `databaseEntry.twig` for star system types; SWU has no description text, only catalogue values. */
+export interface DatabaseSystemTypeDetailDto {
+  systemTypeId: number;
+  name: string;
+  rarity: string;
+  isBinary: boolean;
+  gridSize: { min: number; max: number };
+  planets: { min: number; max: number };
+  asteroids: { min: number; max: number };
+  moonChance: number;
+}
+
+export interface DatabaseRegionMapFieldDto {
+  cx: number;
+  cy: number;
+  inRegion: boolean;
+  fieldTypeId: number;
+  fieldTypeName: string;
+  effectTexts: string[];
+  starSystemName: string | null;
+}
+
+/** STU `regioninfo.twig`: map of a discovered region (ADR-0009) with one field of margin. */
+export interface DatabaseRegionDetailDto {
+  regionId: number;
+  name: string;
+  description: string | null;
+  layerName: string | null;
+  bounds: { minX: number; maxX: number; minY: number; maxY: number };
+  /** Region fields, plus margin fields the viewer explored; hidden cells are omitted. */
+  fields: DatabaseRegionMapFieldDto[];
+}

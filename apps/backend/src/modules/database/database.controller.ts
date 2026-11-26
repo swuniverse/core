@@ -18,6 +18,7 @@ import { DatabaseService } from './database.service';
 import { STATISTIC_UNITS, type StatisticUnit, type DatabaseRegionsDto, type DatabaseSystemTypesDto, type DatabasePlanetTypesDto } from '@swuniverse/shared';
 import { StatisticsService } from '../statistics/statistics.service';
 import { CommodityOverviewService } from './commodity-overview.service';
+import { DatabaseTypeDetailService } from './database-type-detail.service';
 import { LayerAccessGuard } from '../starmap/layer-access.guard';
 import { LayerAccessService, type LayerReader } from '../starmap/layer-access.service';
 
@@ -29,6 +30,7 @@ export class DatabaseController {
     private readonly commodityOverviewService: CommodityOverviewService,
     private readonly layerAccess: LayerAccessService,
     private readonly regionCatalog: DatabaseRegionCatalogService,
+    private readonly typeDetail: DatabaseTypeDetailService,
   ) {}
 
   private async catalogLayers(user: LayerReader, layerId?: number) {
@@ -100,6 +102,36 @@ export class DatabaseController {
       ...await this.databaseService.getSystemTypes(req.user.sub, layerIds),
       layers: layers.map(({ id, name }) => ({ id, name })),
     };
+  }
+
+  @Get('regions/:id')
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'), LayerAccessGuard)
+  getRegionDetail(
+    @Request() req: { user: { sub: number } },
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.regionCatalog.getRegion(req.user.sub, id);
+  }
+
+  @Get('planet-types/:key')
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'))
+  getPlanetTypeDetail(
+    @Request() req: { user: { sub: number } },
+    @Param('key') key: string,
+  ) {
+    return this.typeDetail.getPlanetType(req.user.sub, key);
+  }
+
+  @Get('system-types/:id')
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'))
+  getSystemTypeDetail(
+    @Request() req: { user: { sub: number } },
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.typeDetail.getSystemType(req.user.sub, id);
   }
 
   @Get('regions')

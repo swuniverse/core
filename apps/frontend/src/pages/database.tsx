@@ -917,7 +917,11 @@ function PlanetTypes({ data }: { data: PlanetTypes }) {
                       className="size-10 object-contain"
                     />
                   </td>
-                  <td title={entry.description ?? undefined}>{entry.name}</td>
+                  <td title={entry.description ?? undefined}>
+                    <Link to={`/database/planet-types/${encodeURIComponent(entry.key)}`} className="text-swu-accent hover:underline">
+                      {entry.name}
+                    </Link>
+                  </td>
                   <td>{entry.objectType}</td>
                   <td className="p-2 font-mono text-xs text-swu-muted">
                     {new Date(entry.discoveredAt!).toLocaleString('de-DE')}
@@ -1024,7 +1028,11 @@ function SystemTypes({ data }: { data: SystemTypes }) {
                       className="size-7"
                     />
                   </td>
-                  <td>{entry.name}</td>
+                  <td>
+                    <Link to={`/database/system-types/${entry.systemTypeId}`} className="text-swu-accent hover:underline">
+                      {entry.name}
+                    </Link>
+                  </td>
                   <td>{rarity(entry.rarity!)}</td>
                   <td className="font-mono text-xs">
                     {new Date(entry.discoveredAt!).toLocaleString('de-DE')}
@@ -1069,7 +1077,11 @@ function Regions({ data }: { data: DatabaseRegionsDto }) {
             <tr key={entry.regionId} className="border-t border-swu-border/60">
               {entry.discovered ? (
                 <>
-                  <td className="p-2">{entry.name}</td>
+                  <td className="p-2">
+                    <Link to={`/database/regions/${entry.regionId}`} className="text-swu-accent hover:underline">
+                      {entry.name}
+                    </Link>
+                  </td>
                   <td>{entry.description || '—'}</td>
                   <td>{entry.layerName ?? `Ebene ${entry.layerId}`}</td>
                   <td className="font-mono text-xs">
@@ -1340,7 +1352,7 @@ function titleFor(view: View) {
     } as Record<View, string>
   )[view];
 }
-function rarity(value: string) {
+export function rarity(value: string) {
   return (
     (
       {
