@@ -23,6 +23,7 @@ import type { ExplorationService } from './exploration.service';
 import { ExplorationLevel } from './entities/exploration-state.entity';
 import { LayerKnowledge } from './entities/layer-knowledge.entity';
 import { SYSTEM_TYPE_BY_ID } from './starmap-system-types';
+import { GalaxyFieldDetailsQuery } from './galaxy-field-details.query';
 import type {
   StarmapCelestialObjectDto,
   StarmapExportDto,
@@ -62,6 +63,7 @@ export class StarmapQueryService {
     @Optional() @InjectDataSource() private readonly dataSource?: DataSource,
     @Optional() @InjectRepository(LayerKnowledge)
     private readonly layerKnowledgeRepo?: Repository<LayerKnowledge>,
+    private readonly fieldDetails?: GalaxyFieldDetailsQuery,
   ) {}
 
   private async isLayerFullyExplored(
@@ -182,7 +184,10 @@ export class StarmapQueryService {
     });
   }
 
-  async getAllLayerFields(layerId: number): Promise<StarmapGalaxyFieldDto[]> {
+  async getAllLayerFields(
+    viewerId: number,
+    layerId: number,
+  ): Promise<StarmapGalaxyFieldDto[]> {
     const layer = await this.layerRepo.findOneBy({ id: layerId });
     if (!layer) throw new NotFoundException('Layer not found');
 
@@ -193,6 +198,7 @@ export class StarmapQueryService {
     });
 
     const nebulaTextures = buildNebulaTextureContext(fields);
+    const details = await this.loadFieldDetails(viewerId, layerId, fields);
     return fields.map((field) => ({
       id: field.id,
       cx: field.cx,
@@ -211,7 +217,13 @@ export class StarmapQueryService {
       starSystem: field.starSystem
         ? this.toSystemListItemDTO(field.starSystem)
         : null,
+      details: details.get(field.id),
     }));
+  }
+
+  private loadFieldDetails(viewerId: number, layerId: number, fields: GalaxyField[]) {
+    if (!this.fieldDetails) throw new Error('GalaxyFieldDetailsQuery is not provided');
+    return this.fieldDetails.load(viewerId, layerId, fields);
   }
 
   async getGalaxySectorFields(
@@ -480,6 +492,15 @@ export class StarmapQueryService {
 
     const knownFields = allFields.filter(field => fullyExplored || exploredMap.has(`${field.cx},${field.cy}`));
     const nebulaTextures = buildNebulaTextureContext(knownFields);
+    const details = await this.loadFieldDetails(
+      userId,
+      layerId,
+      knownFields.filter(
+        (field) =>
+          fullyExplored ||
+          exploredMap.get(`${field.cx},${field.cy}`) !== ExplorationLevel.TERRAIN,
+      ),
+    );
     return knownFields.map((field) => {
         const level = fullyExplored
           ? ExplorationLevel.FULL
@@ -521,6 +542,7 @@ export class StarmapQueryService {
           starSystem: field.starSystem
             ? this.toSystemListItemDTO(field.starSystem)
             : null,
+          details: details.get(field.id),
         };
       });
   }

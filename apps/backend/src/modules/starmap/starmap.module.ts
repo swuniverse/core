@@ -44,6 +44,11 @@ import { AllianceMembership } from '../alliance/entities/alliance-membership.ent
 import { UserSetting } from '../settings/entities/user-setting.entity';
 import { FactionEntity } from '../faction/entities/faction.entity';
 import { FieldEffectQuery } from './field-effect-query';
+import { GalaxyFieldDetailsQuery } from './galaxy-field-details.query';
+import { User } from '../auth/user.entity';
+import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
+import { TradePost } from '../trade/entities/trade-post.entity';
+import { TradeLicenseCondition } from '../trade/entities/trade-license-condition.entity';
 import { LayerKnowledge } from './entities/layer-knowledge.entity';
 import { LayerKnowledgeService } from './layer-knowledge.service';
 import { LayerExploredEvent } from './entities/layer-explored-event.entity';
@@ -82,6 +87,10 @@ import { LayerAccessGuard } from './layer-access.guard';
       AllianceMembership,
       UserSetting,
       FactionEntity,
+      User,
+      Spacecraft,
+      TradePost,
+      TradeLicenseCondition,
     ]),
     PrestigeModule,
     AwardsModule,
@@ -102,6 +111,7 @@ import { LayerAccessGuard } from './layer-access.guard';
     InfluenceService,
     WormholeService,
     FieldEffectQuery,
+    GalaxyFieldDetailsQuery,
     LayerKnowledgeService,
     LayerAccessService,
     LayerAccessGuard,
