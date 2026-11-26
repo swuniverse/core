@@ -117,7 +117,7 @@ describe('Shuttle API and system', () => {
       if (previous == null) delete process.env.GAME_DATA_PATH;
       else process.env.GAME_DATA_PATH = previous;
     }
-    expect(data.getCommodity(21401)?.isShuttle).toBe(true);
+    expect(data.getCommodity(21401)?.isShuttle).toBe(false);
     expect(data.getCommodity(21491)?.isShuttle).toBe(true);
     expect(data.getCommodity(20061)).toMatchObject({
       isShuttle: true,

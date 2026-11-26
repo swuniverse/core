@@ -35,6 +35,9 @@ export class ShipClassService {
     ['REBEL_CRUISER_NEBULON_B', 'REBEL_FRIGATE_NEBULON_B'],
     ['EMPIRE_FRIGATE_LANCER', 'EMPIRE_CORVETTE_RENDILI'],
     ['EMPIRE_SCOUT_RAIDER', 'EMPIRE_CORVETTE_LISTENER'],
+    // Fighter line-up: A-Wing becomes the Y-Wing, the LAAT slot becomes the B-Wing.
+    ['REBEL_FIGHTER_A_WING', 'REBEL_FIGHTER_Y_WING'],
+    ['REBEL_SHUTTLE_LAAT', 'REBEL_FIGHTER_B_WING'],
   ];
 
   private async renameLegacyKeys(): Promise<void> {

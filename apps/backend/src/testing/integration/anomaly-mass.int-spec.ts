@@ -66,8 +66,8 @@ describe('ship class anomaly mass', () => {
 
   it('seeds all other pinned class masses from their mapped STU hulls', async () => {
     const expected = [
-      ['REBEL_FIGHTER_X_WING', 27], ['REBEL_FIGHTER_A_WING', 57],
-      ['REBEL_SHUTTLE_LAAT', 158], ['REBEL_SHUTTLE_U_WING', 197],
+      ['REBEL_FIGHTER_X_WING', 27], ['REBEL_FIGHTER_Y_WING', 57],
+      ['REBEL_FIGHTER_B_WING', 27], ['REBEL_SHUTTLE_U_WING', 197],
       ['REBEL_COLONIZER_ICARUS', 325], ['REBEL_FREIGHTER_HAWK', 2114],
       ['REBEL_CORVETTE_DEFENDER', 72000],
       ['REBEL_CORVETTE_HAMMERHEAD', 520000], ['REBEL_FRIGATE_CR90', 355000],
@@ -77,6 +77,7 @@ describe('ship class anomaly mass', () => {
       ['REBEL_CRUISER_VENATOR', 2150000], ['REBEL_COLONIZER_CR90', 133000],
       ['REBEL_FREIGHTER_BFF1', 53000], ['REBEL_FREIGHTER_GR75', 74000],
       ['EMPIRE_FIGHTER_TIE_LN', 30], ['EMPIRE_FIGHTER_TIE_INTERCEPTOR', 54],
+      ['EMPIRE_FIGHTER_TIE_SA', 30],
       ['EMPIRE_SHUTTLE_LAMBDA', 161], ['EMPIRE_COLONIZER_SENTINEL', 321],
       ['EMPIRE_FREIGHTER_ZETA', 2201], ['EMPIRE_CORVETTE_RENDILI', 77000],
       
