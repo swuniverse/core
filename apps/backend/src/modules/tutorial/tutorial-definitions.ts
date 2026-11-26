@@ -211,7 +211,7 @@ export const TUTORIAL_DEFINITIONS: TutorialDefinitions = {
       {
         id: 'starmap-legend',
         title: 'Kartenlegende',
-        text: 'Die Legende erklärt die Symbole für Sternensysteme, Schiffe und Hyperraumrouten. Hyperraumrouten zeigen Wege, verkürzen aber nicht den feldweisen Galaxieflug.',
+        text: 'Die Legende erklärt die Symbole für Sternensysteme und Schiffe.',
         targets: ['map-legend'],
         fallbackIndex: 0,
       },

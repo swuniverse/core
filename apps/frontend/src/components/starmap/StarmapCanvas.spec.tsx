@@ -1,13 +1,15 @@
 import { act, render, waitFor } from '@testing-library/react';
 import { StarmapCanvas } from './StarmapCanvas';
 import { Assets } from 'pixi.js';
-import type { StarmapGalaxyFieldDto } from '@swuniverse/shared';
+import type { StarmapContactDto, StarmapGalaxyFieldDto } from '@swuniverse/shared';
+import { STARMAP_CELL_SIZE } from '../../lib/starmap-render';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const pixiControl = vi.hoisted(() => ({
   pendingLoads: [] as Array<{ resolve: (asset: object) => void; reject: () => void }>,
   sprites: [] as unknown[],
+  graphicsCalls: [] as Array<{ method: string; args: unknown[] }>,
   resolveInit: null as null | (() => void),
   destroyedInsertions: 0,
   organicNebulaSprite: vi.fn(),
@@ -50,11 +52,11 @@ vi.mock('pixi.js', () => {
     position = { set: vi.fn() };
     scale = { set: vi.fn() };
     rect() { return this; }
-    circle() { return this; }
+    circle(...args: unknown[]) { pixiControl.graphicsCalls.push({ method: 'circle', args }); return this; }
     moveTo() { return this; }
     lineTo() { return this; }
-    fill() { return this; }
-    stroke() { return this; }
+    fill(...args: unknown[]) { pixiControl.graphicsCalls.push({ method: 'fill', args }); return this; }
+    stroke(...args: unknown[]) { pixiControl.graphicsCalls.push({ method: 'stroke', args }); return this; }
     clear() { return this; }
     destroy() { this.destroyed = true; }
   }
@@ -133,16 +135,26 @@ const fields: StarmapGalaxyFieldDto[] = [
     effects: [],
   },
 ];
-const routes: [] = [];
 const systemGrids = new Map();
-const wormholes: [] = [];
 const influence: [] = [];
 const contacts: [] = [];
+const sensorCoverageContact: StarmapContactDto = {
+  spacecraftId: 1,
+  spacecraftName: 'Aufklärer',
+  shipClassId: 1,
+  ownerId: 1,
+  ownerName: 'Siedler',
+  location: { scope: 'GALAXY', locationId: 1, layerId: 8, x: 12, y: 14 },
+  galaxyCell: { layerId: 8, x: 12, y: 14 },
+  reason: 'OWN',
+  sensorRange: 3,
+};
 
 describe('StarmapCanvas arrival focus', () => {
   beforeEach(() => {
     pixiControl.pendingLoads = [];
     pixiControl.sprites = [];
+    pixiControl.graphicsCalls = [];
     pixiControl.resolveInit = null;
     pixiControl.destroyedInsertions = 0;
     pixiControl.organicNebulaSprite.mockClear();
@@ -170,11 +182,9 @@ describe('StarmapCanvas arrival focus', () => {
     const props = {
       layer,
       fields,
-      routes,
       selectedSystem: null,
       openedSystemIds: [] as number[],
       systemGrids,
-      wormholes,
       onSelectSystem: vi.fn(),
       onOpenSystem: vi.fn(),
       selectedField: null,
@@ -212,8 +222,29 @@ describe('StarmapCanvas arrival focus', () => {
     expect(worldOverlay.style.transform).toMatch(/^translate\(-50\.4\d+px, -240\.5px\) scale\(1\.5\)$/);
     unmount();
   });
-  const basicProps = { layer, fields, routes, selectedSystem: null, openedSystemIds: [], systemGrids, wormholes,
+  const basicProps = { layer, fields, selectedSystem: null, openedSystemIds: [], systemGrids,
     onSelectSystem: vi.fn(), onOpenSystem: vi.fn(), influence, contacts };
+
+  it('draws the optional sensor coverage circles', async () => {
+    const view = render(
+      <StarmapCanvas
+        {...basicProps}
+        fields={[]}
+        contacts={[sensorCoverageContact]}
+        showSensorCoverage
+      />,
+    );
+    await act(async () => { pixiControl.resolveInit?.(); await Promise.resolve(); });
+    const centerX = (sensorCoverageContact.location.x - 0.5) * STARMAP_CELL_SIZE;
+    const centerY = (sensorCoverageContact.location.y - 0.5) * STARMAP_CELL_SIZE;
+    const radius = sensorCoverageContact.sensorRange! * STARMAP_CELL_SIZE;
+    await waitFor(() => {
+      expect(pixiControl.graphicsCalls).toContainEqual({
+        method: 'circle', args: [centerX, centerY, radius],
+      });
+    });
+    view.unmount();
+  });
 
   it('loads the real nebula terrain, hides unknown fields and finishes on an asset failure', async () => {
     const nebula = { ...fields[0], fieldTypeId: 120, fieldType: { ...fields[0].fieldType, id: 120, key: 'neon_nebel_120', category: 'nebula' } };
@@ -247,11 +278,9 @@ describe('StarmapCanvas arrival focus', () => {
     const props = {
       layer,
       fields: [knownNebula, knownEmptySpace, unknown],
-      routes,
       selectedSystem: null,
       openedSystemIds: [] as number[],
       systemGrids,
-      wormholes,
       onSelectSystem: vi.fn(),
       onOpenSystem: vi.fn(),
       selectedField: null,

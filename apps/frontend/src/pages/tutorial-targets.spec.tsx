@@ -98,7 +98,6 @@ beforeEach(() => {
     if (path === '/spacecraft/2/energy-flow') return Promise.resolve({ effectiveEpsProduction: 3, totalSystemConsumption: 2, reactorOutput: 5 });
     if (path === '/starmap/layers') return Promise.resolve(layers);
     if (path.endsWith('/fields')) return Promise.resolve([]);
-    if (path.endsWith('/hyperspace-routes') || path.endsWith('/wormholes')) return Promise.resolve([]);
     if (path.startsWith('/spacecraft/starmap-contacts')) return Promise.resolve({ layerId: 3, contacts: [], viewerAlliance: null });
     if (path === '/holonet' || path.startsWith('/holonet?')) return Promise.resolve({ data: [], total: 0, page: 1, limit: 20 });
     if (path === '/holonet/unread') return Promise.resolve({ unreadCount: 0, lastReadPostId: null });
