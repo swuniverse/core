@@ -410,6 +410,31 @@ describe('PanelInfo', () => {
     ).toBeNull();
   });
 
+  it('lists each effect once with its icon and hides zero balances', () => {
+    const effectDetail = {
+      ...detail,
+      productionDeltas: [
+        { commodityId: 1001, name: 'Zufriedenheit', nameShort: 'ZUF', amount: 40 },
+        { commodityId: 11, name: 'Phrik-Erz', nameShort: 'PHR', amount: 0 },
+        { commodityId: 1508, name: 'Kyber-Kristall-Vorkommen', nameShort: 'KYB', amount: 2 },
+      ],
+      deposits: [
+        { commodityId: 1508, name: 'Kyber-Kristall-Vorkommen', nameShort: 'KYB', amountLeft: 2, delta: 2, depleted: false },
+      ],
+    } satisfies ColonyDetailV2;
+    render(
+      <MemoryRouter>
+        <PanelInfo colony={colony} detail={effectDetail} environmentScan={environmentScan}
+          environmentScanError={null} onOpenOrbitManagement={vi.fn()} orbitProps={orbitProps} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getAllByText('Kyber-Kristall-Vorkommen')).toHaveLength(1);
+    expect(screen.queryByText('Phrik-Erz')).toBeNull();
+    const happiness = screen.getByText('Zufriedenheit');
+    expect(happiness.querySelector('img')?.getAttribute('src')).toContain('/commodities/1001');
+  });
+
   it('retains planetary defense, asteroid exhaustion, and deposits without a standalone shield section', () => {
     const retainedDetail = {
       ...detail,
