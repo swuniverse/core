@@ -113,3 +113,56 @@ export interface DatabaseEntryDiscoveredEventDto {
   /** "Neuer Datenbankeintrag: <Name> (+x Prestige)" */
   text: string;
 }
+
+/** One entry of the ship or station hull catalogue; undiscovered hulls stay anonymous (STU `???`). */
+export interface DatabaseHullEntryDto {
+  id: number;
+  key: string;
+  discovered: boolean;
+  name: string | null;
+  discoveredAt: string | null;
+}
+
+export interface DatabaseHullCatalogDto {
+  discovered: number;
+  total: number;
+  entries: DatabaseHullEntryDto[];
+}
+
+export interface DatabaseHullModuleRangeDto {
+  /** Shipyard module type, e.g. `HULL`, `ENERGY_WEAPON`. */
+  type: string;
+  minLevel: number;
+  maxLevel: number;
+  mandatory: boolean;
+}
+
+/**
+ * STU `shiprump.twig` as far as SWU knows the values. Not modelled in SWU and therefore
+ * absent: beam factor, tractor mass, tractor payload, phaser volleys, torpedo level and volleys.
+ */
+export interface DatabaseHullDetailDto {
+  id: number;
+  key: string;
+  kind: 'SHIP' | 'STATION';
+  name: string;
+  factionName: string | null;
+  category: string;
+  role: string;
+  moduleLevel: number | null;
+  modules: DatabaseHullModuleRangeDto[];
+  flightEnergyCost: number;
+  cargoCapacity: number;
+  sensorRange: number;
+  torpedoCapacity: number;
+  crewMin: number;
+  crewMax: number;
+  epsCapacity: number;
+  hull: number;
+  shield: number;
+  /** Station hulls only. */
+  requiredWorkbees: number | null;
+  buildEnergyCost: number | null;
+  buildCosts: Array<{ commodityId: number; commodityName: string; amount: number }>;
+  buildTimeSeconds: number;
+}

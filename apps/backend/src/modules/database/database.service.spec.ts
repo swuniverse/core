@@ -5,6 +5,7 @@ jest.mock('../colony/entities/colony.entity', () => ({
 }));
 jest.mock('../spacecraft/entities/spacecraft.entity', () => ({
   Spacecraft: class Spacecraft {},
+  SpacecraftKind: { SHIP: 'SHIP', STATION: 'STATION' },
 }));
 jest.mock('../research/entities/research.entity', () => ({
   Research: class Research {},
@@ -494,4 +495,78 @@ it('returns only public name representations for the shared renderer', async () 
   const { service, userRepo } = createService();
   userRepo.find.mockResolvedValue([{ id: 1, username: 'login', displayName: 'Leia', displayNameMarkup: '[b]Leia[/b]', email: 'private@example.test', passwordHash: 'secret' }]);
   expect(await service.getPlayerNames()).toEqual([{ id: 1, username: 'login', displayName: 'Leia', displayNameMarkup: '[b]Leia[/b]' }]);
+});
+
+describe('DatabaseService hull catalogue', () => {
+  const definition = {
+    id: 12, key: 'rebel_corvette', name: 'Korvette', isNpc: false, factionId: 1,
+    category: 'CORVETTE', role: 'ESCORT', flightEnergyCost: 2, cargoCapacity: 150,
+    sensorRangeBase: 3, torpedoStorageBase: 8, crewMin: 4, crewMax: 12, epsBase: 120,
+    hullBase: 900, shieldBase: 400, buildTimeTicks: 3600,
+  };
+  function hullService(overrides: { discovered?: boolean; isStation?: boolean } = {}) {
+    const gameData = {
+      getShipClassDefByKey: jest.fn(() => ({
+        stuRumpId: 7,
+        buildCosts: [{ commodityId: 21, amount: 50 }],
+        station: { requiredWorkbees: 3 },
+      })),
+      getShipyardRumpStats: jest.fn(() => ({ moduleLevel: 2, epsCost: 80 })),
+      getShipyardRumpModuleRules: jest.fn(() => ({
+        moduleRules: {
+          HULL: { level: 2, mandatory: 1, min: 1, max: 3 },
+          TORPEDO_BANK: { level: 0, mandatory: 0, min: 0, max: 0 },
+          ENERGY_WEAPON: { level: 2, mandatory: 0, min: 2, max: 4 },
+        },
+      })),
+      getCommodity: jest.fn(() => ({ name: 'Durastahl' })),
+    };
+    const service = Object.assign(Object.create(DatabaseService.prototype), {
+      shipClassRepo: { findOne: jest.fn(async () => definition) },
+      shipClassDiscoveryRepo: { exists: jest.fn(async () => overrides.discovered ?? true) },
+      stationClassDiscoveryRepo: { exists: jest.fn(async () => overrides.discovered ?? true) },
+      shipRepo: { exists: jest.fn(async () => overrides.isStation ?? true) },
+      factionService: { findById: jest.fn(async () => ({ name: 'Rebellen' })) },
+      gameData,
+    }) as DatabaseService;
+    return service;
+  }
+
+  it('returns a typed ship hull detail with modules, costs and build time', async () => {
+    const detail = await hullService().getShipClassDetail(1, 'rebel_corvette');
+
+    expect(detail).toEqual({
+      id: 12, key: 'rebel_corvette', kind: 'SHIP', name: 'Korvette', factionName: 'Rebellen',
+      category: 'CORVETTE', role: 'ESCORT', moduleLevel: 2,
+      modules: [
+        { type: 'HULL', minLevel: 1, maxLevel: 3, mandatory: true },
+        { type: 'ENERGY_WEAPON', minLevel: 2, maxLevel: 4, mandatory: false },
+      ],
+      flightEnergyCost: 2, cargoCapacity: 150, sensorRange: 3, torpedoCapacity: 8,
+      crewMin: 4, crewMax: 12, epsCapacity: 120, hull: 900, shield: 400,
+      requiredWorkbees: null, buildEnergyCost: 80,
+      buildCosts: [{ commodityId: 21, commodityName: 'Durastahl', amount: 50 }],
+      buildTimeSeconds: 3600,
+    });
+  });
+
+  it('adds the required workbees for station hulls', async () => {
+    const detail = await hullService().getStationClassDetail(1, 'rebel_corvette');
+
+    expect(detail).toMatchObject({ kind: 'STATION', requiredWorkbees: 3 });
+  });
+
+  it('hides undiscovered hulls and non-station classes', async () => {
+    await expect(hullService({ discovered: false }).getShipClassDetail(1, 'rebel_corvette')).rejects.toThrow(NotFoundException);
+    await expect(hullService({ discovered: false }).getStationClassDetail(1, 'rebel_corvette')).rejects.toThrow(NotFoundException);
+    await expect(hullService({ isStation: false }).getStationClassDetail(1, 'rebel_corvette')).rejects.toThrow(NotFoundException);
+  });
+
+  it('hides NPC hulls', async () => {
+    const service = hullService();
+    (service as unknown as { shipClassRepo: { findOne: jest.Mock } }).shipClassRepo.findOne.mockResolvedValueOnce(null);
+    await expect(service.getShipClassDetail(1, 'npc_pirate')).rejects.toThrow(NotFoundException);
+    expect((service as unknown as { shipClassRepo: { findOne: jest.Mock } }).shipClassRepo.findOne)
+      .toHaveBeenCalledWith({ where: { key: 'npc_pirate', isNpc: false } });
+  });
 });
