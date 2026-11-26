@@ -10,14 +10,12 @@ import {
 } from 'react';
 import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import type {
-  HyperspaceRouteDto,
   StarmapContactDto,
   StarmapGalaxyFieldDto,
   StarmapInfluenceAreaDto,
   StarmapLayerDto,
   StarmapSystemGridDto,
   StarmapSystemListItemDto,
-  StarmapWormholeDto,
 } from '@swuniverse/shared';
 import {
   buildNebulaCloudIndex,
@@ -64,11 +62,9 @@ export interface ColonizationTargetHint {
 interface StarmapCanvasProps {
   layer: Pick<StarmapLayerDto, 'id' | 'name' | 'width' | 'height' | 'sectorSize'>;
   fields: StarmapGalaxyFieldDto[];
-  routes: HyperspaceRouteDto[];
   selectedSystem: StarmapSystemListItemDto | null;
   openedSystemIds: number[];
   systemGrids: Map<number, StarmapSystemGridDto>;
-  wormholes: StarmapWormholeDto[];
   onSelectSystem: (system: StarmapSystemListItemDto) => void;
   onOpenSystem: (system: StarmapSystemListItemDto) => Promise<StarmapSystemGridDto | null>;
   onFieldHover?: (field: StarmapGalaxyFieldDto | null) => void;
@@ -109,11 +105,9 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
     {
       layer,
       fields,
-      routes,
       selectedSystem,
       systemGrids,
       openedSystemIds,
-      wormholes,
       onSelectSystem,
       onOpenSystem,
       onFieldHover,
@@ -139,7 +133,6 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
     const worldOverlayRef = useRef<HTMLDivElement>(null);
     const appRef = useRef<Application | null>(null);
     const galaxyRef = useRef<Container | null>(null);
-    const routeRef = useRef<Graphics | null>(null);
     const gridRef = useRef<Graphics | null>(null);
     const sectorRef = useRef<Graphics | null>(null);
     const selectionRef = useRef<Graphics | null>(null);
@@ -361,21 +354,6 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
       }
     }, [contacts, fields, influence, showFieldEffects, showImpassable, showSensorCoverage, showTerritory]);
 
-    const drawRoutes = useCallback(() => {
-      const graphics = routeRef.current;
-      if (!graphics) return;
-      graphics.clear();
-      for (const route of routes) {
-        const color = parseInt(route.color.replace('#', ''), 16) || 0xfacc15;
-        for (const segment of route.segments) {
-          const points = [{ x: segment.fromSystem.cx, y: segment.fromSystem.cy }, ...(segment.controlPoints ?? []), { x: segment.toSystem.cx, y: segment.toSystem.cy }];
-          graphics.moveTo((points[0].x - 0.5) * CELL_SIZE, (points[0].y - 0.5) * CELL_SIZE);
-          for (const point of points.slice(1)) graphics.lineTo((point.x - 0.5) * CELL_SIZE, (point.y - 0.5) * CELL_SIZE);
-          graphics.stroke({ color, width: 1.2, alpha: 0.5 });
-        }
-      }
-    }, [routes]);
-
     const drawSelection = useCallback(() => {
       const graphics = selectionRef.current;
       if (!graphics) return;
@@ -586,15 +564,7 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
           icons.addChild(sprite);
         } catch { /* optional system asset */ }
       }));
-      if (signal.aborted || container.destroyed) return;
-      for (const wormhole of wormholes) {
-        for (const endpoint of [{ cx: wormhole.entryCx, cy: wormhole.entryCy }, { cx: wormhole.exitCx, cy: wormhole.exitCy }]) {
-          const glow = new Graphics();
-          glow.circle((endpoint.cx - 0.5) * CELL_SIZE, (endpoint.cy - 0.5) * CELL_SIZE, CELL_SIZE * 0.78).stroke({ color: 0x22d3ee, width: 1.2, alpha: 0.45 });
-          icons.addChild(glow);
-        }
-      }
-    }, [fields, layer, nebulaCloudIndex, wormholes]);
+    }, [fields, layer, nebulaCloudIndex]);
 
     useEffect(() => {
       if (!containerRef.current) return;
@@ -621,9 +591,6 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
           const mapOverlays = new Graphics();
           mapOverlaysRef.current = mapOverlays;
           galaxy.addChild(mapOverlays);
-          const routesLayer = new Graphics();
-          routeRef.current = routesLayer;
-          galaxy.addChild(routesLayer);
           const inlineLayer = new Container();
           inlineSystemsRef.current = inlineLayer;
           galaxy.addChild(inlineLayer);
@@ -643,7 +610,6 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
           for (let y = 1; y * layer.sectorSize < layer.height; y++) sector.moveTo(0, y * layer.sectorSize * CELL_SIZE).lineTo(layer.width * CELL_SIZE, y * layer.sectorSize * CELL_SIZE);
           sector.stroke({ color: 0xf59e0b, width: 1, alpha: 0.12 });
           drawMapOverlays();
-          drawRoutes();
           drawSelection();
           renderInlineSystems();
           const arrival = focusFieldRef.current;
@@ -669,7 +635,7 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
         setReady(false);
         void initPromise.then(() => app.destroy(true, { children: true }));
       };
-    }, [drawMapOverlays, drawRoutes, drawSelection, fitView, layer, renderGalaxy]);
+    }, [drawMapOverlays, drawSelection, fitView, layer, renderGalaxy]);
 
     useEffect(() => {
       const app = appRef.current;
@@ -686,7 +652,6 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
     }, [focusField?.cx, focusField?.cy, ready, updateView]);
 
     useEffect(() => { drawMapOverlays(); }, [drawMapOverlays]);
-    useEffect(() => { drawRoutes(); }, [drawRoutes]);
     useEffect(() => { drawSelection(); }, [drawSelection, selectedSystem]);
     useEffect(() => { renderInlineSystems(); }, [renderInlineSystems, openedSystemIds, systemGrids]);
     useEffect(() => { updateView(); }, [selectedField, selectedSector, showGrid, updateView]);

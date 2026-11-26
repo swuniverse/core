@@ -205,6 +205,10 @@ const contactRequests = () =>
     String(path).startsWith('/spacecraft/starmap-contacts'),
   );
 
+const mapOverlayRequests = () => apiMocks.get.mock.calls
+  .map(([path]) => String(path))
+  .filter((path) => path.includes('/hyperspace-routes') || path.endsWith('/wormholes'));
+
 function renderPage(initialEntry = '/starmap') {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
@@ -421,6 +425,9 @@ describe('StarmapPage ship layer', () => {
   it('toggles map overlays, persists them and fits the explored extent', async () => {
     renderPage();
     const canvas = await screen.findByTestId('starmap-canvas');
+    expect(mapOverlayRequests()).toEqual([]);
+    expect(screen.queryByText(/hyperraumroute/i)).toBeNull();
+    expect(screen.queryByText('Hyperrouten')).toBeNull();
 
     for (const [label, attribute] of [
       ['Territorium', 'data-territory'],
@@ -458,6 +465,7 @@ describe('StarmapPage ship layer', () => {
     expect(refreshed).toContain('/starmap/layers/3/fields');
     expect(refreshed).toContain('/spacecraft/starmap-contacts?layerId=3');
     expect(refreshed.some((path) => String(path).includes('/influence/'))).toBe(true);
+    expect(mapOverlayRequests()).toEqual([]);
   });
 
   it('renders every field returned by the refreshed explored map response', async () => {
@@ -599,6 +607,7 @@ describe('StarmapPage ship layer', () => {
     expect(contactRequests().at(-1)).toEqual([
       '/spacecraft/starmap-contacts?layerId=4',
     ]);
+    expect(mapOverlayRequests()).toEqual([]);
   });
 
   it.each([WsEventType.SHIP_MOVED, WsEventType.SPACECRAFT_EVENT, WsEventType.SPACECRAFT_VISIBILITY_CHANGED])(

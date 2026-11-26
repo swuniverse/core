@@ -29,7 +29,6 @@ import type {
   ApplyStarWarsPresetOptionsDto,
   ApplyStarWarsPresetResultDto,
   DefaultStarWarsGalaxySeedResultDto,
-  HyperspaceRouteDto,
   StarmapBorderTypeDto,
   StarmapBulkEditFieldsDto,
   StarmapCreateBorderTypeDto,
@@ -127,21 +126,6 @@ export class StarmapController {
       return this.starmapService.getSystemsInLayer(layerId);
     }
     return this.starmapService.getExploredSystemsInLayer(
-      req.user.sub,
-      layerId,
-      this.explorationService,
-    );
-  }
-
-  @Get('layers/:layerId/hyperspace-routes')
-  getHyperspaceRoutes(
-    @Param('layerId', ParseIntPipe) layerId: number,
-    @Req()
-    req: { user: { sub: number; isAdmin?: boolean; permissions?: string[] } },
-  ): Promise<HyperspaceRouteDto[]> {
-    if (this.bypassFog(req.user))
-      return this.starmapQueryService.getHyperspaceRoutes(layerId);
-    return this.starmapQueryService.getVisibleHyperspaceRoutes(
       req.user.sub,
       layerId,
       this.explorationService,

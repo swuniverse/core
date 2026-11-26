@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   WsEventType,
-  type HyperspaceRouteDto,
   type StarmapExportDto,
   type StarmapGalaxyFieldDto,
   type StarmapLayerDto,
@@ -10,7 +9,6 @@ import {
   type StarmapSystemListItemDto,
   type StarmapContactsDto,
   type StarmapInfluenceAreaDto,
-  type StarmapWormholeDto,
 } from '@swuniverse/shared';
 import { api } from '../services/api';
 import { useSocket } from '../hooks/use-socket';
@@ -35,7 +33,6 @@ type Layer = Pick<
 type GalaxyField = StarmapGalaxyFieldDto;
 type StarSystem = StarmapSystemListItemDto;
 type SystemGrid = StarmapSystemGridDto;
-type HyperspaceRoute = HyperspaceRouteDto;
 
 /** Ship contacts are refreshed in this interval while the page is visible. */
 const CONTACT_REFRESH_MS = 30_000;
@@ -77,12 +74,9 @@ export function StarmapPage() {
   const [layers, setLayers] = useState<Layer[]>([]);
   const [selectedLayer, setSelectedLayer] = useState<Layer | null>(null);
   const [fields, setFields] = useState<GalaxyField[]>([]);
-  const [hyperspaceRoutes, setHyperspaceRoutes] = useState<HyperspaceRoute[]>([]);
-  const [hiddenRouteIds, setHiddenRouteIds] = useState<number[]>([]);
   const [selectedSystem, setSelectedSystem] = useState<StarSystem | null>(null);
   const [systemGrids, setSystemGrids] = useState<Map<number, SystemGrid>>(() => new Map());
   const [openedSystemIds, setOpenedSystemIds] = useState<number[]>([]);
-  const [wormholes, setWormholes] = useState<StarmapWormholeDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -112,14 +106,8 @@ export function StarmapPage() {
         data.find((entry) => entry.id === urlTarget?.layerId) ?? data[0];
       if (layer) {
         setSelectedLayer(layer);
-        const [loadedFields, loadedRoutes, loadedWormholes] = await Promise.all([
-          api.get<GalaxyField[]>(`/starmap/layers/${layer.id}/fields`),
-          api.get<HyperspaceRoute[]>(`/starmap/layers/${layer.id}/hyperspace-routes`),
-          api.get<StarmapWormholeDto[]>(`/starmap/layers/${layer.id}/wormholes`),
-        ]);
+        const loadedFields = await api.get<GalaxyField[]>(`/starmap/layers/${layer.id}/fields`);
         setFields(loadedFields);
-        setHyperspaceRoutes(loadedRoutes);
-        setWormholes(loadedWormholes);
         const targetField =
           urlTarget?.layerId === layer.id
             ? loadedFields.find(
@@ -142,14 +130,8 @@ export function StarmapPage() {
     openedSystemIdsRef.current = [];
     setOpenedSystemIds([]);
     setLoading(true);
-    const [loadedFields, loadedRoutes, loadedWormholes] = await Promise.all([
-      api.get<GalaxyField[]>(`/starmap/layers/${layer.id}/fields`),
-      api.get<HyperspaceRoute[]>(`/starmap/layers/${layer.id}/hyperspace-routes`),
-      api.get<StarmapWormholeDto[]>(`/starmap/layers/${layer.id}/wormholes`),
-    ]);
+    const loadedFields = await api.get<GalaxyField[]>(`/starmap/layers/${layer.id}/fields`);
     setFields(loadedFields);
-    setHyperspaceRoutes(loadedRoutes);
-    setWormholes(loadedWormholes);
     setLoading(false);
   }
 
@@ -340,23 +322,13 @@ export function StarmapPage() {
 
   async function refreshData() {
     if (!selectedLayer) return;
-    const [loadedFields, loadedRoutes, loadedWormholes] = await Promise.all([
+    const [loadedFields] = await Promise.all([
       api.get<GalaxyField[]>(`/starmap/layers/${selectedLayer.id}/fields`),
-      api.get<HyperspaceRoute[]>(`/starmap/layers/${selectedLayer.id}/hyperspace-routes`),
-      api.get<StarmapWormholeDto[]>(`/starmap/layers/${selectedLayer.id}/wormholes`),
       loadContacts(),
       loadInfluence(),
     ]);
     setFields(loadedFields);
-    setHyperspaceRoutes(loadedRoutes);
-    setWormholes(loadedWormholes);
   }
-
-
-  const visibleHyperspaceRoutes = useMemo(
-    () => hyperspaceRoutes.filter((route) => !hiddenRouteIds.includes(route.id)),
-    [hiddenRouteIds, hyperspaceRoutes],
-  );
 
   if (loading) {
     return (
@@ -410,13 +382,11 @@ export function StarmapPage() {
               ref={canvasRef}
               layer={selectedLayer}
               fields={fields}
-              routes={visibleHyperspaceRoutes}
               selectedSystem={selectedSystem}
               openedSystemIds={openedSystemIds}
               systemGrids={systemGrids}
               onSelectSystem={selectSystem}
               onOpenSystem={openSystem}
-              wormholes={wormholes}
               onFieldClick={setSelectedField}
               selectedField={selectedField}
               focusField={urlTarget ? { cx: urlTarget.x, cy: urlTarget.y } : null}
@@ -494,35 +464,8 @@ export function StarmapPage() {
             <ul className="space-y-1 text-xs text-swu-muted">
               <li><span aria-hidden="true" className="mr-2 text-swu-primary">✦</span>Sternensystem</li>
               <li><span aria-hidden="true" className="mr-2 text-swu-primary">◆</span>Schiff</li>
-              <li><span aria-hidden="true" className="mr-2 text-swu-primary">━</span>Hyperraumroute</li>
             </ul>
           </section>
-          {/* Hyperspace routes */}
-          {hyperspaceRoutes.length > 0 && (
-            <div className="rounded-lg border border-swu-border bg-swu-surface p-3">
-              <h4 className="text-xs font-bold text-swu-muted mb-2">Hyperrouten</h4>
-              <div className="space-y-1">
-                {hyperspaceRoutes.map((route) => (
-                  <label key={route.id} className="flex items-center gap-2 text-xs text-swu-muted">
-                    <input
-                      type="checkbox"
-                      checked={!hiddenRouteIds.includes(route.id)}
-                      onChange={(e) => {
-                        setHiddenRouteIds((ids) =>
-                          e.target.checked
-                            ? ids.filter((id) => id !== route.id)
-                            : [...ids, route.id],
-                        );
-                      }}
-                    />
-                    <span className="inline-block h-2 w-4 rounded-full" style={{ backgroundColor: route.color }} />
-                    <span>{route.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-
 
         </aside>
       </div>

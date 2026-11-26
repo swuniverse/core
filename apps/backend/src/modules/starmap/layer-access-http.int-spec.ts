@@ -108,9 +108,13 @@ describe('Layer access through the authenticated production application (Postgre
   }
 
   const layerEndpoints = [
-    'fields', 'sectors', 'sectors/0/0', 'systems', 'hyperspace-routes',
+    'fields', 'sectors', 'sectors/0/0', 'systems',
     'wormholes', 'exploration', 'explored-sector/0/0', 'influence/0/0', 'export.json',
   ];
+
+  it.each(['player', 'admin', 'editor'] as const)('removes the player hyperspace route endpoint for %s', async (role) => {
+    expect((await request(`starmap/layers/${known.id}/hyperspace-routes`, role)).status).toBe(404);
+  });
 
   it.each(layerEndpoints)('rejects unknown layer access with HTTP 403: %s', async (endpoint) => {
     const response = await request(`starmap/layers/${unknown.id}/${endpoint}`);
