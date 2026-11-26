@@ -5,9 +5,6 @@ jest.mock('./entities/galaxy-field.entity', () => ({
 jest.mock('./entities/system-field.entity', () => ({
   SystemField: class SystemField {},
 }));
-jest.mock('./entities/map-region.entity', () => ({
-  MapRegion: class MapRegion {},
-}));
 jest.mock('./entities/star-system.entity', () => ({
   StarSystem: class StarSystem {},
 }));
@@ -30,72 +27,6 @@ function repo(overrides: Partial<Record<string, unknown>> = {}) {
     ...overrides,
   } as never;
 }
-
-describe('StarmapQueryService regions', () => {
-  it('returns a region after the player explored one of its fields', async () => {
-    const regionRepo = repo({
-      findOneBy: jest.fn(async () => ({
-        id: 3,
-        layerId: 1,
-        name: 'Kernwelten',
-        description: 'Das politische Zentrum der Galaxis.',
-        colorKey: 'core',
-      })),
-    });
-    const galaxyFieldRepo = repo({
-      find: jest.fn(async () => [{ id: 8, layerId: 1, cx: 4, cy: 7 }]),
-    });
-    const service = new StarmapQueryService(
-      repo(),
-      galaxyFieldRepo,
-      repo(),
-      repo(),
-      repo(),
-      repo(),
-      repo(),
-      regionRepo,
-    );
-    const explorationService = {
-      getExploredFields: jest.fn(async () => [
-        { layerId: 1, cx: 4, cy: 7, explorationLevel: 'FULL' },
-      ]),
-    } as never;
-
-    await expect(
-      service.getExploredRegion(12, 3, explorationService),
-    ).resolves.toEqual({
-      id: 3,
-      name: 'Kernwelten',
-      description: 'Das politische Zentrum der Galaxis.',
-    });
-  });
-
-  it('hides a region when none of its fields were explored', async () => {
-    const regionRepo = repo({
-      findOneBy: jest.fn(async () => ({ id: 3, layerId: 1, name: 'Kernwelten' })),
-    });
-    const galaxyFieldRepo = repo({
-      find: jest.fn(async () => [{ id: 8, layerId: 1, cx: 4, cy: 7 }]),
-    });
-    const service = new StarmapQueryService(
-      repo(),
-      galaxyFieldRepo,
-      repo(),
-      repo(),
-      repo(),
-      repo(),
-      repo(),
-      regionRepo,
-    );
-    const explorationService = {
-      getExploredFields: jest.fn(async () => []),
-    } as never;
-
-    await expect(
-      service.getExploredRegion(12, 3, explorationService),
-    ).rejects.toThrow('Region not found');
-  });
-});
 
 describe('StarmapQueryService shields', () => {
   it('projects shielded colonies into the system grid', async () => {
@@ -168,7 +99,6 @@ describe('StarmapQueryService shields', () => {
       repo(),
       repo(),
       colonyRepo,
-      repo(),
     );
 
     const result = await service.getSystemGrid(5);
@@ -204,7 +134,7 @@ describe('StarmapQueryService layer field details', () => {
       ),
     };
     const service = new StarmapQueryService(
-      repo(), galaxyFieldRepo, repo(), repo(), repo(), repo(), repo(), repo(),
+      repo(), galaxyFieldRepo, repo(), repo(), repo(), repo(), repo(),
       undefined, undefined, fieldDetails as never,
     );
     const explorationService = {
