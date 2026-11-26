@@ -207,49 +207,6 @@ export function shipImage(
   return `${ASSET_BASE}/ships/${shipClassId}.png`;
 }
 
-const GENERATED_COMMODITY_FILES: Record<number, string> = {
-  2: '2-baumaterial.png',
-  3: '3-tibanna-gas.png',
-  4: '4-transparentes-aluminium.png',
-  8: '8-dilithium.png',
-  11: '11-phrik-erz.png',
-  12: '12-galazit-erz.png',
-  13: '13-nitrium-erz.png',
-  14: '14-magnesit-erz.png',
-  15: '15-kelbonit-erz.png',
-  16: '16-talgonit-erz.png',
-  19: '19-tritanium-erz.png',
-  20: '20-iridium.png',
-  21: '21-duranium.png',
-  22: '22-galazit.png',
-  23: '23-nitrium.png',
-  24: '24-magnesit.png',
-  25: '25-kelbonit.png',
-  26: '26-talgonit.png',
-  29: '29-tritanium.png',
-  31: '31-isolineare-speicherchips.png',
-  32: '32-hochenergie-plasma.png',
-  33: '33-nitrium-schaltkreise.png',
-  34: '34-subraum-feldspulen.png',
-  35: '35-metaphasen-konverter.png',
-  36: '36-mikrodyne-modulator.png',
-  40: '40-chateau-picard.png',
-  41: '41-bat-leth.png',
-  42: '42-container.png',
-  43: '43-selbstdichtende-schaftbolzen.png',
-  44: '44-kontaminiertes-warpplasma.png',
-  45: '45-werkzeugkoffer.png',
-  46: '46-blutwein.png',
-  47: '47-targ.png',
-  1101: '1101-wohnhauser.png',
-  1300: '1300-lebensstandard.png',
-};
-
-const GENERATED_COMMODITY_NAME_FILES: Record<string, string> = {
-  Doonium: 'doonium.png',
-  Hypermaterie: 'hypermaterie.png',
-};
-
 const GENERATED_BUILDING_FILES: Record<number, string> = {
   1: '1-admingebaude.png',
   11010100: '11010100-rebel-wohnkomplex-map-v1.png',
@@ -699,16 +656,9 @@ const GENERATED_BUILDING_FILES: Record<number, string> = {
   100060300: '100060100-hyperraum-teleskop.png',
 };
 
-export function commodityImage(
-  commodityId: number,
-  commodityName?: string,
-): string {
-  const generatedFile =
-    GENERATED_COMMODITY_FILES[commodityId] ||
-    (commodityName ? GENERATED_COMMODITY_NAME_FILES[commodityName] : undefined);
-  return generatedFile
-    ? `${ASSET_BASE}/commodities/generated/${generatedFile}`
-    : `${ASSET_BASE}/commodities/${commodityId}.png`;
+export function commodityImage(commodityId: number): string {
+  // STU icons for now; own SWU commodity art comes later (generated files stay in assets/commodities/generated).
+  return `${ASSET_BASE}/commodities/${commodityId}.png`;
 }
 
 export function buildingImage(buildingId: number): string {

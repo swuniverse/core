@@ -98,7 +98,7 @@ export function PanelWaste({ detail, onDiscardStorage }: PanelWasteProps) {
                   >
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-swu-bg/70 border border-swu-border/40">
                       <img
-                        src={commodityImage(item.commodityId, item.name)}
+                        src={commodityImage(item.commodityId)}
                         alt=""
                         className="h-7 w-7 object-contain"
                         loading="lazy"

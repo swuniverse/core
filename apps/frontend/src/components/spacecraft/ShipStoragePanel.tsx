@@ -87,7 +87,7 @@ export function ShipStorageTooltip({
   const rows: Array<readonly [ReactNode, ReactNode]> = visibleCargo.map((item) => [
     <span key={item.id} className="inline-flex items-center gap-1">
       <img
-        src={commodityImage(item.commodityId, item.commodityName ?? undefined)}
+        src={commodityImage(item.commodityId)}
         alt=""
         className="size-5 object-contain"
       />
@@ -206,10 +206,7 @@ export function ShipStoragePanel({
               className="inline-flex items-center gap-1 text-swu-primary"
             >
               <img
-                src={commodityImage(
-                  item.commodityId,
-                  item.commodityName ?? undefined,
-                )}
+                src={commodityImage(item.commodityId)}
                 alt=""
                 className="size-6 object-contain"
               />

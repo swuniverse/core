@@ -644,8 +644,8 @@ describe('ColonyFieldDialog', () => {
     expect(screen.getByAltText('Durastahl').getAttribute('src')).toBe(
       '/assets/commodities/1.png',
     );
-    expect(screen.getByAltText('Tritanium').getAttribute('src')).toContain(
-      '2-baumaterial.png',
+    expect(screen.getByAltText('Tritanium').getAttribute('src')).toBe(
+      '/assets/commodities/2.png',
     );
     expect(screen.getAllByAltText('Wiese')[1].getAttribute('src')).toBe(
       '/assets/generated/fields/101.png',

@@ -96,7 +96,7 @@ export function CargoPanel({ shipId, cargoMax, onTransfer }: CargoPanelProps) {
         <div className="mb-3 grid grid-cols-2 gap-1 sm:grid-cols-4">
           {cargo.map((item) => (
             <div key={item.id} className="flex items-center gap-2 rounded border border-swu-border/30 bg-swu-bg/50 px-2 py-1 text-[10px]">
-              <img src={commodityImage(item.commodityId, item.commodityName ?? undefined)} alt="" className="h-5 w-5 object-contain" />
+              <img src={commodityImage(item.commodityId)} alt="" className="h-5 w-5 object-contain" />
               <span className="min-w-0 flex-1 truncate text-swu-muted">#{item.commodityId}</span>
               <span className="font-mono text-swu-primary">{item.amount}</span>
             </div>

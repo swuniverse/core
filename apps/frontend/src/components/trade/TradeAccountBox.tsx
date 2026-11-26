@@ -123,7 +123,7 @@ export function TradeAccountBox({
             onClick={() => onPick(entry.commodityId)}
             className="flex items-center gap-1 border border-swu-border/60 px-1 hover:border-swu-accent"
           >
-            <img src={commodityImage(entry.commodityId, commodityName(entry.commodityId))} alt="" className="h-6 w-6 object-contain" />
+            <img src={commodityImage(entry.commodityId)} alt="" className="h-6 w-6 object-contain" />
             <span className="font-mono">{formatNumber(entry.amount)}</span>
           </button>
         ))}

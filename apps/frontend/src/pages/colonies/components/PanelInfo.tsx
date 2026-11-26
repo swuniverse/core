@@ -323,7 +323,7 @@ export function PanelInfo({
 function CommodityIcon({ commodityId, name }: { commodityId: number; name: string }) {
   return (
     <img
-      src={commodityImage(commodityId, name)}
+      src={commodityImage(commodityId)}
       alt=""
       className="h-5 w-5 shrink-0 object-contain"
       loading="lazy"

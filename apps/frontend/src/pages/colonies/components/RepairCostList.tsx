@@ -81,7 +81,7 @@ export function RepairCostList({
           <CostRow
             key={cost.commodityId}
             label={name}
-            image={commodityImage(cost.commodityId, commodity?.name)}
+            image={commodityImage(cost.commodityId)}
             available={storageAmounts[cost.commodityId] ?? 0}
             needed={cost.amount}
           />

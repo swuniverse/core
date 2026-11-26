@@ -150,7 +150,7 @@ export function BuildInspector({
                   >
                     <span className="flex min-w-0 items-center gap-1.5 text-swu-muted">
                       <img
-                        src={commodityImage(cost.commodityId, commodity?.name)}
+                        src={commodityImage(cost.commodityId)}
                         alt=""
                         className="h-4 w-4 object-contain"
                         loading="lazy"
@@ -251,10 +251,7 @@ export function BuildInspector({
                   >
                     <span className="flex min-w-0 items-center gap-1.5 text-swu-muted">
                       <img
-                        src={commodityImage(
-                          production.commodityId,
-                          commodity?.name,
-                        )}
+                        src={commodityImage(production.commodityId)}
                         alt=""
                         className="h-4 w-4 object-contain"
                         loading="lazy"

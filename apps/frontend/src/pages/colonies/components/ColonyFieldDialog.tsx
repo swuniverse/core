@@ -349,7 +349,7 @@ export function ColonyFieldDialog({
           >
             <span className="flex min-w-0 items-center gap-1.5 text-swu-muted">
               <img
-                src={commodityImage(cost.commodityId, commodity?.name)}
+                src={commodityImage(cost.commodityId)}
                 alt=""
                 className="h-4 w-4 object-contain"
                 loading="lazy"
@@ -568,10 +568,7 @@ export function ColonyFieldDialog({
                           title={`Baumenü nach '${commodityMap[p.commodityId]?.name || `Ware #${p.commodityId}`}' filtern`}
                         >
                           <img
-                            src={commodityImage(
-                              p.commodityId,
-                              commodityMap[p.commodityId]?.name,
-                            )}
+                            src={commodityImage(p.commodityId)}
                             alt=""
                             className="h-4 w-4 object-contain"
                             loading="lazy"
@@ -1021,10 +1018,7 @@ export function ColonyFieldDialog({
                                   className="mt-1 flex items-center gap-1 text-swu-primary"
                                 >
                                   <img
-                                    src={commodityImage(
-                                      cost.commodityId,
-                                      commodity?.name,
-                                    )}
+                                    src={commodityImage(cost.commodityId)}
                                     alt={
                                       commodity?.name ||
                                       commodity?.nameShort ||
@@ -1126,10 +1120,7 @@ export function ColonyFieldDialog({
                             className="mt-1 flex items-center gap-1 text-swu-primary"
                           >
                             <img
-                              src={commodityImage(
-                                cost.commodityId,
-                                commodity?.name,
-                              )}
+                              src={commodityImage(cost.commodityId)}
                               alt={
                                 commodity?.name ?? `Ware #${cost.commodityId}`
                               }
@@ -1215,10 +1206,7 @@ export function ColonyFieldDialog({
                           className="mt-1 flex items-center gap-1 text-swu-primary"
                         >
                           <img
-                            src={commodityImage(
-                              cost.commodityId,
-                              commodity?.name,
-                            )}
+                            src={commodityImage(cost.commodityId)}
                             alt={commodity?.name ?? `Ware #${cost.commodityId}`}
                             title={
                               commodity?.name ?? `Ware #${cost.commodityId}`

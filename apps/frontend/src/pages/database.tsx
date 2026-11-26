@@ -721,7 +721,7 @@ function CommodityOverview({ data }: { data: CommodityOverviewEntryDto[] }) {
                     className="flex items-center gap-2 text-swu-accent hover:underline"
                   >
                     <img
-                      src={commodityImage(entry.commodityId, entry.commodityName)}
+                      src={commodityImage(entry.commodityId)}
                       alt=""
                       className="h-6 w-6 object-contain"
                     />
