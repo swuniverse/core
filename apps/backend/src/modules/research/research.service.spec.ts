@@ -696,3 +696,100 @@ describe('ResearchService – ship reward completion', () => {
     expect(ctx.granter).not.toHaveBeenCalled();
   });
 });
+
+describe('ResearchService – retiring research', () => {
+  type Row = Record<string, any>;
+  function setup(rows: Row[]) {
+    const store = [...rows];
+    const matches = (row: Row, where: Row) =>
+      Object.entries(where).every(([key, value]) =>
+        value && typeof value === 'object' && '_value' in value
+          ? (value._value as unknown[]).includes(row[key])
+          : row[key] === value,
+      );
+    const repository = {
+      find: jest.fn(async ({ where }: { where: Row }) =>
+        store
+          .filter((row) => matches(row, where))
+          .sort((a, b) => (a.queuePosition ?? 0) - (b.queuePosition ?? 0)),
+      ),
+      findOne: jest.fn(
+        async ({ where }: { where: Row }) =>
+          store.find((row) => matches(row, where)) ?? null,
+      ),
+      save: jest.fn(async (value) => value),
+      remove: jest.fn(async (removed: Row[]) => {
+        for (const row of removed) store.splice(store.indexOf(row), 1);
+        return removed;
+      }),
+    };
+    const techs = [makeTech(275201, 10), makeTech(20, 8), makeTech(21, 8)];
+    const messaging = { sendSystem: jest.fn().mockResolvedValue({}) };
+    const service = new ResearchService(
+      repository as any,
+      { getTech: (id: number) => techs.find((t) => t.id === id) ?? null } as any,
+      messaging as any,
+      { emitToUser: jest.fn() } as any,
+    );
+    return { service, store, messaging };
+  }
+  const active = (over: Row = {}) => ({
+    id: 2,
+    userId: 1,
+    techId: 20,
+    status: 'IN_PROGRESS',
+    remainingPoints: 8,
+    spentPoints: 0,
+    progress: 0,
+    queuePosition: null,
+    ...over,
+  });
+
+  it('removes the technology and credits its points to the active research', async () => {
+    const yard = {
+      id: 1,
+      userId: 1,
+      techId: 275201,
+      status: 'COMPLETED',
+      spentPoints: 10,
+    };
+    const ctx = setup([yard, active()]);
+    expect(await ctx.service.retireResearch([275201])).toBe(1);
+    expect(ctx.store.map((row) => row.techId)).toEqual([20]);
+    expect(ctx.store[0]).toMatchObject({
+      status: 'COMPLETED',
+      remainingPoints: 0,
+    });
+    const calls = ctx.messaging.sendSystem.mock.calls;
+    expect(calls[calls.length - 1][1]).toContain('8 von 10 Forschungspunkten');
+  });
+
+  it('carries leftover points on to the queue and completed rows count their effort', async () => {
+    const yard = {
+      id: 1,
+      userId: 1,
+      techId: 275201,
+      status: 'COMPLETED',
+      spentPoints: 0,
+    };
+    const queued = active({
+      id: 3,
+      techId: 21,
+      status: 'QUEUED',
+      queuePosition: 1,
+    });
+    const ctx = setup([yard, active(), queued]);
+    await ctx.service.retireResearch([275201]);
+    expect(ctx.store.find((r) => r.techId === 20)!.status).toBe('COMPLETED');
+    expect(ctx.store.find((r) => r.techId === 21)).toMatchObject({
+      status: 'IN_PROGRESS',
+      remainingPoints: 6,
+    });
+  });
+
+  it('does nothing when nobody holds the technology', async () => {
+    const ctx = setup([active()]);
+    expect(await ctx.service.retireResearch([275201])).toBe(0);
+    expect(ctx.messaging.sendSystem).not.toHaveBeenCalled();
+  });
+});

@@ -17,7 +17,7 @@ export class ShipClassService {
   ) {}
 
   /**
-   * Freighter classes whose key changed. The deploy starts the new backend before the
+   * Ship classes whose key changed. The deploy starts the new backend before the
    * migration container runs, so the rename must also happen here, ahead of the upsert:
    * otherwise the seeder creates the new key as a second row and existing ships stay behind.
    */
@@ -26,6 +26,15 @@ export class ShipClassService {
     ['EMPIRE_FREIGHTER_GOZANTI', 'EMPIRE_FREIGHTER_ZETA'],
     ['EMPIRE_FREIGHTER_IMPERIAL', 'EMPIRE_FREIGHTER_ETA'],
     ['EMPIRE_FREIGHTER_HEAVY', 'EMPIRE_FREIGHTER_MOSE'],
+    // Corvette/frigate line-up (STU class names retired): the 410 hulls are corvettes,
+    // the 910 hulls frigates. Renaming keeps ids, so existing ships follow.
+    ['REBEL_ESCORT_HAMMERHEAD', 'REBEL_CORVETTE_HAMMERHEAD'],
+    ['REBEL_FRIGATE_PELTA', 'REBEL_CORVETTE_DEFENDER'],
+    ['REBEL_SCOUT_HWK_290', 'REBEL_CORVETTE_BRAHATOK'],
+    ['REBEL_CORVETTE_CR90', 'REBEL_FRIGATE_CR90'],
+    ['REBEL_CRUISER_NEBULON_B', 'REBEL_FRIGATE_NEBULON_B'],
+    ['EMPIRE_FRIGATE_LANCER', 'EMPIRE_CORVETTE_RENDILI'],
+    ['EMPIRE_SCOUT_RAIDER', 'EMPIRE_CORVETTE_LISTENER'],
   ];
 
   private async renameLegacyKeys(): Promise<void> {

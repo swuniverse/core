@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ResearchController } from './research.controller';
 import { ResearchService } from './research.service';
+import { ResearchRetirementService } from './research-retirement.service';
 import { UnlockResolverService } from './unlock-resolver.service';
 import { Research } from './entities/research.entity';
 import { ResearchRewardGrant } from './entities/research-reward-grant.entity';
@@ -33,6 +34,7 @@ import { ShipGiftModule } from '../ship-gift/ship-gift.module';
     ResearchService,
     UnlockResolverService,
     ResearchRewardGrantService,
+    ResearchRetirementService,
   ],
   exports: [ResearchService, UnlockResolverService, ResearchRewardGrantService],
 })

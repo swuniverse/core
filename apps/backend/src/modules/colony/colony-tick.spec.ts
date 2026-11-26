@@ -2573,9 +2573,9 @@ describe('colony tick calculations', () => {
     );
     expect(access.tabs.shipyard.presentFunctionIds).not.toContain(22);
     expect(access.tabs.shipyard.activeFunctionIds).toHaveLength(0);
-    expect(access.tabs.hangar.visible).toBe(true);
-    expect(access.tabs.hangar.presentFunctionIds).toEqual([5]);
-    expect(access.tabs.hangar.activeFunctionIds).toHaveLength(0);
+    // The Jägerwerft is obsolete: only an airfield opens the hangar.
+    expect(access.tabs.hangar.visible).toBe(false);
+    expect(access.tabs.hangar.presentFunctionIds).toEqual([]);
     expect(access.functions.groups.fighterShipyards.presentFunctionIds).toEqual(
       [5],
     );
@@ -2602,7 +2602,7 @@ describe('colony tick calculations', () => {
       expect.arrayContaining([5]),
     );
     expect(access.tabs.shipyard.activeFunctionIds).not.toContain(22);
-    expect(access.tabs.hangar.activeFunctionIds).toEqual([5]);
+    expect(access.tabs.hangar.activeFunctionIds).toEqual([]);
     expect(access.functions.groups.fighterShipyards.activeFunctionIds).toEqual([
       5,
     ]);
@@ -9420,7 +9420,7 @@ describe('airfield hangar loop', () => {
     );
   });
 
-  it('builds fighter rumps with an active fighter shipyard', async () => {
+  it('does not build fighter rumps with only a fighter shipyard', async () => {
     const { service, colonyRepo, shipClassRepo, storageRepo, gameData } =
       createColonyService();
     const colony = {
@@ -9454,16 +9454,17 @@ describe('airfield hangar loop', () => {
       return storage[value.commodityId];
     });
 
-    await service.buildAirfieldRump(1, 1, 1, 1);
-
-    expect(storage[21401].amount).toBe(1);
+    await expect(service.buildAirfieldRump(1, 1, 1, 1)).rejects.toThrow(
+      'Active airfield required',
+    );
+    expect(storage[21401]).toBeUndefined();
   });
 
   it('rejects hangar rump construction without an active production facility', async () => {
     const { service, colonyRepo } = createColonyService();
     colonyRepo.findOne.mockResolvedValue({ ...airfieldColony(), fields: [] });
     await expect(service.buildAirfieldRump(1, 1, 1, 1)).rejects.toThrow(
-      'Active airfield or fighter shipyard required',
+      'Active airfield required',
     );
   });
 

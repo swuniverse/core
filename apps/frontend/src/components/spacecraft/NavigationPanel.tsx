@@ -209,8 +209,9 @@ export function NavigationPanel({
   const canMove =
     ship.runtimeSystems?.WARPDRIVE != null ||
     ship.runtimeSystems?.SUBLIGHT_DRIVE != null;
+  // Open measure points are always framed on the map while a plan is active;
+  // the Kartographieansicht is no longer needed to see them.
   const cartographyPoints =
-    ship.lssMode === 'CARTOGRAPHY' &&
     cartography?.status === 'PLANNED' &&
     (cartography.targetType === 'REGION'
       ? localMap?.mode !== 'system'

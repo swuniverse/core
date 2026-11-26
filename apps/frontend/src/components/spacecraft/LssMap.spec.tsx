@@ -412,7 +412,7 @@ describe('LssMap', () => {
     const field = screen.getByRole('button', {
       name: /Feld 1,14.*verbleibender Messpunkt/,
     });
-    expect(field.className).toContain('ring-red-400/70');
+    expect(field.className).toContain('ring-amber-400');
   });
 
   it('does not mark unmatched system fields', () => {
@@ -426,7 +426,7 @@ describe('LssMap', () => {
     );
 
     const field = screen.getByRole('button', { name: /Feld 1,14/ });
-    expect(field.className).not.toContain('ring-red-400/70');
+    expect(field.className).not.toContain('ring-amber-400');
     expect(field.getAttribute('aria-label')).not.toContain('Messpunkt');
   });
 

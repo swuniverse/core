@@ -566,13 +566,13 @@ describe('GameDataService fabrication items', () => {
     expect(
       service.isShipyardModuleAllowedForShipClass(
         service.getFabricationItem('module.special.astrometrie-labor')!,
-        { key: 'REBEL_FRIGATE_CONSULAR', category: 'FRIGATE' },
+        { key: 'REBEL_CORVETTE_DEFENDER', category: 'CORVETTE' },
       ),
     ).toBe(true);
     expect(
       service.isShipyardModuleAllowedForShipClass(
         service.getFabricationItem('module.special.matrixsensoren')!,
-        { key: 'REBEL_SCOUT_HWK_290', category: 'ESCORT' },
+        { key: 'REBEL_CORVETTE_BRAHATOK', category: 'CORVETTE' },
       ),
     ).toBe(true);
   });

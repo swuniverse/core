@@ -306,12 +306,6 @@ const contextPanelFixtures = [
     view: 'shipyards',
   },
   {
-    functionId: 5,
-    action: 'Hangar öffnen',
-    content: 'Hangarbestand',
-    view: 'fighterShipyards',
-  },
-  {
     functionId: 10,
     action: 'Fabrikation öffnen',
     content: 'Aktive Fertigung',
@@ -336,10 +330,10 @@ function addContextPanelData(
     presentFunctionIds: [functionId],
     activeFunctionIds: [functionId],
   };
-  if (view === 'hangar' || view === 'fighterShipyards') {
+  if (view === 'hangar') {
     detail.hangar = {
-      hasAirfield: view === 'hangar',
-      hasFighterShipyard: view === 'fighterShipyards',
+      hasAirfield: true,
+      hasFighterShipyard: false,
       inventory: [],
       buildable: [],
       startable: [],

@@ -270,8 +270,10 @@ describe('NavigationPanel', () => {
       />,
     );
 
+    // The frame no longer depends on the Kartographieansicht.
     const field = screen.getByRole('button', { name: /Feld 2,1/ });
-    expect(field.getAttribute('aria-label')).not.toContain('Messpunkt');
+    expect(field.getAttribute('aria-label')).toContain('verbleibender Messpunkt');
+    expect(field.className).toContain('ring-amber-400');
   });
 
   it('marks remaining region measure points on the galaxy map (tmw-K8b3)', async () => {

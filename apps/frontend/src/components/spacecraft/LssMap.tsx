@@ -422,7 +422,7 @@ export function LssMap({
                         isShip ? 'ring-2 ring-emerald-400 z-10' : '',
                         isTarget ? 'ring-2 ring-swu-accent z-10' : '',
                         isCartographyPoint
-                          ? 'ring-2 ring-red-400/70 ring-inset z-10'
+                          ? 'ring-[3px] ring-amber-400 ring-inset z-10 shadow-[0_0_8px_rgba(251,191,36,0.85)]'
                           : '',
                         field.starSystemId
                           ? 'shadow-[0_0_8px_rgba(255,220,120,0.3)]'
@@ -577,7 +577,7 @@ export function LssMap({
                       isShip ? 'ring-2 ring-emerald-400 z-10' : '',
                       isTarget ? 'ring-2 ring-swu-accent z-10' : '',
                       isCartographyPoint
-                        ? 'ring-2 ring-red-400/70 ring-inset z-10'
+                        ? 'ring-[3px] ring-amber-400 ring-inset z-10 shadow-[0_0_8px_rgba(251,191,36,0.85)]'
                         : '',
                     ].join(' ')}
                   >
