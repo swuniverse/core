@@ -1,8 +1,8 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import { LandingPage } from './landing';
-import { api, ApiError } from '../services/api';
+import { api } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 
 vi.mock('../services/api', () => ({
