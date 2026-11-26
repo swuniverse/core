@@ -75,6 +75,23 @@ describe('ColonyMap', () => {
     );
   });
 
+  it('marks terraforming with a cyan band and reveals the target tile by progress', () => {
+    const site = {
+      ...field,
+      terraformingId: '101201',
+      terraformingProgressPercent: 30,
+      terraformingTargetTileId: '201',
+    };
+    render(<ColonyMap {...props} surfaceFields={[site]} />);
+
+    const cell = screen.getByRole('button', { name: /Feld 1.*\(Terraforming, 30 %\)/ });
+    expect(cell.className).toContain('#22d3ee');
+    expect(cell.className).not.toContain('animate-pulse');
+    const reveal = screen.getByTestId('terraform-progress-reveal') as HTMLImageElement;
+    expect(reveal.style.clipPath).toBe('inset(0 70% 0 0)');
+    expect(reveal.getAttribute('src')).toContain('201');
+  });
+
   it('shows a finished building without construction marks', () => {
     render(
       <ColonyMap

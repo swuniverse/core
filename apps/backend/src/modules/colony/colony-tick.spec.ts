@@ -3939,6 +3939,21 @@ describe('colony tick calculations', () => {
     expect(Math.abs(summary.fields[0].buildProgressPercent - 50)).toBeLessThanOrEqual(1);
   });
 
+  it('projects terraforming progress and target tile for the surface map', () => {
+    const { projectionService } = createColonyService();
+    const summary = projectionService.toColonySummary({
+      id: 1,
+      fields: [
+        { id: 1, fieldIndex: 5, terraformingId: '101201', terraformingFinishesAt: new Date(Date.now() + 15_000) },
+        { id: 2, fieldIndex: 6, terraformingId: null },
+      ],
+    } as never) as any;
+
+    expect(summary.fields[0].terraformingTargetTileId).toBe('201');
+    expect(Math.abs(summary.fields[0].terraformingProgressPercent - 75)).toBeLessThanOrEqual(1);
+    expect(summary.fields[1]).not.toHaveProperty('terraformingProgressPercent');
+  });
+
   it('enforces formalized per-colony building limits', async () => {
     const { constructionService, gameData } = createColonyService();
     const colony = {
