@@ -34,6 +34,9 @@ export interface ColonyField {
   activateAfterBuild?: boolean;
   terraformingId?: string | null;
   terraformingFinishesAt?: string | null;
+  /** 0–100; null when the duration is unknown. */
+  terraformingProgressPercent?: number | null;
+  terraformingTargetTileId?: string | null;
   /** Kuppel fertig / im Bau (Fertigstellung). */
   hasDome?: boolean;
   domeFinishesAt?: string | null;

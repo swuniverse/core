@@ -20,6 +20,10 @@ import {
 const CONSTRUCTION_FRAME_CLASS =
   'border-[3px] [border-image:repeating-linear-gradient(45deg,#facc15_0_5px,#111_5px_10px)_3]';
 
+// Terraforming gets the same band in cyan, so it reads differently from a construction site.
+const TERRAFORMING_FRAME_CLASS =
+  'border-[3px] [border-image:repeating-linear-gradient(45deg,#22d3ee_0_5px,#0b2530_5px_10px)_3]';
+
 // ─── FieldCell ───────────────────────────────────────────────
 
 export function FieldCell({
@@ -58,6 +62,10 @@ export function FieldCell({
   const inactive = buildingId && !field.isBuilding && !isFieldActive;
   const underConstruction = !!buildingId && !!field.isBuilding;
   const progress = field.buildProgressPercent;
+  const terraformProgress = field.terraformingProgressPercent;
+  const terraformLabel = field.terraformingId
+    ? ` (Terraforming${terraformProgress != null ? `, ${terraformProgress} %` : ''})`
+    : '';
   // terrainTileId kann string|number sein: SWU-Codes werden zu NaN (=> false).
   const isBonus = Number(terrainTileId) >= 10000;
   const bonusUsed = isBonus && !!buildingId && !field.isBuilding;
@@ -95,7 +103,7 @@ export function FieldCell({
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      aria-label={`Feld ${field.fieldIndex}${buildingName ? ': ' + buildingName : ''}${underConstruction ? ` (im Bau${progress != null ? `, ${progress} %` : ''})` : ''}${inactive ? ' (deaktiviert)' : ''}${damaged ? ' (beschädigt)' : ''}${field.locked ? ' (Admin-Vorschau, unerforscht)' : ''}`}
+      aria-label={`Feld ${field.fieldIndex}${buildingName ? ': ' + buildingName : ''}${underConstruction ? ` (im Bau${progress != null ? `, ${progress} %` : ''})` : ''}${terraformLabel}${inactive ? ' (deaktiviert)' : ''}${damaged ? ' (beschädigt)' : ''}${field.locked ? ' (Admin-Vorschau, unerforscht)' : ''}`}
       className={`relative w-full aspect-square overflow-hidden text-xs flex items-center justify-center border border-gray-500
         ${isSelected ? 'ring-2 ring-swu-accent z-10' : ''}
         ${isHighlighted ? `ring-2 ${isReplacement ? 'ring-orange-400/80' : 'ring-swu-accent/60'} animate-pulse z-10` : ''}
@@ -107,12 +115,12 @@ export function FieldCell({
         ${marker && !buildingId && !field.isBuilding && field.bonusMarkerActive !== false && !isSelected && !isHighlighted ? BONUS_MARKER_FRAME_CLASS : ''}
         ${underConstruction ? CONSTRUCTION_FRAME_CLASS : ''}
         ${field.isBuilding && progress == null ? 'animate-pulse' : ''}
-        ${field.terraformingId ? 'border-2 border-cyan-400 animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.6)]' : ''}
+        ${field.terraformingId ? `${TERRAFORMING_FRAME_CLASS} ${terraformProgress == null ? 'animate-pulse' : ''}` : ''}
         ${isBuildMode && !isHighlighted ? 'opacity-30' : ''}
         ${isHighlighted ? 'cursor-crosshair' : ''}
         ${field.locked ? 'grayscale opacity-60' : ''}`}
       title={[
-        `${TILE_TYPE_NAMES[terrainTileId] || FIELD_TYPE_NAMES[field.fieldType] || '?'}${isBonus ? ' ★' : ''}${buildingName ? ' — ' + buildingName : ''}${underConstruction ? ` (im Bau${progress != null ? `, ${progress} %` : ''})` : ''}${inactive ? ' (deaktiviert)' : ''}${damaged ? ` beschädigt ${field.integrity}/${field.maxIntegrity}` : ''}${field.terraformingId ? ' ⟳ Geoengineering' : ''}${field.hasDome ? ' ◠ Kuppel' : ''}${field.domeFinishesAt && !field.hasDome ? ' ◠ Kuppel im Bau' : ''}${field.locked ? ' — Admin-Vorschau (Spieler: unerforscht)' : ''} (${field.fieldIndex})`,
+        `${TILE_TYPE_NAMES[terrainTileId] || FIELD_TYPE_NAMES[field.fieldType] || '?'}${isBonus ? ' ★' : ''}${buildingName ? ' — ' + buildingName : ''}${underConstruction ? ` (im Bau${progress != null ? `, ${progress} %` : ''})` : ''}${inactive ? ' (deaktiviert)' : ''}${damaged ? ` beschädigt ${field.integrity}/${field.maxIntegrity}` : ''}${field.terraformingId ? ` ⟳ Terraforming${terraformProgress != null ? ` ${terraformProgress} %` : ''}` : ''}${field.hasDome ? ' ◠ Kuppel' : ''}${field.domeFinishesAt && !field.hasDome ? ' ◠ Kuppel im Bau' : ''}${field.locked ? ' — Admin-Vorschau (Spieler: unerforscht)' : ''} (${field.fieldIndex})`,
         marker
           ? `${marker.emoji} ${bonusMarkerDescription(marker, field.bonusMarkerActive !== false)}`
           : undefined,
@@ -152,11 +160,22 @@ export function FieldCell({
         />
       )}
       {field.terraformingId && (
-        <span className="absolute inset-0 bg-cyan-500/20 flex items-center justify-center">
-          <span className="text-cyan-300 text-[10px] font-bold drop-shadow-[0_0_4px_rgba(34,211,238,0.8)]">
+        <>
+          {field.terraformingTargetTileId && terraformProgress != null && terraformProgress > 0 && (
+            // Like a construction site: the target tile is revealed from the left as terraforming advances.
+            <img
+              src={colonyFieldTileImage(field.terraformingTargetTileId, timeState)}
+              alt=""
+              data-testid="terraform-progress-reveal"
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{ clipPath: `inset(0 ${100 - terraformProgress}% 0 0)` }}
+              loading="lazy"
+            />
+          )}
+          <span className="absolute right-0.5 top-0.5 z-20 rounded bg-cyan-400/90 px-1 text-[9px] font-bold leading-3 text-black">
             ⟳
           </span>
-        </span>
+        </>
       )}
       {underConstruction && (
         <>

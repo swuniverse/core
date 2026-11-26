@@ -334,6 +334,27 @@ export class ColonyProjectionService {
     });
   }
 
+  /** Like buildProgressPercent: no start is stored, so total = scaled terraforming duration. */
+  private terraformingProgress(field: Colony['fields'][number]) {
+    const terraforming = field.terraformingId
+      ? this.gameData.getTerraforming(field.terraformingId)
+      : undefined;
+    if (!terraforming) return {};
+    const total = this.timing
+      ? this.timing.scaleBuildTimeSeconds(terraforming.duration) * 1000
+      : 0;
+    const remaining = field.terraformingFinishesAt
+      ? field.terraformingFinishesAt.getTime() - Date.now()
+      : null;
+    return {
+      terraformingTargetTileId: terraforming.toFieldType,
+      terraformingProgressPercent:
+        total > 0 && remaining != null
+          ? Math.min(100, Math.max(0, Math.round((1 - remaining / total) * 100)))
+          : null,
+    };
+  }
+
   /** Build start is not stored: total = scaled buildTime of the target building (new builds and upgrades alike). */
   private buildProgressPercent(field: Colony['fields'][number]): number | null {
     const buildTime = field.buildingId
@@ -429,6 +450,7 @@ export class ColonyProjectionService {
           terraformingId: field.terraformingId,
           terraformingFinishesAt:
             field.terraformingFinishesAt?.toISOString() ?? null,
+          ...this.terraformingProgress(field),
           hasDome: field.hasDome,
           domeFinishesAt: field.domeFinishesAt?.toISOString() ?? null,
           wreckRepaired: field.wreckRepaired,
