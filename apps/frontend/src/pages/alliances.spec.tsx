@@ -1503,31 +1503,17 @@ describe('AllianceDetailPage', () => {
       ).toBeTruthy();
       fireEvent.click(within(wedge).getByRole('button', { name: 'Befördern' }));
       const wedgeRoles = within(wedge).getByRole('group', {
-        name: 'Rollen von Wedge',
+        name: 'Befördern von Wedge',
       });
+      // STU: one button per role; the president also offers the founder role.
       expect(
-        (
-          within(wedgeRoles).getByRole('checkbox', {
-            name: 'Diplomat',
-          }) as HTMLInputElement
-        ).checked,
-      ).toBe(false);
-      expect(
-        (
-          within(wedgeRoles).getByRole('checkbox', {
-            name: 'Vize-Präsident',
-          }) as HTMLInputElement
-        ).checked,
-      ).toBe(true);
+        within(wedgeRoles)
+          .getAllByRole('button')
+          .map((button) => button.textContent),
+      ).toEqual(['Großadmiral', 'Vize-Präsident', 'Diplomat']);
       expect(
         within(wedge).getByRole('button', { name: 'Degradieren' }),
       ).toBeTruthy();
-      expect(
-        within(wedge).getByRole('button', { name: 'Präsidentenamt übergeben' }),
-      ).toBeTruthy();
-      expect(
-        within(wedgeRoles).queryByRole('checkbox', { name: 'Großadmiral' }),
-      ).toBeNull();
 
       const biggs = screen.getByRole('link', { name: 'Biggs' }).closest('li')!;
       expect(
@@ -1548,7 +1534,7 @@ describe('AllianceDetailPage', () => {
       ).toHaveLength(0);
     });
 
-    it('assigns, removes roles and transfers via the role endpoints', async () => {
+    it('promotes, demotes and transfers like STU', async () => {
       routeGet({ '/alliances/1': managed() });
       vi.spyOn(window, 'confirm').mockReturnValue(true);
 
@@ -1558,25 +1544,25 @@ describe('AllianceDetailPage', () => {
       ).closest('li')!;
 
       fireEvent.click(within(wedge).getByRole('button', { name: 'Befördern' }));
-      fireEvent.click(
-        within(wedge).getByRole('checkbox', { name: 'Diplomat' }),
-      );
+      fireEvent.click(within(wedge).getByRole('button', { name: 'Diplomat' }));
       await waitFor(() =>
-        expect(apiMocks.put).toHaveBeenCalledWith(
-          '/alliances/1/members/2/roles/3',
+        expect(apiMocks.post).toHaveBeenCalledWith(
+          '/alliances/1/members/2/promote/3',
           {},
         ),
       );
       await clickWhenEnabled(wedge, 'Degradieren');
       await waitFor(() =>
-        expect(apiMocks.delete).toHaveBeenCalledWith(
-          '/alliances/1/members/2/roles/2',
+        expect(apiMocks.post).toHaveBeenCalledWith(
+          '/alliances/1/members/2/demote',
+          {},
         ),
       );
-      await clickWhenEnabled(wedge, 'Präsidentenamt übergeben');
+      fireEvent.click(within(wedge).getByRole('button', { name: 'Befördern' }));
+      await clickWhenEnabled(wedge, 'Großadmiral');
       await waitFor(() =>
         expect(apiMocks.post).toHaveBeenCalledWith(
-          '/alliances/1/members/2/transfer-presidency',
+          '/alliances/1/members/2/promote/1',
           {},
         ),
       );
@@ -2177,9 +2163,7 @@ describe('alliance roles (soc-AUD-09b)', () => {
     expect(
       await screen.findByRole('heading', { name: 'Allianz Rollen' }),
     ).toBeTruthy();
-    expect(
-      within(await card('Vize-Präsident')).getByTitle('1 Mitglied'),
-    ).toBeTruthy();
+    expect(await card('Vize-Präsident')).toBeTruthy();
   });
 
   it('locks the founder role and rights the viewer lacks', async () => {
@@ -2281,7 +2265,7 @@ describe('alliance roles (soc-AUD-09b)', () => {
     });
   });
 
-  it('reorders only movable roles, by drag and by keyboard', async () => {
+  it('reorders all roles but the founder role, by drag and by keyboard', async () => {
     routeGet({ '/alliances/1': rolesAlliance() });
     renderAt('/alliances/1/edit');
 
@@ -2289,40 +2273,31 @@ describe('alliance roles (soc-AUD-09b)', () => {
     fireEvent.dragStart(archivar);
     fireEvent.dragOver(await card('Vize-Präsident'));
     fireEvent.dragEnd(archivar);
-    // The locked diplomat role keeps its place.
     expect(titles()).toEqual([
       'Großadmiral',
       'Archivar',
-      'Diplomat',
-      'Vize-Präsident',
-    ]);
-
-    fireEvent.keyDown(
-      screen.getByRole('button', { name: 'Archivar verschieben' }),
-      { key: 'ArrowDown' },
-    );
-    expect(titles()).toEqual([
-      'Großadmiral',
       'Vize-Präsident',
       'Diplomat',
-      'Archivar',
     ]);
-    fireEvent.keyDown(
-      screen.getByRole('button', { name: 'Vize-Präsident verschieben' }),
-      { key: 'ArrowUp' },
-    );
-    expect(titles()).toEqual([
-      'Großadmiral',
-      'Vize-Präsident',
-      'Diplomat',
-      'Archivar',
-    ]);
+    // Dropping on the founder role does not move anything before it.
+    fireEvent.dragStart(await card('Diplomat'));
+    fireEvent.dragOver(await card('Großadmiral'));
+    expect(titles()[0]).toBe('Großadmiral');
     expect(
       screen.queryByRole('button', { name: 'Großadmiral verschieben' }),
     ).toBeNull();
 
-    fireEvent.dragStart(await card('Vize-Präsident'));
-    fireEvent.dragOver(await card('Archivar'));
+    // The locked diplomat role moves too, like in STU; only its sort is sent.
+    fireEvent.keyDown(
+      screen.getByRole('button', { name: 'Diplomat verschieben' }),
+      { key: 'ArrowUp' },
+    );
+    expect(titles()).toEqual([
+      'Großadmiral',
+      'Archivar',
+      'Diplomat',
+      'Vize-Präsident',
+    ]);
     save();
     await waitFor(() =>
       expect(apiMocks.patch.mock.calls).toEqual([

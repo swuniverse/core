@@ -2068,16 +2068,19 @@ export class AllianceService {
       }
       // The founder role is fixed (STU `isEditable`), except for its name.
       const changesRights = patch.permissions !== undefined;
+      // Sorting is display only (STU `SaveJobs`): MANAGE_JOBS suffices.
+      const sortOnly = patch.title === undefined && !changesRights;
       const allowed = isFounderRole(role)
         ? !changesRights && isFounder(actor)
-        : mayHandleRole(actor, role) &&
-          mayHandleRole(actor, { permissions: patch.permissions ?? [] }) &&
-          (!changesRights ||
-            mayChangeRoleHolders(
-              actor,
-              roleId,
-              await tx.listMemberships(allianceId),
-            ));
+        : sortOnly ||
+          (mayHandleRole(actor, role) &&
+            mayHandleRole(actor, { permissions: patch.permissions ?? [] }) &&
+            (!changesRights ||
+              mayChangeRoleHolders(
+                actor,
+                roleId,
+                await tx.listMemberships(allianceId),
+              )));
       if (!allowed) throw new ForbiddenException(ERR.roleRights);
       await tx.updateRole(roleId, patch);
       return [];
@@ -2124,6 +2127,110 @@ export class AllianceService {
     roleId: number,
   ): Promise<void> {
     await this.changeMemberRole(actorId, allianceId, targetId, roleId, false);
+  }
+
+  /**
+   * STU `PromotePlayer`: the member drops all roles and gets exactly this one;
+   * the founder role hands over the presidency. Protection rule of ADR 0001.
+   */
+  async promote(
+    actorId: number,
+    allianceId: number,
+    targetId: number,
+    roleId: number,
+  ): Promise<void> {
+    if (actorId === targetId) {
+      throw new BadRequestException(
+        'Du kannst Deine eigenen Rollen nicht ändern',
+      );
+    }
+    const role = await this.store.findRole(roleId);
+    if (role?.allianceId === allianceId && isFounderRole(role)) {
+      return this.transferPresidency(actorId, allianceId, targetId);
+    }
+    const messages = await this.mutate(async (tx) => {
+      const { alliance, actor, target } = await this.lockedMemberRight(
+        tx,
+        actorId,
+        allianceId,
+        targetId,
+      );
+      const role = await this.requireRole(tx, allianceId, roleId);
+      if (!mayHandleRole(actor, role)) {
+        throw new ForbiddenException(ERR.roleRights);
+      }
+      if (target.roles.length === 1 && target.roles[0].id === roleId) return [];
+      await this.dropMemberRoles(tx, actorId, target, roleId);
+      if (!target.roles.some((r) => r.id === roleId)) {
+        await tx.assignRole(target.id, roleId);
+        await this.appendAllianceChronicle(
+          tx,
+          allianceId,
+          AllianceChronicleEventType.ROLE_CHANGED,
+          actorId,
+          targetId,
+          { roleTitle: role.title, assigned: true },
+        );
+      }
+      return [
+        {
+          to: targetId,
+          body: `Du wurdest zum ${role.title} der Allianz ${alliance.name} ernannt`,
+        },
+      ];
+    });
+    await this.send(messages);
+  }
+
+  /** STU `DemotePlayer`: the member loses all roles. */
+  async demote(
+    actorId: number,
+    allianceId: number,
+    targetId: number,
+  ): Promise<void> {
+    if (actorId === targetId) {
+      throw new BadRequestException(
+        'Du kannst Deine eigenen Rollen nicht ändern',
+      );
+    }
+    const messages = await this.mutate(async (tx) => {
+      const { alliance, target } = await this.lockedMemberRight(
+        tx,
+        actorId,
+        allianceId,
+        targetId,
+      );
+      if (target.roles.length === 0) return [];
+      await this.dropMemberRoles(tx, actorId, target);
+      return [
+        {
+          to: targetId,
+          body: `Du wurdest von Deinem Posten in der Allianz ${alliance.name} entbunden`,
+        },
+      ];
+    });
+    await this.send(messages);
+  }
+
+  /** Removes the member's roles but `keepRoleId`, one chronicle entry each. */
+  private async dropMemberRoles(
+    tx: AllianceStore,
+    actorId: number,
+    target: MembershipRecord,
+    keepRoleId?: number,
+  ): Promise<void> {
+    for (const role of target.roles) {
+      if (role.id === keepRoleId) continue;
+      await tx.unassignRole(target.id, role.id);
+      await this.appendAllianceChronicle(
+        tx,
+        target.allianceId,
+        AllianceChronicleEventType.ROLE_CHANGED,
+        actorId,
+        target.userId,
+        { roleTitle: role.title, assigned: false },
+      );
+    }
   }
 
   /** Protection rule of ADR 0001 applies to the member and the role alike. */
@@ -2196,6 +2303,10 @@ export class AllianceService {
       const founderRole = await this.founderRole(tx, allianceId);
       // Release first: the partial unique index allows one holder only.
       await tx.unassignRole(actor.id, founderRole.id);
+      // STU `PromotePlayer`: the new president drops all other roles.
+      for (const role of target.roles) {
+        await tx.unassignRole(target.id, role.id);
+      }
       await tx.assignRole(target.id, founderRole.id);
       await this.appendAllianceChronicle(
         tx,

@@ -2459,17 +2459,14 @@ export function AllianceEditPage() {
 
   const memberActions = (member: AllianceMemberDto) => {
     const buttons: ReactNode[] = [];
-    // STU „Befördern“/„Degradieren“; several roles per member (ADR 0001).
-    // The founder role is never assignable; it moves via transfer only.
-    const assignable = member.actions.editRoles
-      ? alliance.roles.filter((role) => role.actions.assign)
-      : [];
-    const roleUrl = (roleId: number) =>
-      `/alliances/${alliance.id}/members/${member.userId}/roles/${roleId}`;
-    const removable = assignable.filter((role) =>
-      member.roles.some((r) => r.id === role.id),
+    // STU „Befördern“: the member gets exactly the chosen role; the founder
+    // role (offered to the president only) hands over the presidency.
+    const promotable = alliance.roles.filter((role) =>
+      role.founder
+        ? member.actions.transferPresidency
+        : member.actions.editRoles && role.actions.assign,
     );
-    if (assignable.length > 0) {
+    if (promotable.length > 0) {
       const open = promoting === member.userId;
       buttons.push(
         <button
@@ -2484,80 +2481,60 @@ export function AllianceEditPage() {
       );
       if (open) {
         buttons.push(
-          <fieldset
+          <span
             key="promote-roles"
-            aria-label={`Rollen von ${member.name}`}
-            className="flex basis-full flex-wrap gap-x-3 gap-y-1 border-t border-swu-border/60 pt-1"
+            role="group"
+            aria-label={`Befördern von ${member.name}`}
+            className="flex basis-full flex-wrap gap-2 border-t border-swu-border/60 pt-2"
           >
-            {assignable.map((role) => {
-              const held = member.roles.some((r) => r.id === role.id);
-              return (
-                <label
-                  key={role.id}
-                  className="flex items-center gap-1 text-xs"
-                >
-                  <input
-                    type="checkbox"
-                    checked={held}
-                    disabled={busy}
-                    onChange={() =>
-                      void run(() =>
-                        held
-                          ? api.delete(roleUrl(role.id))
-                          : api.put(roleUrl(role.id), {}),
-                      )
-                    }
-                  />
-                  {role.title}
-                </label>
-              );
-            })}
-          </fieldset>,
+            {promotable.map((role) => (
+              <button
+                key={role.id}
+                type="button"
+                disabled={busy}
+                className={buttonClass}
+                onClick={() => {
+                  if (
+                    role.founder &&
+                    !window.confirm(
+                      `Die Präsidentschaft an ${member.name} übergeben? Du verlierst danach die Präsidentenrolle.`,
+                    )
+                  )
+                    return;
+                  setPromoting(null);
+                  void run(() =>
+                    api.post(
+                      `/alliances/${alliance.id}/members/${member.userId}/promote/${role.id}`,
+                      {},
+                    ),
+                  );
+                }}
+              >
+                {role.title}
+              </button>
+            ))}
+          </span>,
         );
       }
     }
-    if (removable.length > 0) {
+    // STU `canBeDemoted`: the member holds any role.
+    if (member.actions.editRoles && member.roles.length > 0) {
       buttons.push(
         <button
           key="demote"
           type="button"
           disabled={busy}
           className={dangerButtonClass}
-          onClick={() => {
-            if (!window.confirm(`${member.name} von allen Rollen entbinden?`))
-              return;
-            void run(async () => {
-              for (const role of removable) await api.delete(roleUrl(role.id));
-            });
-          }}
-        >
-          Degradieren
-        </button>,
-      );
-    }
-    if (member.actions.transferPresidency) {
-      buttons.push(
-        <button
-          key="transfer"
-          type="button"
-          disabled={busy}
-          className={buttonClass}
-          onClick={() => {
-            if (
-              !window.confirm(
-                `Die Präsidentschaft an ${member.name} übergeben? Du verlierst danach die Präsidentenrolle.`,
-              )
-            )
-              return;
+          onClick={() =>
             void run(() =>
               api.post(
-                `/alliances/${alliance.id}/members/${member.userId}/transfer-presidency`,
+                `/alliances/${alliance.id}/members/${member.userId}/demote`,
                 {},
               ),
-            );
-          }}
+            )
+          }
         >
-          Präsidentenamt übergeben
+          Degradieren
         </button>,
       );
     }

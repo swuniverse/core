@@ -677,6 +677,25 @@ export class AllianceController {
     return this.allianceService.unassignRole(req.user.sub, id, userId, roleId);
   }
 
+  @Post(':id/members/:userId/promote/:roleId')
+  promote(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Param('roleId', ParseIntPipe) roleId: number,
+  ) {
+    return this.allianceService.promote(req.user.sub, id, userId, roleId);
+  }
+
+  @Post(':id/members/:userId/demote')
+  demote(
+    @Request() req: AuthRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('userId', ParseIntPipe) userId: number,
+  ) {
+    return this.allianceService.demote(req.user.sub, id, userId);
+  }
+
   @Post(':id/members/:userId/transfer-presidency')
   transferPresidency(
     @Request() req: AuthRequest,

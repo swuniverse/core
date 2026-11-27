@@ -86,13 +86,10 @@ const toCard = (role: AllianceRoleDto): Card => ({
 });
 
 const editable = (card: Card) => card.role?.actions.edit ?? true;
-// The founder role stays first; locked roles keep their place.
-const movable = (card: Card) => !card.role?.founder && editable(card);
+// The founder role stays first (STU: not draggable); all others move.
+const movable = (card: Card) => !card.role?.founder;
 
-/**
- * Moves `from` to the place of `to` among the movable cards only, so locked
- * cards keep their positions (their sort cannot be changed by the viewer).
- */
+/** Moves `from` to the place of `to`; the founder card keeps its place. */
 function moveCard(cards: Card[], from: string, to: string): Card[] {
   const slots = cards.flatMap((c, i) => (movable(c) ? [i] : []));
   const order = slots.map((i) => cards[i]);
@@ -155,7 +152,6 @@ function PermissionCheckbox({
 
 function RoleCard({
   card,
-  memberCount,
   held,
   busy,
   dragging,
@@ -167,7 +163,6 @@ function RoleCard({
   onMove,
 }: {
   card: Card;
-  memberCount: number;
   held: readonly P[];
   busy: boolean;
   dragging: boolean;
@@ -231,12 +226,6 @@ function RoleCard({
           onChange={(e) => onChange({ title: e.target.value })}
           className={inputClass}
         />
-        <span
-          className="text-xs text-swu-muted"
-          title={`${memberCount} ${memberCount === 1 ? 'Mitglied' : 'Mitglieder'}`}
-        >
-          {memberCount}
-        </span>
         {!founder && (
           <button
             type="button"
@@ -361,8 +350,15 @@ export function AllianceRolesEditor({
           if (sort !== undefined) await api.patch(`${base}/${id}`, { sort });
           continue;
         }
-        if (!editable(card)) continue;
         const patch: UpdateAllianceRoleRequest = {};
+        if (sort !== undefined && sort !== card.role.sort) patch.sort = sort;
+        // Locked roles may only change their place (protection rule).
+        if (!editable(card)) {
+          if (patch.sort === undefined) continue;
+          await api.patch(`${base}/${card.role.id}`, patch);
+          changed = true;
+          continue;
+        }
         if (card.title.trim() !== card.role.title) patch.title = card.title;
         if (
           !card.role.founder &&
@@ -370,7 +366,6 @@ export function AllianceRolesEditor({
         ) {
           patch.permissions = card.permissions;
         }
-        if (sort !== undefined && sort !== card.role.sort) patch.sort = sort;
         if (Object.keys(patch).length === 0) continue;
         await api.patch(`${base}/${card.role.id}`, patch);
         changed = true;
@@ -389,13 +384,6 @@ export function AllianceRolesEditor({
           <RoleCard
             key={card.key}
             card={card}
-            memberCount={
-              card.role
-                ? alliance.members.filter((m) =>
-                    m.roles.some((r) => r.id === card.role!.id),
-                  ).length
-                : 0
-            }
             held={held}
             busy={busy}
             dragging={dragKey === card.key}

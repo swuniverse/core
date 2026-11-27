@@ -3180,6 +3180,105 @@ describe('AllianceService', () => {
       });
     });
 
+    describe('promote and demote (STU Befördern/Degradieren)', () => {
+      it('replaces all roles of the member with the chosen one', async () => {
+        const { store, service, sent, alliance } = scenario();
+        const { id } = await service.createRole(1, alliance.id, {
+          title: 'Archivar',
+          permissions: [AlliancePermission.VIEW_ALLIANCE_HISTORY],
+        });
+        await service.assignRole(1, alliance.id, 4, id);
+
+        await service.promote(1, alliance.id, 4, diplomat(store, alliance.id));
+
+        const biggs = await store.findMembership(4);
+        expect(biggs?.roles.map((r) => r.title)).toEqual(['Diplomat']);
+        expect(messagesTo(sent, 4).at(-1)).toBe(
+          'Du wurdest zum Diplomat der Allianz Rogue Squadron ernannt',
+        );
+        expect(messagesTo(sent, 4)).toHaveLength(2);
+      });
+
+      it('hands over the presidency when promoting to the founder role', async () => {
+        const { store, service, alliance } = scenario();
+
+        await service.promote(
+          1,
+          alliance.id,
+          2,
+          store.roleIdOf(alliance.id, PRESIDENT),
+        );
+
+        expect(await store.presetOf(1)).toBe(NONE);
+        expect(
+          (await store.findMembership(2))?.roles.map((r) => r.title),
+        ).toEqual(['Präsident']);
+        await expectError(
+          service.promote(
+            1,
+            alliance.id,
+            3,
+            store.roleIdOf(alliance.id, PRESIDENT),
+          ),
+          ForbiddenException,
+        );
+      });
+
+      it('keeps the protection rule', async () => {
+        const { store, service, alliance } = scenario();
+
+        // The vice lacks the diplomatic rights.
+        await expectError(
+          service.promote(2, alliance.id, 4, diplomat(store, alliance.id)),
+          ForbiddenException,
+        );
+        await expectError(
+          service.promote(2, alliance.id, 3, vice(store, alliance.id)),
+          ForbiddenException,
+        );
+        await expectError(
+          service.promote(2, alliance.id, 2, vice(store, alliance.id)),
+          BadRequestException,
+        );
+        await expectError(
+          service.demote(2, alliance.id, 1),
+          ForbiddenException,
+        );
+      });
+
+      it('demotes a member from all roles with one message', async () => {
+        const { store, service, sent, alliance } = scenario();
+
+        await service.demote(1, alliance.id, 3);
+
+        expect((await store.findMembership(3))?.roles).toEqual([]);
+        expect(messagesTo(sent, 3)).toEqual([
+          'Du wurdest von Deinem Posten in der Allianz Rogue Squadron entbunden',
+        ]);
+        const { entries } = await service.listChronicle(1, alliance.id);
+        expect(entries[0]).toMatchObject({
+          type: AllianceChronicleEventType.ROLE_CHANGED,
+          metadata: { roleTitle: 'Diplomat', assigned: false },
+        });
+      });
+
+      it('lets MANAGE_JOBS sort roles whose rights the actor lacks', async () => {
+        const { store, service, alliance } = scenario();
+        const diplomatRole = diplomat(store, alliance.id);
+
+        await service.updateRole(2, alliance.id, diplomatRole, { sort: 7 });
+
+        expect((await store.findRole(diplomatRole))?.sort).toBe(7);
+        await expectError(
+          service.updateRole(2, alliance.id, diplomatRole, {
+            sort: 8,
+            title: 'Gesandter',
+          }),
+          ForbiddenException,
+        );
+      });
+    });
+
     describe('transferPresidency', () => {
       it('hands the presidency over and informs the new president', async () => {
         const { store, service, sent, alliance } = scenario();
@@ -3187,7 +3286,10 @@ describe('AllianceService', () => {
         await service.transferPresidency(1, alliance.id, 3);
 
         expect(await store.presetOf(1)).toBe(NONE);
-        expect(await store.presetOf(3)).toBe(PRESIDENT);
+        // STU `PromotePlayer`: the new president drops all other roles.
+        expect(
+          (await store.findMembership(3))?.roles.map((r) => r.title),
+        ).toEqual(['Präsident']);
         expect(messagesTo(sent, 3)).toEqual([
           'Du wurdest zum Präsident der Allianz Rogue Squadron ernannt',
         ]);
