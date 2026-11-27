@@ -50,7 +50,7 @@ const STOP_MESSAGES: Record<MovementStopReason, string> = {
   ARRIVED: 'Position aktualisiert',
   ALERT_COMBAT: 'Flug durch Reaktion gestoppt',
   DESTROYED: 'Flug nach Schiffsverlusten abgebrochen',
-  INSUFFICIENT_ENERGY: 'Flug mangels Energie abgebrochen',
+  INSUFFICIENT_ENERGY: 'Flug mangels Energie oder Hyperantrieb abgebrochen',
 };
 
 export function NavigationPanel({

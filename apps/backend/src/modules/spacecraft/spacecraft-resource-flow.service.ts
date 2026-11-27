@@ -26,7 +26,7 @@ const SYSTEM_EPS_USAGE: Partial<Record<SpacecraftRuntimeSystemKey, number>> = {
   TACHYON_SCANNER: 3,
   MATRIX_SCANNER: 0,
   LIFE_SUPPORT: 1,
-  DEFLECTOR: 0,
+  DEFLECTOR: 1,
   BEAM_BLOCKER: 0,
   UPLINK: 5,
   RESOURCE_COLLECTOR: 10,

@@ -21,8 +21,8 @@ type SystemState = { active?: boolean; integrity?: number };
 
 /**
  * STU `DeflectorConsequence` with `ApplyFieldDamage`: special damage of the
- * entered field type first, then the deflector costs `energyCost` EPS or the
- * ship takes the field type's damage in percent of its maximum hull.
+ * entered field type first, then the ship takes the field type's damage in
+ * percent of its maximum hull unless a working deflector is powered.
  */
 @Injectable()
 export class DeflectorConsequence implements FlightConsequence {
@@ -62,15 +62,16 @@ export class DeflectorConsequence implements FlightConsequence {
       }
       if (type.energyCost === 0 || context?.navicomputerJump) return;
       const deflector = (ship.runtimeSystems as Record<string, SystemState>).DEFLECTOR;
-      if (!deflector || (deflector.integrity ?? 100) <= 0) {
+      // Small craft have no deflector system at all (STU getDefaultSystems):
+      // there is nothing to fail, so they neither pay EPS nor take field damage.
+      if (!deflector) return;
+      if ((deflector.integrity ?? 100) <= 0) {
         await this.applyFieldDamage(ship, type.damage, false, 'Deflektor außer Funktion.', type, sector, lines, transaction);
         return;
       }
-      if (ship.energy >= type.energyCost) {
-        ship.energy -= type.energyCost;
-        return;
-      }
-      ship.energy = 0;
+      // The deflector runs automatically while EPS is available; its upkeep is
+      // 1 EPS per tick (resource flow), not a cost per entered field.
+      if (ship.energy > 0) return;
       await this.applyFieldDamage(ship, type.damage, false, 'Nicht genug Energie für den Deflektor.', type, sector, lines, transaction);
       const warped = (ship.runtimeSystems as Record<string, SystemState>).WARPDRIVE?.active === true;
       if (warped && ship.status !== SpacecraftStatus.DESTROYED) {

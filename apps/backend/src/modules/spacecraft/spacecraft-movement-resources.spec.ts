@@ -331,6 +331,7 @@ describe('SpacecraftService movement resources', () => {
       status: SpacecraftStatus.IDLE,
       ...galaxyLocation(3),
       energy: 20,
+      warpdrive: 20,
       modules: [],
       fleetId: null,
     };
@@ -365,6 +366,7 @@ describe('SpacecraftService movement resources', () => {
       status: SpacecraftStatus.IDLE,
       ...galaxyLocation(3),
       energy: 20,
+      warpdrive: 20,
       modules: [],
       fleetId: null,
     });
@@ -736,7 +738,7 @@ describe('SpacecraftService movement resources', () => {
     );
   });
 
-  it('tows a tractored ship on galaxy flight and charges its flight EPS cost', async () => {
+  it('tows a tractored ship on galaxy flight and charges 1 hyperdrive point per ship', async () => {
     const { service, shipRepo, galaxyFieldRepo, locationRepo } = createService();
     const ship = {
       id: 7,
@@ -745,6 +747,7 @@ describe('SpacecraftService movement resources', () => {
       shipClassId: 1,
       status: SpacecraftStatus.IDLE,
       energy: 10,
+      warpdrive: 10,
       tractoredShipId: 8,
       ...galaxyLocation(),
       runtimeSystems: {
@@ -774,7 +777,8 @@ describe('SpacecraftService movement resources', () => {
 
     await service.flyGalaxy(ship.id, ship.userId, 2, 1);
 
-    expect(ship.energy).toBe(8);
+    expect(ship.warpdrive).toBe(8);
+    expect(ship.energy).toBe(10);
     expect(target.locationId).toBe(92);
     expect(shipRepo.save).toHaveBeenCalledWith(target);
   });
@@ -805,6 +809,7 @@ describe('SpacecraftService movement resources', () => {
         shipClassId: 1,
         status: SpacecraftStatus.IDLE,
         energy: 10,
+        warpdrive: 10,
         tractoredShipId: 8,
         ...galaxyLocation(),
         runtimeSystems: { WARPDRIVE: { active: true, cooldown: 0, integrity: 100 } },
@@ -877,7 +882,7 @@ describe('SpacecraftService movement resources', () => {
     });
   });
 
-  it('pays galaxy flight with EPS and keeps the warpdrive charge', async () => {
+  it('pays galaxy flight with 1 hyperdrive point per field and keeps EPS', async () => {
     const { service, shipRepo, galaxyFieldRepo, runtimeState } =
       createService();
     const ship = {
@@ -897,8 +902,8 @@ describe('SpacecraftService movement resources', () => {
 
     await service.flyGalaxy(7, 1, 4, 1);
 
-    expect(ship.warpdrive).toBe(5);
-    expect(ship.energy).toBe(7);
+    expect(ship.warpdrive).toBe(2);
+    expect(ship.energy).toBe(10);
     expect(ship.runtimeSystems?.WARPDRIVE.active).toBe(true);
     expect(runtimeState.initialize).toHaveBeenCalledWith(ship);
   });

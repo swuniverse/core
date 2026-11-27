@@ -2529,7 +2529,7 @@ export class SpacecraftService {
     });
   }
 
-  // Galaxy-map flight: ship-class EPS per entered field
+  // Galaxy-map flight: 1 hyperdrive point per entered field
   /** The towed ship of a flight; it may belong to another player (sc-WP-TRACT-1b). */
   private async loadTowedShip(
     ship: Spacecraft,
@@ -2549,16 +2549,20 @@ export class SpacecraftService {
     ship: Spacecraft,
     shipClass: { flightEnergyCost: number },
     originals: Map<Spacecraft, ReturnType<typeof captureMovementState>>,
+    resource: 'energy' | 'warpdrive' = 'energy',
   ) {
     const [tractoredShip = null] = await this.loadTowedShip(ship, originals);
     const tractoredShipClass = tractoredShip
       ? await this.shipClassService.findById(tractoredShip.shipClassId)
       : null;
+    // In-system flight pays class EPS per field; hyperspace flight pays 1
+    // hyperdrive point per field (towed ship included).
+    const classCost = (cls: { flightEnergyCost: number }) =>
+      resource === 'warpdrive' ? 1 : cls.flightEnergyCost;
     if (
       tractoredShip &&
       tractoredShipClass &&
-      ship.energy <
-        shipClass.flightEnergyCost + tractoredShipClass.flightEnergyCost
+      ship[resource] < classCost(shipClass) + classCost(tractoredShipClass)
     ) {
       ship.tractoredShipId = null;
       ship.tractoredShip = null;
@@ -2567,9 +2571,9 @@ export class SpacecraftService {
       ship.runtimeSystems = systems;
     }
     const flightCost = (member: Spacecraft) =>
-      shipClass.flightEnergyCost +
+      classCost(shipClass) +
       (member === ship && ship.tractoredShipId && tractoredShipClass
-        ? tractoredShipClass.flightEnergyCost
+        ? classCost(tractoredShipClass)
         : 0);
     return { tractoredShip, flightCost };
   }
@@ -2628,6 +2632,7 @@ export class SpacecraftService {
       ship,
       shipClass,
       originals,
+      'warpdrive',
     );
     const participants = [ship, ...fleetMembers];
     const direction = this.directionFromMove(
@@ -2649,9 +2654,9 @@ export class SpacecraftService {
       isPassable: (field) => field.isPassable,
       participants: participants.map((member) => ({
         id: member.id,
-        canPay: () => member.energy >= flightCost(member),
+        canPay: () => member.warpdrive >= flightCost(member),
         pay: () => {
-          member.energy -= flightCost(member);
+          member.warpdrive -= flightCost(member);
         },
         isDestroyed: () => member.status === SpacecraftStatus.DESTROYED,
       })),
@@ -2715,7 +2720,7 @@ export class SpacecraftService {
         this.refreshMovementParticipants(participants, originals, flight),
     });
     if (result.completedSteps === 0 && result.stopReason === 'INSUFFICIENT_ENERGY') {
-      throw new BadRequestException('Not enough EPS for galaxy flight');
+      throw new BadRequestException('Not enough hyperdrive for galaxy flight');
     }
     // Every participant may have been destroyed and removed.
     if (isSpacecraftDestroyed(flight.leader)) return { ship: flight.leader, movement: result };

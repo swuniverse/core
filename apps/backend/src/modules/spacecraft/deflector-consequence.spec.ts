@@ -63,19 +63,19 @@ describe('DeflectorConsequence', () => {
     expect(messaging.sendSystem).toHaveBeenCalled();
   });
 
-  it('charges the field energy cost with an intact deflector and enough EPS', async () => {
+  it('takes no EPS and no damage per field with a powered deflector', async () => {
     const target = ship();
     const messages: string[] = [];
 
     await consequence.onEnterField(target, field(), messages);
 
-    expect(target).toMatchObject({ energy: 48, hull: 1000, shields: 40 });
+    expect(target).toMatchObject({ energy: 50, hull: 1000, shields: 40 });
     expect(messages).toEqual([]);
     expect(messaging.sendSystem).not.toHaveBeenCalled();
   });
 
-  it('empties the EPS and applies the field damage to shields first, then hull, without enough EPS', async () => {
-    const target = ship({ energy: 1 });
+  it('applies the field damage to shields first, then hull, when the EPS is empty', async () => {
+    const target = ship({ energy: 0 });
     const messages: string[] = [];
 
     await consequence.onEnterField(target, field(), messages);
@@ -108,12 +108,14 @@ describe('DeflectorConsequence', () => {
     expect(messages[0]).toBe('Deflektor außer Funktion.: Die Falcon wurde in Sektor 3|4 beschädigt');
   });
 
-  it('treats a ship without deflector system like a destroyed deflector', async () => {
+  it('ignores the deflector consequence for small craft without a deflector system', async () => {
     const target = ship({ runtimeSystems: {} });
+    const messages: string[] = [];
 
-    await consequence.onEnterField(target, field(), []);
+    await consequence.onEnterField(target, field(), messages);
 
-    expect(target).toMatchObject({ energy: 50, hull: 880 });
+    expect(target).toMatchObject({ energy: 50, hull: 1000 });
+    expect(messages).toEqual([]);
   });
 
   it('applies special damage as absolute damage before the deflector consequence', async () => {
@@ -122,7 +124,7 @@ describe('DeflectorConsequence', () => {
 
     await consequence.onEnterField(target, field({ name: 'Brennender Nebel', energyCost: 5, specialDamage: 30 }), messages);
 
-    expect(target).toMatchObject({ shields: 10, hull: 1000, energy: 45 });
+    expect(target).toMatchObject({ shields: 10, hull: 1000, energy: 50 });
     expect(messages[0]).toBe('Brennender Nebel in Sektor 3|4: Die Falcon wurde in Sektor 3|4 beschädigt');
   });
 
@@ -166,7 +168,7 @@ describe('DeflectorConsequence', () => {
     await consequence.onEnterField(target, { sx: 2, sy: 5, fieldTypeId: NEBULA.id } as never, []);
 
     expect(fieldTypes.findOneBy).toHaveBeenCalledWith({ id: NEBULA.id });
-    expect(target.energy).toBe(48);
+    expect(target.energy).toBe(50);
   });
 
   it('runs once per entered field in the pipeline', async () => {
@@ -177,6 +179,6 @@ describe('DeflectorConsequence', () => {
     await pipeline.onEnterField(target, field());
     await pipeline.onEnterField(target, field());
 
-    expect(target.energy).toBe(44);
+    expect(target.energy).toBe(50);
   });
 });
