@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, In, IsNull, LessThanOrEqual, MoreThan, type EntityManager } from 'typeorm';
-import type { TradeDealDto, TradeDealsDto } from '@swuniverse/shared';
+import { Between, DataSource, In, IsNull, LessThanOrEqual, MoreThan, Not, type EntityManager } from 'typeorm';
+import type { TradeDealBuildplanDto, TradeDealDto, TradeDealsDto } from '@swuniverse/shared';
 import { User } from '../auth/user.entity';
 import { NpcKey } from '../auth/npc-account.service';
 import { FactionEntity } from '../faction/entities/faction.entity';
@@ -27,6 +27,9 @@ const ACCOUNT_FULL = 'Dein Warenkonto auf diesem Handelsposten ist voll';
  * post. A take runs in one transaction under a lock on the post and the deal,
  * so concurrent takes never sell more than the remaining amount.
  */
+/** How long ended auctions stay listed for everyone (STU shows recent results; SWU keeps 30 days). */
+const ENDED_AUCTION_DAYS = 30;
+
 @Injectable()
 export class TradeDealService {
   private fulfillment: TradeDealFulfillment | null = null;
@@ -50,25 +53,42 @@ export class TradeDealService {
     if (!post || !licensed) {
       return {
         hasLicense: false, notice: HUTT_LICENSE_REQUIRED, tradePostId: post?.id ?? null, tradePostName: post?.name ?? null,
-        prestige: user.prestige, account: [], deals: [], auctions: [], wonAuctions: [],
+        prestige: user.prestige, account: [], deals: [], auctions: [], wonAuctions: [], endedAuctions: [],
       };
     }
     const ownFaction = (deal: TradeDeal) => deal.factionId === null || deal.factionId === user.factionId;
     const deals = (await activeDeals(manager, now)).filter(ownFaction);
     const auctions = (await activeDeals(manager, now, true)).filter(ownFaction);
-    const won = await manager.find(TradeDeal, {
-      where: { auction: true, auctionUserId: userId, takenAt: IsNull(), endsAt: LessThanOrEqual(now) },
-      order: { endsAt: 'ASC', id: 'ASC' },
-    });
-    const all = [...deals, ...auctions, ...won];
+    const [won, ended] = await Promise.all([
+      manager.find(TradeDeal, {
+        where: { auction: true, auctionUserId: userId, takenAt: IsNull(), endsAt: LessThanOrEqual(now) },
+        order: { endsAt: 'ASC', id: 'ASC' },
+      }),
+      manager.find(TradeDeal, {
+        where: {
+          auction: true,
+          auctionUserId: Not(IsNull()),
+          endsAt: Between(new Date(now.getTime() - ENDED_AUCTION_DAYS * 86_400_000), now),
+        },
+        order: { endsAt: 'DESC', id: 'DESC' },
+      }),
+    ]);
+    // Like STU, own unclaimed wins stay under "Gewonnene Auktionen" only.
+    const endedAuctions = ended.filter((deal) => ownFaction(deal) && !(deal.auctionUserId === userId && deal.takenAt === null));
+    const all = [...deals, ...auctions, ...won, ...endedAuctions];
+    const bidderIds = [...new Set([...auctions, ...endedAuctions].flatMap((deal) => (deal.auctionUserId === null ? [] : [deal.auctionUserId])))];
     const wanted = [...new Set(all.flatMap((deal) => (deal.wantCommodityId === null ? [] : [deal.wantCommodityId])))];
-    const [account, plans, factions, ownBids] = await Promise.all([
+    const [account, plans, factions, ownBids, bidders] = await Promise.all([
       wanted.length ? manager.find(TradeAccountStorage, { where: { tradePostId: post.id, userId, commodityId: In(wanted) } }) : [],
       this.buildplans(manager, all),
       manager.find(FactionEntity, { where: { id: In(all.flatMap((deal) => (deal.factionId === null ? [] : [deal.factionId]))) } }),
       highestBids(manager, [...auctions, ...won].filter((deal) => deal.auctionUserId === userId)),
+      bidderIds.length ? manager.find(User, { where: { id: In(bidderIds) }, select: ['id', 'username'] }) : [],
     ]);
     const factionNames = new Map(factions.map((faction) => [faction.id, faction.name]));
+    const bidderName = new Map(bidders.map((bidder) => [bidder.id, bidder.username]));
+    const bidder = (id: number | null) =>
+      id === null ? null : { id, name: bidderName.get(id) ?? `Spieler #${id}` };
     return {
       hasLicense: true,
       notice: null,
@@ -85,6 +105,7 @@ export class TradeDealService {
           currency: this.currency(deal),
           currentAmount: deal.auctionAmount,
           isHighestBidder: own,
+          highestBidder: bidder(deal.auctionUserId),
           ownMaxAmount: own ? (ownBids.get(deal.id)?.maxAmount ?? null) : null,
         };
       }),
@@ -96,6 +117,16 @@ export class TradeDealService {
           currency: this.currency(deal),
           price,
           refund: Math.max(0, (ownBids.get(deal.id)?.maxAmount ?? price) - price),
+          endedAt: deal.endsAt.toISOString(),
+        };
+      }),
+      endedAuctions: endedAuctions.map((deal) => {
+        const { give, buildplan, kind } = this.toDto(deal, plans, factionNames);
+        return {
+          id: deal.id, kind, give, buildplan,
+          currency: this.currency(deal),
+          price: deal.auctionAmount ?? 0,
+          highestBidder: bidder(deal.auctionUserId)!,
           endedAt: deal.endsAt.toISOString(),
         };
       }),
@@ -182,18 +213,39 @@ export class TradeDealService {
     }
   }
 
-  private async buildplans(manager: EntityManager, deals: TradeDeal[]) {
+  /** STU `deals.twig`: hull, buildplan modules and required crew (hull minimum plus module crew, as in the shipyard). */
+  private async buildplans(manager: EntityManager, deals: TradeDeal[]): Promise<Map<number, TradeDealBuildplanDto>> {
     const ids = [...new Set(deals.flatMap((deal) => (deal.buildplanId === null ? [] : [deal.buildplanId])))];
-    if (!ids.length) return new Map<number, { id: number; name: string; shipClassName: string }>();
+    if (!ids.length) return new Map();
     const plans = await manager.find(AdminShipBuildplan, { where: { id: In(ids) } });
     const classes = await manager.find(ShipClassDef, { where: { id: In(plans.map((plan) => plan.shipClassId)) } });
-    const className = new Map(classes.map((shipClass) => [shipClass.id, shipClass.name]));
-    return new Map(plans.map((plan) => [plan.id, { id: plan.id, name: plan.name, shipClassName: className.get(plan.shipClassId) ?? `Rumpf #${plan.shipClassId}` }]));
+    const classById = new Map(classes.map((shipClass) => [shipClass.id, shipClass]));
+    return new Map(plans.map((plan) => {
+      const shipClass = classById.get(plan.shipClassId);
+      const modules = (plan.moduleSelections ?? []).map((selection) => {
+        const item = this.gameData.getFabricationItemByOutputCommodity(selection.commodityId);
+        return {
+          commodityId: selection.commodityId,
+          name: item?.displayName ?? this.commodityName(selection.commodityId),
+          type: item?.shipyardType ?? null,
+          crew: item?.shipyardModuleStats?.crew ?? 0,
+        };
+      });
+      return [plan.id, {
+        id: plan.id,
+        name: plan.name,
+        shipClassId: plan.shipClassId,
+        shipClassKey: shipClass?.key ?? null,
+        shipClassName: shipClass?.name ?? `Rumpf #${plan.shipClassId}`,
+        crew: (shipClass?.crewMin ?? 0) + modules.reduce((sum, module) => sum + module.crew, 0),
+        modules: modules.map(({ crew: _crew, ...module }) => module),
+      }];
+    }));
   }
 
   private toDto(
     deal: TradeDeal,
-    plans: Map<number, { id: number; name: string; shipClassName: string }>,
+    plans: Map<number, TradeDealBuildplanDto>,
     factionNames: Map<number, string>,
   ): TradeDealDto {
     return {

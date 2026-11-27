@@ -89,6 +89,33 @@ describe('Hutt Cartel auctions (PostgreSQL)', () => {
   const end = (id: number) => source.getRepository('TradeDeal').update(id, { endsAt: new Date(now.getTime() - 1000) });
 
   describe('bidding with prestige', () => {
+    it('shows every licensed player the highest bidder but keeps a foreign maximum secret', async () => {
+      const id = await auction();
+      await auctions.bid(id, lando.id, 37, now);
+
+      const seenByHan = (await deals.list(han.id, now)).auctions.find((entry) => entry.id === id);
+      expect(seenByHan).toMatchObject({ highestBidder: { id: lando.id, name: 'Lando' }, isHighestBidder: false, ownMaxAmount: null, currentAmount: 1 });
+      expect(JSON.stringify(seenByHan)).not.toMatch(/[:,\[]37[,}\]]/);
+    });
+
+    it('lists ended auctions with price, highest bidder and end date for all players', async () => {
+      const id = await auction();
+      await auctions.bid(id, lando.id, 10, now);
+      await auctions.bid(id, han.id, 5, now);
+      await end(id);
+      const unsold = await auction();
+      await end(unsold);
+
+      const winner = await deals.list(lando.id, now);
+      expect(winner.endedAuctions).toEqual([]);
+      expect(winner.wonAuctions.map((entry) => entry.id)).toEqual([id]);
+
+      const { endedAuctions } = await deals.list(leia.id, now);
+      expect(endedAuctions).toEqual([
+        expect.objectContaining({ id, price: 6, highestBidder: { id: lando.id, name: 'Lando' }, endedAt: (await dealOf(id)).endsAt.toISOString() }),
+      ]);
+    });
+
     it('reserves the first maximum and starts at a price of 1', async () => {
       const id = await auction();
 
