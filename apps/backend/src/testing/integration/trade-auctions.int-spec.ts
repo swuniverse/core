@@ -95,7 +95,7 @@ describe('Hutt Cartel auctions (PostgreSQL)', () => {
 
       const seenByHan = (await deals.list(han.id, now)).auctions.find((entry) => entry.id === id);
       expect(seenByHan).toMatchObject({ highestBidder: { id: lando.id, name: 'Lando' }, isHighestBidder: false, ownMaxAmount: null, currentAmount: 1 });
-      expect(JSON.stringify(seenByHan)).not.toMatch(/[:,\[]37[,}\]]/);
+      expect(JSON.stringify(seenByHan)).not.toMatch(/[:,[]37[,}\]]/);
     });
 
     it('lists ended auctions with price, highest bidder and end date for all players', async () => {
