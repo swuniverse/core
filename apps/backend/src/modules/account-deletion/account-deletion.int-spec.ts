@@ -19,6 +19,7 @@ import { HolonetService } from '../holonet/holonet.service';
 import { MessagingService } from '../messaging/messaging.service';
 import { GameGateway } from '../websocket/game.gateway';
 import { PlayerDeletionService } from './player-deletion.service';
+import { TypeOrmAllianceStore } from '../alliance/typeorm-alliance.store';
 import { AuthService } from '../auth/auth.service';
 import { SettingsService } from '../settings/settings.service';
 import { MailService } from '../mail/mail.service';
@@ -128,6 +129,24 @@ describe('Account deletion with game content (PostgreSQL, AppModule)', () => {
   });
 
   describe('account and communication (sh-AP-05b)', () => {
+    async function allianceWith(members: Array<[number, AllianceRole]>) {
+      const store = new TypeOrmAllianceStore(source);
+      const alliance = await store.insertAlliance({
+        name: 'Rebellen', description: '', factionId: await factionId(source, Faction.REBEL_ALLIANCE),
+      });
+      for (const [userId, role] of members) await store.insertMembership({ allianceId: alliance.id, userId, role });
+      return alliance;
+    }
+    async function presidentOf(allianceId: number): Promise<number | undefined> {
+      const [row] = await source.query(
+        `SELECT m."userId" FROM alliance_member_roles mr
+         JOIN alliance_memberships m ON m.id = mr."membershipId"
+         WHERE mr.founder AND m."allianceId" = $1`,
+        [allianceId],
+      );
+      return row?.userId;
+    }
+
     it('keeps what others see under "Gelöschter Siedler" and removes personal data', async () => {
       const messaging = app.get(MessagingService);
       await messaging.send(doomed.id, other.id, 'von Doomed');
@@ -140,12 +159,9 @@ describe('Account deletion with game content (PostgreSQL, AppModule)', () => {
       await source.getRepository('HolonetRating').save({ postId: foreignPost.id, userId: doomed.id, value: 1 });
       await source.getRepository('HolonetCheckpoint').save({ userId: doomed.id, lastReadPostId: post.id });
 
-      const alliance = await source.getRepository('Alliance').save({
-        name: 'Rebellen', factionId: await factionId(source, Faction.REBEL_ALLIANCE),
-      }) as unknown as { id: number };
-      await source.getRepository('AllianceMembership').save([
-        { allianceId: alliance.id, userId: other.id, role: AllianceRole.PRESIDENT },
-        { allianceId: alliance.id, userId: doomed.id, role: AllianceRole.NONE },
+      const alliance = await allianceWith([
+        [other.id, AllianceRole.PRESIDENT],
+        [doomed.id, AllianceRole.NONE],
       ]);
 
       await source.getRepository('UserSetting').save({ userId: doomed.id, key: 'show_pm_read_receipt', value: 'false' });
@@ -179,8 +195,9 @@ describe('Account deletion with game content (PostgreSQL, AppModule)', () => {
       expect(await count('HolonetCheckpoint', { userId: doomed.id })).toBe(0);
 
       expect(await source.getRepository('AllianceMembership').findBy({ allianceId: alliance.id })).toEqual([
-        expect.objectContaining({ userId: other.id, role: AllianceRole.PRESIDENT }),
+        expect.objectContaining({ userId: other.id }),
       ]);
+      expect(await presidentOf(alliance.id)).toBe(other.id);
       for (const entity of ['UserSetting', 'Note', 'PrestigeHistoryEntry']) {
         expect(await count(entity, { userId: doomed.id })).toBe(0);
       }
@@ -188,19 +205,17 @@ describe('Account deletion with game content (PostgreSQL, AppModule)', () => {
     });
 
     it('lets the alliance succeed a deleted president', async () => {
-      const alliance = await source.getRepository('Alliance').save({
-        name: 'Rebellen', factionId: await factionId(source, Faction.REBEL_ALLIANCE),
-      }) as unknown as { id: number };
-      await source.getRepository('AllianceMembership').save([
-        { allianceId: alliance.id, userId: doomed.id, role: AllianceRole.PRESIDENT },
-        { allianceId: alliance.id, userId: other.id, role: AllianceRole.VICE },
+      const alliance = await allianceWith([
+        [doomed.id, AllianceRole.PRESIDENT],
+        [other.id, AllianceRole.VICE],
       ]);
 
       await deletions.delete(doomed.id);
 
       expect(await source.getRepository('AllianceMembership').findBy({ allianceId: alliance.id })).toEqual([
-        expect.objectContaining({ userId: other.id, role: AllianceRole.PRESIDENT }),
+        expect.objectContaining({ userId: other.id }),
       ]);
+      expect(await presidentOf(alliance.id)).toBe(other.id);
     });
   });
 

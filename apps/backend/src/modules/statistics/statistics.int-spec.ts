@@ -16,6 +16,7 @@ import { User } from '../auth/user.entity';
 import { JwtStrategy } from '../auth/jwt.strategy';
 import { DatabaseController } from '../database/database.controller';
 import { DatabaseRegionCatalogService } from '../database/database-region-catalog.service';
+import { DatabaseTypeDetailService } from '../database/database-type-detail.service';
 import { DatabaseService } from '../database/database.service';
 import { CommodityOverviewService } from '../database/commodity-overview.service';
 import { LayerAccessService } from '../starmap/layer-access.service';
@@ -70,6 +71,7 @@ describe('database statistics (Postgres, HTTP)', () => {
         { provide: CommodityOverviewService, useValue: {} },
         { provide: LayerAccessService, useValue: {} },
         { provide: DatabaseRegionCatalogService, useValue: {} },
+        { provide: DatabaseTypeDetailService, useValue: {} },
         { provide: StatisticsService, useValue: statistics },
       ],
     }).compile();
