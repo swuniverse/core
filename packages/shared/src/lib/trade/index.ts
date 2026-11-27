@@ -105,8 +105,6 @@ export interface TradeLicenseMenuDto {
   tradePostName: string;
   networkId: number;
   isOwner: boolean;
-  /** Purchase and renewal are free: the player holds an active trade agreement with the post owner. */
-  freeByAgreement: boolean;
   condition: {
     commodityId: number;
     commodityName: string;

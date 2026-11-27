@@ -50,7 +50,6 @@ import { TradeOfferMarketService } from './trade-offer-market.service';
 import { TradeOfferMaintenanceService } from './trade-offer-maintenance.service';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
 import { TradePostPresencePolicy } from './trade-post-presence.policy';
-import { TradeAgreementPolicy } from './trade-agreement.policy';
 import { TradeAccountBoxService } from './trade-account-box.service';
 import { TradeQueryService } from './trade-query.service';
 
@@ -107,7 +106,6 @@ import { TradeQueryService } from './trade-query.service';
     TradeOfferMaintenanceService,
     BasicTradeService,
     TradePostPresencePolicy,
-    TradeAgreementPolicy,
     TradeDeletionHandler,
     TradeDealService,
     TradeDealAdminService,

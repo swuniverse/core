@@ -89,7 +89,7 @@ describe('TradeMenuDialog', () => {
       url === '/spacecraft/77/trade/1'
         ? { ...menu, hasLicense: false }
         : {
-            tradePostId: 1, tradePostName: 'Mos Eisley', networkId: 1, isOwner: false, freeByAgreement: false,
+            tradePostId: 1, tradePostName: 'Mos Eisley', networkId: 1, isOwner: false,
             condition: { commodityId: 5, commodityName: 'Aurodium', amount: 10, durationDays: 30 },
             license: null, renewalExpiresAt: null,
             purchase: { shipId: 77, rejection: null, payShips: [{ id: 77, name: 'Barke', amount: 12 }] },

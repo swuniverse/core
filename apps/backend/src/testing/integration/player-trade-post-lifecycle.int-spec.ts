@@ -6,7 +6,6 @@ import { GameEventService } from '../../modules/events/game-event.service';
 import { MessagingService } from '../../modules/messaging/messaging.service';
 import { ABANDONED_TRADE_POST_NAME, PlayerTradePostService } from '../../modules/trade/player-trade-post.service';
 import { TradeAccountTransferService } from '../../modules/trade/trade-account-transfer.service';
-import { TradeAgreementPolicy } from '../../modules/trade/trade-agreement.policy';
 import { TradeDeletionHandler } from '../../modules/trade/trade-deletion.handler';
 import { TradeLicensePurchaseService } from '../../modules/trade/trade-license-purchase.service';
 import { TradeNetworkTransferService } from '../../modules/trade/trade-network-transfer.service';
@@ -206,7 +205,7 @@ describe('player trade post destruction and abandonment (PostgreSQL)', () => {
       const market = new TradeOfferMarketService(source, storage, messaging, gameData as never);
       await expect(market.take(offer.id, buyer.id, 1)).rejects.toThrow(ABANDONED);
       const purchases = new TradeLicensePurchaseService(
-        source, presence, messaging, new TradeAgreementPolicy({ resolve: async () => ({ mayTradeFavorably: false }) } as never),
+        source, presence, messaging
       );
       await source.getRepository('TradeLicense').delete({ tradePostId: postId, userId: trader.id });
       await expect(purchases.purchase(postId, trader.id, { method: 'ship', shipId: ship.id, payShipId: ship.id }))

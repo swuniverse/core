@@ -3,7 +3,6 @@ import { MessagingService } from '../../modules/messaging/messaging.service';
 import { TradeLicenseMaintenanceService } from '../../modules/trade/trade-license-maintenance.service';
 import { TradeLicensePurchaseService } from '../../modules/trade/trade-license-purchase.service';
 import { TradeLicenseService } from '../../modules/trade/trade-license.service';
-import { TradeAgreementPolicy } from '../../modules/trade/trade-agreement.policy';
 import { TradePostPresencePolicy } from '../../modules/trade/trade-post-presence.policy';
 import { connectIntegrationDatabase, createUser, resetDatabase } from './database';
 
@@ -34,7 +33,7 @@ describe('trade license renewal, expiry and queries (PostgreSQL)', () => {
       {} as never,
     );
     const gameData = { getCommodity: (id: number) => (id === COMMODITY ? { name: 'Aurodium' } : undefined) };
-    purchases = new TradeLicensePurchaseService(source, new TradePostPresencePolicy(), messaging, new TradeAgreementPolicy({ resolve: async () => ({ mayTradeFavorably: false }) } as never));
+    purchases = new TradeLicensePurchaseService(source, new TradePostPresencePolicy(), messaging);
     maintenance = new TradeLicenseMaintenanceService(source, messaging, gameData as never);
     queries = new TradeLicenseService(
       source.getRepository('TradePost') as never,

@@ -1,7 +1,6 @@
 import { DataSource } from 'typeorm';
 import { MessagingService } from '../../modules/messaging/messaging.service';
 import { TradeLicensePurchaseService } from '../../modules/trade/trade-license-purchase.service';
-import { TradeAgreementPolicy } from '../../modules/trade/trade-agreement.policy';
 import { TradePostPresencePolicy } from '../../modules/trade/trade-post-presence.policy';
 import { connectIntegrationDatabase, createUser, resetDatabase } from './database';
 
@@ -33,7 +32,7 @@ describe('trade license purchase (PostgreSQL)', () => {
       { emitToUser: (userId: number, event: string) => emitted.push([userId, event]) } as never,
       {} as never,
     );
-    service = new TradeLicensePurchaseService(source, new TradePostPresencePolicy(), messaging, new TradeAgreementPolicy({ resolve: async () => ({ mayTradeFavorably: false }) } as never));
+    service = new TradeLicensePurchaseService(source, new TradePostPresencePolicy(), messaging);
 
     const layer = await source.getRepository('Layer').save({ name: 'Handel', width: 3, height: 1 });
     const fieldType = await source.getRepository('GalaxyFieldType').findOneByOrFail({});
