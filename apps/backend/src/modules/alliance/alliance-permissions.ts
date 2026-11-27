@@ -65,3 +65,36 @@ export function mayHandleRole(
     coversPermissions(actor, role.permissions)
   );
 }
+
+/**
+ * Changing a role's rights or deleting it changes its holders' roles, so the
+ * actor must reach every holder but itself (no indirect demotion).
+ */
+export function mayChangeRoleHolders(
+  actor: RoleHolder & { userId: number },
+  roleId: number,
+  members: ReadonlyArray<{
+    userId: number;
+    roles: ReadonlyArray<{
+      id: number;
+      permissions: readonly AlliancePermission[];
+    }>;
+  }>,
+): boolean {
+  return members.every(
+    (m) =>
+      m.userId === actor.userId ||
+      !m.roles.some((r) => r.id === roleId) ||
+      mayManageMember(actor, m),
+  );
+}
+
+/** Rights that reveal a role's leadership group (STU `AllianceProvider`), public. */
+export const PUBLIC_ROLE_PERMISSIONS: ReadonlySet<AlliancePermission> = new Set(
+  [
+    AlliancePermission.FOUNDER,
+    AlliancePermission.SUCCESSOR,
+    AlliancePermission.DIPLOMATIC,
+    AlliancePermission.ALLIANCE_LEADERSHIP,
+  ],
+);

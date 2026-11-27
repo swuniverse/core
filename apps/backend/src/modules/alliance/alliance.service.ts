@@ -68,8 +68,10 @@ import {
   hasPermission,
   heldPermissions,
   isFounder,
+  mayChangeRoleHolders,
   mayHandleRole,
   mayManageMember,
+  PUBLIC_ROLE_PERMISSIONS,
 } from './alliance-permissions';
 import { ONLINE_PLAYERS } from './online-players.port';
 import type { OnlinePlayersPort } from './online-players.port';
@@ -128,6 +130,7 @@ const ERR = {
   roleRights:
     'Du kannst nur Rollen mit Rechten verwalten, die Du selbst besitzt',
   roleNotFound: 'Rolle nicht gefunden',
+  founderRoleFirst: 'Die Präsidentenrolle steht immer an erster Stelle',
   invalidRole: 'Ungültige Rolle',
   alreadyMember: 'Du bist bereits Mitglied einer Allianz',
   notMember: 'Du bist in keiner Allianz',
@@ -443,7 +446,7 @@ export class AllianceService {
         playersById,
         relationshipSummaries,
       ),
-      roles: roles.map((role) => this.roleDto(own, role)),
+      roles: roles.map((role) => this.roleDto(own, role, memberships)),
       members,
       relationships: relationshipSummaries,
       viewer: {
@@ -625,7 +628,12 @@ export class AllianceService {
     await this.mutateDiplomacy(async (tx) => {
       // Player party before alliance, like a join, so the two cannot deadlock.
       await this.lockSettlerTarget(tx, targetPlayerId);
-      await this.lockedAllianceRight(tx, actorId, allianceId, P.CREATE_AGREEMENTS);
+      await this.lockedAllianceRight(
+        tx,
+        actorId,
+        allianceId,
+        P.CREATE_AGREEMENTS,
+      );
       const actor = await this.loadParty(tx, allianceParty(allianceId));
       const target = await this.requireSettlerCounterparty(
         tx,
@@ -1998,8 +2006,11 @@ export class AllianceService {
   ): Promise<AllianceRoleDto[]> {
     await this.requireAlliance(allianceId);
     const own = await this.ownMembership(this.store, viewerId, allianceId);
-    const roles = await this.store.listRoles(allianceId);
-    return roles.map((role) => this.roleDto(own, role));
+    const [roles, memberships] = await Promise.all([
+      this.store.listRoles(allianceId),
+      this.store.listMemberships(allianceId),
+    ]);
+    return roles.map((role) => this.roleDto(own, role, memberships));
   }
 
   async createRole(
@@ -2048,12 +2059,25 @@ export class AllianceService {
     await this.mutate(async (tx) => {
       const { actor } = await this.lockedRoleRight(tx, actorId, allianceId);
       const role = await this.requireRole(tx, allianceId, roleId);
-      // The founder role is fixed (STU `isEditable`), except for its name and place.
+      if (patch.sort !== undefined) {
+        // The founder role stays first; standard roles are found by sort.
+        const founder = await this.founderRole(tx, allianceId);
+        if (isFounderRole(role) || patch.sort <= founder.sort) {
+          throw new BadRequestException(ERR.founderRoleFirst);
+        }
+      }
+      // The founder role is fixed (STU `isEditable`), except for its name.
       const changesRights = patch.permissions !== undefined;
       const allowed = isFounderRole(role)
         ? !changesRights && isFounder(actor)
         : mayHandleRole(actor, role) &&
-          mayHandleRole(actor, { permissions: patch.permissions ?? [] });
+          mayHandleRole(actor, { permissions: patch.permissions ?? [] }) &&
+          (!changesRights ||
+            mayChangeRoleHolders(
+              actor,
+              roleId,
+              await tx.listMemberships(allianceId),
+            ));
       if (!allowed) throw new ForbiddenException(ERR.roleRights);
       await tx.updateRole(roleId, patch);
       return [];
@@ -2068,7 +2092,15 @@ export class AllianceService {
     await this.mutate(async (tx) => {
       const { actor } = await this.lockedRoleRight(tx, actorId, allianceId);
       const role = await this.requireRole(tx, allianceId, roleId);
-      if (isFounderRole(role) || !mayHandleRole(actor, role)) {
+      if (
+        isFounderRole(role) ||
+        !mayHandleRole(actor, role) ||
+        !mayChangeRoleHolders(
+          actor,
+          roleId,
+          await tx.listMemberships(allianceId),
+        )
+      ) {
         throw new ForbiddenException(ERR.roleRights);
       }
       await tx.deleteRole(roleId);
@@ -2103,7 +2135,9 @@ export class AllianceService {
     assigned: boolean,
   ): Promise<void> {
     if (actorId === targetId) {
-      throw new BadRequestException('Du kannst Deine eigenen Rollen nicht ändern');
+      throw new BadRequestException(
+        'Du kannst Deine eigenen Rollen nicht ändern',
+      );
     }
     const messages = await this.mutate(async (tx) => {
       const { alliance, actor, target } = await this.lockedMemberRight(
@@ -2537,8 +2571,7 @@ export class AllianceService {
       throw new BadRequestException(ERR.invalidRelationshipProposal);
     }
     const values = permissions as
-      | { treatAsFriend?: unknown; shareLivePositions?: unknown }
-      | undefined;
+      { treatAsFriend?: unknown; shareLivePositions?: unknown } | undefined;
     const treatAsFriend = values?.treatAsFriend ?? false;
     const shareLivePositions = values?.shareLivePositions ?? false;
     if (
@@ -2666,7 +2699,10 @@ export class AllianceService {
       allianceId,
       P.MANAGE_JOBS,
     );
-    return { alliance, actor: await this.ownMembership(tx, actorId, allianceId) };
+    return {
+      alliance,
+      actor: await this.ownMembership(tx, actorId, allianceId),
+    };
   }
 
   private async requireRole(
@@ -2745,18 +2781,23 @@ export class AllianceService {
   private roleDto(
     viewer: MembershipRecord | null,
     role: AllianceRoleRecord,
+    memberships: MembershipRecord[],
   ): AllianceRoleDto {
-    const handle = !!viewer && mayHandleRole(viewer, role);
+    const assign = !!viewer && mayHandleRole(viewer, role);
+    const change = assign && mayChangeRoleHolders(viewer, role.id, memberships);
     return {
       id: role.id,
       title: role.title,
       sort: role.sort,
-      permissions: [...role.permissions],
+      // Outsiders only see what the public leadership grouping reveals.
+      permissions: viewer
+        ? [...role.permissions]
+        : role.permissions.filter((p) => PUBLIC_ROLE_PERMISSIONS.has(p)),
       founder: isFounderRole(role),
       actions: {
-        edit: isFounderRole(role) ? isFounder(viewer) : handle,
-        delete: handle,
-        assign: handle,
+        edit: isFounderRole(role) ? isFounder(viewer) : change,
+        delete: change,
+        assign,
       },
     };
   }
@@ -2773,10 +2814,7 @@ export class AllianceService {
 
   private async send(messages: OutgoingMessage[]): Promise<void> {
     for (const message of messages) {
-      await this.messaging.sendSystem(
-        message.to,
-        message.body,
-      );
+      await this.messaging.sendSystem(message.to, message.body);
     }
   }
 
@@ -3203,7 +3241,10 @@ export class AllianceService {
 
   private validateRoleTitle(raw: unknown): string {
     const title = typeof raw === 'string' ? raw.trim() : '';
-    if (title.length < ALLIANCE_TITLE_MIN || title.length > ALLIANCE_TITLE_MAX) {
+    if (
+      title.length < ALLIANCE_TITLE_MIN ||
+      title.length > ALLIANCE_TITLE_MAX
+    ) {
       throw new BadRequestException(
         `Der Rollentitel muss ${ALLIANCE_TITLE_MIN} bis ${ALLIANCE_TITLE_MAX} Zeichen lang sein`,
       );

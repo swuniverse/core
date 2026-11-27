@@ -3006,11 +3006,12 @@ describe('AllianceService', () => {
         });
         await service.updateRole(1, alliance.id, id, {
           title: 'Logistiker',
-          sort: 0,
+          sort: 2,
         });
         let roles = await service.listRoles(1, alliance.id);
-        expect(roles[0]).toMatchObject({
+        expect(roles.find((r) => r.id === id)).toMatchObject({
           id,
+          sort: 2,
           title: 'Logistiker',
           permissions: [AlliancePermission.VIEW_ALLIANCE_STORAGE],
           founder: false,
@@ -3091,6 +3092,74 @@ describe('AllianceService', () => {
           ['Präsident', { edit: false, delete: false, assign: false }],
           ['Admiral', { edit: true, delete: true, assign: true }],
           ['Diplomat', { edit: false, delete: false, assign: false }],
+        ]);
+      });
+
+      it('keeps the founder role in first place', async () => {
+        const { store, service, alliance } = scenario();
+        const founder = store.roleIdOf(alliance.id, PRESIDENT);
+
+        await expectError(
+          service.updateRole(1, alliance.id, vice(store, alliance.id), {
+            sort: 1,
+          }),
+          BadRequestException,
+        );
+        await expectError(
+          service.updateRole(1, alliance.id, founder, { sort: 9 }),
+          BadRequestException,
+        );
+      });
+
+      it('refuses demoting holders the actor cannot reach', async () => {
+        const { store, service, alliance } = scenario();
+        // A role within the vice's rights, held by the diplomat.
+        const { id } = await service.createRole(1, alliance.id, {
+          title: 'Archivar',
+          permissions: [AlliancePermission.VIEW_ALLIANCE_HISTORY],
+        });
+        await service.assignRole(1, alliance.id, 3, id);
+
+        await expectError(
+          service.deleteRole(2, alliance.id, id),
+          ForbiddenException,
+        );
+        await expectError(
+          service.updateRole(2, alliance.id, id, { permissions: [] }),
+          ForbiddenException,
+        );
+        const roles = await service.listRoles(2, alliance.id);
+        expect(roles.find((r) => r.id === id)?.actions).toEqual({
+          edit: false,
+          delete: false,
+          assign: true,
+        });
+
+        // Holders the vice reaches do not block, nor does the vice itself.
+        await service.unassignRole(1, alliance.id, 3, id);
+        await service.assignRole(1, alliance.id, 2, id);
+        await service.assignRole(1, alliance.id, 4, id);
+        await service.updateRole(2, alliance.id, id, { permissions: [] });
+        await service.deleteRole(2, alliance.id, id);
+        expect(await store.findRole(id)).toBeNull();
+      });
+
+      it('shows non-members only the public leadership marks of roles', async () => {
+        const { store, service, alliance } = scenario();
+        store.addPlayer(5, 'Han');
+
+        const { roles } = await service.getDetail(5, alliance.id);
+
+        expect(roles.map((r) => [r.title, r.permissions])).toEqual([
+          ['Präsident', [AlliancePermission.FOUNDER]],
+          [
+            'Admiral',
+            [
+              AlliancePermission.SUCCESSOR,
+              AlliancePermission.ALLIANCE_LEADERSHIP,
+            ],
+          ],
+          ['Diplomat', [AlliancePermission.DIPLOMATIC]],
         ]);
       });
 

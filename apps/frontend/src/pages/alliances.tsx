@@ -1,6 +1,7 @@
 import { PmLink } from '../components/PmLink';
 import { PlayerName } from '../components/PlayerName';
 import { AllianceDepotsPanel } from '../components/alliance/AllianceDepotsPanel';
+import { AllianceRolesEditor } from '../components/alliance/AllianceRolesEditor';
 import {
   useCallback,
   useEffect,
@@ -13,7 +14,6 @@ import {
   AllianceRelationshipType,
   AlliancePermission,
   AllianceRole,
-  grantsAlliancePermission,
   type AllianceChronicleDto,
   type AllianceChronicleEntryDto,
   type AllianceDiplomacyChronicleDto,
@@ -25,6 +25,7 @@ import {
   type AllianceDiplomacyRelationshipDto,
   type AllianceRelationshipPermissionsDto,
   type AllianceMemberDto,
+  type AllianceRoleDto,
   type AllianceRelationshipContractDto,
   type AllianceRelationshipSummaryDto,
   type AllianceSummaryDto,
@@ -469,6 +470,22 @@ function Field({
 
 // --- Detail ---
 
+/** Online status, sent only to members of the same alliance. */
+function OnlineBadge({ member }: { member: AllianceMemberDto }) {
+  if (member.online === undefined) return null;
+  return (
+    <span
+      className={
+        member.online
+          ? 'text-[10px] uppercase tracking-wider text-green-400'
+          : 'text-[10px] uppercase tracking-wider text-swu-muted'
+      }
+    >
+      {member.online ? 'Online' : 'Offline'}
+    </span>
+  );
+}
+
 function AllianceMembersSection({
   title,
   members,
@@ -512,17 +529,7 @@ function AllianceMembersSection({
                   {role.title}
                 </span>
               ))}
-              {member.online !== undefined && (
-                <span
-                  className={
-                    member.online
-                      ? 'text-[10px] uppercase tracking-wider text-green-400'
-                      : 'text-[10px] uppercase tracking-wider text-swu-muted'
-                  }
-                >
-                  {member.online ? 'Online' : 'Offline'}
-                </span>
-              )}
+              <OnlineBadge member={member} />
               {actions && (
                 <span className="ml-auto flex flex-wrap gap-2">
                   {actions(member)}
@@ -562,15 +569,86 @@ function useAllianceDetail(id: string | undefined) {
   return { alliance, loadError, reload };
 }
 
-/** STU `AllianceProvider`: leadership are holders of ALLIANCE_LEADERSHIP. */
+/** STU `AllianceProvider::getLeadershipJobs`: group order by directly set right. */
+const LEADERSHIP_ORDER = [
+  AlliancePermission.FOUNDER,
+  AlliancePermission.SUCCESSOR,
+  AlliancePermission.DIPLOMATIC,
+  AlliancePermission.ALLIANCE_LEADERSHIP,
+];
+
+const leadershipRank = (role: AllianceRoleDto) =>
+  LEADERSHIP_ORDER.findIndex((p) => role.permissions.includes(p));
+
+/** Leadership roles with their holders: president, vice, diplomat, others. */
+function allianceLeadership(alliance: AllianceDetailDto) {
+  return alliance.roles
+    .filter((role) => leadershipRank(role) >= 0)
+    .sort((a, b) => leadershipRank(a) - leadershipRank(b) || a.sort - b.sort)
+    .map((role) => ({
+      role,
+      holders: alliance.members.filter((m) =>
+        m.roles.some((r) => r.id === role.id),
+      ),
+    }))
+    .filter(({ holders }) => holders.length > 0);
+}
+
 function isAllianceLeader(
   alliance: AllianceDetailDto,
   member: AllianceMemberDto,
 ): boolean {
-  const held = alliance.roles
-    .filter((role) => member.roles.some((r) => r.id === role.id))
-    .flatMap((role) => role.permissions);
-  return grantsAlliancePermission(held, AlliancePermission.ALLIANCE_LEADERSHIP);
+  return alliance.roles.some(
+    (role) =>
+      leadershipRank(role) >= 0 && member.roles.some((r) => r.id === role.id),
+  );
+}
+
+/** STU „Leitung“: one entry per leadership role and holder, with the role title. */
+function AllianceLeadershipSection({
+  alliance,
+}: {
+  alliance: AllianceDetailDto;
+}) {
+  const entries = allianceLeadership(alliance).flatMap(({ role, holders }) =>
+    holders.map((member) => ({ role, member })),
+  );
+  return (
+    <section className="space-y-2 border border-swu-border bg-swu-surface p-4">
+      <h2 className="text-sm font-bold text-swu-primary">Leitung</h2>
+      {entries.length === 0 ? (
+        <p className="text-sm italic text-swu-muted">Keine</p>
+      ) : (
+        <ul className="divide-y divide-swu-border/40">
+          {entries.map(({ role, member }) => (
+            <li
+              key={`${role.id}-${member.userId}`}
+              className="flex flex-wrap items-center gap-3 py-2 text-sm"
+            >
+              <Link
+                to={`/players/${member.userId}`}
+                className="flex items-center gap-2 font-bold text-swu-primary hover:text-swu-accent"
+              >
+                <PlayerAvatar
+                  name={member.name}
+                  avatar={member.avatar}
+                  faction={member.faction}
+                  decorative
+                  className={
+                    role.founder ? 'size-11 text-base' : 'size-9 text-sm'
+                  }
+                />
+                <PlayerName name={member.name} playerId={member.userId} />
+              </Link>
+              <PmLink playerId={member.userId} playerName={member.name} />
+              <OnlineBadge member={member} />
+              <span className="text-xs text-swu-muted">{role.title}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
 }
 
 /** German sentence for one internal chronicle entry. */
@@ -2111,12 +2189,7 @@ export function AllianceDetailPage() {
         </main>
 
         <aside className="space-y-4 xl:sticky xl:top-4 xl:self-start">
-          <AllianceMembersSection
-            title="Leitung"
-            members={alliance.members.filter((member) =>
-              isAllianceLeader(alliance, member),
-            )}
-          />
+          <AllianceLeadershipSection alliance={alliance} />
           <AllianceMembersSection
             title="Mitglieder"
             members={alliance.members.filter(
@@ -2327,6 +2400,7 @@ export function AllianceEditPage() {
   const canEdit =
     alliance.viewer.actions.editDetails ||
     alliance.viewer.actions.manageBanner ||
+    alliance.viewer.actions.manageRoles ||
     alliance.viewer.actions.leave ||
     alliance.viewer.actions.dissolve ||
     alliance.members.some((member) =>
@@ -2384,7 +2458,7 @@ export function AllianceEditPage() {
 
   const memberActions = (member: AllianceMemberDto) => {
     const buttons: ReactNode[] = [];
-    // Minimal role assignment until the role editor (soc-AUD-09b).
+    // The founder role is never assignable; it moves via transfer only.
     if (member.actions.editRoles) {
       for (const role of alliance.roles) {
         if (!role.actions.assign) continue;
@@ -2596,6 +2670,14 @@ export function AllianceEditPage() {
             )}
           </div>
         </section>
+      )}
+
+      {alliance.viewer.actions.manageRoles && (
+        <AllianceRolesEditor
+          alliance={alliance}
+          busy={busy}
+          run={(action) => void run(action)}
+        />
       )}
 
       {alliance.members.some((member) =>

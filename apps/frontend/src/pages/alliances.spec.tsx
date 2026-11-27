@@ -2098,3 +2098,226 @@ describe('AllianceEditPage', () => {
     });
   });
 });
+
+describe('alliance roles (soc-AUD-09b)', () => {
+  const P = AlliancePermission;
+  const VICE_RIGHTS = [P.SUCCESSOR];
+  const editable = (r: AllianceRoleDto): AllianceRoleDto => ({
+    ...r,
+    actions: { edit: true, delete: true, assign: true },
+  });
+  const rolesAlliance = () =>
+    withViewer(
+      detail({
+        roles: [
+          ROLES[0],
+          editable(role(2, 'Vize-Präsident', [P.SUCCESSOR])),
+          role(3, 'Diplomat', [P.DIPLOMATIC]),
+          editable(role(4, 'Archivar', [P.VIEW_ALLIANCE_HISTORY])),
+        ],
+        members: [
+          { ...detail().members[0] },
+          {
+            ...detail().members[1],
+            roles: [memberRole(ROLES[1])],
+          },
+        ],
+      }),
+      AllianceRole.VICE,
+      { manageRoles: true },
+    );
+  const roleRow = async (title: string) =>
+    (await screen.findByRole('group', {
+      name: `Rolle ${title}`,
+    })) as HTMLElement;
+
+  it('shows the editor only with MANAGE_JOBS', async () => {
+    routeGet({
+      '/alliances/1': withViewer(detail(), AllianceRole.NONE, { leave: true }),
+    });
+    const view = renderAt('/alliances/1/edit');
+    expect(
+      await screen.findByRole('button', { name: 'Allianz verlassen' }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Rollen' })).toBeNull();
+    view.unmount();
+
+    routeGet({ '/alliances/1': rolesAlliance() });
+    renderAt('/alliances/1/edit');
+    expect(await screen.findByRole('heading', { name: 'Rollen' })).toBeTruthy();
+    expect(
+      within(await roleRow('Vize-Präsident')).getByText('1 Mitglied'),
+    ).toBeTruthy();
+  });
+
+  it('locks the founder role and rights the viewer lacks', async () => {
+    routeGet({ '/alliances/1': rolesAlliance() });
+    renderAt('/alliances/1/edit');
+
+    const founder = await roleRow('Großadmiral');
+    expect(
+      (
+        within(founder).getByLabelText(
+          'Titel der Rolle Großadmiral',
+        ) as HTMLInputElement
+      ).disabled,
+    ).toBe(true);
+    expect(
+      within(founder).queryByRole('button', { name: 'Löschen' }),
+    ).toBeNull();
+    expect(within(founder).queryAllByRole('checkbox')).toHaveLength(0);
+
+    const form = screen.getByRole('form', { name: 'Neue Rolle' });
+    const checkbox = (name: RegExp) =>
+      within(form).getByRole('checkbox', { name }) as HTMLInputElement;
+    expect(checkbox(/^Diplomat/).disabled).toBe(true);
+    expect(within(form).getAllByText('(fehlt Dir)').length).toBeGreaterThan(0);
+    expect(checkbox(/^Kann Allianz editieren/).disabled).toBe(false);
+
+    // A set parent right shows its children as included.
+    const vice = await roleRow('Vize-Präsident');
+    const child = within(vice).getByRole('checkbox', {
+      name: /^Kann Allianz editieren/,
+    }) as HTMLInputElement;
+    expect(child.checked).toBe(true);
+    expect(child.disabled).toBe(true);
+    expect(within(vice).getAllByText('(enthalten)').length).toBe(9);
+
+    // Neither the founder role nor the role right below it can move up.
+    expect(
+      (
+        within(vice).getByRole('button', {
+          name: 'Vize-Präsident nach oben',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+  });
+
+  it('creates, saves, moves and deletes roles via the role API', async () => {
+    routeGet({ '/alliances/1': rolesAlliance() });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderAt('/alliances/1/edit');
+
+    const form = await screen.findByRole('form', { name: 'Neue Rolle' });
+    fireEvent.change(within(form).getByLabelText('Titel der neuen Rolle'), {
+      target: { value: 'Quartiermeister' },
+    });
+    fireEvent.click(
+      within(form).getByRole('checkbox', { name: /^Kann Allianzdepots/ }),
+    );
+    await clickWhenEnabled(form, 'Rolle anlegen');
+    await waitFor(() =>
+      expect(apiMocks.post).toHaveBeenCalledWith('/alliances/1/roles', {
+        title: 'Quartiermeister',
+        permissions: [P.VIEW_ALLIANCE_STORAGE],
+      }),
+    );
+
+    const archivar = await roleRow('Archivar');
+    fireEvent.click(
+      within(archivar).getByRole('checkbox', { name: /^Kann Schiffe/ }),
+    );
+    await clickWhenEnabled(archivar, 'Speichern');
+    await waitFor(() =>
+      expect(apiMocks.patch).toHaveBeenCalledWith('/alliances/1/roles/4', {
+        permissions: [P.VIEW_ALLIANCE_HISTORY, P.VIEW_SHIPS],
+      }),
+    );
+
+    // Archivar (sort 4) and the diplomat role (not editable) do not swap.
+    expect(
+      (
+        within(archivar).getByRole('button', {
+          name: 'Archivar nach oben',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+
+    await clickWhenEnabled(archivar, 'Löschen');
+    await waitFor(() =>
+      expect(apiMocks.delete).toHaveBeenCalledWith('/alliances/1/roles/4'),
+    );
+  });
+
+  it('swaps the sort of two editable roles', async () => {
+    const alliance = rolesAlliance();
+    alliance.roles[2] = editable(alliance.roles[2]);
+    routeGet({ '/alliances/1': alliance });
+    renderAt('/alliances/1/edit');
+
+    await clickWhenEnabled(await roleRow('Archivar'), 'Archivar nach oben');
+    await waitFor(() =>
+      expect(apiMocks.patch.mock.calls).toEqual([
+        ['/alliances/1/roles/4', { sort: 3 }],
+        ['/alliances/1/roles/3', { sort: 4 }],
+      ]),
+    );
+  });
+
+  it('shows the server’s protection rule error', async () => {
+    routeGet({ '/alliances/1': rolesAlliance() });
+    apiMocks.delete.mockRejectedValueOnce(
+      new ApiError(
+        403,
+        'Du kannst nur Rollen mit Rechten verwalten, die Du selbst besitzt',
+      ),
+    );
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderAt('/alliances/1/edit');
+
+    await clickWhenEnabled(await roleRow('Archivar'), 'Löschen');
+
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Du kannst nur Rollen mit Rechten verwalten, die Du selbst besitzt',
+    );
+  });
+
+  it('groups the leadership like STU with role titles', async () => {
+    const roles = [
+      role(1, 'Großadmiral', [P.FOUNDER]),
+      role(2, 'Sprecher', [P.ALLIANCE_LEADERSHIP]),
+      role(3, 'Botschafter', [P.DIPLOMATIC]),
+      role(4, 'Admiral', VICE_RIGHTS),
+      role(5, 'Archivar', [P.VIEW_ALLIANCE_HISTORY]),
+    ];
+    const member = (userId: number, name: string, held: number[]) => ({
+      ...detail().members[0],
+      userId,
+      name,
+      roles: roles.filter((r) => held.includes(r.id)).map(memberRole),
+    });
+    routeGet({
+      '/alliances/1': detail({
+        roles,
+        members: [
+          member(1, 'Leia', [1]),
+          member(2, 'Wedge', [2, 4]),
+          member(3, 'Mon', [3]),
+          member(4, 'Biggs', [5]),
+        ],
+      }),
+    });
+    renderAt('/alliances/1');
+
+    const leadership = (await screen.findByRole('heading', { name: 'Leitung' }))
+      .parentElement!;
+    expect(
+      within(leadership)
+        .getAllByRole('listitem')
+        .map(
+          (li) =>
+            `${within(li).getByRole('link').textContent}:${li.lastChild?.textContent}`,
+        ),
+    ).toEqual([
+      'Leia:Großadmiral',
+      'Wedge:Admiral',
+      'Mon:Botschafter',
+      'Wedge:Sprecher',
+    ]);
+    const members = screen.getByRole('heading', {
+      name: 'Mitglieder',
+    }).parentElement!;
+    expect(within(members).getByRole('link', { name: 'Biggs' })).toBeTruthy();
+    expect(within(members).queryByRole('link', { name: 'Mon' })).toBeNull();
+  });
+});
