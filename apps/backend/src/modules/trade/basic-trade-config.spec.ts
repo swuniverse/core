@@ -19,10 +19,10 @@ describe('basic trade configuration (tmw-T7b)', () => {
     ]);
   });
 
-  it('refers to Doonium, Transparistahl and Durastahl-Legierung', () => {
+  it('refers to Doonium, Kunststoff and Durastahl-Legierung', () => {
     const map = yaml.load(readFileSync(join(DATA, 'commodities/stu-commodity-map.yaml'), 'utf8'));
     const entries = (Array.isArray(map) ? map : Object.values(map as object).find(Array.isArray)) as Array<{ id: number; name: string }>;
     const names = config.commodities.map(({ commodityId }) => entries.find((entry) => entry.id === commodityId)?.name);
-    expect(names).toEqual(['Doonium', 'Transparistahl', 'Durastahl-Legierung']);
+    expect(names).toEqual(['Doonium', 'Kunststoff', 'Durastahl-Legierung']);
   });
 });
