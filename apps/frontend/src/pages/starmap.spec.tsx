@@ -35,7 +35,8 @@ vi.mock('../components/starmap/StarmapCanvas', async () => {
         showFieldEffects?: boolean;
         showSensorCoverage?: boolean;
         focusField?: { cx: number; cy: number } | null;
-        fields: { cx: number; cy: number }[];
+        fields: { cx: number; cy: number; starSystem?: unknown }[];
+        onOpenSystem: (system: unknown, options?: { select?: boolean }) => Promise<unknown>;
       }
     >(function StarmapCanvasMock(
       { worldOverlay, onInlineSystemsVisibleChange, ...props },
@@ -61,7 +62,13 @@ vi.mock('../components/starmap/StarmapCanvas', async () => {
         >
           <button
             type="button"
-            onClick={() => onInlineSystemsVisibleChange?.(true)}
+            onClick={() => {
+              onInlineSystemsVisibleChange?.(true);
+              // Like the real canvas: zooming in lazy-loads the visible system grids.
+              for (const field of props.fields) {
+                if (field.starSystem) void props.onOpenSystem(field.starSystem, { select: false });
+              }
+            }}
           >
             Test: Systemraster zoomen
           </button>
@@ -901,7 +908,7 @@ describe('StarmapPage ship layer', () => {
         screen.getByRole('button', { name: 'Test: Systemraster zoomen' }),
       );
 
-      const bundle = screen.getByRole('button', {
+      const bundle = await screen.findByRole('button', {
         name: '2 Schiffe bei Kessel 12|13',
       });
       expect(within(bundle).getByText('2')).toBeTruthy();
