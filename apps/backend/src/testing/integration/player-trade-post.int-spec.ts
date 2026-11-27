@@ -5,7 +5,6 @@ import { StationConstructionService } from '../../modules/spacecraft/station-con
 import { FieldEffectQuery } from '../../modules/starmap/field-effect-query';
 import { PlayerTradePostService, UNLIMITED_LICENSE_EXPIRY } from '../../modules/trade/player-trade-post.service';
 import { TradeAccountTransferService } from '../../modules/trade/trade-account-transfer.service';
-import { TradeAgreementPolicy } from '../../modules/trade/trade-agreement.policy';
 import { TradeLicensePurchaseService } from '../../modules/trade/trade-license-purchase.service';
 import { TradeLicenseService } from '../../modules/trade/trade-license.service';
 import { TradeNetworkTransferService } from '../../modules/trade/trade-network-transfer.service';
@@ -128,8 +127,7 @@ describe('player trade posts (PostgreSQL)', () => {
       { emitToUser: () => undefined } as never, {} as never,
     );
     const purchases = new TradeLicensePurchaseService(
-      source, new TradePostPresencePolicy(), messaging,
-      new TradeAgreementPolicy({ resolve: async () => ({ mayTradeFavorably: false }) } as never),
+      source, new TradePostPresencePolicy(), messaging
     );
     await purchases.purchase(post.id, trader.id, { method: 'ship', shipId: ship.id, payShipId: ship.id });
     expect(await source.getRepository('TradeAccountStorage').findOneBy({ tradePostId: post.id, userId: owner.id, commodityId: AURODIUM }))

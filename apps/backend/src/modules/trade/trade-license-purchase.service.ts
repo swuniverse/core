@@ -12,14 +12,11 @@ import { TradeLicenseCondition } from './entities/trade-license-condition.entity
 import { TradeLicense } from './entities/trade-license.entity';
 import { TradePost } from './entities/trade-post.entity';
 import { assertNotAbandoned } from './player-trade-post.service';
-import { TradeAgreementPolicy } from './trade-agreement.policy';
 import { TradePostPresencePolicy } from './trade-post-presence.policy';
 
 export type TradeLicensePurchaseInput =
   | { method: 'ship'; shipId: number; payShipId: number }
-  | { method: 'account'; shipId: number; accountPostId: number }
-  /** Only for partners of an active trade agreement (tmw-T13). */
-  | { method: 'agreement'; shipId: number };
+  | { method: 'account'; shipId: number; accountPostId: number };
 
 export interface TradeLicensePurchaseResult {
   license: Pick<TradeLicense, 'id' | 'tradePostId' | 'startsAt' | 'expiresAt'>;
@@ -38,7 +35,6 @@ export class TradeLicensePurchaseService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly presence: TradePostPresencePolicy,
     private readonly messaging: MessagingService,
-    private readonly agreements: TradeAgreementPolicy,
   ) {}
 
   async purchase(
@@ -48,7 +44,6 @@ export class TradeLicensePurchaseService {
   ): Promise<TradeLicensePurchaseResult> {
     this.validate(input);
     const afterCommit: Array<() => void> = [];
-    let free = false;
     const license = await this.dataSource.transaction(async (manager) => {
       const post = await manager.findOne(TradePost, {
         where: { id: tradePostId },
@@ -74,18 +69,12 @@ export class TradeLicensePurchaseService {
       if (!ship || !this.isAt(ship, post, userId)) {
         throw new BadRequestException('Das Schiff befindet sich nicht am Handelsposten');
       }
-      free = await this.agreements.licenseIsFree(manager, post, userId);
-      if (!free) {
-        if (input.method === 'agreement') {
-          throw new BadRequestException('Kein aktives Handelsabkommen mit dem Eigentümer dieses Handelspostens');
-        }
-        if (input.method === 'ship') {
-          await this.payFromShip(manager, ships.get(input.payShipId), post, userId, condition);
-        } else {
-          await this.payFromAccount(manager, input.accountPostId, post, userId, condition);
-        }
-        await this.creditOwner(manager, post, condition);
+      if (input.method === 'ship') {
+        await this.payFromShip(manager, ships.get(input.payShipId), post, userId, condition);
+      } else {
+        await this.payFromAccount(manager, input.accountPostId, post, userId, condition);
       }
+      await this.creditOwner(manager, post, condition);
 
       const startsAt = now;
       const expiresAt = new Date(now.getTime() + condition.durationDays * DAY_MS);
@@ -98,9 +87,7 @@ export class TradeLicensePurchaseService {
       const buyer = await manager.findOneBy(User, { id: userId });
       await this.messaging.sendSystem(
         post.ownerId,
-        free
-          ? `${buyer?.username ?? 'Ein Siedler'} hat am ${post.name} über das Handelsabkommen eine Handelslizenz erhalten.`
-          : `${buyer?.username ?? 'Ein Siedler'} hat am ${post.name} eine Handelslizenz gekauft.`,
+        `${buyer?.username ?? 'Ein Siedler'} hat am ${post.name} eine Handelslizenz gekauft.`,
         undefined,
         MessageFolder.TRADE,
         undefined,
@@ -117,18 +104,16 @@ export class TradeLicensePurchaseService {
         startsAt: license.startsAt,
         expiresAt: license.expiresAt,
       },
-      message: free ? 'Handelslizenz wurde kostenlos erteilt (Handelsabkommen)' : 'Handelslizenz wurde erteilt',
+      message: 'Handelslizenz wurde erteilt',
     };
   }
 
   /**
    * STU `RenewTradeLicense` without lost time: pays the current condition from
    * an own account in the post's network and extends from max(now, expiry).
-   * Trade agreement partners renew for free and need no account.
    */
   async renew(tradePostId: number, userId: number, input: { accountPostId?: number }): Promise<TradeLicensePurchaseResult> {
     const afterCommit: Array<() => void> = [];
-    let free = false;
     const license = await this.dataSource.transaction(async (manager) => {
       const post = await manager.findOne(TradePost, {
         where: { id: tradePostId },
@@ -147,15 +132,12 @@ export class TradeLicensePurchaseService {
       if (!license) {
         throw new BadRequestException('Du besitzt keine Lizenz für diesen Handelsposten');
       }
-      free = await this.agreements.licenseIsFree(manager, post, userId);
-      if (!free) {
-        const accountPostId = input?.accountPostId;
-        if (!Number.isSafeInteger(accountPostId) || (accountPostId as number) < 1) {
-          throw new BadRequestException('Warenkonto muss eine gültige ID haben');
-        }
-        await this.payFromAccount(manager, accountPostId as number, post, userId, condition);
-        await this.creditOwner(manager, post, condition);
+      const accountPostId = input?.accountPostId;
+      if (!Number.isSafeInteger(accountPostId) || (accountPostId as number) < 1) {
+        throw new BadRequestException('Warenkonto muss eine gültige ID haben');
       }
+      await this.payFromAccount(manager, accountPostId as number, post, userId, condition);
+      await this.creditOwner(manager, post, condition);
       const base = Math.max(Date.now(), license.expiresAt.getTime());
       license.expiresAt = new Date(base + condition.durationDays * DAY_MS);
       license.warningSentAt = null;
@@ -180,7 +162,7 @@ export class TradeLicensePurchaseService {
         startsAt: license.startsAt,
         expiresAt: license.expiresAt,
       },
-      message: free ? 'Handelslizenz wurde kostenlos verlängert (Handelsabkommen)' : 'Handelslizenz wurde verlängert',
+      message: 'Handelslizenz wurde verlängert',
     };
   }
 
@@ -275,7 +257,7 @@ export class TradeLicensePurchaseService {
 
   private validate(input: TradeLicensePurchaseInput): void {
     const id = (value: unknown) => Number.isSafeInteger(value) && (value as number) > 0;
-    if (input?.method !== 'ship' && input?.method !== 'account' && input?.method !== 'agreement') {
+    if (input?.method !== 'ship' && input?.method !== 'account') {
       throw new BadRequestException('Unbekannte Zahlart');
     }
     if (!id(input.shipId)) throw new BadRequestException('Schiff muss eine gültige ID haben');

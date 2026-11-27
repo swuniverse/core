@@ -177,7 +177,6 @@ describe('RelationshipResolverService', () => {
       mayShareLivePosition: false,
       mayShareHistoricalScans: false,
       mayShareAllianceMap: false,
-      mayTradeFavorably: false,
     });
   });
 
@@ -761,49 +760,23 @@ describe('RelationshipResolverService', () => {
       return resolverFor(store);
     };
 
-    it('lets both sides of an active trade agreement trade favorably', async () => {
+    it('gives a trade agreement no trade effect: it stays neutral and carries no trade capability', async () => {
       const resolver = relate(AllianceRelationshipType.TRADE_AGREEMENT);
 
-      for (const [from, to] of [
-        [1, 2],
-        [2, 1],
-        [1, 3],
-        [3, 1],
-      ]) {
-        await expect(resolver.resolve(from, to)).resolves.toMatchObject({
-          status: 'NEUTRAL',
-          mayTradeFavorably: true,
-        });
+      for (const [from, to] of [[1, 2], [2, 1], [1, 3], [3, 1]]) {
+        const stance = await resolver.resolve(from, to);
+        expect(stance.status).toBe('NEUTRAL');
+        expect(stance).not.toHaveProperty('mayTradeFavorably');
       }
-      await expect(resolver.resolve(1, 4)).resolves.toMatchObject({
-        mayTradeFavorably: false,
-      });
-      await expect(resolver.resolve(2, 3)).resolves.toMatchObject({
-        mayTradeFavorably: false,
-      });
     });
 
-    it('keeps the trade capability under friend treatment', async () => {
+    it('keeps the friend treatment of a trade agreement (STU FRIENDLY)', async () => {
       await expect(
-        relate(AllianceRelationshipType.TRADE_AGREEMENT, {
-          treatAsFriend: true,
-        }).resolve(1, 2),
-      ).resolves.toMatchObject({ status: 'FRIEND', mayTradeFavorably: true });
+        relate(AllianceRelationshipType.TRADE_AGREEMENT, { treatAsFriend: true }).resolve(1, 2),
+      ).resolves.toMatchObject({ status: 'FRIEND' });
     });
 
-    it.each([
-      [AllianceRelationshipType.PEACE, false],
-      [AllianceRelationshipType.FRIENDSHIP, true],
-      [AllianceRelationshipType.ALLIANCE, true],
-    ])('grants nothing for %s', async (type, treatAsFriend) => {
-      await expect(
-        relate(type, { treatAsFriend }).resolve(1, 2),
-      ).resolves.toMatchObject({
-        mayTradeFavorably: false,
-      });
-    });
-
-    it('withholds it from a player who marked the partner as a personal enemy', async () => {
+    it('lets a personal enemy mark win over a trade agreement', async () => {
       const store = new InMemoryAllianceStore();
       store.addPlayer(1, 'Settler One');
       store.addPlayer(2, 'Settler Two');
@@ -820,7 +793,6 @@ describe('RelationshipResolverService', () => {
         resolverFor(store, enemyContact).resolve(1, 2),
       ).resolves.toMatchObject({
         status: 'ENEMY',
-        mayTradeFavorably: false,
       });
     });
   });
@@ -836,7 +808,6 @@ describe('RelationshipResolverService', () => {
       mayShareLivePosition: false,
       mayShareHistoricalScans: false,
       mayShareAllianceMap: false,
-      mayTradeFavorably: false,
     };
 
     it('grants nothing when the store fails', async () => {

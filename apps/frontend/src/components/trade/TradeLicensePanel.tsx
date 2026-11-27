@@ -70,7 +70,9 @@ export function TradeLicensePanel({
     return (
       <section className={sectionClass}>
         <h3 className={headingClass}>Handelslizenz</h3>
-        <p role="alert" className="text-red-300">{error}</p>
+        <p role="alert" className="text-red-300">
+          {error}
+        </p>
       </section>
     );
   }
@@ -91,14 +93,22 @@ export function TradeLicensePanel({
             ? `${formatNumber(menu.condition.amount)} ${menu.condition.commodityName} für ${menu.condition.durationDays} Tage`
             : 'Dieser Handelsposten vergibt keine Lizenzen.'}
         </p>
-        {menu.condition && menu.freeByAgreement && (
-          <p className="text-emerald-300">Für dich kostenlos (Handelsabkommen mit dem Eigentümer)</p>
-        )}
         {menu.license && (
-          <p>Deine Lizenz ist gültig bis {formatDateTime(menu.license.expiresAt)}.</p>
+          <p>
+            Deine Lizenz ist gültig bis {formatDateTime(menu.license.expiresAt)}
+            .
+          </p>
         )}
-        {notice && <p role="status" className="text-emerald-300">{notice}</p>}
-        {error && <p role="alert" className="text-red-300">{error}</p>}
+        {notice && (
+          <p role="status" className="text-emerald-300">
+            {notice}
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="text-red-300">
+            {error}
+          </p>
+        )}
         {menu.renewalExpiresAt && (
           <RenewalForm menu={menu} onError={setError} onDone={done} />
         )}
@@ -124,21 +134,23 @@ function RenewalForm({
     menu.accounts[0]?.tradePostId ?? null,
   );
   const [busy, setBusy] = useState(false);
-  const free = menu.freeByAgreement;
-  if (!free && !menu.accounts.length) {
+  if (!menu.accounts.length) {
     return (
       <p className="text-swu-muted">
-        Verlängerung: Kein eigenes Warenkonto in Netz {menu.networkId} deckt den Preis.
+        Verlängerung: Kein eigenes Warenkonto in Netz {menu.networkId} deckt den
+        Preis.
       </p>
     );
   }
   const renew = async () => {
-    if (!free && accountPostId == null) return;
+    if (accountPostId == null) return;
     setBusy(true);
     onError(null);
     try {
-      await api.post(`/trade/posts/${menu.tradePostId}/licenses/renewal`, free ? {} : { accountPostId });
-      await onDone(free ? 'Handelslizenz wurde kostenlos verlängert (Handelsabkommen)' : 'Handelslizenz wurde verlängert');
+      await api.post(`/trade/posts/${menu.tradePostId}/licenses/renewal`, {
+        accountPostId,
+      });
+      await onDone('Handelslizenz wurde verlängert');
     } catch (err) {
       onError(errorText(err, 'Verlängerung fehlgeschlagen'));
     } finally {
@@ -147,25 +159,29 @@ function RenewalForm({
   };
   return (
     <div className="space-y-1">
-      {!free && (
-        <label className="flex flex-wrap items-center gap-2">
-          <span>Verlängern aus</span>
-          <select
-            value={accountPostId ?? ''}
-            onChange={(event) => setAccountPostId(Number(event.target.value))}
-            className="border border-swu-border bg-swu-bg px-1 py-0.5"
-          >
-            {menu.accounts.map((account) => (
-              <option key={account.tradePostId} value={account.tradePostId}>
-                Warenkonto {account.tradePostName} ({formatNumber(account.amount)})
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      <label className="flex flex-wrap items-center gap-2">
+        <span>Verlängern aus</span>
+        <select
+          value={accountPostId ?? ''}
+          onChange={(event) => setAccountPostId(Number(event.target.value))}
+          className="border border-swu-border bg-swu-bg px-1 py-0.5"
+        >
+          {menu.accounts.map((account) => (
+            <option key={account.tradePostId} value={account.tradePostId}>
+              Warenkonto {account.tradePostName} ({formatNumber(account.amount)}
+              )
+            </option>
+          ))}
+        </select>
+      </label>
       <p>Neuer Ablauf: {formatDateTime(menu.renewalExpiresAt as string)}</p>
-      <button type="button" disabled={busy} onClick={() => void renew()} className={buttonClass}>
-        {free ? 'Lizenz kostenlos verlängern' : 'Lizenz verlängern'}
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void renew()}
+        className={buttonClass}
+      >
+        Lizenz verlängern
       </button>
     </div>
   );
@@ -190,29 +206,16 @@ function PurchaseForm({
       label: `Warenkonto ${account.tradePostName} (${formatNumber(account.amount)})`,
     })),
   ];
-  const [choice, setChoice] = useState<PaymentChoice | null>(choices[0]?.value ?? null);
+  const [choice, setChoice] = useState<PaymentChoice | null>(
+    choices[0]?.value ?? null,
+  );
   const [busy, setBusy] = useState(false);
   const shipId = menu.purchase.shipId;
   if (menu.purchase.rejection || shipId == null) {
-    return <p className="text-amber-200">{menu.purchase.rejection ?? 'Kein Kauf möglich'}</p>;
-  }
-  if (menu.freeByAgreement) {
-    const take = async () => {
-      setBusy(true);
-      onError(null);
-      try {
-        await api.post(`/trade/posts/${menu.tradePostId}/licenses`, { method: 'agreement', shipId });
-        await onDone('Handelslizenz wurde kostenlos erteilt (Handelsabkommen)');
-      } catch (err) {
-        onError(errorText(err, 'Lizenz konnte nicht erteilt werden'));
-      } finally {
-        setBusy(false);
-      }
-    };
     return (
-      <button type="button" disabled={busy} onClick={() => void take()} className={buttonClass}>
-        Lizenz kostenlos erhalten
-      </button>
+      <p className="text-amber-200">
+        {menu.purchase.rejection ?? 'Kein Kauf möglich'}
+      </p>
     );
   }
   const buy = async () => {
@@ -249,7 +252,12 @@ function PurchaseForm({
           {entry.label}
         </label>
       ))}
-      <button type="button" disabled={busy || !choice} onClick={() => void buy()} className={buttonClass}>
+      <button
+        type="button"
+        disabled={busy || !choice}
+        onClick={() => void buy()}
+        className={buttonClass}
+      >
         Lizenz kaufen
       </button>
     </fieldset>
@@ -258,19 +266,25 @@ function PurchaseForm({
 
 function OwnerLicenseAdmin({ menu }: { menu: TradeLicenseMenuDto }) {
   const [condition, setCondition] = useState<LicenseCondition>({
-    commodityId: menu.condition?.commodityId ?? menu.tradeableCommodities[0]?.id ?? 0,
+    commodityId:
+      menu.condition?.commodityId ?? menu.tradeableCommodities[0]?.id ?? 0,
     amount: menu.condition?.amount ?? 10,
     durationDays: menu.condition?.durationDays ?? 30,
   });
   const [issued, setIssued] = useState<IssuedTradeLicenseDto[] | null>(null);
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
+    null,
+  );
 
   useEffect(() => {
     api
       .get<IssuedTradeLicenseDto[]>(`/trade/posts/${menu.tradePostId}/licenses`)
       .then(setIssued)
       .catch((err: unknown) =>
-        setMessage({ ok: false, text: errorText(err, 'Lizenzen konnten nicht geladen werden') }),
+        setMessage({
+          ok: false,
+          text: errorText(err, 'Lizenzen konnten nicht geladen werden'),
+        }),
       );
   }, [menu.tradePostId]);
 
@@ -279,7 +293,10 @@ function OwnerLicenseAdmin({ menu }: { menu: TradeLicenseMenuDto }) {
       await api.put(`/trade/posts/${menu.tradePostId}/license-info`, condition);
       setMessage({ ok: true, text: 'Lizenzbedingung gespeichert' });
     } catch (err) {
-      setMessage({ ok: false, text: errorText(err, 'Speichern fehlgeschlagen') });
+      setMessage({
+        ok: false,
+        text: errorText(err, 'Speichern fehlgeschlagen'),
+      });
     }
   };
   const number = (key: 'amount' | 'durationDays') => (value: string) =>
@@ -293,11 +310,18 @@ function OwnerLicenseAdmin({ menu }: { menu: TradeLicenseMenuDto }) {
           <span className="text-swu-muted">Ware</span>
           <select
             value={condition.commodityId}
-            onChange={(event) => setCondition((current) => ({ ...current, commodityId: Number(event.target.value) }))}
+            onChange={(event) =>
+              setCondition((current) => ({
+                ...current,
+                commodityId: Number(event.target.value),
+              }))
+            }
             className="border border-swu-border bg-swu-bg px-1 py-0.5"
           >
             {menu.tradeableCommodities.map((commodity) => (
-              <option key={commodity.id} value={commodity.id}>{commodity.name}</option>
+              <option key={commodity.id} value={commodity.id}>
+                {commodity.name}
+              </option>
             ))}
           </select>
         </label>
@@ -322,12 +346,19 @@ function OwnerLicenseAdmin({ menu }: { menu: TradeLicenseMenuDto }) {
             className="w-20 border border-swu-border bg-swu-bg px-1 py-0.5"
           />
         </label>
-        <button type="button" onClick={() => void save()} className={buttonClass}>
+        <button
+          type="button"
+          onClick={() => void save()}
+          className={buttonClass}
+        >
           Bedingung speichern
         </button>
       </div>
       {message && (
-        <p role={message.ok ? 'status' : 'alert'} className={message.ok ? 'text-emerald-300' : 'text-red-300'}>
+        <p
+          role={message.ok ? 'status' : 'alert'}
+          className={message.ok ? 'text-emerald-300' : 'text-red-300'}
+        >
           {message.text}
         </p>
       )}
@@ -341,9 +372,15 @@ function OwnerLicenseAdmin({ menu }: { menu: TradeLicenseMenuDto }) {
               <tr key={license.id} className="border-t border-swu-border/60">
                 <td className="px-2 py-1">
                   <PlayerName name={license.username} />
-                  <PmLink playerId={license.userId} playerName={license.username} className="ml-1 align-middle" />
+                  <PmLink
+                    playerId={license.userId}
+                    playerName={license.username}
+                    className="ml-1 align-middle"
+                  />
                 </td>
-                <td className="px-2 py-1 text-right font-mono">bis {formatDateTime(license.expiresAt)}</td>
+                <td className="px-2 py-1 text-right font-mono">
+                  bis {formatDateTime(license.expiresAt)}
+                </td>
               </tr>
             ))}
           </tbody>

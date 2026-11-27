@@ -8,7 +8,6 @@ import {
 } from '../../modules/alliance/relationship-resolver.service';
 import { TypeOrmAllianceStore } from '../../modules/alliance/typeorm-alliance.store';
 import { MessagingService } from '../../modules/messaging/messaging.service';
-import { TradeAgreementPolicy } from '../../modules/trade/trade-agreement.policy';
 import { TradeLicenseMenuService } from '../../modules/trade/trade-license-menu.service';
 import { TradeLicensePurchaseService } from '../../modules/trade/trade-license-purchase.service';
 import { TradePostPresencePolicy } from '../../modules/trade/trade-post-presence.policy';
@@ -16,9 +15,9 @@ import { connectIntegrationDatabase, createUser, factionId, resetDatabase } from
 
 const COMMODITY = 5;
 const DAY_MS = 24 * 60 * 60 * 1000;
-const { TRADE_AGREEMENT, FRIENDSHIP } = AllianceRelationshipType;
+const { TRADE_AGREEMENT } = AllianceRelationshipType;
 
-/** tmw-T13: partners of an active trade agreement get licenses at the owner's player post for free. */
+/** tmw-AUD-09: a trade agreement has no trade effect (STU); it only carries the relationship permissions. */
 describe('trade agreement licenses (PostgreSQL)', () => {
   let source: DataSource;
   beforeAll(async () => { source = await connectIntegrationDatabase(); });
@@ -63,9 +62,8 @@ describe('trade agreement licenses (PostgreSQL)', () => {
       { emitToUser: () => undefined } as never,
       {} as never,
     );
-    const agreements = new TradeAgreementPolicy(relationships as RelationshipResolverService);
-    purchases = new TradeLicensePurchaseService(source, new TradePostPresencePolicy(), messaging, agreements);
-    menus = new TradeLicenseMenuService(source, new TradePostPresencePolicy(), { getCommodity: () => undefined, getAllCommodities: () => [] } as never, agreements);
+    purchases = new TradeLicensePurchaseService(source, new TradePostPresencePolicy(), messaging);
+    menus = new TradeLicenseMenuService(source, new TradePostPresencePolicy(), { getCommodity: () => undefined, getAllCommodities: () => [] } as never);
   }
 
   async function agree(type = TRADE_AGREEMENT) {
@@ -88,97 +86,61 @@ describe('trade agreement licenses (PostgreSQL)', () => {
   const ownerCredit = async () =>
     (await source.getRepository('TradeAccountStorage').findOneBy({ tradePostId: postId, userId: owner.id }))?.amount ?? 0;
 
-  it('issues the license free of charge to a partner of an active trade agreement', async () => {
+  it('charges a partner of an active trade agreement the regular price (STU: no trade effect)', async () => {
     await agree();
     const shipId = await shipWithCargo(10);
 
+    const menu = await menus.getMenu(postId, buyer.id, shipId);
+    expect(menu).not.toHaveProperty('freeByAgreement');
     const result = await purchases.purchase(postId, buyer.id, { method: 'ship', shipId, payShipId: shipId });
 
-    expect(result.message).toBe('Handelslizenz wurde kostenlos erteilt (Handelsabkommen)');
-    expect(await cargoOf(shipId)).toBe(10);
-    expect(await ownerCredit()).toBe(0);
-    expect(await source.getRepository('TradeLicense').count()).toBe(1);
+    expect(result.message).toBe('Handelslizenz wurde erteilt');
+    expect(await cargoOf(shipId)).toBe(0);
+    expect(await ownerCredit()).toBe(10);
     expect(await source.getRepository('Message').find()).toMatchObject([
-      { recipientId: owner.id, folder: 'TRADE', body: 'Buyer hat am Partnerposten über das Handelsabkommen eine Handelslizenz erhalten.' },
+      { recipientId: owner.id, folder: 'TRADE', body: 'Buyer hat am Partnerposten eine Handelslizenz gekauft.' },
     ]);
   });
 
-  it('lets a partner without any payment source take the license by agreement', async () => {
+  it('offers no payment-free way: a partner without a payment source is rejected, and method agreement is refused', async () => {
     await agree();
     const shipId = await shipWithCargo(0);
 
-    const menu = await menus.getMenu(postId, buyer.id, shipId);
-    expect(menu).toMatchObject({ freeByAgreement: true, purchase: { shipId, rejection: null } });
-
-    await purchases.purchase(postId, buyer.id, { method: 'agreement', shipId });
-    expect(await source.getRepository('TradeLicense').findOneByOrFail({ tradePostId: postId, userId: buyer.id })).toBeTruthy();
-  });
-
-  it('charges as usual and refuses the agreement method without an active trade agreement', async () => {
-    await agree(FRIENDSHIP);
-    const shipId = await shipWithCargo(10);
-
-    expect(await menus.getMenu(postId, buyer.id, shipId)).toMatchObject({ freeByAgreement: false });
-    await expect(purchases.purchase(postId, buyer.id, { method: 'agreement', shipId }))
-      .rejects.toThrow('Kein aktives Handelsabkommen mit dem Eigentümer dieses Handelspostens');
+    expect(await menus.getMenu(postId, buyer.id, shipId)).toMatchObject({
+      purchase: { rejection: 'Keine Zahlquelle mit ausreichendem Bestand' },
+    });
+    await expect(purchases.purchase(postId, buyer.id, { method: 'agreement', shipId } as never)).rejects.toThrow('Unbekannte Zahlart');
     expect(await source.getRepository('TradeLicense').count()).toBe(0);
-
-    await purchases.purchase(postId, buyer.id, { method: 'ship', shipId, payShipId: shipId });
-    expect(await cargoOf(shipId)).toBe(0);
-    expect(await ownerCredit()).toBe(10);
   });
 
-  it('charges again once the trade agreement has ended', async () => {
-    await agree();
-    const relationship = await source.getRepository('AllianceRelationship').findOneByOrFail({ type: TRADE_AGREEMENT });
-    await alliances.endRelationship(buyer.id, relationship.id);
-    const shipId = await shipWithCargo(10);
-
-    await purchases.purchase(postId, buyer.id, { method: 'ship', shipId, payShipId: shipId });
-
-    expect(await cargoOf(shipId)).toBe(0);
-    expect(await ownerCredit()).toBe(10);
-  });
-
-  it('fails closed to the regular price when the relationship cannot be resolved', async () => {
-    await agree();
-    wire({ resolve: () => Promise.reject(new Error('alliance store unavailable')) });
-    const shipId = await shipWithCargo(10);
-
-    expect(await menus.getMenu(postId, buyer.id, shipId)).toMatchObject({ freeByAgreement: false });
-    await expect(purchases.purchase(postId, buyer.id, { method: 'agreement', shipId }))
-      .rejects.toThrow('Kein aktives Handelsabkommen');
-    await purchases.purchase(postId, buyer.id, { method: 'ship', shipId, payShipId: shipId });
-    expect(await ownerCredit()).toBe(10);
-  });
-
-  it('never waives the price at an NPC post', async () => {
-    const npc = await createUser(source, { isNpc: true });
-    await source.getRepository('TradePost').update(postId, { ownerId: npc.id });
-    wire({ resolve: async () => ({ mayTradeFavorably: true }) as never });
-    const shipId = await shipWithCargo(10);
-
-    expect(await menus.getMenu(postId, buyer.id, shipId)).toMatchObject({ freeByAgreement: false });
-    await purchases.purchase(postId, buyer.id, { method: 'ship', shipId, payShipId: shipId });
-    expect(await cargoOf(shipId)).toBe(0);
-  });
-
-  it('renews free of charge without an account for an agreement partner', async () => {
+  it('renews at the regular price for an agreement partner and keeps a free-acquired license valid until expiry', async () => {
     await agree();
     const expiresAt = new Date(Date.now() + 5 * DAY_MS);
     await source.getRepository('TradeLicense').save({ tradePostId: postId, userId: buyer.id, startsAt: new Date(Date.now() - DAY_MS), expiresAt, warningSentAt: null });
-
-    const result = await purchases.renew(postId, buyer.id, {});
-
-    expect(result.message).toBe('Handelslizenz wurde kostenlos verlängert (Handelsabkommen)');
-    expect(result.license.expiresAt.getTime()).toBe(expiresAt.getTime() + 30 * DAY_MS);
-    expect(await ownerCredit()).toBe(0);
-  });
-
-  it('still requires an account to renew without a trade agreement', async () => {
-    await source.getRepository('TradeLicense').save({ tradePostId: postId, userId: buyer.id, startsAt: new Date(Date.now() - DAY_MS), expiresAt: new Date(Date.now() + DAY_MS), warningSentAt: null });
+    expect((await menus.getMenu(postId, buyer.id, null)).license).toBeTruthy();
 
     await expect(purchases.renew(postId, buyer.id, {})).rejects.toThrow('Warenkonto muss eine gültige ID haben');
+
+    const accountPostId = postId;
+    await source.getRepository('TradeAccountStorage').save({ tradePostId: accountPostId, userId: buyer.id, commodityId: COMMODITY, amount: 10 });
+    const result = await purchases.renew(postId, buyer.id, { accountPostId });
+
+    expect(result.message).toBe('Handelslizenz wurde verlängert');
+    expect(result.license.expiresAt.getTime()).toBe(expiresAt.getTime() + 30 * DAY_MS);
+    expect(await ownerCredit()).toBe(10);
+  });
+
+  it('keeps the friend permission of a trade agreement', async () => {
+    const { id } = await alliances.proposeSettlerRelationship(buyer.id, {
+      recipientPlayerId: owner.id,
+      type: TRADE_AGREEMENT,
+      permissions: { treatAsFriend: true, shareLivePositions: false },
+    });
+    await alliances.acceptRelationshipProposal(owner.id, id);
+
+    const stance = await resolver.resolve(buyer.id, owner.id);
+    expect(stance.isFriend).toBe(true);
+    expect(stance).not.toHaveProperty('mayTradeFavorably');
   });
 
   it('has dropped the unused faction trade modifier', async () => {

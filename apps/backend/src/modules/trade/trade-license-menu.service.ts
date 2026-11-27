@@ -13,7 +13,6 @@ import { TradeAccountStorage } from './entities/trade-account-storage.entity';
 import { TradeLicenseCondition } from './entities/trade-license-condition.entity';
 import { TradeLicense } from './entities/trade-license.entity';
 import { TradePost } from './entities/trade-post.entity';
-import { TradeAgreementPolicy } from './trade-agreement.policy';
 import { TradePostPresencePolicy } from './trade-post-presence.policy';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -28,7 +27,6 @@ export class TradeLicenseMenuService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly presence: TradePostPresencePolicy,
     private readonly gameData: GameDataService,
-    private readonly agreements: TradeAgreementPolicy,
   ) {}
 
   async getMenu(tradePostId: number, userId: number, shipId: number | null, now = new Date()): Promise<TradeLicenseMenuDto> {
@@ -40,7 +38,6 @@ export class TradeLicenseMenuService {
       manager.findOneBy(TradeLicense, { tradePostId, userId }),
     ]);
     const valid = license && license.expiresAt > now ? license : null;
-    const freeByAgreement = condition ? await this.agreements.licenseIsFree(manager, post, userId) : false;
 
     const accounts = condition
       ? await this.payingAccounts(post, userId, condition)
@@ -52,20 +49,19 @@ export class TradeLicenseMenuService {
         ? 'Schiff nicht gefunden'
         : this.presence.reason(this.presenceShip(ship), post, userId);
     const payShips =
-      condition && ship && !shipReason && !freeByAgreement ? await this.payingShips(post, userId, condition) : [];
+      condition && ship && !shipReason ? await this.payingShips(post, userId, condition) : [];
     const rejection = !condition
       ? 'Dieser Handelsposten vergibt keine Lizenzen'
       : valid
         ? 'Du besitzt bereits eine gültige Lizenz für diesen Handelsposten'
         : shipReason ??
-          (freeByAgreement || payShips.length || accounts.length ? null : 'Keine Zahlquelle mit ausreichendem Bestand');
+          (payShips.length || accounts.length ? null : 'Keine Zahlquelle mit ausreichendem Bestand');
 
     return {
       tradePostId: post.id,
       tradePostName: post.name,
       networkId: post.networkId,
       isOwner: post.ownerId === userId,
-      freeByAgreement,
       condition: condition
         ? {
             commodityId: condition.commodityId,

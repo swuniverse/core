@@ -1,6 +1,5 @@
 import { DataSource } from 'typeorm';
 import { TradeLicenseMenuService } from '../../modules/trade/trade-license-menu.service';
-import { TradeAgreementPolicy } from '../../modules/trade/trade-agreement.policy';
 import { TradePostPresencePolicy } from '../../modules/trade/trade-post-presence.policy';
 import { connectIntegrationDatabase, createUser, resetDatabase } from './database';
 
@@ -31,7 +30,7 @@ describe('trade license menu (PostgreSQL)', () => {
         { id: 9, name: 'Gefangene', isTradeable: false },
       ],
     };
-    menus = new TradeLicenseMenuService(source, new TradePostPresencePolicy(), gameData as never, new TradeAgreementPolicy({ resolve: async () => ({ mayTradeFavorably: false }) } as never));
+    menus = new TradeLicenseMenuService(source, new TradePostPresencePolicy(), gameData as never);
     const layer = await source.getRepository('Layer').save({ name: 'Handel', width: 4, height: 1 });
     const fieldType = await source.getRepository('GalaxyFieldType').findOneByOrFail({});
     locations = [];
@@ -78,7 +77,6 @@ describe('trade license menu (PostgreSQL)', () => {
       tradePostName: 'Mos Eisley',
       networkId: 1,
       isOwner: false,
-      freeByAgreement: false,
       condition: { commodityId: COMMODITY, commodityName: 'Aurodium', amount: 10, durationDays: 30 },
       license: null,
       renewalExpiresAt: null,
