@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type {
-  CreateTradeOfferDto,
-  TradeLicenseDto,
-  TradeOfferDto,
-  TradeOfferOptionsDto,
+import {
+  AURODIUM_COMMODITY_ID,
+  type CreateTradeOfferDto,
+  type TradeLicenseDto,
+  type TradeOfferDto,
+  type TradeOfferOptionsDto,
 } from '@swuniverse/shared';
 import { formatNumber } from '../../lib/format';
 import { api } from '../../services/api';
@@ -191,6 +192,21 @@ export function NewOfferDialog({
       .catch((err: unknown) => setError(errorText(err, 'Angebotsdaten konnten nicht geladen werden')));
   }, [postId, initial?.commodityId]);
 
+  // STU newOffer.twig: an NPC post wants Aurodium unless Aurodium is offered.
+  const wantedChoices = useMemo(
+    () =>
+      options?.isNpcPost && input.offeredCommodityId !== AURODIUM_COMMODITY_ID
+        ? options.tradeableCommodities.filter((entry) => entry.id === AURODIUM_COMMODITY_ID)
+        : (options?.tradeableCommodities ?? []),
+    [options, input.offeredCommodityId],
+  );
+  useEffect(() => {
+    if (!options?.isNpcPost) return;
+    const valid = wantedChoices.some((entry) => entry.id === input.wantedCommodityId) && input.wantedCommodityId !== input.offeredCommodityId;
+    const next = wantedChoices.find((entry) => entry.id !== input.offeredCommodityId)?.id;
+    if (!valid && next != null) setInput((current) => ({ ...current, wantedCommodityId: next }));
+  }, [options, wantedChoices, input.wantedCommodityId, input.offeredCommodityId]);
+
   const problems = options ? offerProblems(options, input) : [];
   const offered = options?.accountGoods.find((good) => good.commodityId === input.offeredCommodityId);
   const wanted = options?.tradeableCommodities.find((entry) => entry.id === input.wantedCommodityId);
@@ -255,10 +271,11 @@ export function NewOfferDialog({
                   <span className="text-swu-muted">Verlangte Ware</span>
                   <select
                     value={input.wantedCommodityId}
+                    disabled={wantedChoices.length === 1 && (options.tradeableCommodities.length > 1)}
                     onChange={(event) => setInput((current) => ({ ...current, wantedCommodityId: Number(event.target.value) }))}
                     className={inputClass}
                   >
-                    {options.tradeableCommodities.map((entry) => (
+                    {wantedChoices.map((entry) => (
                       <option key={entry.id} value={entry.id}>{entry.name}</option>
                     ))}
                   </select>

@@ -231,11 +231,16 @@ export interface CreateTradeOfferDto {
   offerCount: number;
 }
 
+/** SWU currency in place of STU Latinum. */
+export const AURODIUM_COMMODITY_ID = 50;
+
 /** Server-authorized choices for a new offer (`GET trade/posts/:id/offer-options`). */
 export interface TradeOfferOptionsDto {
   tradePostId: number;
   tradePostName: string;
   hasLicense: boolean;
+  /** NPC post: an offer must give or want Aurodium (STU `IS_NPC_POST`). */
+  isNpcPost: boolean;
   /** Free account space; a new offer needs some, like STU. */
   accountFree: number;
   /** Tradeable goods in the own account at this post. */

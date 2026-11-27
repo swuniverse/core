@@ -17,6 +17,7 @@ const options = {
   tradePostId: 1,
   tradePostName: 'Mos Eisley',
   hasLicense: true,
+  isNpcPost: false,
   accountFree: 40,
   accountGoods: [{ commodityId: 5, commodityName: 'Aurodium', amount: 25 }],
   tradeableCommodities: [{ id: 5, name: 'Aurodium' }, { id: 6, name: 'Durastahl' }],
@@ -75,6 +76,32 @@ describe('TradeOffersTab', () => {
     expect(problems).toContain('Die Anzahl muss zwischen 1 und 99 liegen');
     expect(problems).toContain('Nicht genügend Waren im Warenkonto');
     expect(within(dialog).getByRole('button', { name: 'Angebot erstellen' })).toHaveProperty('disabled', true);
+  });
+
+  it('fixes the wanted commodity to Aurodium at an NPC post unless Aurodium is offered', async () => {
+    serve({
+      '/trade/posts/1/offer-options': {
+        ...options,
+        isNpcPost: true,
+        accountGoods: [
+          { commodityId: 6, commodityName: 'Durastahl', amount: 25 },
+          { commodityId: 50, commodityName: 'Aurodium', amount: 25 },
+        ],
+        tradeableCommodities: [{ id: 50, name: 'Aurodium' }, { id: 6, name: 'Durastahl' }, { id: 7, name: 'Tibanna' }],
+      },
+    });
+    render(<TradeOffersTab />);
+    const dialog = await openDialog();
+    const wanted = within(dialog).getByRole('combobox', { name: 'Verlangte Ware' }) as HTMLSelectElement;
+    const offered = within(dialog).getByRole('combobox', { name: 'Angebotene Ware' });
+
+    expect(Array.from(wanted.options).map((option) => option.text)).toEqual(['Aurodium']);
+    expect(wanted.disabled).toBe(true);
+
+    fireEvent.change(offered, { target: { value: '50' } });
+    expect(Array.from(wanted.options).map((option) => option.text)).toEqual(['Aurodium', 'Durastahl', 'Tibanna']);
+    expect(wanted.disabled).toBe(false);
+    expect(wanted.value).toBe('6');
   });
 
   it('previews the ratio and truncation and creates the offer', async () => {

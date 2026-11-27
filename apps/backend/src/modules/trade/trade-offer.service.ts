@@ -1,7 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, MoreThan, type EntityManager } from 'typeorm';
-import type { CreateTradeOfferDto, TradeOfferDto, TradeOfferOptionsDto } from '@swuniverse/shared';
+import { AURODIUM_COMMODITY_ID, type CreateTradeOfferDto, type TradeOfferDto, type TradeOfferOptionsDto } from '@swuniverse/shared';
+import { User } from '../auth/user.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import { TradeAccountStorage } from './entities/trade-account-storage.entity';
 import { TradeLicense } from './entities/trade-license.entity';
@@ -33,6 +34,14 @@ export class TradeOfferService {
       assertNotAbandoned(post);
       if (!(await this.hasLicense(manager, tradePostId, userId))) {
         throw new BadRequestException('Du benötigst eine gültige Lizenz für diesen Handelsposten');
+      }
+      // Stricter than STU, which only hides the choice in its UI.
+      if (
+        (await this.isNpcPost(manager, post)) &&
+        input.offeredCommodityId !== AURODIUM_COMMODITY_ID &&
+        input.wantedCommodityId !== AURODIUM_COMMODITY_ID
+      ) {
+        throw new BadRequestException('An NPC-Handelsposten muss Aurodium angeboten oder verlangt werden');
       }
       if (await this.hasEquivalentOffer(manager, tradePostId, userId, input)) {
         throw new BadRequestException('Du hast auf diesem Handelsposten bereits ein vergleichbares Angebot');
@@ -130,6 +139,7 @@ export class TradeOfferService {
       tradePostId: post.id,
       tradePostName: post.name,
       hasLicense,
+      isNpcPost: await this.isNpcPost(manager, post),
       accountFree: capacity.free,
       accountGoods: stock
         .filter((row) => this.gameData.getCommodity(row.commodityId)?.isTradeable === true)
@@ -154,6 +164,11 @@ export class TradeOfferService {
     });
     const ratio = this.round2(input.offeredAmount / input.wantedAmount);
     return offers.some((offer) => this.round2(offer.offeredAmount / offer.wantedAmount) === ratio);
+  }
+
+  private async isNpcPost(manager: EntityManager, post: TradePost): Promise<boolean> {
+    if (post.ownerId == null) return false;
+    return manager.exists(User, { where: { id: post.ownerId, isNpc: true } });
   }
 
   private round2(value: number): number {
