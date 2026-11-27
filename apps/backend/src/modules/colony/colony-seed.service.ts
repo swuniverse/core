@@ -79,7 +79,7 @@ type SwuColonyFieldSeed = {
 
 const STARTING_COMMODITIES = [
   { commodityId: 2, amount: 180 }, // Baumaterial
-  { commodityId: 4, amount: 50 }, // Transparistahl
+  { commodityId: 4, amount: 50 }, // Kunststoff
   { commodityId: 5, amount: 50 }, // Deuterium
   { commodityId: 21, amount: 50 }, // Durastahl
 ];
@@ -90,7 +90,7 @@ const FOLLOW_UP_STARTING_COMMODITIES = [{ commodityId: 2, amount: 150 }];
 /** STU first colony via colony ship: Baumaterial, Transparentes Aluminium, Duranium, Deuterium. */
 export const FIRST_COLONY_STARTING_COMMODITIES = [
   { commodityId: 2, amount: 150 }, // Baumaterial
-  { commodityId: 4, amount: 150 }, // Transparistahl
+  { commodityId: 4, amount: 150 }, // Kunststoff
   { commodityId: 21, amount: 150 }, // Durastahl
   { commodityId: 5, amount: 100 }, // Deuterium
 ];
@@ -500,7 +500,7 @@ export class ColonySeedService {
     const orbitDistance = object
       ? computeSwuOrbitDistance(object, star, object.starSystem)
       : 0.5;
-    return this.createFollowUpSwuColony({
+    const colony = await this.createFollowUpSwuColony({
       userId: options.userId,
       username: options.username,
       celestialObjectId: options.celestialObjectId,
@@ -519,6 +519,9 @@ export class ColonySeedService {
         options.archetype.variant,
       ),
     });
+    colony.isStarter = true;
+    await this.colonyRepo.update(colony.id, { isStarter: true });
+    return colony;
   }
 
   private flattenSwuFoundedColony(founded: {

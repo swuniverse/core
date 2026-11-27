@@ -251,16 +251,6 @@ const GENERATED_BUILDING_FILES: Record<number, string> = {
   14010300: '14010100-hauptkuppel.png',
   15010100: '15010100-stadtkomplex.png',
   15010300: '15010100-stadtkomplex.png',
-  16010100: '16010100-rebel-galazit-mine-map-v2.png',
-  16010103: '16010103-imperial-galazit-mine-map-v2.png',
-  16020100: '16020100-rebel-nitrium-mine-map-v2.png',
-  16020103: '16020103-imperial-nitrium-mine-map-v2.png',
-  16030100: '16030100-rebel-magnesit-mine-map-v2.png',
-  16030103: '16030103-imperial-magnesit-mine-map-v2.png',
-  16040100: '16040100-rebel-neuranium-mine-map-v2.png',
-  16040103: '16040103-imperial-neuranium-mine-map-v2.png',
-  16050100: '16050100-rebel-talgonit-mine-map-v2.png',
-  16050103: '16050103-imperial-talgonit-mine-map-v2.png',
   21010100: '21010100-rebel-hydrokultur-map-v1.png',
   21010101: '21010100-rebel-hydrokultur-map-v1.png',
   21010199: '21010100-rebel-hydrokultur-map-v1.png',
@@ -668,12 +658,48 @@ const GENERATED_BUILDING_FILES: Record<number, string> = {
   100060300: '100060100-hyperraum-teleskop.png',
 };
 
+// Sondererz-Linien A-E: Erz -> Zwischenprodukt -> Endprodukt (Waren-IDs aus stu-commodity-map.yaml).
+const ORE_COMMODITY_FILES: Record<number, string> = {
+  12: 'SEA1', 22: 'SEA2', 34: 'SEA3',
+  13: 'SEB1', 23: 'SEB2', 33: 'SEB3',
+  14: 'SEC1', 24: 'SEC2', 35: 'SEC3',
+  15: 'SED1', 25: 'SED2', 31: 'SED3',
+  16: 'SEE1', 26: 'SEE2', 36: 'SEE3',
+};
+
 export function commodityImage(commodityId: number): string {
+  const oreFile = ORE_COMMODITY_FILES[commodityId];
+  if (oreFile) return `${ASSET_BASE}/commodities/ore/${oreFile}.png`;
   // STU icons for now; own SWU commodity art comes later (generated files stay in assets/commodities/generated).
   return `${ASSET_BASE}/commodities/${commodityId}.png`;
 }
 
-export function buildingImage(buildingId: number): string {
+// Sondererz-Gebaeude: ID = <Typ><Linie 01-05><Fraktion/Stufe>. Typ 16 Mine (L), 26 Verarbeitung (Stufe 2),
+// 37 Fabrik (Stufe 3), 18 Untergrund-Mine (U), 19 Offshore-Mine (O). Dateien tragen t (Tag) / n (Nacht).
+const ORE_BUILDING_SUFFIX: Record<string, string> = {
+  '16': '1L',
+  '26': '2L',
+  '37': '3L',
+  '18': '1U',
+  '19': '1O',
+};
+
+function oreBuildingFile(buildingId: number, timeState: 'day' | 'night'): string | null {
+  const id = String(buildingId);
+  if (id.length !== 8) return null;
+  const suffix = ORE_BUILDING_SUFFIX[id.slice(0, 2)];
+  const line = Number(id.slice(2, 4));
+  if (!suffix || line < 1 || line > 5) return null;
+  const letter = 'ABCDE'[line - 1];
+  return `${timeState === 'night' ? 'n' : 't'}SE${letter}${suffix}.png`;
+}
+
+export function buildingImage(
+  buildingId: number,
+  timeState: 'day' | 'night' = 'day',
+): string {
+  const oreFile = oreBuildingFile(buildingId, timeState);
+  if (oreFile) return `${ASSET_BASE}/buildings/ore/${oreFile}`;
   const generatedFile = GENERATED_BUILDING_FILES[buildingId];
   return generatedFile
     ? `${ASSET_BASE}/buildings/generated/${generatedFile}`
