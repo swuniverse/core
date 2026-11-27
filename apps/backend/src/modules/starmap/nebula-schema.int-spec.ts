@@ -119,6 +119,7 @@ describe('nebula preview against migrated application schema', () => {
     const query: StarmapQueryService = Object.assign(Object.create(StarmapQueryService.prototype), { layerRepo: database.getRepository(Layer), galaxyFieldRepo: database.getRepository(GalaxyField) });
     const visible = await query.getExploredSectorFields(1, layer.id, Math.floor((chosen.x - 1) / 10), Math.floor((chosen.y - 1) / 10), {
       getExploredFieldsInSector: async () => [{ cx: chosen.x, cy: chosen.y, explorationLevel: 'TERRAIN' }],
+      getExploredSystems: async () => [],
     } as unknown as ExplorationService);
     const known = visible.fields.find(field => field.cx === chosen.x && field.cy === chosen.y);
     expect(known?.nebulaTexture).toMatch(/^data:image\/png;base64,/);
