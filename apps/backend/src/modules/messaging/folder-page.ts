@@ -71,3 +71,8 @@ export async function presentReceivedPage(
       m.senderId === null ? null : (bySender.get(m.senderId) ?? null),
   }));
 }
+
+/** Query-string page → positive integer; anything else is page 1. */
+export function parsePage(page: string | undefined): number {
+  return Math.max(1, Math.trunc(Number(page)) || 1);
+}
