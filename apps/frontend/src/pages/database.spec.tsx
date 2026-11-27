@@ -56,9 +56,6 @@ describe('DatabasePage', () => {
           total: 60,
         });
       }
-      if (url === '/database/rankings') {
-        return Promise.resolve({ research: [], colonies: [] });
-      }
       throw new Error(`Unexpected URL ${url}`);
     });
   });

@@ -21,7 +21,6 @@ jest.mock('../alliance/alliance.service', () => ({
 import { NotFoundException } from '@nestjs/common';
 import type { FindOperator } from 'typeorm';
 import { DatabaseService } from './database.service';
-import { ResearchStatus } from '../research/entities/research.entity';
 
 function createService() {
   const userRepo = { find: jest.fn(), findOne: jest.fn(), count: jest.fn() };
@@ -126,79 +125,6 @@ function rankingBuilder(result: unknown[]) {
 }
 
 describe('DatabaseService rankings', () => {
-  it('returns deterministic public colony worth rankings without private intel', async () => {
-    const { service, colonyRepo, researchRepo } = createService();
-    const research = rankingBuilder([{ userId: 1, username: 'A', score: '2' }]);
-    const colonyCount = rankingBuilder([
-      { userId: 2, username: 'B', score: '3' },
-    ]);
-    const colonyWorth = rankingBuilder([
-      {
-        colonyId: 10,
-        colonyName: 'Alpha',
-        userId: 1,
-        username: 'A',
-        score: '4',
-      },
-    ]);
-    const colonyProductionWorth = rankingBuilder([
-      {
-        colonyId: 11,
-        colonyName: 'Beta',
-        userId: 2,
-        username: 'B',
-        score: '2',
-      },
-    ]);
-    researchRepo.createQueryBuilder.mockReturnValue(research);
-    colonyRepo.createQueryBuilder
-      .mockReturnValueOnce(colonyCount)
-      .mockReturnValueOnce(colonyWorth)
-      .mockReturnValueOnce(colonyProductionWorth);
-
-    const result = await service.getRankings();
-
-    expect(result).toEqual({
-      satisfiedWorkers: [],
-      research: [{ userId: 1, username: 'A', score: '2' }],
-      colonies: [{ userId: 2, username: 'B', score: '3' }],
-      colonyWorth: [
-        {
-          colonyId: 10,
-          colonyName: 'Alpha',
-          userId: 1,
-          username: 'A',
-          score: '4',
-        },
-      ],
-      colonyProductionWorth: [
-        {
-          colonyId: 11,
-          colonyName: 'Beta',
-          userId: 2,
-          username: 'B',
-          score: '2',
-        },
-      ],
-    });
-    expect(JSON.stringify(result)).not.toContain('storage');
-    expect(JSON.stringify(result)).not.toContain('shield');
-    expect(JSON.stringify(result)).not.toContain('torpedo');
-
-    expect(research.where).toHaveBeenCalledWith('research.status = :status', {
-      status: ResearchStatus.COMPLETED,
-    });
-    expect(colonyWorth.orderBy).toHaveBeenCalledWith('score', 'DESC');
-    expect(colonyWorth.addOrderBy).toHaveBeenCalledWith('colony.name', 'ASC');
-    expect(colonyProductionWorth.orderBy).toHaveBeenCalledWith('score', 'DESC');
-    expect(colonyProductionWorth.addOrderBy).toHaveBeenCalledWith(
-      'colony.name',
-      'ASC',
-    );
-  });
-});
-
-
   it('excludes NPC accounts from the online list', async () => {
     const { service, userRepo, factionService } = createService();
     userRepo.find.mockResolvedValue([{ id: 1, username: 'Leia', isNpc: false, factionId: null }]);
@@ -273,23 +199,16 @@ describe('DatabaseService rankings', () => {
     expect(JSON.stringify(result)).not.toContain('secret');
   });
 
-  it('adds the central non-NPC predicate to query-backed rankings', async () => {
-    const { service, colonyRepo, researchRepo } = createService();
+  it('adds the central non-NPC predicate to the research ranking', async () => {
+    const { service, researchRepo } = createService();
     const research = rankingBuilder([]);
-    const colonies = rankingBuilder([]);
-    const worth = rankingBuilder([]);
-    const production = rankingBuilder([]);
     researchRepo.createQueryBuilder.mockReturnValue(research);
-    colonyRepo.createQueryBuilder
-      .mockReturnValueOnce(colonies)
-      .mockReturnValueOnce(worth)
-      .mockReturnValueOnce(production);
-    await service.getRankings();
 
-    for (const query of [research, colonies, worth, production]) {
-      expect(query.andWhere).toHaveBeenCalledWith('user.isNpc = false');
-    }
+    await service.getRanking(1, 'research');
+
+    expect(research.andWhere).toHaveBeenCalledWith('user.isNpc = false');
   });
+});
 
 describe('DatabaseService settlers', () => {
   it('returns a sorted, capped union of alliance members and inbound friends without private data', async () => {

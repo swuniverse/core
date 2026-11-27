@@ -344,11 +344,4 @@ export class DatabaseController {
       key as (typeof keys)[number],
     );
   }
-
-  @Get('rankings')
-  @RequiresGameAccess()
-  @UseGuards(AuthGuard('jwt'))
-  getRankings() {
-    return this.databaseService.getRankings();
-  }
 }

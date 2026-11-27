@@ -1240,30 +1240,6 @@ export class DatabaseService {
     return topOnly ? query.limit(10).getRawMany() : query.getRawMany();
   }
 
-  async getRankings() {
-    const [
-      research,
-      colonies,
-      colonyWorth,
-      colonyProductionWorth,
-      satisfiedWorkers,
-    ] = await Promise.all([
-      this.getResearchRanking(),
-      this.getColonyRanking(),
-      this.getColonyWorthRanking(),
-      this.getColonyProductionWorthRanking(),
-      this.getSatisfiedWorkerRanking(),
-    ]);
-
-    return {
-      research,
-      colonies,
-      colonyWorth,
-      colonyProductionWorth,
-      satisfiedWorkers,
-    };
-  }
-
   private async getResearchRanking(topOnly = true) {
     const query = this.researchRepo
       .createQueryBuilder('research')
@@ -1278,22 +1254,6 @@ export class DatabaseService {
       .orderBy('COUNT(research.id)', 'DESC')
       .addOrderBy('user.username', 'ASC');
     return topOnly ? query.limit(10).getRawMany() : query.getRawMany();
-  }
-
-  private async getColonyRanking() {
-    return this.colonyRepo
-      .createQueryBuilder('colony')
-      .innerJoin(User, 'user', 'user.id = colony.userId')
-      .andWhere('user.isNpc = false')
-      .select('user.id', 'userId')
-      .addSelect('user.username', 'username')
-      .addSelect('COUNT(colony.id)', 'score')
-      .groupBy('user.id')
-      .addGroupBy('user.username')
-      .orderBy('COUNT(colony.id)', 'DESC')
-      .addOrderBy('user.username', 'ASC')
-      .limit(10)
-      .getRawMany();
   }
 
   private async getColonyWorthRanking(topOnly = true) {
