@@ -15,6 +15,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { DatabaseService } from './database.service';
+import { parseSettlerListQuery } from './settler-list.query';
 import { STATISTIC_UNITS, type StatisticUnit, type DatabaseRegionsDto, type DatabaseSystemTypesDto, type DatabasePlanetTypesDto } from '@swuniverse/shared';
 import { StatisticsService } from '../statistics/statistics.service';
 import { CommodityOverviewService } from './commodity-overview.service';
@@ -69,8 +70,15 @@ export class DatabaseController {
   @Get('settlers')
   @RequiresGameAccess()
   @UseGuards(AuthGuard('jwt'))
-  getSettlers() {
-    return this.databaseService.getSettlers();
+  getSettlers(
+    @Query('page') page?: string,
+    @Query('sort') sort?: string,
+    @Query('order') order?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.databaseService.getSettlers(
+      parseSettlerListQuery({ page, sort, order, search }),
+    );
   }
 
   @Get('npcs')

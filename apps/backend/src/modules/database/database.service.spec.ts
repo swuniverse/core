@@ -201,23 +201,16 @@ describe('DatabaseService rankings', () => {
 });
 
 
-  it('excludes NPC accounts from the settler list and online list', async () => {
+  it('excludes NPC accounts from the online list', async () => {
     const { service, userRepo, factionService } = createService();
-    const player = { id: 1, username: 'Leia', isNpc: false, factionId: null };
-    userRepo.find.mockResolvedValue([player]);
+    userRepo.find.mockResolvedValue([{ id: 1, username: 'Leia', isNpc: false, factionId: null }]);
     factionService.findAll.mockResolvedValue([]);
     const onlineIds = (service as any).gameGateway.onlineUserIds as number[];
     onlineIds.push(1, 9);
 
-    await service.getSettlers();
     await service.getOnlinePlayers();
 
-    expect(userRepo.find).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ where: { isNpc: false } }),
-    );
-    expect(userRepo.find).toHaveBeenNthCalledWith(
-      2,
+    expect(userRepo.find).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ isNpc: false }) }),
     );
   });

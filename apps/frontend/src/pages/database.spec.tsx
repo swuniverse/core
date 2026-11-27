@@ -28,24 +28,32 @@ describe('DatabasePage', () => {
           sections: [],
         });
       }
-      if (url === '/database/settlers') {
-        return Promise.resolve([
-          {
-            id: 1,
-            username: 'vader',
-            displayName: 'Vader',
-            avatar: null,
-            description: '[b]Böse[/b] [quote]Drohung[/quote]',
-            factionName: 'Imperium',
-            prestige: 10,
-            colonies: 1,
-            ships: 2,
-            completedResearch: 3,
-            onboardingCompleted: true,
-            isAdmin: false,
-            createdAt: '2026-08-04T00:00:00.000Z',
-          },
-        ]);
+      if (url.startsWith('/database/settlers')) {
+        return Promise.resolve({
+          entries: [
+            {
+              id: 1,
+              username: 'vader',
+              displayName: 'Vader',
+              avatar: null,
+              faction: 'GALACTIC_EMPIRE',
+              factionName: 'Imperium',
+              alliance: { id: 7, name: 'Sith-Orden', color: null },
+            },
+            {
+              id: 2,
+              username: 'lone',
+              displayName: null,
+              avatar: null,
+              faction: null,
+              factionName: 'Unbekannt',
+              alliance: null,
+            },
+          ],
+          page: 2,
+          pageCount: 3,
+          total: 60,
+        });
       }
       if (url === '/database/rankings') {
         return Promise.resolve({ research: [], prestige: [], colonies: [] });
@@ -440,7 +448,7 @@ describe('DatabasePage', () => {
     expect(screen.queryByRole('button', { name: /^Nachricht an/ })).toBeNull();
   });
 
-  it('links settlers to their profile pages', async () => {
+  it('links settlers to their profile and alliance pages and shows id and faction', async () => {
     render(
       <MemoryRouter>
         <DatabasePage />
@@ -453,7 +461,90 @@ describe('DatabasePage', () => {
 
     const link = await screen.findByRole('link', { name: 'Vader' });
     expect(link.getAttribute('href')).toBe('/players/1');
-    expect(screen.getByText('Vader')).toBeTruthy();
+    const row = link.closest('tr') as HTMLElement;
+    expect(within(row).getByText('Imperium')).toBeTruthy();
+    expect(within(row).getByRole('link', { name: 'Sith-Orden' }).getAttribute('href')).toBe('/alliances/7');
+    expect(within(row).getByText('1')).toBeTruthy();
+    // Settler without alliance; the old SWU columns are gone.
+    expect(screen.queryByText('Prestige')).toBeNull();
+    expect(screen.queryByText('Kolonien')).toBeNull();
+  });
+
+  describe('settler list controls', () => {
+    const renderList = (search = '?view=settlers') =>
+      render(
+        <MemoryRouter initialEntries={[`/database${search}`]}>
+          <DatabasePage />
+        </MemoryRouter>,
+      );
+    const lastSettlerUrl = () =>
+      apiMocks.get.mock.calls.map(([url]) => url as string).filter((url) => url.startsWith('/database/settlers')).at(-1);
+
+    it('reads page, sort, order and search from the URL', async () => {
+      renderList('?view=settlers&page=2&sort=faction&order=desc&search=Leia');
+      await screen.findByRole('link', { name: 'Vader' });
+
+      expect(lastSettlerUrl()).toBe('/database/settlers?page=2&sort=faction&order=desc&search=Leia');
+      expect((screen.getByLabelText('Siedler suchen') as HTMLInputElement).value).toBe('Leia');
+      expect(screen.getByRole('columnheader', { name: /Fraktion/ }).getAttribute('aria-sort')).toBe('descending');
+    });
+
+    it('searches by name or id and starts at the first page', async () => {
+      renderList('?view=settlers&page=3');
+      fireEvent.change(await screen.findByLabelText('Siedler suchen'), { target: { value: ' Vader ' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Suchen' }));
+
+      await waitFor(() => expect(lastSettlerUrl()).toBe('/database/settlers?search=Vader'));
+    });
+
+    it('changes the sort field and flips the direction on a second click', async () => {
+      renderList();
+      await screen.findByRole('link', { name: 'Vader' });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Allianz' }));
+      await waitFor(() => expect(lastSettlerUrl()).toBe('/database/settlers?sort=alliance&order=asc'));
+      fireEvent.click(await screen.findByRole('button', { name: /Allianz/ }));
+      await waitFor(() => expect(lastSettlerUrl()).toBe('/database/settlers?sort=alliance&order=desc'));
+    });
+
+    it('keeps the table mounted while the next page loads and ignores an outdated answer', async () => {
+      const entry = (username: string) => ({
+        id: 1, username, displayName: null, avatar: null, faction: null, factionName: 'Unbekannt', alliance: null,
+      });
+      const answers: Record<string, (value: unknown) => void> = {};
+      const base = apiMocks.get.getMockImplementation() as (url: string) => Promise<unknown>;
+      apiMocks.get.mockImplementation((url: string) =>
+        url.startsWith('/database/settlers?page=')
+          ? new Promise((resolve) => { answers[url] = resolve; })
+          : base(url),
+      );
+      renderList();
+      await screen.findByRole('link', { name: 'Vader' });
+      const input = screen.getByLabelText('Siedler suchen');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Seite 3' }));
+      await waitFor(() => expect(answers['/database/settlers?page=3']).toBeDefined());
+      expect(screen.getByLabelText('Siedler suchen')).toBe(input);
+      expect(screen.getByRole('link', { name: 'Vader' })).toBeTruthy();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Seite 2' }));
+      await waitFor(() => expect(answers['/database/settlers?page=2']).toBeDefined());
+      answers['/database/settlers?page=2']({ entries: [entry('zwei')], page: 2, pageCount: 3, total: 60 });
+      await screen.findByRole('link', { name: 'zwei' });
+      answers['/database/settlers?page=3']({ entries: [entry('drei')], page: 3, pageCount: 3, total: 60 });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      expect(screen.queryByRole('link', { name: 'drei' })).toBeNull();
+    });
+
+    it('turns the page through the page numbers', async () => {
+      renderList('?view=settlers&sort=faction');
+      await screen.findByRole('link', { name: 'Vader' });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Seite 3' }));
+
+      await waitFor(() => expect(lastSettlerUrl()).toBe('/database/settlers?page=3&sort=faction'));
+    });
   });
 
   it('offers a quick PM in the settler list except for the own account', async () => {
