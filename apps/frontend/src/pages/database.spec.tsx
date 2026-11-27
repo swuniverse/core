@@ -532,7 +532,7 @@ describe('DatabasePage', () => {
       answers['/database/settlers?page=2']({ entries: [entry('zwei')], page: 2, pageCount: 3, total: 60 });
       await screen.findByRole('link', { name: 'zwei' });
       answers['/database/settlers?page=3']({ entries: [entry('drei')], page: 3, pageCount: 3, total: 60 });
-      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 20));
 
       expect(screen.queryByRole('link', { name: 'drei' })).toBeNull();
     });
