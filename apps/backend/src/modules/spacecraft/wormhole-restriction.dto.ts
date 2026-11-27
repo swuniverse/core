@@ -8,11 +8,6 @@ import {
 } from '@swuniverse/shared';
 
 export class WormholeRestrictionRequest implements CreateWormholeRestrictionDto {
-  @IsInt()
-  @Min(1)
-  @Max(2147483647)
-  wormholeId: number;
-
   @IsIn(WORMHOLE_RESTRICTION_TARGET_TYPES)
   targetType: WormholeRestrictionTargetType;
 

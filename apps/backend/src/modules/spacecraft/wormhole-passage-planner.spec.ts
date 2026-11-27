@@ -223,7 +223,7 @@ describe('wormhole passage planner', () => {
           },
         },
       }),
-    ).rejects.toThrow('Du hast keine Berechtigung, in das Wurmloch einzufliegen.');
+    ).rejects.toThrow('Du hast keine Berechtigung um in das Wurmloch einzufliegen');
   });
 
   it('validates every participant before producing a plan', async () => {
@@ -343,5 +343,30 @@ describe('wormhole passage planner', () => {
     expect(result.participants).toEqual([
       { shipId: 7, activateSublight: false, activationEps: 0 },
     ]);
+  });
+
+  it('checks the access policy on exit with the STU exit message', async () => {
+    const participant = ship();
+    participant.location.galaxyField = {
+      layerId: 2,
+      cx: 8,
+      cy: 9,
+    } as GalaxyField;
+    const directions: string[] = [];
+    await expect(
+      planWormholePassage({
+        userId: 1,
+        ships: [participant],
+        wormholes: [{ ...wormhole(), isBidirectional: true }],
+        fields: [field(10, 1, 2, 3)],
+        accessPolicy: {
+          allows: async (_ship, _hole, direction) => {
+            directions.push(direction);
+            return direction === 'ENTRY';
+          },
+        },
+      }),
+    ).rejects.toThrow('Du hast keine Berechtigung um das Wurmloch zu verlassen');
+    expect(directions).toEqual(['EXIT']);
   });
 });

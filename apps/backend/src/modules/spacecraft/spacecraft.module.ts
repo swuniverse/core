@@ -132,6 +132,7 @@ import { StationShipyardService } from './station-shipyard.service';
 import { WormholePassageService, WORMHOLE_ACCESS_POLICY, WORMHOLE_RANDOM } from './wormhole-passage.service';
 import { WormholeRestrictionAccessPolicy } from './wormhole-access-policy.service';
 import { WormholeRestrictionService } from './wormhole-restriction.service';
+import { WormholeRestrictionAdminController } from './wormhole-restriction-admin.controller';
 import { WormholeRestriction } from './entities/wormhole-restriction.entity';
 import { AnomalyModule } from '../anomaly/anomaly.module';
 import { AnomalyFlightConsequence } from '../anomaly/anomaly-flight-consequence';
@@ -204,7 +205,7 @@ import { TradeDealFulfillmentAdapter } from './trade-deal-fulfillment.adapter';
     forwardRef(() => TradeModule),
     AccountDeletionModule,
   ],
-  controllers: [RpgTransponderController, SignatureMaskController, LastCombatReportController, StationScrappingController, ShuttleController, ResourceConversionController, SpacecraftController, NavicomputerJumpController, ResourceCollectionController, FieldMiningController],
+  controllers: [WormholeRestrictionAdminController, RpgTransponderController, SignatureMaskController, LastCombatReportController, StationScrappingController, ShuttleController, ResourceConversionController, SpacecraftController, NavicomputerJumpController, ResourceCollectionController, FieldMiningController],
   providers: [
     SignatureMaskService,
     RpgTransponderService,

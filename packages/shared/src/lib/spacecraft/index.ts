@@ -927,18 +927,26 @@ export type WormholeRestrictionTargetType = DockingPrivilegeTargetType;
 export type WormholeRestrictionMode = DockingPrivilegeMode;
 
 export interface CreateWormholeRestrictionDto {
-  wormholeId: number;
   targetType: WormholeRestrictionTargetType;
   targetId: number;
   mode: WormholeRestrictionMode;
 }
 
-export interface WormholeRestrictionDto extends Omit<CreateWormholeRestrictionDto, 'wormholeId'> {
+export interface WormholeRestrictionDto extends CreateWormholeRestrictionDto {
   id: number;
 }
 
-export interface StationWormholeRestrictionsDto {
-  wormholes: Array<{ id: number; name: string | null; restrictions: WormholeRestrictionDto[] }>;
+/** Admin wormhole control (STU "Wurmlochkontrolle"); a wormhole without rules is closed. */
+export interface AdminWormholeRestrictionsDto {
+  wormholes: Array<{
+    id: number;
+    name: string | null;
+    isActive: boolean;
+    isBidirectional: boolean;
+    entry: { layerId: number; x: number; y: number };
+    exit: { layerId: number; x: number; y: number };
+    restrictions: WormholeRestrictionDto[];
+  }>;
 }
 
 export interface SpacecraftWormholePassageOptionDto {

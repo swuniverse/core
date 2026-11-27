@@ -30,7 +30,6 @@ import { StationRepairPanel } from '../components/spacecraft/StationRepairPanel'
 import { StationTradePostPanel } from '../components/spacecraft/StationTradePostPanel';
 import { StationShipyardPanel } from '../components/spacecraft/StationShipyardPanel';
 import { DockingPrivilegesPanel } from '../components/spacecraft/DockingPrivilegesPanel';
-import { WormholeRestrictionsPanel } from '../components/spacecraft/WormholeRestrictionsPanel';
 import { StationExpansionPanel } from '../components/spacecraft/StationExpansionPanel';
 import {
   spaceBackgroundTile,
@@ -414,9 +413,6 @@ export function SpacecraftDetailPage() {
       <StationTradePostPanel ship={ship} />
       {ship.kind === 'STATION' && (
         <DockingPrivilegesPanel stationId={ship.id} />
-      )}
-      {ship.kind === 'STATION' && (
-        <WormholeRestrictionsPanel stationId={ship.id} />
       )}
       <div className="mt-2">
         <div id="ship-storage">

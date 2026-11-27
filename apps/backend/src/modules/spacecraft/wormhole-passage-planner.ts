@@ -138,7 +138,9 @@ export async function planWormholePassage(
     }
     if (!allowed)
       throw new BadRequestException(
-        'Du hast keine Berechtigung, in das Wurmloch einzufliegen.',
+        direction === 'ENTRY'
+          ? 'Du hast keine Berechtigung um in das Wurmloch einzufliegen'
+          : 'Du hast keine Berechtigung um das Wurmloch zu verlassen',
       );
   }
   const participants = input.ships.map((ship) => {

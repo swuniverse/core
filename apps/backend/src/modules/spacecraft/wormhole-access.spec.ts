@@ -18,8 +18,8 @@ const rule = (
 ): WormholeRestrictionDto => ({ id: 1, targetType, targetId, mode });
 
 describe('explicit wormhole access', () => {
-  it('allows without rules and denies when configured rules do not grant access', () => {
-    expect(allowsWormholeAccess(actor, [])).toBe(true);
+  it('denies without rules and when configured rules do not grant access', () => {
+    expect(allowsWormholeAccess(actor, [])).toBe(false);
     expect(allowsWormholeAccess(actor, [rule('USER', 9, 'ALLOW')])).toBe(false);
   });
 

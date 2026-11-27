@@ -1,12 +1,11 @@
 import type { DockingActor } from './docking-access';
 import type { WormholeRestrictionDto } from '@swuniverse/shared';
 
-/** Explicit privileges, not stance: membership alone matches an ALLIANCE target. */
+/** Like STU: DENY wins, otherwise a matching ALLOW is required (no rules = closed). */
 export function allowsWormholeAccess(
   actor: DockingActor | null,
   rules: readonly WormholeRestrictionDto[],
 ): boolean {
-  if (rules.length === 0) return true;
   if (!actor || actor.factionId == null) return false;
   const targets = {
     USER: actor.userId,

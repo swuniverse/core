@@ -42,6 +42,13 @@ const adminCards = [
     badge: 'Starmap',
   },
   {
+    title: 'Wurmlochkontrolle',
+    path: '/admin/wormholes',
+    description:
+      'Zugangsregeln je Wurmloch pflegen. Ohne Erlaubnis ist kein Durchflug möglich.',
+    badge: 'Starmap',
+  },
+  {
     title: 'Benutzerrechte',
     path: '/admin/users',
     description:
