@@ -1030,21 +1030,24 @@ describe('ResearchPage routing', () => {
     expect(
       screen.getByTestId('location').textContent?.includes('?focus='),
     ).toBe(false);
+    // Edge styles come from the asynchronous ELK layout, which lags the URL.
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('edge-e-211300-211301').getAttribute('data-width'),
+      ).toBe('1.5');
+      expect(
+        screen.getByTestId('edge-e-211200-211300').getAttribute('data-width'),
+      ).toBe('1.5');
+    });
     expect(
       screen.getByTestId('edge-e-211300-211301').getAttribute('data-stroke'),
     ).toBe('#38bdf8');
-    expect(
-      screen.getByTestId('edge-e-211300-211301').getAttribute('data-width'),
-    ).toBe('1.5');
     expect(
       screen.getByTestId('edge-e-211300-211301').getAttribute('data-animated'),
     ).toBe('false');
     expect(
       screen.getByTestId('edge-e-211200-211300').getAttribute('data-stroke'),
     ).toBe('#38bdf8');
-    expect(
-      screen.getByTestId('edge-e-211200-211300').getAttribute('data-width'),
-    ).toBe('1.5');
     expect(
       screen.getByTestId('edge-e-211200-211300').getAttribute('data-animated'),
     ).toBe('false');
@@ -1060,19 +1063,19 @@ describe('ResearchPage routing', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('location').textContent).toBe('/research/tree');
+      expect(
+        screen.getByTestId('edge-e-211300-211301').getAttribute('data-animated'),
+      ).toBe('false');
+      expect(
+        screen.getByTestId('edge-e-211200-211300').getAttribute('data-animated'),
+      ).toBe('false');
     });
     expect(
       screen.getByTestId('edge-e-211300-211301').getAttribute('data-stroke'),
     ).toBe('#38bdf8');
     expect(
-      screen.getByTestId('edge-e-211300-211301').getAttribute('data-animated'),
-    ).toBe('false');
-    expect(
       screen.getByTestId('edge-e-211200-211300').getAttribute('data-stroke'),
     ).toBe('#38bdf8');
-    expect(
-      screen.getByTestId('edge-e-211200-211300').getAttribute('data-animated'),
-    ).toBe('false');
     expect(screen.getByText('Forschungsbaum')).toBeTruthy();
   });
 

@@ -89,6 +89,9 @@ export default defineConfig(() => ({
     watch: false,
     globals: true,
     environment: 'jsdom',
+    // CPU-heavy specs (bcrypt, nebula rendering) take 1-2 s alone but exceed 5 s
+    // when nx run-many runs jest, vitest and tsc side by side.
+    testTimeout: 15_000,
     include: ['{src,tests}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     reporters: ['default'],
     coverage: {
