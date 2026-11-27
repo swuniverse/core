@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { MessagingService } from '../../modules/messaging/messaging.service';
 import { TradeLicenseMaintenanceService } from '../../modules/trade/trade-license-maintenance.service';
@@ -210,22 +211,28 @@ describe('trade license renewal, expiry and queries (PostgreSQL)', () => {
       ]);
     });
 
-    it('lists issued valid licenses for the post owner only', async () => {
+    it('lists issued valid licenses for holders of a valid license, not for others', async () => {
+      const ownerLicense = await license(ownerId, new Date('9999-12-31T23:59:59.000Z'));
       const valid = await license(buyerId, new Date(Date.now() + DAY_MS));
       const expiredUser = await createUser(source);
       await license(expiredUser.id, new Date(Date.now() - 1));
       const buyer = await source.getRepository('User').findOneByOrFail({ id: buyerId });
-
-      expect(await queries.listIssued(posts.licensed, ownerId)).toEqual([
+      const owner = await source.getRepository('User').findOneByOrFail({ id: ownerId });
+      const expected = [
         {
-          id: valid.id,
-          userId: buyerId,
-          username: buyer.username,
-          startsAt: valid.startsAt.toISOString(),
-          expiresAt: valid.expiresAt.toISOString(),
+          id: valid.id, userId: buyerId, username: buyer.username,
+          startsAt: valid.startsAt.toISOString(), expiresAt: valid.expiresAt.toISOString(),
         },
-      ]);
-      await expect(queries.listIssued(posts.licensed, buyerId)).rejects.toThrow('Handelsposten nicht gefunden');
+        {
+          id: ownerLicense.id, userId: ownerId, username: owner.username,
+          startsAt: ownerLicense.startsAt.toISOString(), expiresAt: ownerLicense.expiresAt.toISOString(),
+        },
+      ];
+
+      expect(await queries.listIssued(posts.licensed, ownerId)).toEqual(expected);
+      expect(await queries.listIssued(posts.licensed, buyerId)).toEqual(expected);
+      await expect(queries.listIssued(posts.licensed, expiredUser.id)).rejects.toThrow(ForbiddenException);
+      await expect(queries.listIssued(posts.licensed, (await createUser(source)).id)).rejects.toThrow(ForbiddenException);
     });
   });
 });
