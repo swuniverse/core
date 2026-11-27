@@ -67,7 +67,10 @@ interface StarmapCanvasProps {
   openedSystemIds: number[];
   systemGrids: Map<number, StarmapSystemGridDto>;
   onSelectSystem: (system: StarmapSystemListItemDto) => void;
-  onOpenSystem: (system: StarmapSystemListItemDto) => Promise<StarmapSystemGridDto | null>;
+  onOpenSystem: (
+    system: StarmapSystemListItemDto,
+    options?: { select?: boolean },
+  ) => Promise<StarmapSystemGridDto | null>;
   onFieldHover?: (field: StarmapGalaxyFieldDto | null) => void;
   onFieldClick?: (field: StarmapGalaxyFieldDto | null) => void;
   selectedField?: StarmapGalaxyFieldDto | null;
@@ -169,6 +172,8 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
     const showGridRef = useRef(showGrid);
     const onInlineSystemsVisibleChangeRef = useRef(onInlineSystemsVisibleChange);
     const inlineSystemsVisibleRef = useRef<boolean | null>(null);
+    // Systems whose grid was already requested while zoomed in (also failed ones: unexplored systems answer 404).
+    const requestedSystemIdsRef = useRef<Set<number>>(new Set());
 
     const nebulaCloudIndex = useMemo(
       () => buildNebulaCloudIndex(fields.flatMap((field) => (
@@ -182,6 +187,7 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
     );
 
     useEffect(() => { fieldsRef.current = fields; }, [fields]);
+    useEffect(() => { requestedSystemIdsRef.current = new Set(); }, [layer]);
     useEffect(() => { focusFieldRef.current = focusField; }, [focusField]);
     useEffect(() => { selectedSystemRef.current = selectedSystem; }, [selectedSystem]);
     useEffect(() => { systemGridsRef.current = systemGrids; }, [systemGrids]);
@@ -263,6 +269,24 @@ export const StarmapCanvas = forwardRef<StarmapCanvasHandle, StarmapCanvasProps>
       const inlineSystemsVisible = state.scale >= INLINE_SYSTEM_SCALE;
       if (inlineSystemsRef.current) {
         inlineSystemsRef.current.visible = inlineSystemsVisible;
+      }
+      if (inlineSystemsVisible) {
+        // Load system grids lazily, only for systems in the viewport.
+        const minCx = Math.floor(state.viewX / CELL_SIZE);
+        const maxCx = Math.ceil((state.viewX + viewWidth) / CELL_SIZE) + 1;
+        const minCy = Math.floor(state.viewY / CELL_SIZE);
+        const maxCy = Math.ceil((state.viewY + viewHeight) / CELL_SIZE) + 1;
+        for (const field of fieldsRef.current) {
+          const system = field.starSystem;
+          if (
+            !system ||
+            field.cx < minCx || field.cx > maxCx || field.cy < minCy || field.cy > maxCy ||
+            requestedSystemIdsRef.current.has(system.id) ||
+            !canLoadInlineSystem(system)
+          ) continue;
+          requestedSystemIdsRef.current.add(system.id);
+          void onOpenSystemRef.current(system, { select: false });
+        }
       }
       if (inlineSystemsVisibleRef.current !== inlineSystemsVisible) {
         inlineSystemsVisibleRef.current = inlineSystemsVisible;

@@ -1,4 +1,13 @@
 import { buildNebulaTextureContext, nebulaTextureForField } from './nebula-texture';
+
+/** Compute the (expensive) nebula texture once per field. */
+function nebulaTextureProp(
+  field: Parameters<typeof nebulaTextureForField>[0],
+  context: Parameters<typeof nebulaTextureForField>[1],
+): { nebulaTexture?: string } {
+  const nebulaTexture = nebulaTextureForField(field, context);
+  return nebulaTexture ? { nebulaTexture } : {};
+}
 import {
   BadRequestException,
   Injectable,
@@ -176,7 +185,7 @@ export class StarmapQueryService {
       borderTypeId: field.borderTypeId,
       effects: field.effects,
       passableOverride: field.passableOverride,
-      ...(nebulaTextureForField(field, nebulaTextures) ? { nebulaTexture: nebulaTextureForField(field, nebulaTextures) } : {}),
+      ...nebulaTextureProp(field, nebulaTextures),
       fieldType: this.toFieldTypeDTO(field.fieldType),
       starSystem: field.starSystem
         ? this.toSystemListItemDTO(field.starSystem)
@@ -227,7 +236,7 @@ export class StarmapQueryService {
       borderTypeId: field.borderTypeId,
       effects: field.effects,
       passableOverride: field.passableOverride,
-      ...(nebulaTextureForField(field, nebulaTextures) ? { nebulaTexture: nebulaTextureForField(field, nebulaTextures) } : {}),
+      ...nebulaTextureProp(field, nebulaTextures),
       fieldType: this.toFieldTypeDTO(field.fieldType),
       starSystem: field.starSystem
         ? this.toSystemListItemDTO(field.starSystem)
@@ -440,75 +449,81 @@ export class StarmapQueryService {
     layerId: number,
     explorationService: ExplorationService,
   ): Promise<StarmapGalaxyFieldDto[]> {
-    const [allFields, exploredStates, fullyExplored] = await Promise.all([
-      this.galaxyFieldRepo.find({
-        where: { layerId },
-        relations: ['fieldType', 'starSystem'],
-        order: { cy: 'ASC', cx: 'ASC' },
-      }),
-      explorationService.getExploredFields(userId, layerId),
-      this.isLayerFullyExplored(userId, layerId),
-    ]);
+    const [allFields, exploredStates, fullyExplored, systemExplorations] =
+      await Promise.all([
+        this.galaxyFieldRepo.find({
+          where: { layerId },
+          relations: ['fieldType', 'starSystem'],
+          order: { cy: 'ASC', cx: 'ASC' },
+        }),
+        explorationService.getExploredFields(userId, layerId),
+        this.isLayerFullyExplored(userId, layerId),
+        explorationService.getExploredSystems(userId),
+      ]);
 
     const exploredMap = new Map(
       exploredStates.map((s) => [`${s.cx},${s.cy}`, s.explorationLevel]),
     );
+    // A system in the player's database (e.g. the home system) is fully known,
+    // even when its field was only ever seen at TERRAIN level.
+    const exploredSystemIds = new Set(
+      systemExplorations.map((e) => e.starSystemId),
+    );
+    const levelOf = (field: GalaxyField): ExplorationLevel | undefined => {
+      if (fullyExplored) return ExplorationLevel.FULL;
+      if (field.starSystemId && exploredSystemIds.has(field.starSystemId))
+        return ExplorationLevel.FULL;
+      return exploredMap.get(`${field.cx},${field.cy}`);
+    };
 
-    const knownFields = allFields.filter(field => fullyExplored || exploredMap.has(`${field.cx},${field.cy}`));
+    const knownFields = allFields.filter((field) => levelOf(field));
     const nebulaTextures = buildNebulaTextureContext(knownFields);
     const details = await this.loadFieldDetails(
       userId,
       layerId,
-      knownFields.filter(
-        (field) =>
-          fullyExplored ||
-          exploredMap.get(`${field.cx},${field.cy}`) !== ExplorationLevel.TERRAIN,
-      ),
+      knownFields.filter((field) => levelOf(field) !== ExplorationLevel.TERRAIN),
     );
     return knownFields.map((field) => {
-        const level = fullyExplored
-          ? ExplorationLevel.FULL
-          : exploredMap.get(`${field.cx},${field.cy}`)!;
-        if (level === ExplorationLevel.TERRAIN) {
-          return {
-            id: field.id,
-            cx: field.cx,
-            cy: field.cy,
-            fieldTypeId: field.fieldTypeId,
-            systemTypeId: null,
-            factionZone: field.factionZone,
-            adminRegionKey: null,
-            starSystemId: null,
-            regionId: field.regionId,
-            borderTypeId: null,
-            effects: null,
-            passableOverride: null,
-            ...(nebulaTextureForField(field, nebulaTextures) ? { nebulaTexture: nebulaTextureForField(field, nebulaTextures) } : {}),
-            fieldType: this.toFieldTypeDTO(field.fieldType),
-            starSystem: null,
-          };
-        }
+      if (levelOf(field) === ExplorationLevel.TERRAIN) {
         return {
           id: field.id,
           cx: field.cx,
           cy: field.cy,
           fieldTypeId: field.fieldTypeId,
-          systemTypeId: field.systemTypeId,
+          systemTypeId: null,
           factionZone: field.factionZone,
-          adminRegionKey: field.adminRegionKey,
-          starSystemId: field.starSystemId,
+          adminRegionKey: null,
+          starSystemId: null,
           regionId: field.regionId,
-          borderTypeId: field.borderTypeId,
-          effects: field.effects,
-          passableOverride: field.passableOverride,
-          ...(nebulaTextureForField(field, nebulaTextures) ? { nebulaTexture: nebulaTextureForField(field, nebulaTextures) } : {}),
+          borderTypeId: null,
+          effects: null,
+          passableOverride: null,
+          ...nebulaTextureProp(field, nebulaTextures),
           fieldType: this.toFieldTypeDTO(field.fieldType),
-          starSystem: field.starSystem
-            ? this.toSystemListItemDTO(field.starSystem)
-            : null,
-          details: details.get(field.id),
+          starSystem: null,
         };
-      });
+      }
+      return {
+        id: field.id,
+        cx: field.cx,
+        cy: field.cy,
+        fieldTypeId: field.fieldTypeId,
+        systemTypeId: field.systemTypeId,
+        factionZone: field.factionZone,
+        adminRegionKey: field.adminRegionKey,
+        starSystemId: field.starSystemId,
+        regionId: field.regionId,
+        borderTypeId: field.borderTypeId,
+        effects: field.effects,
+        passableOverride: field.passableOverride,
+        ...nebulaTextureProp(field, nebulaTextures),
+        fieldType: this.toFieldTypeDTO(field.fieldType),
+        starSystem: field.starSystem
+          ? this.toSystemListItemDTO(field.starSystem)
+          : null,
+        details: details.get(field.id),
+      };
+    });
   }
 
   async getExploredSectorFields(
@@ -526,7 +541,7 @@ export class StarmapQueryService {
     const minY = sectorY * layer.sectorSize + 1;
     const maxY = Math.min((sectorY + 1) * layer.sectorSize, layer.height);
 
-    const [allFields, exploredStates, fullyExplored] = await Promise.all([
+    const [allFields, exploredStates, fullyExplored, systemExplorations] = await Promise.all([
       this.galaxyFieldRepo.find({
         where: { layerId, cx: Between(minX - 2, maxX + 2), cy: Between(minY - 2, maxY + 2) },
         relations: ['fieldType', 'starSystem'],
@@ -541,21 +556,29 @@ export class StarmapQueryService {
         maxY + 2,
       ),
       this.isLayerFullyExplored(userId, layerId),
+      explorationService.getExploredSystems(userId),
     ]);
 
     const exploredMap = new Map(
       exploredStates.map((s) => [`${s.cx},${s.cy}`, s.explorationLevel]),
     );
+    const exploredSystemIds = new Set(
+      systemExplorations.map((e) => e.starSystemId),
+    );
+    // Systems in the player's database are fully known, even if only seen at TERRAIN level.
+    const levelOf = (field: GalaxyField): ExplorationLevel | undefined =>
+      fullyExplored ||
+      (field.starSystemId && exploredSystemIds.has(field.starSystemId))
+        ? ExplorationLevel.FULL
+        : exploredMap.get(`${field.cx},${field.cy}`);
 
-    const nebulaTextures = buildNebulaTextureContext(allFields.filter(field => fullyExplored || exploredMap.has(`${field.cx},${field.cy}`)));
+    const nebulaTextures = buildNebulaTextureContext(allFields.filter((field) => levelOf(field)));
     const fields: StarmapExploredGalaxyFieldDto[] = [];
     let hiddenCount = 0;
 
     for (const field of allFields) {
       if (field.cx < minX || field.cx > maxX || field.cy < minY || field.cy > maxY) continue;
-      const level = fullyExplored
-        ? ExplorationLevel.FULL
-        : exploredMap.get(`${field.cx},${field.cy}`);
+      const level = levelOf(field);
       if (!level) {
         hiddenCount++;
         fields.push({
@@ -603,7 +626,7 @@ export class StarmapQueryService {
           effects: null,
           passableOverride: null,
           explorationLevel: 'TERRAIN',
-          ...(nebulaTextureForField(field, nebulaTextures) ? { nebulaTexture: nebulaTextureForField(field, nebulaTextures) } : {}),
+          ...nebulaTextureProp(field, nebulaTextures),
           fieldType: this.toFieldTypeDTO(field.fieldType),
           starSystem: null,
         });
@@ -622,7 +645,7 @@ export class StarmapQueryService {
           effects: field.effects,
           passableOverride: field.passableOverride,
           explorationLevel: 'FULL',
-          ...(nebulaTextureForField(field, nebulaTextures) ? { nebulaTexture: nebulaTextureForField(field, nebulaTextures) } : {}),
+          ...nebulaTextureProp(field, nebulaTextures),
           fieldType: this.toFieldTypeDTO(field.fieldType),
           starSystem: field.starSystem
             ? this.toSystemListItemDTO(field.starSystem)

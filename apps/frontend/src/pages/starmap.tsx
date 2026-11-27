@@ -236,9 +236,12 @@ export function StarmapPage() {
     setOpenedSystemIds(openedIds);
   }, []);
 
-  const openSystem = useCallback(async (system: StarSystem): Promise<SystemGrid | null> => {
+  const openSystem = useCallback(async (
+    system: StarSystem,
+    options?: { select?: boolean },
+  ): Promise<SystemGrid | null> => {
     if (!canLoadInlineSystem(system)) return null;
-    setSelectedSystem(system);
+    if (options?.select !== false) setSelectedSystem(system);
     const cached = systemGridsRef.current.get(system.id);
     if (cached) {
       // Alle Systeme werden bereits im Hintergrund vorab geladen (siehe
@@ -260,42 +263,13 @@ export function StarmapPage() {
       setSystemGrids(grids);
       markSystemOpened(system.id);
       return grid;
+    } catch {
+      // Not explored/cartographed: the system cannot be entered.
+      return null;
     } finally {
       openingSystemsRef.current.delete(system.id);
     }
   }, [markSystemOpened]);
-
-  useEffect(() => {
-    const systems = Array.from(
-      new Map(
-        fields
-          .map((field) => field.starSystem)
-          .filter((system): system is StarSystem => !!system && canLoadInlineSystem(system))
-          .map((system) => [system.id, system]),
-      ).values(),
-    );
-    if (systems.length === 0) return;
-    let cancelled = false;
-    void Promise.all(
-      systems.map(async (system) => {
-        const cached = systemGridsRef.current.get(system.id);
-        if (cached) return [system.id, cached] as const;
-        return [system.id, await api.get<SystemGrid>(`/starmap/systems/${system.id}/grid`)] as const;
-      }),
-    ).then((loadedGrids) => {
-      if (cancelled) return;
-      const grids = new Map(loadedGrids);
-      systemGridsRef.current = grids;
-      setSystemGrids(grids);
-      const ids = systems.map((system) => system.id);
-      openedSystemIdsRef.current = ids;
-      setOpenedSystemIds(ids);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [fields]);
-
 
   async function exportMap(format: 'json' | 'png') {
     if (!selectedLayer || exportBusyRef.current) return;
