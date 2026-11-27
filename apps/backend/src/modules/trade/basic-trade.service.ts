@@ -24,8 +24,9 @@ import { TradeLicense } from './entities/trade-license.entity';
 import { TradePost } from './entities/trade-post.entity';
 import { TradeStorageService } from './trade-storage.service';
 
+import { AURODIUM_COMMODITY_ID } from '@swuniverse/shared';
 /** SWU currency in place of STU Latinum. */
-export const AURODIUM_COMMODITY_ID = 50;
+export { AURODIUM_COMMODITY_ID };
 /** STU `BasicTradeItem` and `TradeEnum`. */
 export const BASIC_TRADE_VALUE_SCALE = 100;
 export const BASIC_TRADE_SELL_BUY_ALPHA = 1.1;

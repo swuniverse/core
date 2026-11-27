@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, No
 import { InjectDataSource } from '@nestjs/typeorm';
 import { randomInt } from 'node:crypto';
 import { DataSource, IsNull, Not, type EntityManager } from 'typeorm';
-import type { LotteryWinnerBuildplanDto, TradeLotteryDto } from '@swuniverse/shared';
+import { AURODIUM_COMMODITY_ID, type LotteryWinnerBuildplanDto, type TradeLotteryDto } from '@swuniverse/shared';
 import { User } from '../auth/user.entity';
 import { FactionEntity } from '../faction/entities/faction.entity';
 import { MessageFolder } from '../messaging/message-folder';
@@ -17,7 +17,6 @@ import { TradeAccountStorage } from './entities/trade-account-storage.entity';
 import { hasLicense, huttPost } from './trade-deal.service';
 import type { TradeDealFulfillment } from './trade-deal-fulfillment.port';
 
-const AURODIUM_COMMODITY_ID = 50;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NO_LICENSE = 'Um Lotterielose zu kaufen, wird eine Handelslizenz beim Hutten-Kartell benötigt';
 export const TRADE_LOTTERY_CLOCK = Symbol('TRADE_LOTTERY_CLOCK');

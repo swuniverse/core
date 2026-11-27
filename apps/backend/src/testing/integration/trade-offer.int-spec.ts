@@ -7,9 +7,12 @@ import { connectIntegrationDatabase, createUser, resetDatabase } from './databas
 const AURODIUM = 5;
 const DURASTAHL = 6;
 const PRISONERS = 9;
+const NPC_CURRENCY = 50; // shared AURODIUM_COMMODITY_ID
+
 const COMMODITIES = [
   { id: AURODIUM, name: 'Aurodium', isTradeable: true },
   { id: DURASTAHL, name: 'Durastahl', isTradeable: true },
+  { id: NPC_CURRENCY, name: 'Aurodium (Währung)', isTradeable: true },
   { id: PRISONERS, name: 'Gefangene', isTradeable: false },
 ];
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -105,6 +108,22 @@ describe('trade offers (PostgreSQL)', () => {
     expect(await source.getRepository('TradeOffer').count()).toBe(0);
   });
 
+  it('requires Aurodium on one side at an NPC post, but not at a player post', async () => {
+    await account(NPC_CURRENCY, 20);
+    const swap = offer({ offerCount: 1 }); // Aurodium(5) -> Durastahl: neither side is the currency
+    await expect(offers.create(postId, userId, swap)).resolves.toBeTruthy(); // player post
+    expect((await offers.getOptions(postId, userId)).isNpcPost).toBe(false);
+
+    const ownerId = (await source.getRepository('TradePost').findOneByOrFail({ id: postId })).ownerId as number;
+    await source.getRepository('User').update(ownerId, { isNpc: true });
+    expect((await offers.getOptions(postId, userId)).isNpcPost).toBe(true);
+
+    await expect(offers.create(postId, userId, offer({ offeredAmount: 7, offerCount: 1 })))
+      .rejects.toThrow('An NPC-Handelsposten muss Aurodium angeboten oder verlangt werden');
+    await expect(offers.create(postId, userId, offer({ offeredCommodityId: NPC_CURRENCY, offeredAmount: 3, offerCount: 1 }))).resolves.toBeTruthy();
+    await expect(offers.create(postId, userId, offer({ wantedCommodityId: NPC_CURRENCY, offeredAmount: 4, offerCount: 1 }))).resolves.toBeTruthy();
+  });
+
   it('rejects an equivalent offer with the same rounded ratio but accepts a different one', async () => {
     await offers.create(postId, userId, offer({ offerCount: 1 }));
 
@@ -171,9 +190,10 @@ describe('trade offers (PostgreSQL)', () => {
       tradePostId: postId,
       tradePostName: 'Mos Eisley',
       hasLicense: true,
+      isNpcPost: false,
       accountFree: 76, // only stock counts; the 30 reserved take no space (STU)
       accountGoods: [{ commodityId: AURODIUM, commodityName: 'Aurodium', amount: 20 }],
-      tradeableCommodities: [{ id: AURODIUM, name: 'Aurodium' }, { id: DURASTAHL, name: 'Durastahl' }],
+      tradeableCommodities: [{ id: AURODIUM, name: 'Aurodium' }, { id: NPC_CURRENCY, name: 'Aurodium (Währung)' }, { id: DURASTAHL, name: 'Durastahl' }],
     });
     expect(await new TradeOfferCommodityLocationSource(source.getRepository('TradeOffer') as never).findLocations(userId, AURODIUM)).toEqual([
       { type: 'TRADE_OFFER', id: postId, name: 'Mos Eisley', location: null, amount: 30 },
