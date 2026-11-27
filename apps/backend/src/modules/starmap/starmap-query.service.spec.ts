@@ -154,7 +154,7 @@ describe('StarmapQueryService layer field details', () => {
     expect(fieldDetails.load).toHaveBeenCalledWith(12, 1, [expect.objectContaining({ id: 1 })]);
   });
 
-  it('treats a system in the player database as fully known although its field is only TERRAIN', async () => {
+  it('shows systems seen at TERRAIN level and treats database systems as fully known', async () => {
     const fieldType = { id: 1, key: 'SYSTEM', name: 'System', passable: true, energyCost: 0, damage: 0, isSystem: true, colorKey: null, category: 'SYSTEM' };
     const starSystem = { id: 7, name: 'Home', cx: 1, cy: 1, layerId: 1 };
     const galaxyFieldRepo = repo({
@@ -177,9 +177,10 @@ describe('StarmapQueryService layer field details', () => {
 
     const fields = await service.getExploredLayerFields(12, 1, explorationService);
 
-    expect(fields.map((f) => [f.id, f.starSystemId])).toEqual([
-      [1, 7],
-      [2, null],
+    // Field 2 is only seen by sensors: the star is visible, but no details are loaded.
+    expect(fields.map((f) => [f.id, f.starSystemId, f.details])).toEqual([
+      [1, 7, undefined],
+      [2, 8, undefined],
     ]);
   });
 });

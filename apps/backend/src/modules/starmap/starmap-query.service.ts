@@ -490,17 +490,21 @@ export class StarmapQueryService {
           cx: field.cx,
           cy: field.cy,
           fieldTypeId: field.fieldTypeId,
-          systemTypeId: null,
+          // Systems seen in sensor range stay visible on the overview map;
+          // entering them is still gated by isSystemExplored (assertSystemEntryAccess).
+          systemTypeId: field.systemTypeId,
           factionZone: field.factionZone,
           adminRegionKey: null,
-          starSystemId: null,
+          starSystemId: field.starSystemId,
           regionId: field.regionId,
           borderTypeId: null,
           effects: null,
           passableOverride: null,
           ...nebulaTextureProp(field, nebulaTextures),
           fieldType: this.toFieldTypeDTO(field.fieldType),
-          starSystem: null,
+          starSystem: field.starSystem
+            ? this.toSystemListItemDTO(field.starSystem)
+            : null,
         };
       }
       return {
@@ -617,10 +621,10 @@ export class StarmapQueryService {
           cx: field.cx,
           cy: field.cy,
           fieldTypeId: field.fieldTypeId,
-          systemTypeId: null,
+          systemTypeId: field.systemTypeId,
           factionZone: field.factionZone,
           adminRegionKey: null,
-          starSystemId: null,
+          starSystemId: field.starSystemId,
           regionId: field.regionId,
           borderTypeId: null,
           effects: null,
@@ -628,7 +632,9 @@ export class StarmapQueryService {
           explorationLevel: 'TERRAIN',
           ...nebulaTextureProp(field, nebulaTextures),
           fieldType: this.toFieldTypeDTO(field.fieldType),
-          starSystem: null,
+          starSystem: field.starSystem
+            ? this.toSystemListItemDTO(field.starSystem)
+            : null,
         });
       } else {
         fields.push({
