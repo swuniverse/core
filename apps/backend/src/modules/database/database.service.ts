@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository, In, Not, IsNull } from 'typeorm';
+import { Brackets, Repository, In, Not, IsNull, MoreThanOrEqual } from 'typeorm';
 import { AllianceMembership } from '../alliance/entities/alliance-membership.entity';
 import type { SettlerListQuery } from './settler-list.query';
 import { TradePost } from '../trade/entities/trade-post.entity';
@@ -685,13 +685,24 @@ export class DatabaseService {
     if (!system || !discovery)
       throw new NotFoundException('System nicht gefunden');
 
-    const plan = await this.cartographyPlanRepo.findOne({
-      where: { userId, starSystemId: systemId },
-    });
-    if (
-      plan?.status !== CartographyPlanStatus.DONE ||
-      plan.completionOutcome !== CartographyCompletionOutcome.SUCCESS
-    ) {
+    const [plan, settled] = await Promise.all([
+      this.cartographyPlanRepo.findOne({
+        where: { userId, starSystemId: systemId },
+      }),
+      // An own colony active for 35 ticks counts as cartography, like a scout survey.
+      this.colonyRepo.count({
+        where: {
+          userId,
+          starSystemId: systemId,
+          isAbandoned: false,
+          activeTicks: MoreThanOrEqual(35),
+        },
+      }),
+    ]);
+    const surveyed =
+      plan?.status === CartographyPlanStatus.DONE &&
+      plan.completionOutcome === CartographyCompletionOutcome.SUCCESS;
+    if (!surveyed && settled === 0) {
       return { availability: 'ASTROMETRY_REQUIRED' as const };
     }
 

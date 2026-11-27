@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { AnomalyViewDto, ColonyEnvironmentScanDto } from '@swuniverse/shared';
 
 import { BbCodeText } from '../../../components/BbCodeText';
@@ -185,9 +186,12 @@ export function PanelInfo({
                 className="h-10 w-10 object-contain"
               />
               <div>
-                <div className="text-sm text-swu-primary">
+                <Link
+                  to={`/database/systems/${colony.starSystem.id}`}
+                  className="text-sm text-swu-accent hover:underline"
+                >
                   {colony.starSystem.name}
-                </div>
+                </Link>
                 {colony.starSystem.cx != null &&
                   colony.starSystem.cy != null && (
                     <div className="font-mono text-[10px] text-swu-muted">

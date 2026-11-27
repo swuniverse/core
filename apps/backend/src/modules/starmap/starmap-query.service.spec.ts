@@ -142,6 +142,7 @@ describe('StarmapQueryService layer field details', () => {
         { cx: 1, cy: 1, explorationLevel: 'FULL' },
         { cx: 2, cy: 1, explorationLevel: 'TERRAIN' },
       ]),
+      getExploredSystems: jest.fn(async () => []),
     } as never;
 
     const fields = await service.getExploredLayerFields(12, 1, explorationService);
@@ -151,5 +152,35 @@ describe('StarmapQueryService layer field details', () => {
       [2, undefined],
     ]);
     expect(fieldDetails.load).toHaveBeenCalledWith(12, 1, [expect.objectContaining({ id: 1 })]);
+  });
+
+  it('shows systems seen at TERRAIN level and treats database systems as fully known', async () => {
+    const fieldType = { id: 1, key: 'SYSTEM', name: 'System', passable: true, energyCost: 0, damage: 0, isSystem: true, colorKey: null, category: 'SYSTEM' };
+    const starSystem = { id: 7, name: 'Home', cx: 1, cy: 1, layerId: 1 };
+    const galaxyFieldRepo = repo({
+      find: jest.fn(async () => [
+        { id: 1, cx: 1, cy: 1, fieldType, starSystemId: 7, starSystem },
+        { id: 2, cx: 2, cy: 1, fieldType, starSystemId: 8, starSystem: { ...starSystem, id: 8 } },
+      ]),
+    });
+    const fieldDetails = { load: jest.fn(async () => new Map()) };
+    const service = new StarmapQueryService(
+      repo(), galaxyFieldRepo, repo(), repo(), repo(), repo(), repo(),
+      undefined, fieldDetails as never,
+    );
+    const explorationService = {
+      getExploredFields: jest.fn(async () => [
+        { cx: 2, cy: 1, explorationLevel: 'TERRAIN' },
+      ]),
+      getExploredSystems: jest.fn(async () => [{ starSystemId: 7 }]),
+    } as never;
+
+    const fields = await service.getExploredLayerFields(12, 1, explorationService);
+
+    // Field 2 is only seen by sensors: the star is visible, but no details are loaded.
+    expect(fields.map((f) => [f.id, f.starSystemId, f.details])).toEqual([
+      [1, 7, undefined],
+      [2, 8, undefined],
+    ]);
   });
 });

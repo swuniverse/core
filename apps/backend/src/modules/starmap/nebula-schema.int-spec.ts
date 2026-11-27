@@ -144,7 +144,7 @@ describe('nebula preview against migrated application schema', () => {
     }
     const query: StarmapQueryService = Object.assign(Object.create(StarmapQueryService.prototype), { layerRepo: database.getRepository(Layer), galaxyFieldRepo: database.getRepository(GalaxyField), fieldDetails: { load: async () => new Map() } });
     const states = [10, 11].map(cx => ({ cx, cy: 8, explorationLevel: 'TERRAIN' }));
-    const exploration = { getExploredFieldsInSector: jest.fn(async () => states), getExploredFields: async () => states } as unknown as ExplorationService;
+    const exploration = { getExploredFieldsInSector: jest.fn(async () => states), getExploredFields: async () => states, getExploredSystems: async () => [] } as unknown as ExplorationService;
     const sector = await query.getExploredSectorFields(1, layer.id, 1, 0, exploration);
     expect(sector.fields).toHaveLength(100);
     expect(sector.fields.every(field => field.cx >= 11 && field.cx <= 20)).toBe(true);
