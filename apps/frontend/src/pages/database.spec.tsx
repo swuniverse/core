@@ -57,7 +57,7 @@ describe('DatabasePage', () => {
         });
       }
       if (url === '/database/rankings') {
-        return Promise.resolve({ research: [], prestige: [], colonies: [] });
+        return Promise.resolve({ research: [], colonies: [] });
       }
       throw new Error(`Unexpected URL ${url}`);
     });
@@ -158,9 +158,9 @@ describe('DatabasePage', () => {
   it('offers a quick PM on player rankings except for the own account', async () => {
     useAuthStore.setState({ user: { id: 2 } as never });
     apiMocks.get.mockImplementation((url: string) =>
-      url === '/database/rankings/prestige'
+      url === '/database/rankings/research'
         ? Promise.resolve({
-            title: 'Die Top 10 Prestige',
+            title: 'Die 10 besten Forscher',
             metricLabel: 'Prestige',
             entries: [
               { userId: 1, username: 'Leia', score: 120, rank: 1 },
@@ -171,7 +171,7 @@ describe('DatabasePage', () => {
         : Promise.resolve({ sections: [] }),
     );
     render(
-      <MemoryRouter initialEntries={['/database?view=rankings&ranking=prestige']}>
+      <MemoryRouter initialEntries={['/database?view=rankings&ranking=research']}>
         <DatabasePage />
       </MemoryRouter>,
     );

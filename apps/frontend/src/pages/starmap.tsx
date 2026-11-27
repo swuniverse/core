@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   WsEventType,
-  type StarmapExportDto,
   type StarmapGalaxyFieldDto,
   type StarmapLayerDto,
   type StarmapSystemGridDto,
@@ -24,7 +23,6 @@ import {
 } from '../components/starmap/StarmapShipOverlay';
 import { StarmapContactPanel } from '../components/starmap/StarmapContactPanel';
 import { canLoadInlineSystem } from '../lib/starmap-render';
-import { createStarmapPng, downloadStarmapBlob } from '../lib/starmap-export';
 
 type Layer = Pick<
   StarmapLayerDto,
@@ -78,10 +76,6 @@ export function StarmapPage() {
   const [systemGrids, setSystemGrids] = useState<Map<number, SystemGrid>>(() => new Map());
   const [openedSystemIds, setOpenedSystemIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
-  const exportCacheRef = useRef<{ data: StarmapExportDto; loadedAt: number } | null>(null);
-  const exportBusyRef = useRef(false);
   const [selectedField, setSelectedField] = useState<GalaxyField | null>(null);
   const [selectedSector, setSelectedSector] = useState<{ x: number; y: number } | null>(null);
   const [showGrid, setShowGrid] = useState(true);
@@ -297,29 +291,6 @@ export function StarmapPage() {
   }, [fields]);
 
 
-  async function exportMap(format: 'json' | 'png') {
-    if (!selectedLayer || exportBusyRef.current) return;
-    exportBusyRef.current = true;
-    setExporting(true);
-    setExportError(null);
-    try {
-      const cached = exportCacheRef.current;
-      const data = cached?.data.layer.id === selectedLayer.id && Date.now() - cached.loadedAt < 60_000
-        ? cached.data
-        : await api.get<StarmapExportDto>(`/starmap/layers/${selectedLayer.id}/export.json`);
-      if (data !== cached?.data) exportCacheRef.current = { data, loadedAt: Date.now() };
-      const blob = format === 'png'
-        ? await createStarmapPng(data)
-        : new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      downloadStarmapBlob(blob, `starmap-${data.layer.id}.${format}`);
-    } catch (error) {
-      setExportError(error instanceof Error ? error.message : 'Kartenexport fehlgeschlagen.');
-    } finally {
-      exportBusyRef.current = false;
-      setExporting(false);
-    }
-  }
-
   async function refreshData() {
     if (!selectedLayer) return;
     const [loadedFields] = await Promise.all([
@@ -419,10 +390,6 @@ export function StarmapPage() {
               layer={selectedLayer}
               showGrid={showGrid}
               onToggleGrid={setShowGrid}
-              onExportData={() => void exportMap('json')}
-              onExportImage={() => void exportMap('png')}
-              exporting={exporting}
-              exportError={exportError}
               showShips={showShips}
               onToggleShips={(value) => {
                 setShowShips(value);

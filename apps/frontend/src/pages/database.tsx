@@ -55,7 +55,6 @@ type TradePostEntry = {
 type RankingKey =
   | 'discoveries'
   | 'research'
-  | 'prestige'
   | 'crew-training'
   | 'flights'
   | 'rpg'
@@ -217,7 +216,6 @@ const groups: Array<{
         view: 'rankings',
         ranking: 'rpg',
       },
-      { label: 'Höchstes Prestige', view: 'rankings', ranking: 'prestige' },
       { label: 'Crew', view: 'crew' },
     ],
   },

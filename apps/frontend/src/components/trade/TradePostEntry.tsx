@@ -49,7 +49,7 @@ export function TradePostEntry({
             Handelsmenü
           </button>
           <Link
-            to={`/trade?tab=posts&post=${post.tradePostId}&ship=${shipId}`}
+            to={`/trade?post=${post.tradePostId}&ship=${shipId}`}
             className="text-swu-accent hover:underline"
           >
             Posteninfo

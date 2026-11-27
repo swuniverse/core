@@ -233,32 +233,27 @@ describe('TradePage', () => {
     expect(within(npc).getByRole('link', { name: 'Falke' }).getAttribute('href')).toBe('/spacecraft/77');
   });
 
-  it('lists posts without a location link for unknown posts and opens post info', async () => {
+  it('has no post list tab and opens post info from the account box', async () => {
     renderPage();
     await screen.findByRole('region', { name: 'Warenkonto Nar Shaddaa Markt' });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Handelsposten' }));
-
-    expect(await screen.findByText('Verborgener Posten')).toBeTruthy();
-    expect(screen.getByText('Unbekannt')).toBeTruthy();
-    // An abandoned post has no operator (tmw-T12c).
-    expect(within(screen.getByText('Verborgener Posten').closest('tr') as HTMLElement).getByText('Verlassen')).toBeTruthy();
-    expect(
-      screen.getByRole('link', { name: 'Ebene 1 4:5' }).getAttribute('href'),
-    ).toBe('/starmap?layer=1&x=4&y=5');
-    expect(screen.queryByRole('link', { name: 'Unbekannt' })).toBeNull();
-    expect(screen.getAllByRole('row')).toHaveLength(3);
+    expect(screen.queryByRole('button', { name: 'Handelsposten' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Nar Shaddaa Markt' }));
 
     expect(await screen.findByText('Posteninfo: Nar Shaddaa Markt')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Falke' }).getAttribute('href')).toBe(
-      '/spacecraft/77',
-    );
+    expect(screen.getByRole('link', { name: 'Falke' }).getAttribute('href')).toBe('/spacecraft/77');
+    expect(screen.getByRole('link', { name: 'Ebene 1 4:5' }).getAttribute('href')).toBe('/starmap?layer=1&x=4&y=5');
     await waitFor(() => expect(screen.getByText(/Durastahl 1\.200/)).toBeTruthy());
 
-    fireEvent.click(screen.getByRole('button', { name: 'Zurück zur Liste' }));
-    expect(await screen.findByText('Verborgener Posten')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Zurück' }));
+    expect(await screen.findByRole('region', { name: 'Warenkonto Nar Shaddaa Markt' })).toBeTruthy();
+  });
+
+  it('shows an unknown location and an abandoned operator in the post info', async () => {
+    renderPage('/trade?post=2');
+    expect(await screen.findByText('Posteninfo: Verborgener Posten')).toBeTruthy();
+    expect(screen.getByText('Unbekannt')).toBeTruthy();
+    expect(screen.getByText('Verlassen')).toBeTruthy();
   });
 
   it('lists own valid licenses with post, network and expiry', async () => {
@@ -281,7 +276,7 @@ describe('TradePage', () => {
       accounts: [{ tradePostId: 1, tradePostName: 'Nar Shaddaa Markt', amount: 40 }],
     });
     apiMocks.post.mockResolvedValue({});
-    renderPage('/trade?tab=posts&post=1&ship=77');
+    renderPage('/trade?post=1&ship=77');
 
     expect(await screen.findByText('10 Durastahl für 30 Tage')).toBeTruthy();
     expect(apiMocks.get).toHaveBeenCalledWith('/trade/posts/1/license-menu?shipId=77');
@@ -300,7 +295,7 @@ describe('TradePage', () => {
       accounts: [{ tradePostId: 3, tradePostName: 'Kessel', amount: 25 }],
     });
     apiMocks.post.mockRejectedValue(new Error('Nicht genügend Waren auf dem Handelskonto'));
-    renderPage('/trade?tab=posts&post=1&ship=77');
+    renderPage('/trade?post=1&ship=77');
 
     fireEvent.click(await screen.findByRole('radio', { name: 'Warenkonto Kessel (25)' }));
     fireEvent.click(screen.getByRole('button', { name: 'Lizenz kaufen' }));
@@ -316,7 +311,7 @@ describe('TradePage', () => {
       purchase: { shipId: 77, rejection: null, payShips: [{ id: 78, name: 'Barke', amount: 12 }] },
       accounts: [{ tradePostId: 1, tradePostName: 'Nar Shaddaa Markt', amount: 40 }],
     });
-    renderPage('/trade?tab=posts&post=1&ship=77');
+    renderPage('/trade?post=1&ship=77');
 
     expect(await screen.findByText('10 Durastahl für 30 Tage')).toBeTruthy();
     expect(screen.queryByText(/kostenlos/i)).toBeNull();
@@ -334,7 +329,7 @@ describe('TradePage', () => {
   });
 
   it('explains why no purchase is offered', async () => {
-    renderPage('/trade?tab=posts&post=1');
+    renderPage('/trade?post=1');
 
     expect(await screen.findByText('Lizenzen werden über das Handelsmenü eines eigenen Schiffs am Posten gekauft')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Lizenz kaufen' })).toBeNull();
@@ -349,7 +344,7 @@ describe('TradePage', () => {
       accounts: [{ tradePostId: 3, tradePostName: 'Kessel', amount: 25 }],
     });
     apiMocks.post.mockResolvedValue({});
-    renderPage('/trade?tab=posts&post=1');
+    renderPage('/trade?post=1');
 
     expect(await screen.findByText(`Neuer Ablauf: ${formatDateTime(renewalExpiresAt)}`)).toBeTruthy();
     expect(screen.getByText('10 Durastahl für 30 Tage')).toBeTruthy();
@@ -364,13 +359,13 @@ describe('TradePage', () => {
 
   it('offers a quick PM to the post operator except for the own account', async () => {
     useAuthStore.setState({ user: { id: 9 } as never });
-    const { unmount } = renderPage('/trade?tab=posts');
-    expect(await screen.findByText('Verborgener Posten')).toBeTruthy();
+    const { unmount } = renderPage('/trade?post=1');
+    expect(await screen.findByText('Posteninfo: Nar Shaddaa Markt')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Nachricht an Hutten-Kartell schreiben' })).toBeNull();
     unmount();
 
     useAuthStore.setState({ user: { id: 1 } as never });
-    renderPage('/trade?tab=posts');
+    renderPage('/trade?post=1');
     fireEvent.click(await screen.findByRole('button', { name: 'Nachricht an Hutten-Kartell schreiben' }));
     expect(screen.getByText(/Empfänger:/).textContent).toContain('(9)');
     useAuthStore.setState({ user: null });
@@ -384,7 +379,7 @@ describe('TradePage', () => {
         { id: 10, userId: 5, username: 'Selbst', startsAt: '2026-11-12T10:00:00.000Z', expiresAt: '2026-12-12T10:00:00.000Z' },
       ],
     });
-    renderPage('/trade?tab=posts&post=1');
+    renderPage('/trade?post=1');
 
     fireEvent.click(await screen.findByRole('button', { name: 'Nachricht an Lando schreiben' }));
     expect(screen.getByText(/Empfänger:/).textContent).toContain('(4)');
@@ -399,7 +394,7 @@ describe('TradePage', () => {
       { '/trade/posts/1/licenses': [{ id: 9, userId: 4, username: 'Lando', startsAt: '2026-11-12T10:00:00.000Z', expiresAt: '2026-12-12T10:00:00.000Z' }] },
     );
     apiMocks.put.mockResolvedValue({});
-    renderPage('/trade?tab=posts&post=1');
+    renderPage('/trade?post=1');
 
     const admin = await screen.findByRole('region', { name: 'Lizenzverwaltung' });
     expect(await screen.findByText('Lando')).toBeTruthy();
@@ -421,7 +416,7 @@ describe('TradePage', () => {
         { id: 2, userId: 4, username: 'Lando', startsAt: '2026-11-12T10:00:00.000Z', expiresAt: '2026-12-12T10:00:00.000Z' },
       ] },
     );
-    renderPage('/trade?tab=posts&post=1');
+    renderPage('/trade?post=1');
 
     const list = await screen.findByRole('region', { name: 'Ausgestellte Lizenzen' });
     expect(await within(list).findByText('Eigner')).toBeTruthy();
@@ -432,7 +427,7 @@ describe('TradePage', () => {
   });
 
   it('hides license management from other players', async () => {
-    renderPage('/trade?tab=posts&post=1');
+    renderPage('/trade?post=1');
 
     expect(await screen.findByText('10 Durastahl für 30 Tage')).toBeTruthy();
     expect(screen.queryByRole('region', { name: 'Lizenzverwaltung' })).toBeNull();

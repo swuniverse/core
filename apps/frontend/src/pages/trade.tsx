@@ -20,13 +20,12 @@ import { TradeAccountBox } from '../components/trade/TradeAccountBox';
 import { formatDateTime, formatNumber } from '../lib/format';
 import { api } from '../services/api';
 
-type TradeTab = 'accounts' | 'posts' | 'licenses' | 'market' | 'offers' | 'basic' | 'deals' | 'lottery' | 'shoutbox';
+type TradeTab = 'accounts' | 'licenses' | 'market' | 'offers' | 'basic' | 'deals' | 'lottery' | 'shoutbox';
 
 type CommodityName = { id: number; name: string };
 
 const TABS: { key: TradeTab; label: string }[] = [
   { key: 'accounts', label: 'Warenkonten' },
-  { key: 'posts', label: 'Handelsposten' },
   { key: 'licenses', label: 'Lizenzen' },
   { key: 'market', label: 'Angebote' },
   { key: 'offers', label: 'Meine Angebote' },
@@ -69,7 +68,6 @@ export function TradePage() {
 
   const tabParam = searchParams.get('tab');
   const tab: TradeTab =
-    tabParam === 'posts' ||
     tabParam === 'licenses' ||
     tabParam === 'market' ||
     tabParam === 'offers' ||
@@ -124,12 +122,17 @@ export function TradePage() {
       params.delete('post');
       params.delete('ship');
     }
-    else if (next.post !== undefined) params.set('post', String(next.post));
+    else if (next.post !== undefined) {
+      params.set('post', String(next.post));
+      params.delete('tab');
+    }
     setSearchParams(params);
   };
 
   const segments: PageHeaderSegment[] = [{ label: 'Handel', to: '/trade' }];
-  if (tab === 'licenses') {
+  if (selectedPost) {
+    segments.push({ label: selectedPost.name });
+  } else if (tab === 'licenses') {
     segments.push({ label: 'Lizenzen' });
   } else if (tab === 'basic') {
     segments.push({ label: 'Basishandel' });
@@ -143,8 +146,6 @@ export function TradePage() {
     segments.push({ label: 'Angebote' });
   } else if (tab === 'offers') {
     segments.push({ label: 'Meine Angebote' });
-  } else if (tab === 'posts' || selectedPost) {
-    segments.push({ label: selectedPost?.name ?? 'Handelsposten' });
   }
 
   return (
@@ -171,11 +172,19 @@ export function TradePage() {
         <p role="alert" className="text-red-300">{error}</p>
       ) : !posts || !overview ? (
         <p className="text-swu-muted">Handelsdaten werden geladen...</p>
+      ) : selectedPost ? (
+        <PostInfo
+          post={selectedPost}
+          overview={overview}
+          commodityName={commodityName}
+          shipId={shipId}
+          onBack={() => select({ tab: 'accounts', post: null })}
+        />
       ) : tab === 'accounts' ? (
         <AccountsTab
           overview={overview}
           commodityName={commodityName}
-          onSelect={(id) => select({ tab: 'posts', post: id })}
+          onSelect={(id) => select({ post: id })}
           onChanged={reloadOverview}
         />
       ) : tab === 'basic' ? (
@@ -190,21 +199,8 @@ export function TradePage() {
         <TradeMarketTab />
       ) : tab === 'offers' ? (
         <TradeOffersTab />
-      ) : tab === 'licenses' ? (
-        <LicensesTab onSelect={(id) => select({ tab: 'posts', post: id })} />
-      ) : selectedPost ? (
-        <PostInfo
-          post={selectedPost}
-          overview={overview}
-          commodityName={commodityName}
-          shipId={shipId}
-          onBack={() => select({ post: null })}
-        />
       ) : (
-        <PostsTab
-          posts={posts}
-          onSelect={(id) => select({ post: id })}
-        />
+        <LicensesTab onSelect={(id) => select({ post: id })} />
       )}
     </main>
   );
@@ -296,56 +292,6 @@ function LicensesTab({ onSelect }: { onSelect: (postId: number) => void }) {
   );
 }
 
-function PostsTab({
-  posts,
-  onSelect,
-}: {
-  posts: TradePostListItemDto[];
-  onSelect: (postId: number) => void;
-}) {
-  return (
-    <div className="max-w-4xl overflow-hidden border border-swu-border bg-black/30">
-      <table className="w-full">
-        <thead className="bg-swu-bg/60 text-left text-swu-muted">
-          <tr>
-            <th className="px-2 py-1">Handelsposten</th>
-            <th className="px-2 py-1">Handelsnetz</th>
-            <th className="px-2 py-1">Betreiber</th>
-            <th className="px-2 py-1">Ort</th>
-            <th className="px-2 py-1">Konto</th>
-          </tr>
-        </thead>
-        <tbody>
-          {posts.map((post) => (
-            <tr key={post.id} className="border-t border-swu-border/60">
-              <td className="px-2 py-1">
-                <button
-                  type="button"
-                  onClick={() => onSelect(post.id)}
-                  className="text-swu-accent hover:underline"
-                >
-                  {post.name}
-                </button>
-              </td>
-              <td className="px-2 py-1">Netz {post.networkId}</td>
-              <td className="px-2 py-1">
-                <PlayerName name={post.owner?.name ?? 'Verlassen'} />
-                {post.owner && <PmLink playerId={post.owner.id} playerName={post.owner.name} className="ml-1 align-middle" />}
-              </td>
-              <td className="px-2 py-1">
-                <PostLocation post={post} />
-              </td>
-              <td className="px-2 py-1">
-                {post.licenseStatus === 'ACCOUNT' ? 'Vorhanden' : 'Keines'}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 function PostInfo({
   post,
   overview,
@@ -368,7 +314,7 @@ function PostInfo({
       <h2 className="flex justify-between border-b border-swu-border px-2 py-1 font-bold text-swu-primary">
         <span>Posteninfo: {post.name}</span>
         <button type="button" onClick={onBack} className="text-swu-accent hover:underline">
-          Zurück zur Liste
+          Zurück
         </button>
       </h2>
       <dl className="grid grid-cols-[10rem_1fr] gap-x-2 gap-y-1 p-2">

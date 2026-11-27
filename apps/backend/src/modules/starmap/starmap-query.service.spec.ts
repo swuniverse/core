@@ -135,7 +135,7 @@ describe('StarmapQueryService layer field details', () => {
     };
     const service = new StarmapQueryService(
       repo(), galaxyFieldRepo, repo(), repo(), repo(), repo(), repo(),
-      undefined, undefined, fieldDetails as never,
+      undefined, fieldDetails as never,
     );
     const explorationService = {
       getExploredFields: jest.fn(async () => [

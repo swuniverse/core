@@ -127,7 +127,7 @@ function rankingBuilder(result: unknown[]) {
 
 describe('DatabaseService rankings', () => {
   it('returns deterministic public colony worth rankings without private intel', async () => {
-    const { service, userRepo, colonyRepo, researchRepo } = createService();
+    const { service, colonyRepo, researchRepo } = createService();
     const research = rankingBuilder([{ userId: 1, username: 'A', score: '2' }]);
     const colonyCount = rankingBuilder([
       { userId: 2, username: 'B', score: '3' },
@@ -155,14 +155,12 @@ describe('DatabaseService rankings', () => {
       .mockReturnValueOnce(colonyCount)
       .mockReturnValueOnce(colonyWorth)
       .mockReturnValueOnce(colonyProductionWorth);
-    userRepo.find.mockResolvedValue([{ id: 3, username: 'C', prestige: 9 }]);
 
     const result = await service.getRankings();
 
     expect(result).toEqual({
       satisfiedWorkers: [],
       research: [{ userId: 1, username: 'A', score: '2' }],
-      prestige: [{ userId: 3, username: 'C', score: 9 }],
       colonies: [{ userId: 2, username: 'B', score: '3' }],
       colonyWorth: [
         {
@@ -276,7 +274,7 @@ describe('DatabaseService rankings', () => {
   });
 
   it('adds the central non-NPC predicate to query-backed rankings', async () => {
-    const { service, userRepo, colonyRepo, researchRepo } = createService();
+    const { service, colonyRepo, researchRepo } = createService();
     const research = rankingBuilder([]);
     const colonies = rankingBuilder([]);
     const worth = rankingBuilder([]);
@@ -286,16 +284,11 @@ describe('DatabaseService rankings', () => {
       .mockReturnValueOnce(colonies)
       .mockReturnValueOnce(worth)
       .mockReturnValueOnce(production);
-    userRepo.find.mockResolvedValue([]);
-
     await service.getRankings();
 
     for (const query of [research, colonies, worth, production]) {
       expect(query.andWhere).toHaveBeenCalledWith('user.isNpc = false');
     }
-    expect(userRepo.find).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { isNpc: false } }),
-    );
   });
 
 describe('DatabaseService settlers', () => {

@@ -24,10 +24,6 @@ interface StarmapControlPanelProps {
   selectedField: StarmapGalaxyFieldDto | null;
   selectedSystem: StarmapSystemListItemDto | null;
   onOpenSystem: () => void;
-  onExportData: () => void;
-  onExportImage: () => void;
-  exporting: boolean;
-  exportError: string | null;
 }
 
 const FACTION_LABELS: Record<string, string> = {
@@ -55,10 +51,6 @@ export function StarmapControlPanel({
   selectedField,
   selectedSystem,
   onOpenSystem,
-  onExportData,
-  onExportImage,
-  exporting,
-  exportError,
 }: StarmapControlPanelProps) {
   const sectorCols = Math.ceil(layer.width / layer.sectorSize);
   const sectorRows = Math.ceil(layer.height / layer.sectorSize);
@@ -83,13 +75,6 @@ export function StarmapControlPanel({
         <button onClick={onZoomIn} className="flex-1 border border-swu-border rounded px-2 py-1 text-sm text-swu-primary hover:bg-swu-accent/10">+</button>
         <button onClick={onZoomOut} className="flex-1 border border-swu-border rounded px-2 py-1 text-sm text-swu-primary hover:bg-swu-accent/10">−</button>
       </div>
-      <button disabled={exporting} onClick={onExportImage} className="w-full border border-swu-border rounded px-2 py-1 text-xs text-swu-primary hover:bg-swu-accent/10 disabled:opacity-50">
-        Als Bild speichern
-      </button>
-      <button disabled={exporting} onClick={onExportData} className="w-full border border-swu-border rounded px-2 py-1 text-xs text-swu-primary hover:bg-swu-accent/10 disabled:opacity-50">
-        Daten exportieren
-      </button>
-      {exportError && <p role="alert" className="text-xs text-swu-muted">{exportError}</p>}
       <label className="flex items-center gap-2 text-xs text-swu-muted">
         <input type="checkbox" checked={showGrid} onChange={(event) => onToggleGrid(event.target.checked)} />
         Raster
@@ -178,7 +163,7 @@ export function StarmapControlPanel({
             {selectedField.details?.tradePost && (
               <p className="text-xs text-amber-400">
                 Handelsposten:{' '}
-                <Link to={`/trade?tab=posts&post=${selectedField.details.tradePost.id}`} className="underline hover:text-amber-300">
+                <Link to={`/trade?post=${selectedField.details.tradePost.id}`} className="underline hover:text-amber-300">
                   {tradePostTitle(selectedField.details.tradePost)}
                 </Link>
               </p>

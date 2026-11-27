@@ -25,7 +25,7 @@ describe('TradePostEntry', () => {
     );
     renderEntry();
 
-    expect((await screen.findByRole('link', { name: 'Posteninfo' })).getAttribute('href')).toBe('/trade?tab=posts&post=1&ship=77');
+    expect((await screen.findByRole('link', { name: 'Posteninfo' })).getAttribute('href')).toBe('/trade?post=1&ship=77');
     expect(screen.queryByRole('dialog')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Handelsmenü' }));
 

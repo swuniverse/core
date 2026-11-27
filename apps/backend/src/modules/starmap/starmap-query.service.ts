@@ -2,14 +2,12 @@ import { buildNebulaTextureContext, nebulaTextureForField } from './nebula-textu
 import {
   BadRequestException,
   Injectable,
-  HttpException,
-  HttpStatus,
   NotFoundException,
   Optional,
 } from '@nestjs/common';
-import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 import { LayerKnowledgeStatus } from '@swuniverse/shared';
-import { Between, DataSource, In, Repository } from 'typeorm';
+import { Between, In, Repository } from 'typeorm';
 import { Layer } from './entities/layer.entity';
 import { GalaxyField } from './entities/galaxy-field.entity';
 import { SystemField } from './entities/system-field.entity';
@@ -25,7 +23,6 @@ import { SYSTEM_TYPE_BY_ID } from './starmap-system-types';
 import { GalaxyFieldDetailsQuery } from './galaxy-field-details.query';
 import type {
   StarmapCelestialObjectDto,
-  StarmapExportDto,
   StarmapExploredGalaxyFieldDto,
   StarmapExploredSectorDto,
   HyperspaceRouteDto,
@@ -39,7 +36,6 @@ import type {
 
 @Injectable()
 export class StarmapQueryService {
-  private readonly exportReservations = new Map<string, number>();
 
   constructor(
     @InjectRepository(Layer)
@@ -56,7 +52,6 @@ export class StarmapQueryService {
     private readonly hyperspaceRouteSegmentRepo: Repository<HyperspaceRouteSegment>,
     @InjectRepository(Colony)
     private readonly colonyRepo: Repository<Colony>,
-    @Optional() @InjectDataSource() private readonly dataSource?: DataSource,
     @Optional() @InjectRepository(LayerKnowledge)
     private readonly layerKnowledgeRepo?: Repository<LayerKnowledge>,
     private readonly fieldDetails?: GalaxyFieldDetailsQuery,
@@ -346,93 +341,6 @@ export class StarmapQueryService {
         posY: location!.y,
         shielded: true,
       }));
-  }
-
-  async exportExploredLayer(
-    userId: number,
-    layerId: number,
-    explorationService: ExplorationService,
-  ): Promise<StarmapExportDto> {
-    const layer = await this.layerRepo.findOneBy({ id: layerId });
-    if (!layer) throw new NotFoundException('Layer not found');
-    await this.reserveExport(userId, layerId);
-    const fields = await this.getExploredLayerFields(
-      userId,
-      layerId,
-      explorationService,
-    );
-    const exploredCoordinates = new Set(
-      fields.map((field) => `${field.cx}:${field.cy}`),
-    );
-    const ownColonies = await this.colonyRepo.find({
-      where: { userId },
-      relations: ['starSystem', 'systemField', 'systemField.starSystem'],
-      order: { id: 'ASC' },
-    });
-    const colonies: StarmapExportDto['colonies'] = [];
-    for (const colony of ownColonies) {
-      const system = colony.systemField?.starSystem ?? colony.starSystem;
-      if (
-        !system || system.layerId !== layerId ||
-        !exploredCoordinates.has(`${system.cx}:${system.cy}`)
-      ) continue;
-      colonies.push({
-        id: colony.id, name: colony.name, cx: system.cx, cy: system.cy,
-      });
-    }
-    return {
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      layer: {
-        id: layer.id,
-        name: layer.name,
-        width: layer.width,
-        height: layer.height,
-        sectorSize: layer.sectorSize,
-      },
-      fields: fields.map((field) => ({
-        cx: field.cx,
-        cy: field.cy,
-        fieldType: {
-          id: field.fieldType.id, key: field.fieldType.key, name: field.fieldType.name,
-        },
-        starSystem: field.starSystem
-          ? { id: field.starSystem.id, name: field.starSystem.name }
-          : null,
-      })),
-      colonies,
-    };
-  }
-
-  private async reserveExport(userId: number, layerId: number): Promise<void> {
-    const now = Date.now();
-    let reserved: boolean;
-    if (this.dataSource) {
-      // Atomic reservation shared across API instances; no map contents are persisted.
-      const rows = await this.dataSource.query(
-        `INSERT INTO "starmap_export_limits" ("userId", "layerId", "expiresAt")
-         VALUES ($1, $2, $3)
-         ON CONFLICT ("userId", "layerId") DO UPDATE SET "expiresAt" = EXCLUDED."expiresAt"
-         WHERE "starmap_export_limits"."expiresAt" <= $4
-         RETURNING "userId"`,
-        [userId, layerId, new Date(now + 60_000), new Date(now)],
-      );
-      reserved = rows.length > 0;
-    } else {
-      // Same database-free seam as the alliance rate limiter; prune expired keys.
-      for (const [key, expiresAt] of this.exportReservations) {
-        if (expiresAt <= now) this.exportReservations.delete(key);
-      }
-      const key = `${userId}:${layerId}`;
-      reserved = !this.exportReservations.has(key);
-      if (reserved) this.exportReservations.set(key, now + 60_000);
-    }
-    if (!reserved) {
-      throw new HttpException(
-        'Bitte warte eine Minute vor dem nächsten Kartenexport.',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
   }
 
   async getExploredLayerFields(

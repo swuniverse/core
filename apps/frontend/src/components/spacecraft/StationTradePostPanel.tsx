@@ -51,7 +51,7 @@ export function StationTradePostPanel({ ship }: { ship: SpacecraftDetailDto }) {
     <section aria-label="Handelsposten" className="mt-2 border border-swu-border bg-swu-surface text-xs">
       <header className="flex items-center justify-between border-b border-swu-border bg-black/30 px-3 py-2">
         <h2 className="font-bold text-swu-primary">Handelsposten</h2>
-        <Link to={`/trade?tab=posts&post=${post.tradePostId}`} className="text-swu-accent hover:underline">
+        <Link to={`/trade?post=${post.tradePostId}`} className="text-swu-accent hover:underline">
           Zum Handel
         </Link>
       </header>

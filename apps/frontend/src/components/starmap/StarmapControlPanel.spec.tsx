@@ -18,7 +18,7 @@ function renderPanel(selectedField: StarmapGalaxyFieldDto) {
         overlays={{ territory: false, impassable: false, fieldEffects: false, sensorCoverage: false }}
         onToggleOverlay={vi.fn()} selectedSector={null} onSelectSector={vi.fn()}
         onZoomIn={vi.fn()} onZoomOut={vi.fn()} selectedField={selectedField} selectedSystem={null}
-        onOpenSystem={vi.fn()} onExportData={vi.fn()} onExportImage={vi.fn()} exporting={false} exportError={null}
+        onOpenSystem={vi.fn()}
       />
     </MemoryRouter>,
   );
@@ -39,7 +39,7 @@ describe('StarmapControlPanel field details', () => {
     });
 
     expect(screen.getByText('Gebiet: Lando')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Posten Bespin' }).getAttribute('href')).toBe('/trade?tab=posts&post=20');
+    expect(screen.getByRole('link', { name: 'Posten Bespin' }).getAttribute('href')).toBe('/trade?post=20');
     expect(screen.getByText('Region: Anoat-Sektor')).toBeTruthy();
     expect(screen.getByText('Gasriesen am Rand')).toBeTruthy();
     expect(screen.getByText('Leck am EPS')).toBeTruthy();

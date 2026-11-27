@@ -327,7 +327,6 @@ export class DatabaseController {
     const keys = [
       'discoveries',
       'research',
-      'prestige',
       'crew-training',
       'flights',
       'rpg',

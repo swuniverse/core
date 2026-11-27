@@ -56,7 +56,7 @@ describe('StationTradePostPanel', () => {
     expect(box.textContent).toContain('1.200 / 10.000');
     expect(box.textContent).toContain('5 Aurodium für 7 Tage');
     expect(box.textContent).toContain('Lizenznehmer3');
-    expect(screen.getByRole('link', { name: 'Zum Handel' }).getAttribute('href')).toBe('/trade?tab=posts&post=7');
+    expect(screen.getByRole('link', { name: 'Zum Handel' }).getAttribute('href')).toBe('/trade?post=7');
   });
 
   it('renames the post and reloads it', async () => {

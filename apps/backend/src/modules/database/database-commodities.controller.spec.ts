@@ -46,5 +46,6 @@ describe('DatabaseController rankings', () => {
 
   it('rejects unknown rankings', () => {
     expect(() => controllerWith(jest.fn()).getRanking({ user: { sub: 7 } }, 'nagus')).toThrow('Rangliste nicht gefunden');
+    expect(() => controllerWith(jest.fn()).getRanking({ user: { sub: 7 } }, 'prestige')).toThrow('Rangliste nicht gefunden');
   });
 });

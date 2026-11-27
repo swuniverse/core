@@ -84,7 +84,6 @@ type TradePostProjection = TradePost & {
 type RankingKey =
   | 'discoveries'
   | 'research'
-  | 'prestige'
   | 'crew-training'
   | 'flights'
   | 'rpg'
@@ -1085,12 +1084,6 @@ export class DatabaseService {
           metricLabel: 'Abgeschlossene Forschungen',
           entries: await this.getResearchRanking(topOnly),
         };
-      case 'prestige':
-        return {
-          title: 'Höchstes Prestige',
-          metricLabel: 'Prestige',
-          entries: await this.getPrestigeRanking(topOnly),
-        };
       case 'crew-training':
         return {
           title: 'Die 10 besten Ausbilder',
@@ -1250,14 +1243,12 @@ export class DatabaseService {
   async getRankings() {
     const [
       research,
-      prestige,
       colonies,
       colonyWorth,
       colonyProductionWorth,
       satisfiedWorkers,
     ] = await Promise.all([
       this.getResearchRanking(),
-      this.getPrestigeRanking(),
       this.getColonyRanking(),
       this.getColonyWorthRanking(),
       this.getColonyProductionWorthRanking(),
@@ -1266,7 +1257,6 @@ export class DatabaseService {
 
     return {
       research,
-      prestige,
       colonies,
       colonyWorth,
       colonyProductionWorth,
@@ -1288,20 +1278,6 @@ export class DatabaseService {
       .orderBy('COUNT(research.id)', 'DESC')
       .addOrderBy('user.username', 'ASC');
     return topOnly ? query.limit(10).getRawMany() : query.getRawMany();
-  }
-
-  private async getPrestigeRanking(topOnly = true) {
-    const users = await this.userRepo.find({
-      where: NON_NPC_USER_WHERE,
-      order: { prestige: 'DESC', username: 'ASC' },
-      ...(topOnly ? { take: 10 } : {}),
-    });
-
-    return users.map((user) => ({
-      userId: user.id,
-      username: user.username,
-      score: user.prestige,
-    }));
   }
 
   private async getColonyRanking() {
