@@ -103,6 +103,7 @@ function createService(overrides: Record<string, unknown> = {}) {
       ]),
     },
     colonyRepo: {
+      count: jest.fn().mockResolvedValue(0),
       find: jest.fn().mockResolvedValue([
         {
           id: 201,
@@ -256,6 +257,20 @@ describe('DatabaseService system detail', () => {
       expect(repos.scanProjection.newestAccessibleForSystem).not.toHaveBeenCalled();
     },
   );
+
+  it('treats a system with an own colony active for 35 ticks as cartographed', async () => {
+    const { service } = createService({
+      cartographyPlanRepo: { findOne: jest.fn().mockResolvedValue(undefined) },
+      colonyRepo: {
+        count: jest.fn().mockResolvedValue(1),
+        find: jest.fn().mockResolvedValue([]),
+      },
+    });
+
+    const detail = await service.getSystemDetail(42, 9);
+
+    expect(detail).not.toEqual({ availability: 'ASTROMETRY_REQUIRED' });
+  });
 
   it('passes through the newest accessible scan projection without rewriting its snapshot or provenance', async () => {
     const scan = {
