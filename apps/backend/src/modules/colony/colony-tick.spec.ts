@@ -65,6 +65,7 @@ import { WsEventType } from '@swuniverse/shared';
 function createColonyService(overrides: Partial<Record<string, unknown>> = {}) {
   const colonyRepo = {
     save: jest.fn(async (value) => value),
+    increment: jest.fn(async () => ({ affected: 1 })),
     update: jest.fn(async () => ({ affected: 1 })),
     find: jest.fn<Promise<any[]>, any[]>(async () => []),
     findOne: jest.fn(),

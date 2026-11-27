@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   pickWreckShip,
@@ -39,8 +39,11 @@ import { ColonyField } from './entities/colony-field.entity';
 import { ColonyStats } from './entities/colony-stats.entity';
 import { ColonyStorage } from './entities/colony-storage.entity';
 import { Colony } from './entities/colony.entity';
+import { ExplorationService } from '../starmap/exploration.service';
 import { assertOwnedColony } from './colony-owner.util';
 import type { ColonyTickResult } from './colony.service';
+
+const COLONY_EXPLORATION_TICKS = 35;
 
 @Injectable()
 export class ColonyTickProcessorService {
@@ -71,6 +74,7 @@ export class ColonyTickProcessorService {
     private readonly colonyEventService: ColonyEventService,
     private readonly colonyDefenseService: ColonyDefenseService,
     private readonly colonyFabricationService: ColonyFabricationService,
+    @Optional() private readonly exploration?: ExplorationService,
   ) {}
 
   async processCrewTrainingQueue(colony: Colony): Promise<void> {
@@ -185,6 +189,7 @@ export class ColonyTickProcessorService {
 
   async processTick(colony: Colony): Promise<ColonyTickResult> {
     const events: ColonyTickEvent[] = [];
+    await this.countActiveTick(colony);
     await this.checkBuildingCompletions(colony, events);
     this.syncDefenseStats(colony);
     await this.balanceAndProduce(colony, events);
@@ -198,6 +203,25 @@ export class ColonyTickProcessorService {
       productionDelta: summary.productionDelta,
       events,
     };
+  }
+
+  /** A system counts as explored once an own colony has been active there for 35 ticks. */
+  private async countActiveTick(colony: Colony): Promise<void> {
+    const ticks = colony.activeTicks ?? 0;
+    if (ticks >= COLONY_EXPLORATION_TICKS) return;
+    colony.activeTicks = ticks + 1;
+    await this.colonyRepo.increment({ id: colony.id }, 'activeTicks', 1);
+    if (
+      colony.activeTicks === COLONY_EXPLORATION_TICKS &&
+      colony.userId != null &&
+      colony.starSystemId != null
+    ) {
+      await this.exploration?.discoverSystem({
+        userId: colony.userId,
+        starSystemId: colony.starSystemId,
+        source: 'COLONY_ACTIVE',
+      });
+    }
   }
 
   private syncDefenseStats(colony: Colony): void {

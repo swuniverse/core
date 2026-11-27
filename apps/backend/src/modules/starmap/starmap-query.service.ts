@@ -466,9 +466,7 @@ export class StarmapQueryService {
     );
     // A system in the player's database (e.g. the home system) is fully known,
     // even when its field was only ever seen at TERRAIN level.
-    const exploredSystemIds = new Set(
-      systemExplorations.map((e) => e.starSystemId),
-    );
+    const exploredSystemIds = new Set(systemExplorations.map((e) => e.starSystemId));
     const levelOf = (field: GalaxyField): ExplorationLevel | undefined => {
       if (fullyExplored) return ExplorationLevel.FULL;
       if (field.starSystemId && exploredSystemIds.has(field.starSystemId))
@@ -566,9 +564,7 @@ export class StarmapQueryService {
     const exploredMap = new Map(
       exploredStates.map((s) => [`${s.cx},${s.cy}`, s.explorationLevel]),
     );
-    const exploredSystemIds = new Set(
-      systemExplorations.map((e) => e.starSystemId),
-    );
+    const exploredSystemIds = new Set(systemExplorations.map((e) => e.starSystemId));
     // Systems in the player's database are fully known, even if only seen at TERRAIN level.
     const levelOf = (field: GalaxyField): ExplorationLevel | undefined =>
       fullyExplored ||

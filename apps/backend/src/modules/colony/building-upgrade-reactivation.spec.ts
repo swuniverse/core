@@ -144,6 +144,7 @@ function setup(producesMaintenance = true, sourceActive = true) {
   const changeableRepo = { save: jest.fn(async (value) => value) };
   const colonyRepo = {
     save: jest.fn(async (value) => value),
+    increment: jest.fn(async () => ({ affected: 1 })),
     find: jest.fn(async () => [colony]),
   };
   const storageRepo = {

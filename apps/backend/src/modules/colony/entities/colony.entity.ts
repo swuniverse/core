@@ -85,6 +85,13 @@ export class Colony {
   isStarter: boolean;
 
   /**
+   * Ticks, die die Kolonie aktiv bestanden hat. Nach COLONY_EXPLORATION_TICKS gilt ihr
+   * Sternensystem als erkundet (Schutz gegen Kolonisieren und sofortiges Aufgeben).
+   */
+  @Column({ type: 'int', default: 0 })
+  activeTicks: number;
+
+  /**
    * Solarertrag in TJ (siehe starmap/generator/swu-solar.ts), einmalig bei
    * Gruendung berechnet - haengt nur von Zone/Rotation/Archetyp/Orbit-Distanz
    * ab, die sich danach nie mehr aendern. Treibt den Energie-Output der
