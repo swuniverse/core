@@ -179,28 +179,14 @@ export class ColonyEconomyService {
           presentFunctionIds: defenseGroup.presentFunctionIds,
           activeFunctionIds: defenseGroup.activeFunctionIds,
         },
+        // Jäger entstehen im Hangar eines Landefelds, Raumbahnhofs oder Raumhafens,
+        // nicht im Werfthub; die Jägerwerft ist obsolet.
         hangar: {
-          visible: hasPresent([
-            ...this.airfieldFunctionIds,
-            ...this.fighterShipyardFunctionIds,
-          ]),
-          reason: 'Benötigt einen gebauten Raumhafen oder eine Jägerwerft',
-          requiredFunctionIds: [
-            ...this.airfieldFunctionIds,
-            ...this.fighterShipyardFunctionIds,
-          ],
-          presentFunctionIds: [
-            ...airfieldGroup.presentFunctionIds,
-            ...shipyardGroup.presentFunctionIds.filter((id) =>
-              this.fighterShipyardFunctionIds.includes(id),
-            ),
-          ],
-          activeFunctionIds: [
-            ...airfieldGroup.activeFunctionIds,
-            ...shipyardGroup.activeFunctionIds.filter((id) =>
-              this.fighterShipyardFunctionIds.includes(id),
-            ),
-          ],
+          visible: hasPresent(this.airfieldFunctionIds),
+          reason: 'Benötigt ein gebautes Landefeld, einen Raumbahnhof oder Raumhafen',
+          requiredFunctionIds: this.airfieldFunctionIds,
+          presentFunctionIds: airfieldGroup.presentFunctionIds,
+          activeFunctionIds: airfieldGroup.activeFunctionIds,
         },
       },
       functions: {

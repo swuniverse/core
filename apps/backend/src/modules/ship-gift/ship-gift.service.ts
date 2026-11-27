@@ -1,6 +1,8 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { Colony } from '../colony/entities/colony.entity';
+import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
+import { Crew, CrewType } from '../colony/entities/crew.entity';
 import { GameDataService } from '../game-data/game-data.service';
 import { OrderBroadcastService } from '../order-broadcast/order-broadcast.service';
 import { Research, ResearchStatus } from '../research/entities/research.entity';
@@ -53,7 +55,31 @@ export class ShipGiftService implements OnApplicationBootstrap {
     }
     if (granted > 0)
       this.logger.log(`Granted ${granted} gift ships retroactively`);
+    await this.crewUncrewedGifts();
     return granted;
+  }
+
+  /** Scouts were first handed out without a crew; man the ones still empty. */
+  private async crewUncrewedGifts(): Promise<void> {
+    const keys = SHIP_GIFTS.filter((gift) => gift.moduleCommodityIds).map(
+      (gift) => gift.key,
+    );
+    const gifts = await this.dataSource
+      .getRepository(ShipGift)
+      .createQueryBuilder('g')
+      .where('g."giftKey" IN (:...keys)', { keys })
+      .andWhere('g."spacecraftId" IS NOT NULL')
+      .getMany();
+    for (const gift of gifts) {
+      await this.dataSource.transaction(async (manager) => {
+        const ship = await manager
+          .getRepository(Spacecraft)
+          .findOneBy({ id: gift.spacecraftId! });
+        if (ship && ship.crew === 0) {
+          await this.addMinimumCrew(manager, ship, gift.userId);
+        }
+      });
+    }
   }
 
   onFirstColony(userId: number): Promise<ShipGiftResult[]> {
@@ -110,7 +136,9 @@ export class ShipGiftService implements OnApplicationBootstrap {
         hull,
         { name: hull.name, userId, locationId: location.id, location },
         this.gameData,
+        gift.moduleCommodityIds,
       );
+      await this.addMinimumCrew(manager, ship, userId);
       await this.bringOnline(manager, ship);
       await manager
         .getRepository(ShipGift)
@@ -121,6 +149,38 @@ export class ShipGiftService implements OnApplicationBootstrap {
       await this.orders.send(SHIP_GIFT_MESSAGE, userId);
     }
     return outcome;
+  }
+
+  /** Crewed gift hulls arrive with their minimum crew aboard. */
+  private async addMinimumCrew(
+    manager: EntityManager,
+    ship: Spacecraft,
+    userId: number,
+  ): Promise<void> {
+    const missing = Math.min(ship.crewRequired, ship.crewMax) - ship.crew;
+    if (missing <= 0) return;
+    const crewRepo = manager.getRepository(Crew);
+    const assignmentRepo = manager.getRepository(CrewAssignment);
+    for (let index = 0; index < missing; index++) {
+      const member = await crewRepo.save(
+        crewRepo.create({
+          userId,
+          name: `Besatzung ${ship.id}-${ship.crew + index + 1}`,
+          type: CrewType.CREWMAN,
+        }),
+      );
+      await assignmentRepo.save(
+        assignmentRepo.create({
+          crewId: member.id,
+          userId,
+          colonyId: null,
+          spacecraftId: ship.id,
+          slot: CrewType.CREWMAN,
+        }),
+      );
+    }
+    ship.crew += missing;
+    await manager.getRepository(Spacecraft).save(ship);
   }
 
   /** Gift ships arrive ready to fly: full shields, every installed system running. */

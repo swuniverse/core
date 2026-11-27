@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Research, ResearchStatus } from './entities/research.entity';
 import { ShipGiftService } from '../ship-gift/ship-gift.service';
 import { GameDataService, TechDef } from '../game-data/game-data.service';
@@ -636,6 +636,77 @@ export class ResearchService {
 
     await this.reorderQueue(userId);
     return research;
+  }
+
+  /**
+   * Takes retired technologies back from every player. Spent points (completed
+   * technologies count at least their effort) are credited to the player's active
+   * research, in progress first, then the queue; points that find no active research
+   * are lost. Idempotent: the rows are gone afterwards.
+   */
+  async retireResearch(techIds: number[]): Promise<number> {
+    const rows = await this.researchRepo.find({
+      where: { techId: In(techIds) },
+    });
+    const refundByUser = new Map<number, number>();
+    const namesByUser = new Map<number, string[]>();
+    for (const row of rows) {
+      const tech = this.gameData.getTech(row.techId);
+      const refund =
+        row.status === ResearchStatus.COMPLETED
+          ? Math.max(row.spentPoints ?? 0, tech ? this.getPointsRequired(tech) : 0)
+          : (row.spentPoints ?? 0);
+      refundByUser.set(row.userId, (refundByUser.get(row.userId) ?? 0) + refund);
+      namesByUser.set(row.userId, [
+        ...(namesByUser.get(row.userId) ?? []),
+        tech?.name ?? `#${row.techId}`,
+      ]);
+    }
+    if (rows.length === 0) return 0;
+    await this.researchRepo.remove(rows);
+    for (const [userId, refund] of refundByUser) {
+      await this.reorderQueue(userId);
+      const credited = await this.creditPoints(userId, refund);
+      await this.messagingService.sendSystem(
+        userId,
+        `Die Forschung ${[...new Set(namesByUser.get(userId))].join(', ')} wurde zurückgenommen. ` +
+          `${credited} von ${refund} Forschungspunkten wurden Ihren aktiven Forschungen gutgeschrieben.`,
+        `research-retired:${userId}:${techIds.join('-')}`,
+        MessageFolder.COLONY,
+      );
+    }
+    return rows.length;
+  }
+
+  /** Applies points to the active research, then to the queue; returns what was used. */
+  async creditPoints(userId: number, points: number): Promise<number> {
+    let leftover = points;
+    let current: Research | null =
+      (await this.researchRepo.findOne({
+        where: { userId, status: ResearchStatus.IN_PROGRESS },
+      })) ?? (await this.promoteQueued(userId));
+    while (leftover > 0 && current) {
+      const tech = this.gameData.getTech(current.techId);
+      if (!tech) break;
+      const remaining = current.remainingPoints ?? this.getPointsRequired(tech);
+      const applied = Math.min(leftover, remaining);
+      leftover -= applied;
+      current.spentPoints = (current.spentPoints ?? 0) + applied;
+      current.progress = current.spentPoints;
+      current.remainingPoints = remaining - applied;
+      if (current.remainingPoints > 0) {
+        await this.researchRepo.save(current);
+        break;
+      }
+      current.status = ResearchStatus.COMPLETED;
+      current.finishesAt = null;
+      current.completedAt = new Date();
+      current.blockedReason = null;
+      await this.researchRepo.save(current);
+      await this.notifyCompletion(userId, current.id, tech);
+      current = await this.promoteQueued(userId);
+    }
+    return points - leftover;
   }
 
   private async promoteQueued(userId: number): Promise<Research | null> {

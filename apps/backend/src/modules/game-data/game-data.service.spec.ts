@@ -29,7 +29,7 @@ describe('GameDataService research ship rewards', () => {
   beforeAll(() => {
     service = new GameDataService();
     service.onModuleInit();
-    const shipClass = service.getShipClassDefByKey('REBEL_FIGHTER_A_WING')!;
+    const shipClass = service.getShipClassDefByKey('REBEL_FIGHTER_Y_WING')!;
     slotIds = service
       .getShipClassSlotRuleForShipClass(shipClass)!
       .slots.map((slot) => slot.slotId);
@@ -57,13 +57,13 @@ describe('GameDataService research ship rewards', () => {
   const completeReward = () => ({
     faction: 'REBEL_ALLIANCE',
     techId: 10,
-    shipClassKey: 'REBEL_FIGHTER_A_WING',
+    shipClassKey: 'REBEL_FIGHTER_Y_WING',
     moduleSelections: slotIds.map((slotId) => ({ slotId, commodityId: 10501 })),
   });
 
   it('keeps a complete reward on the technology', () => {
     expect(loadWith(completeReward())[0].shipReward?.shipClassKey).toBe(
-      'REBEL_FIGHTER_A_WING',
+      'REBEL_FIGHTER_Y_WING',
     );
   });
 
@@ -566,13 +566,13 @@ describe('GameDataService fabrication items', () => {
     expect(
       service.isShipyardModuleAllowedForShipClass(
         service.getFabricationItem('module.special.astrometrie-labor')!,
-        { key: 'REBEL_FRIGATE_CONSULAR', category: 'FRIGATE' },
+        { key: 'REBEL_CORVETTE_DEFENDER', category: 'CORVETTE' },
       ),
     ).toBe(true);
     expect(
       service.isShipyardModuleAllowedForShipClass(
         service.getFabricationItem('module.special.matrixsensoren')!,
-        { key: 'REBEL_SCOUT_HWK_290', category: 'ESCORT' },
+        { key: 'REBEL_CORVETTE_BRAHATOK', category: 'CORVETTE' },
       ),
     ).toBe(true);
   });
@@ -640,8 +640,8 @@ describe('GameDataService hangar ship definitions', () => {
   });
 
   it('loads current airfield hangar definitions', () => {
-    expect(service.getHangarShipDef('REBEL_SHUTTLE_LAAT')).toMatchObject({
-      hangarCommodityId: 21401,
+    expect(service.getHangarShipDef('REBEL_SHUTTLE_U_WING')).toMatchObject({
+      hangarCommodityId: 21491,
       airfieldFunctionId: FUNCTIONS.AIRFIELD,
       startEnergyCost: 150,
       buildEnergyCost: 90,
@@ -650,9 +650,13 @@ describe('GameDataService hangar ship definitions', () => {
       ],
     });
     expect(service.getHangarShipDefByCommodity(21401)).toMatchObject({
-      shipClassKey: 'REBEL_SHUTTLE_LAAT',
+      shipClassKey: 'REBEL_FIGHTER_B_WING',
     });
-    expect(service.getAllHangarShipDefs()).toHaveLength(20);
+    expect(service.getHangarShipDefByCommodity(21205)).toMatchObject({
+      shipClassKey: 'EMPIRE_FIGHTER_TIE_SA',
+    });
+    expect(service.getHangarShipDef('REBEL_SHUTTLE_LAAT')).toBeUndefined();
+    expect(service.getAllHangarShipDefs()).toHaveLength(21);
 
     expect(service.getHangarShipDef('REBEL_FIGHTER_X_WING')).toMatchObject({
       hangarCommodityId: 21201,

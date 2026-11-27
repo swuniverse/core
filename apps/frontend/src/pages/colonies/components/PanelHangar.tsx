@@ -77,9 +77,9 @@ export function PanelHangar({
         <div className="text-[10px] font-bold text-swu-muted uppercase">
           Rumpf bauen
         </div>
-        {!hangar.hasAirfield && !hangar.hasFighterShipyard && (
+        {!hangar.hasAirfield && (
           <div className="text-red-400">
-            Aktiver Raumhafen oder aktive Jägerwerft erforderlich.
+            Aktives Landefeld, aktiver Raumbahnhof oder Raumhafen erforderlich.
           </div>
         )}
         {hangar.buildable.map((item) => {

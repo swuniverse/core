@@ -16,9 +16,14 @@ import { initializeSpacecraftRuntimeSystems } from './spacecraft-runtime-state.s
 export function prepareSmallCraft(
   hull: ShipClassDef,
   gameData?: GameDataService,
+  moduleCommodityIds?: readonly number[],
 ) {
   const hangar = gameData?.getHangarShipDef?.(hull.key);
-  const modules = (hangar?.defaultModuleCommodityIds ?? []).flatMap((id) => {
+  const modules = (
+    moduleCommodityIds ??
+    hangar?.defaultModuleCommodityIds ??
+    []
+  ).flatMap((id) => {
     const item = gameData?.getFabricationItemByOutputCommodity?.(id);
     return item?.moduleType
       ? [
@@ -51,8 +56,9 @@ export async function createSmallCraft(
   placement: Pick<Spacecraft, 'name' | 'userId' | 'locationId'> &
     Partial<Pick<Spacecraft, 'location' | 'dockedAtId' | 'shuttleCommodityId'>>,
   gameData?: GameDataService,
+  moduleCommodityIds?: readonly number[],
 ): Promise<Spacecraft> {
-  const plan = prepareSmallCraft(hull, gameData);
+  const plan = prepareSmallCraft(hull, gameData, moduleCommodityIds);
   const repo = manager.getRepository(Spacecraft);
   const ship = repo.create({
     ...placement,
