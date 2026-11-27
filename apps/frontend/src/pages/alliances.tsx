@@ -2372,6 +2372,7 @@ export function AllianceEditPage() {
   );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [promoting, setPromoting] = useState<number | null>(null);
 
   useEffect(() => {
     if (!alliance) return;
@@ -2458,28 +2459,81 @@ export function AllianceEditPage() {
 
   const memberActions = (member: AllianceMemberDto) => {
     const buttons: ReactNode[] = [];
+    // STU „Befördern“/„Degradieren“; several roles per member (ADR 0001).
     // The founder role is never assignable; it moves via transfer only.
-    if (member.actions.editRoles) {
-      for (const role of alliance.roles) {
-        if (!role.actions.assign) continue;
-        const held = member.roles.some((r) => r.id === role.id);
+    const assignable = member.actions.editRoles
+      ? alliance.roles.filter((role) => role.actions.assign)
+      : [];
+    const roleUrl = (roleId: number) =>
+      `/alliances/${alliance.id}/members/${member.userId}/roles/${roleId}`;
+    const removable = assignable.filter((role) =>
+      member.roles.some((r) => r.id === role.id),
+    );
+    if (assignable.length > 0) {
+      const open = promoting === member.userId;
+      buttons.push(
+        <button
+          key="promote"
+          type="button"
+          aria-expanded={open}
+          className={buttonClass}
+          onClick={() => setPromoting(open ? null : member.userId)}
+        >
+          Befördern
+        </button>,
+      );
+      if (open) {
         buttons.push(
-          <button
-            key={`role-${role.id}`}
-            type="button"
-            disabled={busy}
-            className={buttonClass}
-            onClick={() =>
-              void run(() => {
-                const url = `/alliances/${alliance.id}/members/${member.userId}/roles/${role.id}`;
-                return held ? api.delete(url) : api.put(url, {});
-              })
-            }
+          <fieldset
+            key="promote-roles"
+            aria-label={`Rollen von ${member.name}`}
+            className="flex basis-full flex-wrap gap-x-3 gap-y-1 border-t border-swu-border/60 pt-1"
           >
-            {held ? `${role.title} entziehen` : `${role.title} zuweisen`}
-          </button>,
+            {assignable.map((role) => {
+              const held = member.roles.some((r) => r.id === role.id);
+              return (
+                <label
+                  key={role.id}
+                  className="flex items-center gap-1 text-xs"
+                >
+                  <input
+                    type="checkbox"
+                    checked={held}
+                    disabled={busy}
+                    onChange={() =>
+                      void run(() =>
+                        held
+                          ? api.delete(roleUrl(role.id))
+                          : api.put(roleUrl(role.id), {}),
+                      )
+                    }
+                  />
+                  {role.title}
+                </label>
+              );
+            })}
+          </fieldset>,
         );
       }
+    }
+    if (removable.length > 0) {
+      buttons.push(
+        <button
+          key="demote"
+          type="button"
+          disabled={busy}
+          className={dangerButtonClass}
+          onClick={() => {
+            if (!window.confirm(`${member.name} von allen Rollen entbinden?`))
+              return;
+            void run(async () => {
+              for (const role of removable) await api.delete(roleUrl(role.id));
+            });
+          }}
+        >
+          Degradieren
+        </button>,
+      );
     }
     if (member.actions.transferPresidency) {
       buttons.push(
@@ -2532,227 +2586,255 @@ export function AllianceEditPage() {
   };
 
   return (
-    <div className="max-w-2xl space-y-4 p-3 md:p-6">
+    <div
+      className={`${alliance.viewer.actions.manageRoles ? 'max-w-6xl' : 'max-w-2xl'} space-y-4 p-3 md:p-6`}
+    >
       <BackLink to={`/alliances/${alliance.id}`} label={alliance.name} />
       <PageTitle>Allianz bearbeiten</PageTitle>
       <ErrorMessage message={error} />
-      <AllianceDepotsPanel
-        allianceId={alliance.id}
-        permissions={alliance.viewer.permissions}
-      />
-      {alliance.viewer.actions.editDetails && (
-        <form
-          onSubmit={submit}
-          className="space-y-3 border border-swu-border bg-swu-surface p-4"
-        >
-          <Field label="Name" hint="5 bis 40 Zeichen">
-            {(fieldId) => (
-              <input
-                id={fieldId}
-                value={form.name}
-                maxLength={40}
-                onChange={(e) => set('name', e.target.value)}
-                className={inputClass}
-              />
-            )}
-          </Field>
-          <Field
-            label="Beschreibung"
-            hint="BBCode erlaubt, höchstens 10.000 Zeichen. Platzhalter: $ALLIANCE_PRESIDENT, $ALLIANCE_VICEPRESIDENT, $ALLIANCE_FOREIGNMINISTER, $ALLIANCE_HOMEPAGE_LINK"
-          >
-            {(fieldId) => (
-              <textarea
-                id={fieldId}
-                value={form.description}
-                rows={10}
-                maxLength={10000}
-                onChange={(e) => set('description', e.target.value)}
-                className={inputClass}
-              />
-            )}
-          </Field>
-          <Field label="Homepage" hint="Leer oder mit http:// bzw. https://">
-            {(fieldId) => (
-              <input
-                id={fieldId}
-                value={form.homepage}
-                onChange={(e) => set('homepage', e.target.value)}
-                className={inputClass}
-              />
-            )}
-          </Field>
-          <Field label="Farbe" hint="Leer oder #rrggbb, z. B. #11ff67">
-            {(fieldId) => (
-              <span className="flex items-center gap-2">
+      <div
+        className={
+          alliance.viewer.actions.manageRoles
+            ? 'grid items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]'
+            : ''
+        }
+      >
+        <div className="space-y-4">
+          <AllianceDepotsPanel
+            allianceId={alliance.id}
+            permissions={alliance.viewer.permissions}
+          />
+          {alliance.viewer.actions.editDetails && (
+            <form
+              onSubmit={submit}
+              className="space-y-3 border border-swu-border bg-swu-surface p-4"
+            >
+              <Field label="Name" hint="5 bis 40 Zeichen">
+                {(fieldId) => (
+                  <input
+                    id={fieldId}
+                    value={form.name}
+                    maxLength={40}
+                    onChange={(e) => set('name', e.target.value)}
+                    className={inputClass}
+                  />
+                )}
+              </Field>
+              <Field
+                label="Beschreibung"
+                hint="BBCode erlaubt, höchstens 10.000 Zeichen. Platzhalter: $ALLIANCE_PRESIDENT, $ALLIANCE_VICEPRESIDENT, $ALLIANCE_FOREIGNMINISTER, $ALLIANCE_HOMEPAGE_LINK"
+              >
+                {(fieldId) => (
+                  <textarea
+                    id={fieldId}
+                    value={form.description}
+                    rows={10}
+                    maxLength={10000}
+                    onChange={(e) => set('description', e.target.value)}
+                    className={inputClass}
+                  />
+                )}
+              </Field>
+              <Field
+                label="Homepage"
+                hint="Leer oder mit http:// bzw. https://"
+              >
+                {(fieldId) => (
+                  <input
+                    id={fieldId}
+                    value={form.homepage}
+                    onChange={(e) => set('homepage', e.target.value)}
+                    className={inputClass}
+                  />
+                )}
+              </Field>
+              <Field label="Farbe" hint="Leer oder #rrggbb, z. B. #11ff67">
+                {(fieldId) => (
+                  <span className="flex items-center gap-2">
+                    <input
+                      id={fieldId}
+                      value={form.color}
+                      maxLength={7}
+                      placeholder="#rrggbb"
+                      onChange={(e) => set('color', e.target.value)}
+                      className={inputClass}
+                    />
+                    <span
+                      aria-hidden
+                      className="size-7 shrink-0 border border-swu-border"
+                      style={{
+                        backgroundColor: /^#[0-9a-f]{6}$/i.test(form.color)
+                          ? form.color
+                          : 'transparent',
+                      }}
+                    />
+                  </span>
+                )}
+              </Field>
+              <label className="flex items-center gap-2 text-sm">
                 <input
-                  id={fieldId}
-                  value={form.color}
-                  maxLength={7}
-                  placeholder="#rrggbb"
-                  onChange={(e) => set('color', e.target.value)}
-                  className={inputClass}
+                  type="checkbox"
+                  checked={form.acceptsApplications}
+                  onChange={(e) => set('acceptsApplications', e.target.checked)}
                 />
-                <span
-                  aria-hidden
-                  className="size-7 shrink-0 border border-swu-border"
-                  style={{
-                    backgroundColor: /^#[0-9a-f]{6}$/i.test(form.color)
-                      ? form.color
-                      : 'transparent',
-                  }}
-                />
-              </span>
-            )}
-          </Field>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={form.acceptsApplications}
-              onChange={(e) => set('acceptsApplications', e.target.checked)}
-            />
-            Bewerbungen annehmen
-          </label>
-          {alliance.acceptsApplications && !form.acceptsApplications && (
-            <p className="text-xs text-swu-warning">
-              Beim Schließen werden alle offenen Bewerbungen abgelehnt.
-            </p>
-          )}
-          <button type="submit" disabled={busy} className={primaryButtonClass}>
-            Speichern
-          </button>
-        </form>
-      )}
-
-      {alliance.viewer.actions.manageBanner && (
-        <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
-          <h2 className="text-sm font-bold text-swu-primary">Allianzlogo</h2>
-          {alliance.banner && (
-            <img
-              src={alliance.banner.url}
-              alt={`Banner von ${alliance.name}`}
-              className="h-auto max-w-full border border-swu-border"
-            />
-          )}
-          <div className="flex flex-wrap gap-2">
-            <label className={`${buttonClass} cursor-pointer`}>
-              {alliance.banner ? 'Banner ersetzen' : 'Banner hochladen'}
-              <input
-                type="file"
-                accept="image/png"
-                className="sr-only"
+                Bewerbungen annehmen
+              </label>
+              {alliance.acceptsApplications && !form.acceptsApplications && (
+                <p className="text-xs text-swu-warning">
+                  Beim Schließen werden alle offenen Bewerbungen abgelehnt.
+                </p>
+              )}
+              <button
+                type="submit"
                 disabled={busy}
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  event.target.value = '';
-                  if (!file) return;
-                  const upload = new FormData();
-                  upload.append('file', file);
-                  void run(() =>
-                    api.postForm(`/alliances/${alliance.id}/banner`, upload),
-                  );
-                }}
+                className={primaryButtonClass}
+              >
+                Speichern
+              </button>
+            </form>
+          )}
+
+          {alliance.viewer.actions.manageBanner && (
+            <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
+              <h2 className="text-sm font-bold text-swu-primary">
+                Allianzlogo
+              </h2>
+              {alliance.banner && (
+                <img
+                  src={alliance.banner.url}
+                  alt={`Banner von ${alliance.name}`}
+                  className="h-auto max-w-full border border-swu-border"
+                />
+              )}
+              <div className="flex flex-wrap gap-2">
+                <label className={`${buttonClass} cursor-pointer`}>
+                  {alliance.banner ? 'Banner ersetzen' : 'Banner hochladen'}
+                  <input
+                    type="file"
+                    accept="image/png"
+                    className="sr-only"
+                    disabled={busy}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = '';
+                      if (!file) return;
+                      const upload = new FormData();
+                      upload.append('file', file);
+                      void run(() =>
+                        api.postForm(
+                          `/alliances/${alliance.id}/banner`,
+                          upload,
+                        ),
+                      );
+                    }}
+                  />
+                </label>
+                {alliance.banner && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className={buttonClass}
+                    onClick={() => {
+                      if (!window.confirm('Das Banner wirklich entfernen?'))
+                        return;
+                      void run(() =>
+                        api.delete(`/alliances/${alliance.id}/banner`),
+                      );
+                    }}
+                  >
+                    Banner entfernen
+                  </button>
+                )}
+              </div>
+            </section>
+          )}
+
+          {alliance.members.some((member) =>
+            Object.values(member.actions).some(Boolean),
+          ) && (
+            <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
+              <h2 className="text-sm font-bold text-swu-primary">
+                Mitgliederverwaltung
+              </h2>
+              <AllianceMembersSection
+                title="Leitung"
+                members={alliance.members.filter((member) =>
+                  isAllianceLeader(alliance, member),
+                )}
+                actions={memberActions}
               />
-            </label>
-            {alliance.banner && (
-              <button
-                type="button"
-                disabled={busy}
-                className={buttonClass}
-                onClick={() => {
-                  if (!window.confirm('Das Banner wirklich entfernen?')) return;
-                  void run(() =>
-                    api.delete(`/alliances/${alliance.id}/banner`),
-                  );
-                }}
-              >
-                Banner entfernen
-              </button>
-            )}
-          </div>
-        </section>
-      )}
+              <AllianceMembersSection
+                title="Mitglieder"
+                members={alliance.members.filter(
+                  (member) => !isAllianceLeader(alliance, member),
+                )}
+                actions={memberActions}
+              />
+            </section>
+          )}
 
-      {alliance.viewer.actions.manageRoles && (
-        <AllianceRolesEditor
-          alliance={alliance}
-          busy={busy}
-          run={(action) => void run(action)}
-        />
-      )}
-
-      {alliance.members.some((member) =>
-        Object.values(member.actions).some(Boolean),
-      ) && (
-        <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
-          <h2 className="text-sm font-bold text-swu-primary">
-            Mitgliederverwaltung
-          </h2>
-          <AllianceMembersSection
-            title="Leitung"
-            members={alliance.members.filter((member) =>
-              isAllianceLeader(alliance, member),
-            )}
-            actions={memberActions}
+          {(alliance.viewer.actions.leave ||
+            alliance.viewer.actions.dissolve) && (
+            <section className="space-y-3 border border-swu-danger/70 bg-swu-surface p-4">
+              <h2 className="text-sm font-bold text-red-400">
+                Gefahrenbereich
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {alliance.viewer.actions.leave && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className={buttonClass}
+                    onClick={() => {
+                      const last = alliance.memberCount === 1;
+                      if (
+                        !window.confirm(
+                          last
+                            ? `Du bist das letzte Mitglied. Mit dem Austritt wird ${alliance.name} aufgelöst. Fortfahren?`
+                            : `${alliance.name} wirklich verlassen?`,
+                        )
+                      )
+                        return;
+                      void run(() => api.post('/alliances/leave', {}), 'list');
+                    }}
+                  >
+                    Allianz verlassen
+                  </button>
+                )}
+                {alliance.viewer.actions.dissolve && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className={dangerButtonClass}
+                    onClick={() => {
+                      if (
+                        !window.confirm(
+                          `Die Allianz ${alliance.name} endgültig auflösen? Alle Mitglieder verlieren ihre Mitgliedschaft.`,
+                        )
+                      )
+                        return;
+                      void run(
+                        () => api.delete(`/alliances/${alliance.id}`),
+                        'list',
+                      );
+                    }}
+                  >
+                    Allianz auflösen
+                  </button>
+                )}
+              </div>
+            </section>
+          )}
+        </div>
+        {alliance.viewer.actions.manageRoles && (
+          <AllianceRolesEditor
+            alliance={alliance}
+            busy={busy}
+            run={(action) => void run(action)}
+            reload={reload}
           />
-          <AllianceMembersSection
-            title="Mitglieder"
-            members={alliance.members.filter(
-              (member) => !isAllianceLeader(alliance, member),
-            )}
-            actions={memberActions}
-          />
-        </section>
-      )}
-
-      {(alliance.viewer.actions.leave || alliance.viewer.actions.dissolve) && (
-        <section className="space-y-3 border border-swu-danger/70 bg-swu-surface p-4">
-          <h2 className="text-sm font-bold text-red-400">Gefahrenbereich</h2>
-          <div className="flex flex-wrap gap-2">
-            {alliance.viewer.actions.leave && (
-              <button
-                type="button"
-                disabled={busy}
-                className={buttonClass}
-                onClick={() => {
-                  const last = alliance.memberCount === 1;
-                  if (
-                    !window.confirm(
-                      last
-                        ? `Du bist das letzte Mitglied. Mit dem Austritt wird ${alliance.name} aufgelöst. Fortfahren?`
-                        : `${alliance.name} wirklich verlassen?`,
-                    )
-                  )
-                    return;
-                  void run(() => api.post('/alliances/leave', {}), 'list');
-                }}
-              >
-                Allianz verlassen
-              </button>
-            )}
-            {alliance.viewer.actions.dissolve && (
-              <button
-                type="button"
-                disabled={busy}
-                className={dangerButtonClass}
-                onClick={() => {
-                  if (
-                    !window.confirm(
-                      `Die Allianz ${alliance.name} endgültig auflösen? Alle Mitglieder verlieren ihre Mitgliedschaft.`,
-                    )
-                  )
-                    return;
-                  void run(
-                    () => api.delete(`/alliances/${alliance.id}`),
-                    'list',
-                  );
-                }}
-              >
-                Allianz auflösen
-              </button>
-            )}
-          </div>
-        </section>
-      )}
+        )}
+      </div>
     </div>
   );
 }

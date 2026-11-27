@@ -1,17 +1,16 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type KeyboardEvent } from 'react';
 import {
   ALLIANCE_PERMISSION_PARENT,
   AlliancePermission as P,
   grantsAlliancePermission,
   type AllianceDetailDto,
   type AllianceRoleDto,
-  type CreateAllianceRoleRequest,
   type UpdateAllianceRoleRequest,
 } from '@swuniverse/shared';
 import { api } from '../../services/api';
 
 const inputClass =
-  'w-full border border-swu-border bg-swu-bg px-2 py-1 text-sm text-swu-text focus:border-swu-accent focus:outline-none';
+  'min-w-0 flex-1 border border-swu-border bg-swu-bg px-2 py-1 text-sm text-swu-text focus:border-swu-accent focus:outline-none disabled:opacity-60';
 const buttonClass =
   'border border-swu-border px-2 py-0.5 text-xs text-swu-muted hover:text-swu-primary disabled:opacity-40';
 const dangerButtonClass =
@@ -23,7 +22,7 @@ const PERMISSION_LABEL: Record<P, string> = {
   [P.SUCCESSOR]: 'Vize',
   [P.DIPLOMATIC]: 'Diplomat',
   [P.CREATE_AGREEMENTS]: 'Kann Abkommen erstellen',
-  [P.EDIT_DIPLOMATIC_DOCUMENTS]: 'Kann diplomatische Vertragswerke bearbeiten',
+  [P.EDIT_DIPLOMATIC_DOCUMENTS]: 'Kann Vertragswerk ändern',
   [P.ALLIANCE_LEADERSHIP]: 'Gehört zur Allianzleitung',
   [P.EDIT_ALLIANCE]: 'Kann Allianz editieren',
   [P.MANAGE_APPLICATIONS]: 'Kann Bewerbungen bearbeiten',
@@ -35,10 +34,10 @@ const PERMISSION_LABEL: Record<P, string> = {
   [P.VIEW_ALLIANCE_HISTORY]: 'Kann Allianz-History einsehen',
 };
 
-/** STU `getPermissionGroup`; children follow `ALLIANCE_PERMISSION_PARENT`. */
+/** STU `allianceEdit.twig`: diplomatic rights first, then management rights. */
 const PERMISSION_GROUPS = [
-  { title: 'Verwaltungsrechte', parent: P.SUCCESSOR },
   { title: 'Diplomatische Rechte', parent: P.DIPLOMATIC },
+  { title: 'Verwaltungsrechte', parent: P.SUCCESSOR },
 ].map((group) => ({
   ...group,
   children: (Object.keys(ALLIANCE_PERMISSION_PARENT) as P[]).filter(
@@ -46,7 +45,66 @@ const PERMISSION_GROUPS = [
   ),
 }));
 
-type Run = (action: () => Promise<unknown>) => void;
+/**
+ * STU `initializePermissionLogic`: a set parent replaces its children, and
+ * ticking all children sets the parent (only if the viewer may grant it).
+ */
+function normalizePermissions(value: P[], held: readonly P[]): P[] {
+  let next = value;
+  for (const { parent, children } of PERMISSION_GROUPS) {
+    const complete = children.every((c) => next.includes(c));
+    if (
+      !next.includes(parent) &&
+      complete &&
+      grantsAlliancePermission(held, parent)
+    ) {
+      next = [...next, parent];
+    }
+    if (next.includes(parent)) next = next.filter((p) => !children.includes(p));
+  }
+  return next;
+}
+
+const sameSet = (a: readonly P[], b: readonly P[]) =>
+  a.length === b.length && a.every((p) => b.includes(p));
+
+/** One role card; `role` is null for a role not saved yet. */
+interface Card {
+  key: string;
+  role: AllianceRoleDto | null;
+  title: string;
+  permissions: P[];
+  open: boolean;
+}
+
+const toCard = (role: AllianceRoleDto): Card => ({
+  key: `role-${role.id}`,
+  role,
+  title: role.title,
+  permissions: role.permissions,
+  open: false,
+});
+
+const editable = (card: Card) => card.role?.actions.edit ?? true;
+// The founder role stays first; locked roles keep their place.
+const movable = (card: Card) => !card.role?.founder && editable(card);
+
+/**
+ * Moves `from` to the place of `to` among the movable cards only, so locked
+ * cards keep their positions (their sort cannot be changed by the viewer).
+ */
+function moveCard(cards: Card[], from: string, to: string): Card[] {
+  const slots = cards.flatMap((c, i) => (movable(c) ? [i] : []));
+  const order = slots.map((i) => cards[i]);
+  const fromIndex = order.findIndex((c) => c.key === from);
+  const toIndex = order.findIndex((c) => c.key === to);
+  if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return cards;
+  const [moved] = order.splice(fromIndex, 1);
+  order.splice(toIndex, 0, moved);
+  const next = [...cards];
+  slots.forEach((slot, i) => (next[slot] = order[i]));
+  return next;
+}
 
 function PermissionCheckbox({
   permission,
@@ -66,8 +124,14 @@ function PermissionCheckbox({
   const missing = !grantsAlliancePermission(held, permission);
   return (
     <label
-      className={`flex items-center gap-1.5 text-xs ${parent ? 'pl-4' : 'font-bold'}`}
-      title={missing ? 'Dieses Recht besitzt Du selbst nicht' : undefined}
+      className={`flex items-center gap-1.5 text-xs ${parent ? 'pl-5' : 'font-bold'}`}
+      title={
+        missing
+          ? 'Dieses Recht besitzt Du selbst nicht'
+          : included
+            ? 'Im Oberrecht enthalten'
+            : undefined
+      }
     >
       <input
         type="checkbox"
@@ -82,256 +146,309 @@ function PermissionCheckbox({
         }
       />
       {PERMISSION_LABEL[permission]}
-      {included && <span className="text-swu-muted">(enthalten)</span>}
       {missing && !included && (
-        <span className="text-swu-muted">(fehlt Dir)</span>
+        <span className="font-normal text-swu-muted">(fehlt Dir)</span>
       )}
     </label>
   );
 }
 
-function PermissionFields({
-  value,
-  held,
-  locked,
-  onChange,
-}: {
-  value: readonly P[];
-  held: readonly P[];
-  locked: boolean;
-  onChange: (next: P[]) => void;
-}) {
-  return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      {PERMISSION_GROUPS.map((group) => (
-        <fieldset key={group.parent} className="space-y-0.5">
-          <legend className="text-[10px] uppercase tracking-wider text-swu-muted">
-            {group.title}
-          </legend>
-          {[group.parent, ...group.children].map((permission) => (
-            <PermissionCheckbox
-              key={permission}
-              permission={permission}
-              value={value}
-              held={held}
-              locked={locked}
-              onChange={onChange}
-            />
-          ))}
-        </fieldset>
-      ))}
-    </div>
-  );
-}
-
-function RoleRow({
-  allianceId,
-  role,
+function RoleCard({
+  card,
   memberCount,
   held,
   busy,
-  run,
-  up,
-  down,
+  dragging,
+  onChange,
+  onDelete,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onMove,
 }: {
-  allianceId: number;
-  role: AllianceRoleDto;
+  card: Card;
   memberCount: number;
   held: readonly P[];
   busy: boolean;
-  run: Run;
-  /** Neighbours to swap places with; null when the move is not allowed. */
-  up: AllianceRoleDto | null;
-  down: AllianceRoleDto | null;
+  dragging: boolean;
+  onChange: (patch: Partial<Card>) => void;
+  onDelete: () => void;
+  onDragStart: () => void;
+  onDragOver: () => void;
+  onDragEnd: () => void;
+  onMove: (direction: -1 | 1) => void;
 }) {
-  const [title, setTitle] = useState(role.title);
-  const [permissions, setPermissions] = useState<P[]>(role.permissions);
-  useEffect(() => {
-    setTitle(role.title);
-    setPermissions(role.permissions);
-  }, [role]);
-
-  const base = `/alliances/${allianceId}/roles`;
-  const rightsChanged =
-    permissions.length !== role.permissions.length ||
-    permissions.some((p) => !role.permissions.includes(p));
-  const changed = title.trim() !== role.title || rightsChanged;
-  const swap = (other: AllianceRoleDto) =>
-    run(async () => {
-      await api.patch(`${base}/${role.id}`, { sort: other.sort });
-      await api.patch(`${base}/${other.id}`, { sort: role.sort });
-    });
+  // Stable while typing, so labels do not jump.
+  const label = card.role?.title ?? 'Neue Rolle';
+  const founder = card.role?.founder ?? false;
+  const locked = !editable(card) || busy;
+  const deletable = card.role ? card.role.actions.delete : true;
+  const handleKey = (event: KeyboardEvent) => {
+    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+    event.preventDefault();
+    onMove(event.key === 'ArrowUp' ? -1 : 1);
+  };
 
   return (
-    <li className="space-y-2 py-3">
-      <fieldset aria-label={`Rolle ${role.title}`} className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            aria-label={`Titel der Rolle ${role.title}`}
-            value={title}
-            maxLength={30}
-            disabled={!role.actions.edit || busy}
-            onChange={(e) => setTitle(e.target.value)}
-            className={`${inputClass} max-w-xs flex-1`}
-          />
-          <span className="text-xs text-swu-muted">
-            {memberCount} {memberCount === 1 ? 'Mitglied' : 'Mitglieder'}
-          </span>
-          <span className="ml-auto flex flex-wrap gap-1">
-            <button
-              type="button"
-              aria-label={`${role.title} nach oben`}
-              disabled={busy || !up}
-              className={buttonClass}
-              onClick={() => up && swap(up)}
-            >
-              ↑
-            </button>
-            <button
-              type="button"
-              aria-label={`${role.title} nach unten`}
-              disabled={busy || !down}
-              className={buttonClass}
-              onClick={() => down && swap(down)}
-            >
-              ↓
-            </button>
-            {role.actions.edit && (
-              <button
-                type="button"
-                disabled={busy || !changed}
-                className={buttonClass}
-                onClick={() => {
-                  const patch: UpdateAllianceRoleRequest = {};
-                  if (title.trim() !== role.title) patch.title = title;
-                  if (rightsChanged) patch.permissions = permissions;
-                  run(() => api.patch(`${base}/${role.id}`, patch));
-                }}
-              >
-                Speichern
-              </button>
-            )}
-            {role.actions.delete && (
-              <button
-                type="button"
-                disabled={busy}
-                className={dangerButtonClass}
-                onClick={() => {
-                  if (!window.confirm(`Die Rolle ${role.title} löschen?`)) {
-                    return;
-                  }
-                  run(() => api.delete(`${base}/${role.id}`));
-                }}
-              >
-                Löschen
-              </button>
-            )}
-          </span>
-        </div>
-        {role.founder ? (
-          <p className="text-xs text-swu-muted">
-            Präsident: alle Rechte, genau ein Inhaber. Die Rolle ist nicht
-            löschbar; übergeben wird sie in der Mitgliederverwaltung.
-          </p>
-        ) : (
-          <>
-            <PermissionFields
-              value={permissions}
-              held={held}
-              locked={!role.actions.edit || busy}
-              onChange={setPermissions}
-            />
-            {!role.actions.edit && (
-              <p className="text-xs text-swu-muted">
-                Du kannst diese Rolle nicht ändern: Sie enthält Rechte oder
-                Inhaber, die Du nicht verwalten darfst.
-              </p>
-            )}
-          </>
+    <li
+      aria-label={`Rolle ${label}`}
+      draggable={movable(card) && !busy}
+      onDragStart={(event) => {
+        event.dataTransfer?.setData('text/plain', card.key);
+        onDragStart();
+      }}
+      onDragOver={(event) => {
+        event.preventDefault();
+        onDragOver();
+      }}
+      onDragEnd={onDragEnd}
+      onDrop={(event) => event.preventDefault()}
+      className={`space-y-2 border bg-swu-bg/40 p-2 ${
+        dragging
+          ? 'border-dashed border-swu-accent opacity-40'
+          : 'border-swu-border'
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        {movable(card) && (
+          <button
+            type="button"
+            aria-label={`${label} verschieben`}
+            title="Ziehen oder mit Pfeiltasten verschieben"
+            disabled={busy}
+            onKeyDown={handleKey}
+            className="cursor-grab select-none text-lg leading-none text-swu-muted hover:text-swu-accent"
+          >
+            ☰
+          </button>
         )}
-      </fieldset>
+        <input
+          aria-label={`Titel der Rolle ${label}`}
+          value={card.title}
+          placeholder="Rollenbezeichnung"
+          maxLength={30}
+          disabled={locked}
+          onChange={(e) => onChange({ title: e.target.value })}
+          className={inputClass}
+        />
+        <span
+          className="text-xs text-swu-muted"
+          title={`${memberCount} ${memberCount === 1 ? 'Mitglied' : 'Mitglieder'}`}
+        >
+          {memberCount}
+        </span>
+        {!founder && (
+          <button
+            type="button"
+            aria-label={`Rechte von ${label}`}
+            aria-expanded={card.open}
+            className={buttonClass}
+            onClick={() => onChange({ open: !card.open })}
+          >
+            {card.open ? '▲' : '▼'}
+          </button>
+        )}
+        {!founder && deletable && (
+          <button
+            type="button"
+            disabled={busy}
+            className={dangerButtonClass}
+            onClick={onDelete}
+          >
+            Löschen
+          </button>
+        )}
+      </div>
+      {!founder && card.open && (
+        <div className="space-y-3 border-t border-swu-border pt-2">
+          {PERMISSION_GROUPS.map((group) => (
+            <fieldset key={group.parent} className="space-y-1">
+              <legend className="mb-1 text-xs font-bold text-swu-accent">
+                {group.title}
+              </legend>
+              {[group.parent, ...group.children].map((permission) => (
+                <PermissionCheckbox
+                  key={permission}
+                  permission={permission}
+                  value={card.permissions}
+                  held={held}
+                  locked={locked}
+                  onChange={(next) =>
+                    onChange({ permissions: normalizePermissions(next, held) })
+                  }
+                />
+              ))}
+            </fieldset>
+          ))}
+        </div>
+      )}
+      {!founder && !editable(card) && (
+        <p className="text-xs text-swu-muted">
+          Gesperrt: Die Rolle enthält Rechte oder Inhaber, die Du nicht
+          verwalten darfst.
+        </p>
+      )}
     </li>
   );
 }
 
-/** STU „Rollen“ (`ally.js`, `SaveJobs`) with the protection rule of ADR 0001. */
+/**
+ * STU „Allianz Rollen“ (`allianceEdit.twig`, `ally.js`): edit all roles
+ * locally, then save them at once. The server enforces the protection rule.
+ */
 export function AllianceRolesEditor({
   alliance,
   busy,
   run,
+  reload,
 }: {
   alliance: AllianceDetailDto;
   busy: boolean;
-  run: Run;
+  run: (action: () => Promise<unknown>) => void;
+  reload: () => Promise<void>;
 }) {
-  const [draft, setDraft] = useState<CreateAllianceRoleRequest>({
-    title: '',
-    permissions: [],
-  });
   const held = alliance.viewer.permissions ?? [];
-  const roles = [...alliance.roles].sort((a, b) => a.sort - b.sort);
-  // The founder role stays first; both swapped roles must be editable.
-  const movable = (role: AllianceRoleDto | undefined) =>
-    role && !role.founder && role.actions.edit ? role : null;
+  const [cards, setCards] = useState<Card[]>([]);
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [newCount, setNewCount] = useState(0);
 
-  function create(event: FormEvent) {
-    event.preventDefault();
-    run(async () => {
-      await api.post(`/alliances/${alliance.id}/roles`, draft);
-      setDraft({ title: '', permissions: [] });
+  useEffect(() => {
+    setCards([...alliance.roles].sort((a, b) => a.sort - b.sort).map(toCard));
+  }, [alliance.roles]);
+
+  const update = (key: string, patch: Partial<Card>) =>
+    setCards((all) => all.map((c) => (c.key === key ? { ...c, ...patch } : c)));
+
+  const move = (key: string, direction: -1 | 1) =>
+    setCards((all) => {
+      const order = all.filter(movable);
+      const target = order[order.findIndex((c) => c.key === key) + direction];
+      return target ? moveCard(all, key, target.key) : all;
     });
+
+  // shortcut: saves role by role with the existing endpoints, not in one
+  // transaction; a failure midway reloads the partly saved state.
+  async function saveAll() {
+    if (cards.some((c) => editable(c) && c.title.trim().length < 3)) {
+      throw new Error(
+        'Alle Rollenbezeichnungen müssen mindestens 3 Zeichen lang sein',
+      );
+    }
+    const base = `/alliances/${alliance.id}/roles`;
+    const order = cards.filter(movable);
+    let next = Math.max(0, ...alliance.roles.map((r) => r.sort));
+    const slots = [
+      ...order.flatMap((c) => (c.role ? [c.role.sort] : [])),
+      ...order.flatMap((c) => (c.role ? [] : [++next])),
+    ].sort((a, b) => a - b);
+    const sortOf = new Map(order.map((c, i) => [c.key, slots[i]]));
+    const kept = new Set(cards.map((c) => c.role?.id));
+    let changed = false;
+    try {
+      for (const role of alliance.roles) {
+        if (kept.has(role.id)) continue;
+        await api.delete(`${base}/${role.id}`);
+        changed = true;
+      }
+      for (const card of cards) {
+        const sort = sortOf.get(card.key);
+        if (!card.role) {
+          const { id } = await api.post<{ id: number }>(base, {
+            title: card.title,
+            permissions: card.permissions,
+          });
+          changed = true;
+          if (sort !== undefined) await api.patch(`${base}/${id}`, { sort });
+          continue;
+        }
+        if (!editable(card)) continue;
+        const patch: UpdateAllianceRoleRequest = {};
+        if (card.title.trim() !== card.role.title) patch.title = card.title;
+        if (
+          !card.role.founder &&
+          !sameSet(card.permissions, card.role.permissions)
+        ) {
+          patch.permissions = card.permissions;
+        }
+        if (sort !== undefined && sort !== card.role.sort) patch.sort = sort;
+        if (Object.keys(patch).length === 0) continue;
+        await api.patch(`${base}/${card.role.id}`, patch);
+        changed = true;
+      }
+    } catch (error) {
+      if (changed) await reload();
+      throw error;
+    }
   }
 
   return (
-    <section className="space-y-2 border border-swu-border bg-swu-surface p-4">
-      <h2 className="text-sm font-bold text-swu-primary">Rollen</h2>
-      <ul className="divide-y divide-swu-border/40">
-        {roles.map((role, index) => (
-          <RoleRow
-            key={role.id}
-            allianceId={alliance.id}
-            role={role}
+    <section className="space-y-3 border border-swu-border bg-swu-surface p-4">
+      <h2 className="text-sm font-bold text-swu-primary">Allianz Rollen</h2>
+      <ul className="space-y-2">
+        {cards.map((card) => (
+          <RoleCard
+            key={card.key}
+            card={card}
             memberCount={
-              alliance.members.filter((m) =>
-                m.roles.some((r) => r.id === role.id),
-              ).length
+              card.role
+                ? alliance.members.filter((m) =>
+                    m.roles.some((r) => r.id === card.role!.id),
+                  ).length
+                : 0
             }
             held={held}
             busy={busy}
-            run={run}
-            up={movable(role) && movable(roles[index - 1])}
-            down={movable(role) && movable(roles[index + 1])}
+            dragging={dragKey === card.key}
+            onChange={(patch) => update(card.key, patch)}
+            onDelete={() => {
+              if (
+                !window.confirm('Möchtest Du diese Rolle wirklich löschen?')
+              ) {
+                return;
+              }
+              setCards((all) => all.filter((c) => c.key !== card.key));
+            }}
+            onDragStart={() => setDragKey(card.key)}
+            onDragOver={() => {
+              if (dragKey && movable(card)) {
+                setCards((all) => moveCard(all, dragKey, card.key));
+              }
+            }}
+            onDragEnd={() => setDragKey(null)}
+            onMove={(direction) => move(card.key, direction)}
           />
         ))}
       </ul>
-      <form
-        onSubmit={create}
-        aria-label="Neue Rolle"
-        className="space-y-2 border-t border-swu-border pt-3"
-      >
-        <h3 className="text-xs font-bold text-swu-primary">Neue Rolle</h3>
-        <input
-          aria-label="Titel der neuen Rolle"
-          value={draft.title}
-          maxLength={30}
-          placeholder="Titel, 3 bis 30 Zeichen"
-          onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-          className={`${inputClass} max-w-xs`}
-        />
-        <PermissionFields
-          value={draft.permissions}
-          held={held}
-          locked={busy}
-          onChange={(permissions) => setDraft({ ...draft, permissions })}
-        />
+      <div className="flex flex-wrap gap-2 border-t border-swu-border pt-3">
         <button
-          type="submit"
-          disabled={busy || draft.title.trim() === ''}
+          type="button"
+          disabled={busy}
           className={buttonClass}
+          onClick={() => {
+            setNewCount(newCount + 1);
+            setCards([
+              ...cards,
+              {
+                key: `new-${newCount + 1}`,
+                role: null,
+                title: '',
+                permissions: [],
+                open: true,
+              },
+            ]);
+          }}
         >
-          Rolle anlegen
+          Neue Rolle hinzufügen
         </button>
-      </form>
+        <button
+          type="button"
+          disabled={busy}
+          className={buttonClass}
+          onClick={() => run(saveAll)}
+        >
+          Rollen speichern
+        </button>
+      </div>
     </section>
   );
 }

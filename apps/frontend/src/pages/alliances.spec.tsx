@@ -1490,9 +1490,7 @@ describe('AllianceDetailPage', () => {
         await screen.findByRole('link', { name: 'Editieren' }),
       ).toBeTruthy();
       expect(screen.queryByRole('button', { name: 'Rauswerfen' })).toBeNull();
-      expect(
-        screen.queryByRole('button', { name: 'Diplomat zuweisen' }),
-      ).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Befördern' })).toBeNull();
       detailPage.unmount();
 
       renderAt('/alliances/1/edit');
@@ -1503,17 +1501,32 @@ describe('AllianceDetailPage', () => {
       expect(
         within(wedge).getByRole('button', { name: 'Rauswerfen' }),
       ).toBeTruthy();
+      fireEvent.click(within(wedge).getByRole('button', { name: 'Befördern' }));
+      const wedgeRoles = within(wedge).getByRole('group', {
+        name: 'Rollen von Wedge',
+      });
       expect(
-        within(wedge).getByRole('button', { name: 'Diplomat zuweisen' }),
-      ).toBeTruthy();
+        (
+          within(wedgeRoles).getByRole('checkbox', {
+            name: 'Diplomat',
+          }) as HTMLInputElement
+        ).checked,
+      ).toBe(false);
       expect(
-        within(wedge).getByRole('button', { name: 'Vize-Präsident entziehen' }),
+        (
+          within(wedgeRoles).getByRole('checkbox', {
+            name: 'Vize-Präsident',
+          }) as HTMLInputElement
+        ).checked,
+      ).toBe(true);
+      expect(
+        within(wedge).getByRole('button', { name: 'Degradieren' }),
       ).toBeTruthy();
       expect(
         within(wedge).getByRole('button', { name: 'Präsidentenamt übergeben' }),
       ).toBeTruthy();
       expect(
-        within(wedge).queryByRole('button', { name: /Großadmiral/ }),
+        within(wedgeRoles).queryByRole('checkbox', { name: 'Großadmiral' }),
       ).toBeNull();
 
       const biggs = screen.getByRole('link', { name: 'Biggs' }).closest('li')!;
@@ -1544,14 +1557,17 @@ describe('AllianceDetailPage', () => {
         await screen.findByRole('link', { name: 'Wedge' })
       ).closest('li')!;
 
-      await clickWhenEnabled(wedge, 'Diplomat zuweisen');
+      fireEvent.click(within(wedge).getByRole('button', { name: 'Befördern' }));
+      fireEvent.click(
+        within(wedge).getByRole('checkbox', { name: 'Diplomat' }),
+      );
       await waitFor(() =>
         expect(apiMocks.put).toHaveBeenCalledWith(
           '/alliances/1/members/2/roles/3',
           {},
         ),
       );
-      await clickWhenEnabled(wedge, 'Vize-Präsident entziehen');
+      await clickWhenEnabled(wedge, 'Degradieren');
       await waitFor(() =>
         expect(apiMocks.delete).toHaveBeenCalledWith(
           '/alliances/1/members/2/roles/2',
@@ -1809,9 +1825,7 @@ describe('AllianceEditPage', () => {
 
     expect(await screen.findByLabelText('Banner hochladen')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Rauswerfen' })).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: 'Vize-Präsident zuweisen' }),
-    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Befördern' })).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Allianz verlassen' }),
     ).toBeTruthy();
@@ -2101,7 +2115,6 @@ describe('AllianceEditPage', () => {
 
 describe('alliance roles (soc-AUD-09b)', () => {
   const P = AlliancePermission;
-  const VICE_RIGHTS = [P.SUCCESSOR];
   const editable = (r: AllianceRoleDto): AllianceRoleDto => ({
     ...r,
     actions: { edit: true, delete: true, assign: true },
@@ -2117,19 +2130,34 @@ describe('alliance roles (soc-AUD-09b)', () => {
         ],
         members: [
           { ...detail().members[0] },
-          {
-            ...detail().members[1],
-            roles: [memberRole(ROLES[1])],
-          },
+          { ...detail().members[1], roles: [memberRole(ROLES[1])] },
         ],
       }),
       AllianceRole.VICE,
       { manageRoles: true },
     );
-  const roleRow = async (title: string) =>
-    (await screen.findByRole('group', {
+  const card = async (title: string) =>
+    (await screen.findByRole('listitem', {
       name: `Rolle ${title}`,
     })) as HTMLElement;
+  const openRights = async (title: string) => {
+    const item = await card(title);
+    fireEvent.click(
+      within(item).getByRole('button', { name: `Rechte von ${title}` }),
+    );
+    return item;
+  };
+  const titles = () =>
+    screen
+      .getAllByLabelText(/^Titel der Rolle/)
+      .map((input) => (input as HTMLInputElement).value);
+  const save = () =>
+    fireEvent.click(screen.getByRole('button', { name: 'Rollen speichern' }));
+
+  beforeEach(() => {
+    apiMocks.patch.mockResolvedValue(undefined);
+    apiMocks.delete.mockResolvedValue(undefined);
+  });
 
   it('shows the editor only with MANAGE_JOBS', async () => {
     routeGet({
@@ -2139,14 +2167,18 @@ describe('alliance roles (soc-AUD-09b)', () => {
     expect(
       await screen.findByRole('button', { name: 'Allianz verlassen' }),
     ).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'Rollen' })).toBeNull();
+    expect(
+      screen.queryByRole('heading', { name: 'Allianz Rollen' }),
+    ).toBeNull();
     view.unmount();
 
     routeGet({ '/alliances/1': rolesAlliance() });
     renderAt('/alliances/1/edit');
-    expect(await screen.findByRole('heading', { name: 'Rollen' })).toBeTruthy();
     expect(
-      within(await roleRow('Vize-Präsident')).getByText('1 Mitglied'),
+      await screen.findByRole('heading', { name: 'Allianz Rollen' }),
+    ).toBeTruthy();
+    expect(
+      within(await card('Vize-Präsident')).getByTitle('1 Mitglied'),
     ).toBeTruthy();
   });
 
@@ -2154,7 +2186,7 @@ describe('alliance roles (soc-AUD-09b)', () => {
     routeGet({ '/alliances/1': rolesAlliance() });
     renderAt('/alliances/1/edit');
 
-    const founder = await roleRow('Großadmiral');
+    const founder = await card('Großadmiral');
     expect(
       (
         within(founder).getByLabelText(
@@ -2162,101 +2194,147 @@ describe('alliance roles (soc-AUD-09b)', () => {
         ) as HTMLInputElement
       ).disabled,
     ).toBe(true);
+    expect(within(founder).queryAllByRole('button')).toHaveLength(0);
+
+    const diplomat = await card('Diplomat');
+    expect(within(diplomat).getByText(/^Gesperrt/)).toBeTruthy();
     expect(
-      within(founder).queryByRole('button', { name: 'Löschen' }),
+      within(diplomat).queryByRole('button', { name: 'Löschen' }),
     ).toBeNull();
-    expect(within(founder).queryAllByRole('checkbox')).toHaveLength(0);
 
-    const form = screen.getByRole('form', { name: 'Neue Rolle' });
+    const vice = await openRights('Vize-Präsident');
     const checkbox = (name: RegExp) =>
-      within(form).getByRole('checkbox', { name }) as HTMLInputElement;
+      within(vice).getByRole('checkbox', { name }) as HTMLInputElement;
+    // Missing own rights are disabled; a set parent includes its children.
     expect(checkbox(/^Diplomat/).disabled).toBe(true);
-    expect(within(form).getAllByText('(fehlt Dir)').length).toBeGreaterThan(0);
-    expect(checkbox(/^Kann Allianz editieren/).disabled).toBe(false);
-
-    // A set parent right shows its children as included.
-    const vice = await roleRow('Vize-Präsident');
-    const child = within(vice).getByRole('checkbox', {
-      name: /^Kann Allianz editieren/,
-    }) as HTMLInputElement;
-    expect(child.checked).toBe(true);
-    expect(child.disabled).toBe(true);
-    expect(within(vice).getAllByText('(enthalten)').length).toBe(9);
-
-    // Neither the founder role nor the role right below it can move up.
-    expect(
-      (
-        within(vice).getByRole('button', {
-          name: 'Vize-Präsident nach oben',
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true);
+    expect(within(vice).getAllByText('(fehlt Dir)')).toHaveLength(3);
+    expect(checkbox(/^Kann Allianz editieren/).checked).toBe(true);
+    expect(checkbox(/^Kann Allianz editieren/).disabled).toBe(true);
   });
 
-  it('creates, saves, moves and deletes roles via the role API', async () => {
+  it('sets the parent right when all children are ticked', async () => {
     routeGet({ '/alliances/1': rolesAlliance() });
+    renderAt('/alliances/1/edit');
+
+    const archivar = await openRights('Archivar');
+    for (const box of within(archivar).getAllByRole('checkbox')) {
+      const input = box as HTMLInputElement;
+      if (!input.disabled && !input.checked) fireEvent.click(input);
+    }
+    expect(
+      (
+        within(archivar).getByRole('checkbox', {
+          name: /^Vize/,
+        }) as HTMLInputElement
+      ).checked,
+    ).toBe(true);
+
+    save();
+    await waitFor(() =>
+      expect(apiMocks.patch).toHaveBeenCalledWith('/alliances/1/roles/4', {
+        permissions: [P.SUCCESSOR],
+      }),
+    );
+  });
+
+  it('saves new, changed and deleted roles at once', async () => {
+    routeGet({ '/alliances/1': rolesAlliance() });
+    apiMocks.post.mockResolvedValue({ id: 9 });
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderAt('/alliances/1/edit');
 
-    const form = await screen.findByRole('form', { name: 'Neue Rolle' });
-    fireEvent.change(within(form).getByLabelText('Titel der neuen Rolle'), {
-      target: { value: 'Quartiermeister' },
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Neue Rolle hinzufügen' }),
+    );
+    const fresh = await card('Neue Rolle');
+    fireEvent.change(
+      within(fresh).getByLabelText('Titel der Rolle Neue Rolle'),
+      {
+        target: { value: 'Quartiermeister' },
+      },
+    );
+    fireEvent.click(
+      within(fresh).getByRole('checkbox', { name: /^Kann Allianzdepots/ }),
+    );
+    fireEvent.change(screen.getByLabelText('Titel der Rolle Vize-Präsident'), {
+      target: { value: 'Admiral' },
     });
     fireEvent.click(
-      within(form).getByRole('checkbox', { name: /^Kann Allianzdepots/ }),
+      within(await card('Archivar')).getByRole('button', { name: 'Löschen' }),
     );
-    await clickWhenEnabled(form, 'Rolle anlegen');
+    expect(apiMocks.delete).not.toHaveBeenCalled();
+
+    save();
     await waitFor(() =>
-      expect(apiMocks.post).toHaveBeenCalledWith('/alliances/1/roles', {
-        title: 'Quartiermeister',
-        permissions: [P.VIEW_ALLIANCE_STORAGE],
+      // New roles go behind all existing sorts.
+      expect(apiMocks.patch).toHaveBeenCalledWith('/alliances/1/roles/9', {
+        sort: 5,
       }),
     );
-
-    const archivar = await roleRow('Archivar');
-    fireEvent.click(
-      within(archivar).getByRole('checkbox', { name: /^Kann Schiffe/ }),
-    );
-    await clickWhenEnabled(archivar, 'Speichern');
-    await waitFor(() =>
-      expect(apiMocks.patch).toHaveBeenCalledWith('/alliances/1/roles/4', {
-        permissions: [P.VIEW_ALLIANCE_HISTORY, P.VIEW_SHIPS],
-      }),
-    );
-
-    // Archivar (sort 4) and the diplomat role (not editable) do not swap.
-    expect(
-      (
-        within(archivar).getByRole('button', {
-          name: 'Archivar nach oben',
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true);
-
-    await clickWhenEnabled(archivar, 'Löschen');
-    await waitFor(() =>
-      expect(apiMocks.delete).toHaveBeenCalledWith('/alliances/1/roles/4'),
-    );
+    expect(apiMocks.delete).toHaveBeenCalledWith('/alliances/1/roles/4');
+    expect(apiMocks.patch).toHaveBeenCalledWith('/alliances/1/roles/2', {
+      title: 'Admiral',
+    });
+    expect(apiMocks.post).toHaveBeenCalledWith('/alliances/1/roles', {
+      title: 'Quartiermeister',
+      permissions: [P.VIEW_ALLIANCE_STORAGE],
+    });
   });
 
-  it('swaps the sort of two editable roles', async () => {
-    const alliance = rolesAlliance();
-    alliance.roles[2] = editable(alliance.roles[2]);
-    routeGet({ '/alliances/1': alliance });
+  it('reorders only movable roles, by drag and by keyboard', async () => {
+    routeGet({ '/alliances/1': rolesAlliance() });
     renderAt('/alliances/1/edit');
 
-    await clickWhenEnabled(await roleRow('Archivar'), 'Archivar nach oben');
+    const archivar = await card('Archivar');
+    fireEvent.dragStart(archivar);
+    fireEvent.dragOver(await card('Vize-Präsident'));
+    fireEvent.dragEnd(archivar);
+    // The locked diplomat role keeps its place.
+    expect(titles()).toEqual([
+      'Großadmiral',
+      'Archivar',
+      'Diplomat',
+      'Vize-Präsident',
+    ]);
+
+    fireEvent.keyDown(
+      screen.getByRole('button', { name: 'Archivar verschieben' }),
+      { key: 'ArrowDown' },
+    );
+    expect(titles()).toEqual([
+      'Großadmiral',
+      'Vize-Präsident',
+      'Diplomat',
+      'Archivar',
+    ]);
+    fireEvent.keyDown(
+      screen.getByRole('button', { name: 'Vize-Präsident verschieben' }),
+      { key: 'ArrowUp' },
+    );
+    expect(titles()).toEqual([
+      'Großadmiral',
+      'Vize-Präsident',
+      'Diplomat',
+      'Archivar',
+    ]);
+    expect(
+      screen.queryByRole('button', { name: 'Großadmiral verschieben' }),
+    ).toBeNull();
+
+    fireEvent.dragStart(await card('Vize-Präsident'));
+    fireEvent.dragOver(await card('Archivar'));
+    save();
     await waitFor(() =>
       expect(apiMocks.patch.mock.calls).toEqual([
-        ['/alliances/1/roles/4', { sort: 3 }],
-        ['/alliances/1/roles/3', { sort: 4 }],
+        ['/alliances/1/roles/4', { sort: 2 }],
+        ['/alliances/1/roles/2', { sort: 4 }],
       ]),
     );
   });
 
-  it('shows the server’s protection rule error', async () => {
+  it('shows the server’s protection rule error and reloads a partial save', async () => {
     routeGet({ '/alliances/1': rolesAlliance() });
-    apiMocks.delete.mockRejectedValueOnce(
+    apiMocks.patch.mockRejectedValueOnce(
       new ApiError(
         403,
         'Du kannst nur Rollen mit Rechten verwalten, die Du selbst besitzt',
@@ -2265,11 +2343,32 @@ describe('alliance roles (soc-AUD-09b)', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderAt('/alliances/1/edit');
 
-    await clickWhenEnabled(await roleRow('Archivar'), 'Löschen');
+    fireEvent.click(
+      within(await card('Archivar')).getByRole('button', { name: 'Löschen' }),
+    );
+    fireEvent.change(screen.getByLabelText('Titel der Rolle Vize-Präsident'), {
+      target: { value: 'Admiral' },
+    });
+    const loads = apiMocks.get.mock.calls.length;
+    save();
 
     expect((await screen.findByRole('alert')).textContent).toBe(
       'Du kannst nur Rollen mit Rechten verwalten, die Du selbst besitzt',
     );
+    expect(apiMocks.get.mock.calls.length).toBeGreaterThan(loads);
+  });
+
+  it('refuses titles shorter than three characters', async () => {
+    routeGet({ '/alliances/1': rolesAlliance() });
+    renderAt('/alliances/1/edit');
+    fireEvent.change(await screen.findByLabelText('Titel der Rolle Archivar'), {
+      target: { value: 'A' },
+    });
+    save();
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Alle Rollenbezeichnungen müssen mindestens 3 Zeichen lang sein',
+    );
+    expect(apiMocks.patch).not.toHaveBeenCalled();
   });
 
   it('groups the leadership like STU with role titles', async () => {
@@ -2277,7 +2376,7 @@ describe('alliance roles (soc-AUD-09b)', () => {
       role(1, 'Großadmiral', [P.FOUNDER]),
       role(2, 'Sprecher', [P.ALLIANCE_LEADERSHIP]),
       role(3, 'Botschafter', [P.DIPLOMATIC]),
-      role(4, 'Admiral', VICE_RIGHTS),
+      role(4, 'Admiral', [P.SUCCESSOR]),
       role(5, 'Archivar', [P.VIEW_ALLIANCE_HISTORY]),
     ];
     const member = (userId: number, name: string, held: number[]) => ({
