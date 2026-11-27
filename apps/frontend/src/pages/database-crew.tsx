@@ -255,7 +255,7 @@ export function CrewOverview({ data, onChanged }: { data: DatabaseCrewDto; onCha
               <button type="button" disabled={busy} onClick={dismiss} className="border border-red-400/60 px-2 py-1 hover:text-swu-accent">
                 Ja, entlassen
               </button>
-              <button type="button" disabled={busy} onClick={() => setConfirming(false)} className="border border-swu-border px-2 py-1 hover:text-swu-accent">
+              <button type="button" autoFocus disabled={busy} onClick={() => setConfirming(false)} className="border border-swu-border px-2 py-1 hover:text-swu-accent">
                 Zurück
               </button>
             </div>

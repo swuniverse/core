@@ -7,6 +7,7 @@ import type {
 } from '@swuniverse/shared';
 import { DataSource, EntityManager, In } from 'typeorm';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
+import { ColonyChangeable } from '../colony/entities/colony-changeable.entity';
 import { Colony } from '../colony/entities/colony.entity';
 import { Crew, CrewType } from '../colony/entities/crew.entity';
 import { CrewRank, CREW_RANKS, crewRankDefinition } from '../spacecraft/crew-expertise';
@@ -79,7 +80,11 @@ export class DatabaseCrewService {
       }),
     ]);
 
-    const skillsOf = (crewId: number) => skills.filter((skill) => skill.crewId === crewId);
+    const skillsByCrew = new Map<number, CrewSkill[]>();
+    for (const skill of skills) {
+      skillsByCrew.set(skill.crewId, [...(skillsByCrew.get(skill.crewId) ?? []), skill]);
+    }
+    const skillsOf = (crewId: number) => skillsByCrew.get(crewId) ?? [];
     const shipById = new Map(ships.map((ship) => [ship.id, ship]));
     const colonyById = new Map(colonies.map((colony) => [colony.id, colony]));
     const postById = new Map(posts.map((post) => [post.id, post]));
@@ -101,14 +106,17 @@ export class DatabaseCrewService {
         const isStation = ship.kind === SpacecraftKind.STATION;
         onShip = true;
         foreignStation = isStation && ship.userId !== userId;
+        const own = ship.userId === userId;
+        // Foreign hosts only show their name (STU): no live position, nothing of hidden RPG ships.
+        const hidden = !own && ship.rpgHidden;
         location = {
           type: isStation ? 'STATION' : 'SHIP',
-          id: ship.id,
-          name: ship.name,
-          own: ship.userId === userId,
-          shipClassId: ship.shipClassId,
-          shipClassKey: ship.shipClass?.key ?? null,
-          sector: resolveSpaceLocation(ship.location),
+          id: hidden ? 0 : ship.id,
+          name: hidden ? 'Verborgenes Schiff' : ship.name,
+          own,
+          shipClassId: hidden ? null : ship.shipClassId,
+          shipClassKey: hidden ? null : (ship.shipClass?.key ?? null),
+          sector: own ? resolveSpaceLocation(ship.location) : null,
         };
       } else if (colony) {
         location = {
@@ -126,7 +134,7 @@ export class DatabaseCrewService {
         location = {
           type: 'TRADE_POST',
           id: post.id,
-          name: post.name,
+          name: station ? `${station.name} ${post.name}` : post.name,
           own: !foreignStation,
           shipClassId: station?.shipClassId ?? null,
           shipClassKey: null,
@@ -180,19 +188,44 @@ export class DatabaseCrewService {
       throw new BadRequestException(`Es können höchstens ${MAX_DISMISS_IDS} Crewmitglieder auf einmal entlassen werden`);
     }
     return this.dataSource.transaction(async (manager) => {
+      // Lock order matches EscapePodService.landPod (pod, then crew) and syncs ship counts
+      // under the ship lock, so a concurrent transfer cannot be overwritten with a stale count.
+      const preview = await manager.find(CrewAssignment, { where: { crewId: In(requested), userId } });
+      const lockedShips = new Set<number>();
+      const lockedPods = new Set<number>();
+      const lockHosts = async (assignments: CrewAssignment[]) => {
+        const pods = [...new Set(assignments.flatMap((a) => (a.escapePodId == null ? [] : [a.escapePodId])))]
+          .filter((id) => !lockedPods.has(id))
+          .sort((a, b) => a - b);
+        const ships = [...new Set(assignments.flatMap((a) => (a.spacecraftId == null ? [] : [a.spacecraftId])))]
+          .filter((id) => !lockedShips.has(id))
+          .sort((a, b) => a - b);
+        if (pods.length) {
+          await manager.find(EscapePod, { where: { id: In(pods) }, order: { id: 'ASC' }, lock: { mode: 'pessimistic_write' } });
+          pods.forEach((id) => lockedPods.add(id));
+        }
+        if (ships.length) {
+          await manager.find(Spacecraft, { where: { id: In(ships) }, order: { id: 'ASC' }, lock: { mode: 'pessimistic_write' } });
+          ships.forEach((id) => lockedShips.add(id));
+        }
+      };
+      await lockHosts(preview);
       const owned = await manager.find(CrewAssignment, {
         where: { crewId: In(requested), userId },
         lock: { mode: 'pessimistic_write' },
         order: { crewId: 'ASC' },
       });
+      await lockHosts(owned); // crew moved between the preview and the lock
       const dismissedIds = owned.map((assignment) => assignment.crewId);
       const shipIds = [...new Set(owned.flatMap((a) => (a.spacecraftId == null ? [] : [a.spacecraftId])))];
       const podIds = [...new Set(owned.flatMap((a) => (a.escapePodId == null ? [] : [a.escapePodId])))];
+      const colonyIds = [...new Set(owned.flatMap((a) => (a.colonyId == null ? [] : [a.colonyId])))];
       if (dismissedIds.length) {
         // Assignments and skills go with the crew row (ON DELETE CASCADE).
         await manager.delete(Crew, { id: In(dismissedIds) });
       }
       await this.refreshShipCrew(manager, shipIds);
+      await this.refreshColonyCrew(manager, colonyIds);
       const removedEscapePods = await this.removeEmptyPods(manager, podIds);
       const owns = new Set(dismissedIds);
       return {
@@ -207,6 +240,13 @@ export class DatabaseCrewService {
     for (const id of shipIds) {
       const crew = await manager.count(CrewAssignment, { where: { spacecraftId: id } });
       await manager.update(Spacecraft, { id }, { crew });
+    }
+  }
+
+  private async refreshColonyCrew(manager: EntityManager, colonyIds: number[]) {
+    for (const colonyId of colonyIds) {
+      const trainedCrew = await manager.count(CrewAssignment, { where: { colonyId } });
+      await manager.update(ColonyChangeable, { colonyId }, { trainedCrew });
     }
   }
 

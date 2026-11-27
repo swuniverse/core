@@ -6,6 +6,7 @@ import {
   createUser,
   resetDatabase,
 } from '../../testing/integration/database';
+import { ColonyChangeable } from '../colony/entities/colony-changeable.entity';
 import { Colony } from '../colony/entities/colony.entity';
 import { CrewAssignment } from '../colony/entities/crew-assignment.entity';
 import { Crew, CrewType } from '../colony/entities/crew.entity';
@@ -18,6 +19,7 @@ import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
 import { GalaxyFieldType } from '../starmap/entities/galaxy-field-type.entity';
 import { Layer } from '../starmap/entities/layer.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
+import { RpgPlot } from '../rpg/rpg-plot.entity';
 import { TradePost } from '../trade/entities/trade-post.entity';
 import { DatabaseCrewService } from './database-crew.service';
 
@@ -125,13 +127,33 @@ describe('crew overview (PostgreSQL, tmw-AUD-07)', () => {
       position: null,
       location: { type: 'ESCAPE_POD', id: podRow.id, name: 'Altschiff' },
     });
-    expect(members.get('Gast aktiv')).toMatchObject({ onForeignStation: true, onForeignStationInactive: false });
+    expect(members.get('Gast aktiv')).toMatchObject({
+      onForeignStation: true,
+      onForeignStationInactive: false,
+      location: { own: false, name: 'Fremdstation', sector: null },
+    });
     expect(members.get('Gast ohne Posten')).toMatchObject({ onForeignStation: true, onForeignStationInactive: true });
     expect(members.get('Wartender')).toMatchObject({
-      location: { type: 'TRADE_POST', name: 'Posten' },
+      location: { type: 'TRADE_POST', name: 'Fremdstation Posten' },
       onForeignStation: true,
       onForeignStationInactive: true,
     });
+  });
+
+  it('shows foreign hosts by name only and hides RPG ships completely', async () => {
+    const hidden = await ship(other, { name: 'Geheim' });
+    const plot = await dataSource.getRepository(RpgPlot).save({ creatorId: other.id, title: 'Szene des Tages' });
+    await dataSource.query('UPDATE spacecraft SET "rpgPlotId" = $2, "rpgHidden" = true WHERE id = $1', [hidden.id, plot.id]);
+    const visible = await ship(other, { name: 'Sichtbar' });
+    await crew(me, 'Versteckt', { spacecraftId: hidden.id, slot: CrewType.SECURITY });
+    await crew(me, 'Offen', { spacecraftId: visible.id, slot: CrewType.SECURITY });
+
+    const members = await byName();
+
+    expect(members.get('Versteckt')?.location).toEqual({
+      type: 'SHIP', id: 0, name: 'Verborgenes Schiff', own: false, shipClassId: null, shipClassKey: null, sector: null,
+    });
+    expect(members.get('Offen')?.location).toMatchObject({ id: visible.id, name: 'Sichtbar', sector: null });
   });
 
   it('reports the ranks and positions the filters need', async () => {
@@ -172,6 +194,17 @@ describe('crew overview (PostgreSQL, tmw-AUD-07)', () => {
       expect((await dataSource.getRepository(Spacecraft).findOneByOrFail({ id: foreignHost.id })).crew).toBe(1);
       expect(await dataSource.getRepository(EscapePod).existsBy({ id: emptyingPod.id })).toBe(false);
       expect(await dataSource.getRepository(EscapePod).existsBy({ id: sharedPod.id })).toBe(true);
+    });
+
+    it('keeps the colony crew count in step', async () => {
+      const home = await colony(me, 'Heimat');
+      await dataSource.getRepository(ColonyChangeable).save({ colonyId: home.id, trainedCrew: 2 } as ColonyChangeable);
+      const gone = await crew(me, 'Weg', { colonyId: home.id });
+      await crew(me, 'Bleibt', { colonyId: home.id });
+
+      await service.dismiss(me.id, [gone.id]);
+
+      expect((await dataSource.getRepository(ColonyChangeable).findOneByOrFail({ colonyId: home.id })).trainedCrew).toBe(1);
     });
 
     it('dismisses nothing for foreign ids and rejects oversized requests', async () => {
