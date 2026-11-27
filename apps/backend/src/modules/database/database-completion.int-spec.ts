@@ -333,6 +333,34 @@ describe('database category completion (PostgreSQL)', () => {
       expect(await awardsOf(player)).toEqual(['DATABASE_SHIP_HULLS']);
     });
 
+    it('books ship-less entries (first colony, research, airfield start) once each', async () => {
+      // Two hulls, so discovering one does not also complete the hull category award.
+      const [hull] = await dataSource.getRepository(ShipClassDef).save([
+        { key: 'X_WING', name: 'X-Wing', category: 'FIGHTER', role: 'FIGHTER' },
+        { key: 'Y_WING', name: 'Y-Wing', category: 'FIGHTER', role: 'FIGHTER' },
+      ]);
+      const firstColony = () =>
+        planets.discover({
+          userId: player.id,
+          object: { id: 4, classId: 201, name: null, objectType: 1 },
+          spacecraftId: null,
+          source: 'FIRST_COLONY',
+        });
+      const shipless = (source: 'RESEARCH' | 'AIRFIELD_START') =>
+        hulls.discover({ userId: player.id, shipClassId: hull.id, sourceSpacecraftId: null, targetSpacecraftId: null, source });
+
+      await expect(firstColony()).resolves.toMatchObject({ discovered: true });
+      await firstColony();
+      await shipless('RESEARCH');
+      await shipless('AIRFIELD_START');
+
+      expect(prestige.change).toHaveBeenCalledTimes(2);
+      expect(notices(player)).toHaveLength(2);
+      expect(
+        await dataSource.getRepository(ShipClassDiscovery).findBy({ userId: player.id, shipClassId: hull.id }),
+      ).toEqual([expect.objectContaining({ source: 'RESEARCH', sourceSpacecraftId: null, targetSpacecraftId: null })]);
+    });
+
     it('records NPC discoveries without prestige, notice or award', async () => {
       const [first, ...rest] = SYSTEM_TYPE_DEFINITIONS;
       await dataSource.getRepository(SystemTypeDiscovery).save(

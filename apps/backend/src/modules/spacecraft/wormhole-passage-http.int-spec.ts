@@ -34,6 +34,7 @@ import { WormholeRestriction } from './entities/wormhole-restriction.entity';
 import { Alliance } from '../alliance/entities/alliance.entity';
 import { AllianceDepot } from '../alliance/entities/alliance-depot.entity';
 import { AllianceMembership } from '../alliance/entities/alliance-membership.entity';
+import { TypeOrmAllianceStore } from '../alliance/typeorm-alliance.store';
 import { AllianceService } from '../alliance/alliance.service';
 import { AllianceResetService } from '../alliance/alliance-reset.service';
 import {
@@ -456,7 +457,6 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
       await source.getRepository(AllianceMembership).save({
         userId: ship.userId,
         allianceId: alliance.id,
-        role: AllianceRole.NONE,
       });
       const targetId = {
         USER: ship.userId,
@@ -493,11 +493,9 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
       faction: Faction.REBEL_ALLIANCE,
       factionId: rebel,
     });
-    const alliance = await source.getRepository(Alliance).save({
-      name,
-      factionId: rebel,
-    });
-    await source.getRepository(AllianceMembership).save({
+    const store = new TypeOrmAllianceStore(source);
+    const alliance = await store.insertAlliance({ name, description: '', factionId: rebel });
+    await store.insertMembership({
       userId: president.id,
       allianceId: alliance.id,
       role: AllianceRole.PRESIDENT,
@@ -691,7 +689,6 @@ describe('Wormhole entry authenticated production graph (PostgreSQL, HTTP)', () 
     const member = await source.getRepository(AllianceMembership).save({
       userId: ship.userId,
       allianceId: alliance.id,
-      role: AllianceRole.NONE,
     });
     await rules(station.id, ship.userId, 'POST', '', {
       wormholeId: hole.id,

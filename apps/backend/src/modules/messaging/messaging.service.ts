@@ -62,7 +62,7 @@ export class MessagingService {
     const [data, total] = await this.messageRepo.findAndCount({
       where: { recipientId: userId, deletedByRecipient: false },
       relations: ['sender'],
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
@@ -94,7 +94,7 @@ export class MessagingService {
         deletedByRecipient: false,
       },
       relations: ['sender'],
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'DESC' },
       skip: (normalizedPage - 1) * limit,
       take: limit,
     });
@@ -145,7 +145,7 @@ export class MessagingService {
     const [data, total] = await this.messageRepo.findAndCount({
       where: { senderId: userId, deletedBySender: false },
       relations: ['recipient'],
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'DESC' },
       skip: (normalizedPage - 1) * limit,
       take: limit,
     });
@@ -203,7 +203,7 @@ export class MessagingService {
         },
       ],
       relations: ['sender'],
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'DESC' },
       take: Math.min(Math.max(1, limit), 10),
     });
     return messages.map(publicMessage);

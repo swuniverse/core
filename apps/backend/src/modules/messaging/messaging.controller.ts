@@ -12,6 +12,7 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { parsePage } from './folder-page';
 import { Transform } from 'class-transformer';
 import {
   IsIn,
@@ -156,7 +157,7 @@ export class MessagingController {
     return this.messagingService.getFolder(
       req.user.sub,
       this.parseFolder(folder),
-      Number(page) || 1,
+      parsePage(page),
     );
   }
 
@@ -165,7 +166,7 @@ export class MessagingController {
     @Request() req: { user: { sub: number } },
     @Query('page') page?: string,
   ) {
-    return this.messagingService.getInbox(req.user.sub, Number(page) || 1);
+    return this.messagingService.getInbox(req.user.sub, parsePage(page));
   }
 
   @Get('sent')
@@ -173,7 +174,7 @@ export class MessagingController {
     @Request() req: { user: { sub: number } },
     @Query('page') page?: string,
   ) {
-    return this.messagingService.getSent(req.user.sub, Number(page) || 1);
+    return this.messagingService.getSent(req.user.sub, parsePage(page));
   }
 
   @Get('unread')
@@ -188,7 +189,7 @@ export class MessagingController {
   ) {
     return this.messagingService.getConversations(
       req.user.sub,
-      Number(page) || 1,
+      parsePage(page),
     );
   }
 

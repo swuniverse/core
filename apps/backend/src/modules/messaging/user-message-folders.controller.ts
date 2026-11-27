@@ -12,6 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { parsePage } from './folder-page';
 import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { UserMessageFoldersService } from './user-message-folders.service';
 import { IsString, MaxLength, MinLength } from 'class-validator';
@@ -67,7 +68,7 @@ export class UserMessageFoldersController {
     @Param('id', ParseIntPipe) id: number,
     @Query('page') page?: string,
   ) {
-    return this.folders.messages(req.user.sub, id, Number(page) || 1);
+    return this.folders.messages(req.user.sub, id, parsePage(page));
   }
   @Post(':id/mark-read') read(
     @Request() req: AuthRequest,

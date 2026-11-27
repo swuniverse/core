@@ -170,7 +170,7 @@ describe('MessagingService', () => {
     expect(messageRepo.find).toHaveBeenCalledWith(
       expect.objectContaining({
         relations: ['sender'],
-        order: { createdAt: 'DESC' },
+        order: { createdAt: 'DESC', id: 'DESC' },
         take: 10,
       }),
     );

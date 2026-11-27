@@ -144,7 +144,7 @@ export class UserMessageFoldersService {
           deletedByRecipient: false,
         },
         relations: ['sender'],
-        order: { createdAt: 'DESC' },
+        order: { createdAt: 'DESC', id: 'DESC' },
         skip: (p - 1) * FOLDER_PAGE_SIZE,
         take: FOLDER_PAGE_SIZE,
       });
