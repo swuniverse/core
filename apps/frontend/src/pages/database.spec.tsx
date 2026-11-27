@@ -507,6 +507,36 @@ describe('DatabasePage', () => {
       await waitFor(() => expect(lastSettlerUrl()).toBe('/database/settlers?sort=alliance&order=desc'));
     });
 
+    it('keeps the table mounted while the next page loads and ignores an outdated answer', async () => {
+      const entry = (username: string) => ({
+        id: 1, username, displayName: null, avatar: null, faction: null, factionName: 'Unbekannt', alliance: null,
+      });
+      const answers: Record<string, (value: unknown) => void> = {};
+      const base = apiMocks.get.getMockImplementation() as (url: string) => Promise<unknown>;
+      apiMocks.get.mockImplementation((url: string) =>
+        url.startsWith('/database/settlers?page=')
+          ? new Promise((resolve) => { answers[url] = resolve; })
+          : base(url),
+      );
+      renderList();
+      await screen.findByRole('link', { name: 'Vader' });
+      const input = screen.getByLabelText('Siedler suchen');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Seite 3' }));
+      await waitFor(() => expect(answers['/database/settlers?page=3']).toBeDefined());
+      expect(screen.getByLabelText('Siedler suchen')).toBe(input);
+      expect(screen.getByRole('link', { name: 'Vader' })).toBeTruthy();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Seite 2' }));
+      await waitFor(() => expect(answers['/database/settlers?page=2']).toBeDefined());
+      answers['/database/settlers?page=2']({ entries: [entry('zwei')], page: 2, pageCount: 3, total: 60 });
+      await screen.findByRole('link', { name: 'zwei' });
+      answers['/database/settlers?page=3']({ entries: [entry('drei')], page: 3, pageCount: 3, total: 60 });
+      await Promise.resolve();
+
+      expect(screen.queryByRole('link', { name: 'drei' })).toBeNull();
+    });
+
     it('turns the page through the page numbers', async () => {
       renderList('?view=settlers&sort=faction');
       await screen.findByRole('link', { name: 'Vader' });

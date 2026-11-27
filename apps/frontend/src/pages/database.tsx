@@ -1,5 +1,5 @@
 import { PlayerName } from '../components/PlayerName';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { PlanetImg } from '../components/PlanetImg';
 import {
@@ -286,13 +286,17 @@ export function DatabasePage() {
   const layerId = params.get('layerId');
   const settlerQuery = view === 'settlers' ? settlerQueryString(params) : '';
   const isLayerCatalog = view === 'system-types' || view === 'planet-types' || view === 'regions';
+  const loadedViewRef = useRef<View | null>(null);
   const [data, setData] = useState<unknown>(null);
   const [layerChoices, setLayerChoices] = useState<DatabaseLayerChoiceDto[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!view || view === 'statistics') return void setData(null);
-    setData(null);
+    // Paging, sorting or searching the settler list keeps the table (and the search field) mounted.
+    if (!(view === 'settlers' && loadedViewRef.current === 'settlers')) setData(null);
+    loadedViewRef.current = view;
+    let current = true;
     setLayerChoices([]);
     setError(null);
     const path = view === 'commodity-overview'
@@ -307,14 +311,17 @@ export function DatabasePage() {
         })
       : api.get<unknown>(path);
     response
-      .then(setData)
+      .then((next) => current && setData(next))
       .catch((err: unknown) =>
-        setError(
+        current && setError(
           err instanceof Error
             ? err.message
             : 'Daten konnten nicht geladen werden',
         ),
       );
+    return () => {
+      current = false;
+    };
   }, [view, ranking, isLayerCatalog, layerId, settlerQuery]);
 
   const select = (next: View, nextRanking?: RankingKey) =>
