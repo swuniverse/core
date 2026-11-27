@@ -67,6 +67,7 @@ export const SWU_WALDPLANET_HOT_CONFIG: SwuBiomSurfaceConfig = {
     meer: [1, 4],
     fels: [0, 3],
     strand: [1, 5],
+    felsplatte: [7, 9],
   }),
 };
 

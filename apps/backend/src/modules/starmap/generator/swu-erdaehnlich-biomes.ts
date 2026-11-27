@@ -85,7 +85,8 @@ export const SWU_ERDAEHNLICH_HOT_ROTATING_CONFIG: SwuBiomSurfaceConfig = {
   width: COLONY_WIDTH,
   height: COLONY_HEIGHT,
   baseField: 'E110', // Tropische Wiese
-  phases: buildTropischPhases('E110'),
+  // Felsplatten E659: min. 6 (X >= Q/3 fuer Zone E); STU Klasse O hat 5-6, Klasse M 6-8 Berg-Felder.
+  phases: buildTropischPhases('E110', { felsplatte: [6, 7] }),
 };
 
 // ---------------------------------------------------------------------------

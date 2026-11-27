@@ -64,6 +64,7 @@ export const SWU_SUMPF_HOT_CONFIG: SwuBiomSurfaceConfig = {
     meer: [2, 6],
     fels: [0, 2],
     strand: [1, 5],
+    felsplatte: [7, 9],
   }),
 };
 
