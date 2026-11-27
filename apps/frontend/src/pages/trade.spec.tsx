@@ -378,7 +378,7 @@ describe('TradePage', () => {
 
   it('offers a quick PM to license holders except for the own account', async () => {
     useAuthStore.setState({ user: { id: 5 } as never });
-    serveMenu({ isOwner: true }, {
+    serveMenu({ isOwner: true, license: { id: 1, startsAt: '2026-11-01T10:00:00.000Z', expiresAt: '9999-12-31T23:59:59.000Z' } }, {
       '/trade/posts/1/licenses': [
         { id: 9, userId: 4, username: 'Lando', startsAt: '2026-11-12T10:00:00.000Z', expiresAt: '2026-12-12T10:00:00.000Z' },
         { id: 10, userId: 5, username: 'Selbst', startsAt: '2026-11-12T10:00:00.000Z', expiresAt: '2026-12-12T10:00:00.000Z' },
@@ -395,7 +395,7 @@ describe('TradePage', () => {
 
   it('lets only the post owner manage the condition and see issued licenses', async () => {
     serveMenu(
-      { isOwner: true, tradeableCommodities: [{ id: 10101, name: 'Durastahl' }, { id: 7, name: 'Tibanna' }] },
+      { isOwner: true, license: { id: 1, startsAt: '2026-11-01T10:00:00.000Z', expiresAt: '9999-12-31T23:59:59.000Z' }, tradeableCommodities: [{ id: 10101, name: 'Durastahl' }, { id: 7, name: 'Tibanna' }] },
       { '/trade/posts/1/licenses': [{ id: 9, userId: 4, username: 'Lando', startsAt: '2026-11-12T10:00:00.000Z', expiresAt: '2026-12-12T10:00:00.000Z' }] },
     );
     apiMocks.put.mockResolvedValue({});
@@ -413,11 +413,30 @@ describe('TradePage', () => {
     expect(admin.textContent).toContain('Lizenzbedingung gespeichert');
   });
 
+  it('shows issued licenses with purchase and expiry dates to non-owner license holders', async () => {
+    serveMenu(
+      { license: { id: 2, startsAt: '2026-11-12T10:00:00.000Z', expiresAt: '2026-12-12T10:00:00.000Z' } },
+      { '/trade/posts/1/licenses': [
+        { id: 1, userId: 3, username: 'Eigner', startsAt: '2026-11-01T10:00:00.000Z', expiresAt: '9999-12-31T23:59:59.000Z' },
+        { id: 2, userId: 4, username: 'Lando', startsAt: '2026-11-12T10:00:00.000Z', expiresAt: '2026-12-12T10:00:00.000Z' },
+      ] },
+    );
+    renderPage('/trade?tab=posts&post=1');
+
+    const list = await screen.findByRole('region', { name: 'Ausgestellte Lizenzen' });
+    expect(await within(list).findByText('Eigner')).toBeTruthy();
+    expect(within(list).getByText('unbefristet')).toBeTruthy();
+    expect(within(list).getByRole('columnheader', { name: 'Kaufdatum' })).toBeTruthy();
+    expect(within(list).getByRole('button', { name: 'Nachricht an Lando schreiben' })).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Lizenzverwaltung' })).toBeNull();
+  });
+
   it('hides license management from other players', async () => {
     renderPage('/trade?tab=posts&post=1');
 
     expect(await screen.findByText('10 Durastahl für 30 Tage')).toBeTruthy();
     expect(screen.queryByRole('region', { name: 'Lizenzverwaltung' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Ausgestellte Lizenzen' })).toBeNull();
     expect(apiMocks.get).not.toHaveBeenCalledWith('/trade/posts/1/licenses');
   });
 });

@@ -117,6 +117,7 @@ export function TradeLicensePanel({
         )}
       </section>
       {menu.isOwner && <OwnerLicenseAdmin menu={menu} />}
+      {menu.license && <IssuedLicenses tradePostId={menu.tradePostId} />}
     </>
   );
 }
@@ -271,22 +272,9 @@ function OwnerLicenseAdmin({ menu }: { menu: TradeLicenseMenuDto }) {
     amount: menu.condition?.amount ?? 10,
     durationDays: menu.condition?.durationDays ?? 30,
   });
-  const [issued, setIssued] = useState<IssuedTradeLicenseDto[] | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null,
   );
-
-  useEffect(() => {
-    api
-      .get<IssuedTradeLicenseDto[]>(`/trade/posts/${menu.tradePostId}/licenses`)
-      .then(setIssued)
-      .catch((err: unknown) =>
-        setMessage({
-          ok: false,
-          text: errorText(err, 'Lizenzen konnten nicht geladen werden'),
-        }),
-      );
-  }, [menu.tradePostId]);
 
   const save = async () => {
     try {
@@ -362,24 +350,51 @@ function OwnerLicenseAdmin({ menu }: { menu: TradeLicenseMenuDto }) {
           {message.text}
         </p>
       )}
-      <h4 className="text-swu-muted">Ausgestellte Lizenzen</h4>
+    </section>
+  );
+}
+
+/** STU: the list is for every holder of a valid license, the owner holds a permanent one. */
+function IssuedLicenses({ tradePostId }: { tradePostId: number }) {
+  const [issued, setIssued] = useState<IssuedTradeLicenseDto[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .get<IssuedTradeLicenseDto[]>(`/trade/posts/${tradePostId}/licenses`)
+      .then(setIssued)
+      .catch((err: unknown) => setError(errorText(err, 'Lizenzen konnten nicht geladen werden')));
+  }, [tradePostId]);
+
+  return (
+    <section className={sectionClass} aria-label="Ausgestellte Lizenzen">
+      <h3 className={headingClass}>Ausgestellte Lizenzen</h3>
+      {error && (
+        <p role="alert" className="text-red-300">
+          {error}
+        </p>
+      )}
       {!issued ? null : issued.length === 0 ? (
         <p className="text-swu-muted">Keine gültigen Lizenzen ausgestellt.</p>
       ) : (
         <table className="w-full">
+          <thead>
+            <tr className="text-left text-swu-muted">
+              <th className="px-2 py-1 font-normal">Siedler</th>
+              <th className="px-2 py-1 text-right font-normal">Kaufdatum</th>
+              <th className="px-2 py-1 text-right font-normal">Ablaufdatum</th>
+            </tr>
+          </thead>
           <tbody>
             {issued.map((license) => (
               <tr key={license.id} className="border-t border-swu-border/60">
                 <td className="px-2 py-1">
                   <PlayerName name={license.username} />
-                  <PmLink
-                    playerId={license.userId}
-                    playerName={license.username}
-                    className="ml-1 align-middle"
-                  />
+                  <PmLink playerId={license.userId} playerName={license.username} className="ml-1 align-middle" />
                 </td>
+                <td className="px-2 py-1 text-right font-mono">{formatDateTime(license.startsAt)}</td>
                 <td className="px-2 py-1 text-right font-mono">
-                  bis {formatDateTime(license.expiresAt)}
+                  {new Date(license.expiresAt).getUTCFullYear() >= 9999 ? 'unbefristet' : formatDateTime(license.expiresAt)}
                 </td>
               </tr>
             ))}

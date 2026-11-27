@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -75,7 +76,9 @@ export class TradeLicenseService {
   }
 
   async listIssued(tradePostId: number, userId: number, now = new Date()): Promise<IssuedTradeLicenseDto[]> {
-    await this.ownedPost(tradePostId, userId);
+    // STU: every holder of a valid license at the post sees the list; the owner holds a permanent one.
+    const own = await this.licenses.existsBy({ tradePostId, userId, expiresAt: MoreThan(now) });
+    if (!own) throw new ForbiddenException('Nur Lizenzinhaber sehen die ausgestellten Lizenzen');
     const licenses = await this.licenses.find({
       where: { tradePostId, expiresAt: MoreThan(now) },
       relations: ['user'],
