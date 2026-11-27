@@ -1,3 +1,5 @@
+import type { AllianceRefDto } from '../alliance/index.js';
+import type { Faction } from '../auth/index.js';
 import type { StarmapLayerDto } from '../starmap/index.js';
 
 export type DatabaseLayerChoiceDto = Pick<StarmapLayerDto, 'id' | 'name'>;
@@ -211,4 +213,30 @@ export interface DatabaseRegionDetailDto {
   bounds: { minX: number; maxX: number; minY: number; maxY: number };
   /** Region fields, plus margin fields the viewer explored; hidden cells are omitted. */
   fields: DatabaseRegionMapFieldDto[];
+}
+
+/** STU `UserList` sort fields. */
+export const DATABASE_SETTLER_SORT_FIELDS = ['id', 'faction', 'alliance'] as const;
+export type DatabaseSettlerSortField = (typeof DATABASE_SETTLER_SORT_FIELDS)[number];
+export type DatabaseSettlerSortOrder = 'asc' | 'desc';
+
+/** STU `LIST_LIMIT`. */
+export const DATABASE_SETTLER_PAGE_SIZE = 25;
+
+export interface DatabaseSettlerListEntryDto {
+  id: number;
+  username: string;
+  displayName: string | null;
+  avatar: string | null;
+  faction: Faction | null;
+  factionName: string;
+  alliance: AllianceRefDto | null;
+}
+
+/** STU `userList.twig`: one page, or every hit of a search. */
+export interface DatabaseSettlerListDto {
+  entries: DatabaseSettlerListEntryDto[];
+  page: number;
+  pageCount: number;
+  total: number;
 }

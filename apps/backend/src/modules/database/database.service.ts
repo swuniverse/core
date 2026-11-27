@@ -1,6 +1,8 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, Not, IsNull } from 'typeorm';
+import { Brackets, Repository, In, Not, IsNull } from 'typeorm';
+import { AllianceMembership } from '../alliance/entities/alliance-membership.entity';
+import type { SettlerListQuery } from './settler-list.query';
 import { TradePost } from '../trade/entities/trade-post.entity';
 import { TradePostActivityRanking } from './trade-post-activity.ranking';
 import { tradeNetworkName } from '../trade/trade-network';
@@ -10,14 +12,16 @@ import { FLIGHT_SIGNATURE_RETENTION_MS } from '../spacecraft/flight-signature.se
 import { profileLogbooks } from '../spacecraft/ship-logbook';
 import { FlightSignature } from '../spacecraft/entities/flight-signature.entity';
 import {
+  DATABASE_SETTLER_PAGE_SIZE,
   isVacationEffective,
+  type DatabaseSettlerListDto,
   type DatabaseHullCatalogDto,
   type DatabaseHullDetailDto,
   type DatabaseHullEntryDto,
   type ProfileFriendDto,
 } from '@swuniverse/shared';
 import { User } from '../auth/user.entity';
-import { NON_NPC_USER_WHERE } from '../auth/non-npc-users';
+import { NON_NPC_USER_WHERE, nonNpcUsers } from '../auth/non-npc-users';
 import { Colony } from '../colony/entities/colony.entity';
 import {
   Spacecraft,
@@ -311,18 +315,84 @@ export class DatabaseService {
     };
   }
 
-  async getSettlers() {
-    const [users, factions] = await Promise.all([
-      this.userRepo.find({ where: NON_NPC_USER_WHERE, order: { username: 'ASC' } }),
+  /** STU `UserList`: 25 per page; a search lists every hit without paging. */
+  async getSettlers(query: SettlerListQuery): Promise<DatabaseSettlerListDto> {
+    const base = nonNpcUsers(this.userRepo.createQueryBuilder('user')).leftJoin(
+      AllianceMembership,
+      'membership',
+      'membership.userId = user.id',
+    );
+    const { search } = query;
+    if (search) {
+      const like = `%${search.replace(/[\\%_]/g, '\\$&')}%`;
+      base.andWhere(
+        new Brackets((hits) => {
+          hits
+            .where('user.username ILIKE :like', { like })
+            .orWhere('user.displayName ILIKE :like', { like });
+          // Exact Siedler id; longer digit strings cannot be an int4 id.
+          if (/^\d{1,9}$/.test(search)) {
+            hits.orWhere('user.id = :exactId', { exactId: Number(search) });
+          }
+        }),
+      );
+    }
+
+    const total = await base.getCount();
+    const paged = !search;
+    const pageCount = paged ? Math.max(1, Math.ceil(total / DATABASE_SETTLER_PAGE_SIZE)) : 1;
+    const page = Math.min(query.page, pageCount);
+    const sortColumn = {
+      id: 'user.id',
+      faction: 'user.factionId',
+      alliance: 'membership.allianceId',
+    }[query.sort];
+    const idQuery = base
+      .select('user.id', 'id')
+      .orderBy(sortColumn, query.order === 'desc' ? 'DESC' : 'ASC', 'NULLS LAST');
+    // Same column twice would override the requested direction.
+    if (query.sort !== 'id') idQuery.addOrderBy('user.id', 'ASC');
+    if (paged) {
+      idQuery.offset((page - 1) * DATABASE_SETTLER_PAGE_SIZE).limit(DATABASE_SETTLER_PAGE_SIZE);
+    }
+    const ids = (await idQuery.getRawMany<{ id: number }>()).map((row) => Number(row.id));
+    if (!ids.length) return { entries: [], page, pageCount, total };
+
+    const [users, memberships, factions] = await Promise.all([
+      this.userRepo.findBy({ id: In(ids) }),
+      this.userRepo.manager.find(AllianceMembership, {
+        where: { userId: In(ids) },
+        relations: { alliance: true },
+      }),
       this.factionService.findAll(),
     ]);
-    const factionById = new Map(
-      factions.map((faction) => [faction.id, faction]),
+    const userById = new Map(users.map((user) => [user.id, user]));
+    const allianceByUser = new Map(
+      memberships.map(({ userId, alliance }) => [
+        userId,
+        { id: alliance.id, name: alliance.name, color: alliance.color },
+      ]),
     );
-
-    return Promise.all(
-      users.map((user) => this.toSettlerEntry(user, factionById)),
-    );
+    const factionNameById = new Map(factions.map((faction) => [faction.id, faction.name]));
+    const entries = ids.flatMap((id) => {
+      const user = userById.get(id);
+      if (!user) return [];
+      return [
+        {
+          id: user.id,
+          username: user.username,
+          displayName: user.displayName,
+          avatar: user.avatar,
+          faction: user.faction,
+          factionName:
+            (user.factionId ? factionNameById.get(user.factionId) : null) ??
+            user.faction ??
+            'Unbekannt',
+          alliance: allianceByUser.get(user.id) ?? null,
+        },
+      ];
+    });
+    return { entries, page, pageCount, total };
   }
 
   async getNpcsAndAdmins() {

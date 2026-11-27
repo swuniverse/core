@@ -17,6 +17,7 @@ import { DatabaseProgress } from '../components/database/DatabaseProgress';
 import { PageHeader } from '../components/PageHeader';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { PmLink } from '../components/PmLink';
+import { PageNumbers } from '../components/messaging/MessageCard';
 import { commodityImage, shipImage, systemTypeImage } from '../lib/assets';
 import { formatNumber } from '../lib/format';
 import { api } from '../services/api';
@@ -28,6 +29,8 @@ import type {
   DatabaseSystemTypesDto,
   DatabasePlanetTypesDto,
   DatabaseRegionsDto,
+  DatabaseSettlerListDto,
+  DatabaseSettlerSortField,
   Faction,
 } from '@swuniverse/shared';
 
@@ -75,17 +78,6 @@ type View =
   | 'npcs'
   | 'statistics';
 
-type Settler = {
-  id: number;
-  username: string;
-  displayName: string | null;
-  factionName: string;
-  prestige: number;
-  colonies: number;
-  ships: number;
-  completedResearch: number;
-  onVacation: boolean;
-};
 type NpcAdminEntry = {
   id: number;
   username: string;
@@ -292,6 +284,7 @@ export function DatabasePage() {
   const view = params.get('view') as View | null;
   const ranking = params.get('ranking') as RankingKey | null;
   const layerId = params.get('layerId');
+  const settlerQuery = view === 'settlers' ? settlerQueryString(params) : '';
   const isLayerCatalog = view === 'system-types' || view === 'planet-types' || view === 'regions';
   const [data, setData] = useState<unknown>(null);
   const [layerChoices, setLayerChoices] = useState<DatabaseLayerChoiceDto[]>([]);
@@ -304,6 +297,8 @@ export function DatabasePage() {
     setError(null);
     const path = view === 'commodity-overview'
       ? '/database/commodities/overview'
+      : view === 'settlers'
+        ? `/database/settlers${settlerQuery ? `?${settlerQuery}` : ''}`
       : `/database/${view}${view === 'rankings' && ranking ? `/${ranking}` : ''}${isLayerCatalog && layerId ? `?layerId=${encodeURIComponent(layerId)}` : ''}`;
     const response = isLayerCatalog
       ? api.get<DatabaseSystemTypesDto | DatabasePlanetTypesDto | DatabaseRegionsDto>(path).then((catalog) => {
@@ -320,7 +315,7 @@ export function DatabasePage() {
             : 'Daten konnten nicht geladen werden',
         ),
       );
-  }, [view, ranking, isLayerCatalog, layerId]);
+  }, [view, ranking, isLayerCatalog, layerId, settlerQuery]);
 
   const select = (next: View, nextRanking?: RankingKey) =>
     setParams(
@@ -629,7 +624,7 @@ function Detail({ view, data }: { view: View; data: unknown }) {
     return <SystemTypes data={data as SystemTypes} />;
   if (view === 'regions') return <Regions data={data as DatabaseRegionsDto} />;
   if (view === 'systems') return <Systems data={data as SystemCatalog} />;
-  if (view === 'settlers') return <Settlers data={data as Settler[]} />;
+  if (view === 'settlers') return <Settlers data={data as DatabaseSettlerListDto} />;
   if (view === 'npcs') return <NpcsAndAdmins data={data as NpcsAndAdmins} />;
   if (view === 'rankings') return <RankingView data={data as RankingDetail} />;
   if (view === 'prestige-history')
@@ -1154,41 +1149,149 @@ function NpcsAndAdmins({ data }: { data: NpcsAndAdmins }) {
   );
 }
 
-function Settlers({ data }: { data: Settler[] }) {
+const SETTLER_PARAMS = ['page', 'sort', 'order', 'search'] as const;
+
+function settlerQueryString(params: URLSearchParams) {
+  const query = new URLSearchParams();
+  for (const key of SETTLER_PARAMS) {
+    const value = params.get(key);
+    if (value) query.set(key, value);
+  }
+  return query.toString();
+}
+
+function Settlers({ data }: { data: DatabaseSettlerListDto }) {
+  const [params, setParams] = useSearchParams();
+  const sort = (params.get('sort') as DatabaseSettlerSortField | null) ?? 'id';
+  const order = params.get('order') === 'desc' ? 'desc' : 'asc';
+  const search = params.get('search') ?? '';
+  const update = (changes: Record<string, string | null>) => {
+    const next = new URLSearchParams(params);
+    for (const [key, value] of Object.entries(changes)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
+    setParams(next);
+  };
+  const sortBy = (field: DatabaseSettlerSortField) =>
+    update({
+      sort: field,
+      order: sort === field && order === 'asc' ? 'desc' : 'asc',
+      page: null,
+    });
+  const header = (field: DatabaseSettlerSortField, label: string) => (
+    <th
+      className="px-2 py-1"
+      aria-sort={sort === field ? (order === 'asc' ? 'ascending' : 'descending') : undefined}
+    >
+      <button type="button" onClick={() => sortBy(field)} className="hover:text-swu-accent">
+        {label}
+        {sort === field && (order === 'asc' ? ' ▲' : ' ▼')}
+      </button>
+    </th>
+  );
   return (
-    <Table
-      headers={[
-        'Siedler',
-        'Fraktion',
-        'Prestige',
-        'Kolonien',
-        'Schiffe',
-        'Forschung',
-      ]}
-      rows={data.map((row) => [
-        <span key={row.id}>
-          <Link
-            to={`/players/${row.id}`}
-            className="text-swu-primary hover:text-swu-accent"
+    <div className="max-w-4xl space-y-2">
+      <form
+        className="flex flex-wrap items-center gap-2 text-sm"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const value = new FormData(event.currentTarget).get('search');
+          update({ search: String(value ?? '').trim() || null, page: null });
+        }}
+      >
+        <input
+          key={search}
+          name="search"
+          type="search"
+          defaultValue={search}
+          aria-label="Siedler suchen"
+          placeholder="Name oder Siedler-Id"
+          className="border border-swu-border bg-swu-bg px-2 py-1 text-swu-text"
+        />
+        <button type="submit" className="border border-swu-border px-2 py-1 hover:text-swu-accent">
+          Suchen
+        </button>
+        {search && (
+          <button
+            type="button"
+            onClick={() => update({ search: null, page: null })}
+            className="text-xs text-swu-muted hover:text-swu-accent"
           >
-            <PlayerName name={row.displayName || row.username} />
-            {row.onVacation && (
-              <span className="ml-1 text-swu-warning">(Urlaub)</span>
+            Suche zurücksetzen
+          </button>
+        )}
+        <span className="text-xs text-swu-muted">{data.total} Siedler</span>
+      </form>
+      <div className="overflow-auto border border-swu-border bg-black/30">
+        <table className="w-full text-sm">
+          <thead className="bg-swu-bg/60 text-left text-xs text-swu-muted">
+            <tr>
+              <th className="px-2 py-1">
+                <span className="sr-only">Avatar</span>
+              </th>
+              {header('id', 'Id')}
+              <th className="px-2 py-1">Siedler</th>
+              {header('faction', 'Fraktion')}
+              {header('alliance', 'Allianz')}
+              <th className="px-2 py-1">
+                <span className="sr-only">Nachricht</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.entries.map((row) => (
+              <tr key={row.id} className="border-t border-swu-border/60">
+                <td className="px-2 py-1">
+                  <PlayerAvatar
+                    name={row.displayName || row.username}
+                    avatar={row.avatar}
+                    faction={row.faction}
+                    decorative
+                    className="size-8"
+                  />
+                </td>
+                <td className="px-2 py-1 font-mono">{row.id}</td>
+                <td className="px-2 py-1">
+                  <Link to={`/players/${row.id}`} className="text-swu-primary hover:text-swu-accent">
+                    <PlayerName name={row.displayName || row.username} playerId={row.id} />
+                  </Link>
+                </td>
+                <td className="px-2 py-1">{row.factionName}</td>
+                <td className="px-2 py-1">
+                  {row.alliance ? (
+                    <Link
+                      to={`/alliances/${row.alliance.id}`}
+                      className="hover:text-swu-accent"
+                      style={{ color: row.alliance.color ?? undefined }}
+                    >
+                      {row.alliance.name}
+                    </Link>
+                  ) : (
+                    <span className="text-swu-muted">—</span>
+                  )}
+                </td>
+                <td className="px-2 py-1">
+                  <PmLink playerId={row.id} playerName={row.displayName || row.username} />
+                </td>
+              </tr>
+            ))}
+            {!data.entries.length && (
+              <tr>
+                <td colSpan={6} className="px-2 py-2 text-swu-muted">
+                  Keine Siedler gefunden.
+                </td>
+              </tr>
             )}
-          </Link>
-          <PmLink
-            playerId={row.id}
-            playerName={row.displayName || row.username}
-            className="ml-1 align-middle"
-          />
-        </span>,
-        row.factionName,
-        row.prestige,
-        row.colonies,
-        row.ships,
-        row.completedResearch,
-      ])}
-    />
+          </tbody>
+        </table>
+        <PageNumbers
+          page={data.page}
+          totalPages={data.pageCount}
+          onPage={(page) => update({ page: page > 1 ? String(page) : null })}
+        />
+      </div>
+    </div>
   );
 }
 function RankingView({ data }: { data: RankingDetail }) {
