@@ -280,6 +280,9 @@ export interface ColonyInternalSummary {
 /** Kyber-Kristall-Vorkommen (Dilithium-Vorkommen), siehe colonization/swu-zone-ores.ts. */
 const SWU_KYBER_COMMODITY_ID = 1508;
 
+/** Sondererze (Linien A-E), Beskar und Tibanna - alles ausser Phrik, Kyber, Hypermaterie. */
+const SWU_SPECIAL_ORE_IDS = [1512, 1513, 1514, 1515, 1516, 1519, 1520];
+
 @Injectable()
 export class ColonyStatsService {
   constructor(private readonly gameData: GameDataService) {}
@@ -546,6 +549,11 @@ export class ColonyStatsService {
         SWU_KYBER_COMMODITY_ID,
         (amounts.get(SWU_KYBER_COMMODITY_ID) ?? 0) + kyberMarkers,
       );
+    }
+
+    // Onboarding-Kolonie: keine Sondererze (Primaer- wie Sekundaerquelle), siehe Colony.isStarter.
+    if (colony.isStarter) {
+      for (const id of SWU_SPECIAL_ORE_IDS) amounts.delete(id);
     }
 
     return Array.from(amounts.entries()).map(([commodityId, amount]) => ({

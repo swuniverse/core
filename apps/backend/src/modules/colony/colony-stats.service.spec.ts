@@ -127,3 +127,32 @@ describe('bonus marker yield', () => {
     expect(summaryFor('ENERGY', 'S').energyDelta).toBe(10);
   });
 });
+
+describe('special ores on the onboarding colony', () => {
+  const profile = [
+    { commodityId: 1511, planet: 12, moon: 6 },
+    { commodityId: 1515, planet: 3, moon: 1 },
+    { commodityId: 1512, planet: 1, moon: 0 },
+  ];
+  const service = new ColonyStatsService({
+    getSwuLetterResources: () => profile,
+  } as never);
+  const production = (isStarter: boolean) =>
+    (service as unknown as { getSwuBaseProduction(c: Colony): Array<{ commodityId: number; amount: number }> })
+      .getSwuBaseProduction({
+        swuZoneSlot: 1,
+        isStarter,
+        fields: [],
+        celestialObject: { classId: 90020, objectType: 'PLANET', name: 'Test' },
+      } as unknown as Colony)
+      .map((entry) => entry.commodityId)
+      .sort();
+
+  it('gives the follow-up colony its special ores', () => {
+    expect(production(false)).toEqual([1511, 1512, 1515]);
+  });
+
+  it('keeps only the base ores on the starter colony', () => {
+    expect(production(true)).toEqual([1511]);
+  });
+});

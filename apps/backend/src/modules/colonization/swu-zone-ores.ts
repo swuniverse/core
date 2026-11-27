@@ -31,7 +31,7 @@ const ORE_DISPLAY_NAMES: Record<number, string> = {
   1511: 'Phrik',
   1508: 'Kyber',
   1505: 'Hypermaterie',
-  1520: 'Hochenergie-Plasma',
+  1520: 'Tibanna',
 };
 
 export function oreDisplayName(commodityId: number, rawName: string | undefined): string {

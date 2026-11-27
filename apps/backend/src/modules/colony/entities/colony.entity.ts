@@ -77,6 +77,14 @@ export class Colony {
   swuZoneSlot: number | null;
 
   /**
+   * Starterkolonie (Onboarding). Sie bekommt keine Sondererze, damit Spieler nicht
+   * onboarding-bedingt alle dasselbe waehlen; derselbe Planet liefert sie als
+   * Folgekolonie schon (siehe ColonyStatsService.getSwuBaseProduction).
+   */
+  @Column({ type: 'boolean', default: false })
+  isStarter: boolean;
+
+  /**
    * Solarertrag in TJ (siehe starmap/generator/swu-solar.ts), einmalig bei
    * Gruendung berechnet - haengt nur von Zone/Rotation/Archetyp/Orbit-Distanz
    * ab, die sich danach nie mehr aendern. Treibt den Energie-Output der

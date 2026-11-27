@@ -180,7 +180,7 @@ export function FieldCell({
       {underConstruction && (
         <>
           <img
-            src={buildingImage(buildingId)}
+            src={buildingImage(buildingId, timeState)}
             alt=""
             data-testid="construction-ghost"
             className="absolute inset-[5%] w-[90%] h-[90%] object-contain grayscale opacity-35"
@@ -189,7 +189,7 @@ export function FieldCell({
           {progress != null && progress > 0 && (
             // Wie STU getOverlayWidth: das fertige Bild wird mit dem Fortschritt von links aufgedeckt.
             <img
-              src={buildingImage(buildingId)}
+              src={buildingImage(buildingId, timeState)}
               alt=""
               data-testid="build-progress-reveal"
               className="absolute inset-[5%] w-[90%] h-[90%] object-contain"
@@ -208,7 +208,7 @@ export function FieldCell({
             <span className="absolute left-0.5 top-0.5 h-2 w-2 rounded-full bg-orange-400 shadow-[0_0_6px_rgba(251,146,60,0.9)]" />
           )}
           <img
-            src={buildingImage(buildingId)}
+            src={buildingImage(buildingId, timeState)}
             alt=""
             className={`absolute inset-[5%] w-[90%] h-[90%] object-contain ${inactive ? '' : 'drop-shadow-[0_2px_6px_rgba(0,0,0,0.65)] drop-shadow-[0_0_8px_rgba(34,211,238,0.25)]'}`}
             style={{

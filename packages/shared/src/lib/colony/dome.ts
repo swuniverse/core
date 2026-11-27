@@ -11,7 +11,7 @@ export const DOME_TERRAIN_TILES = [
   'G6D2',
 ] as const;
 
-/** Durastahl-Legierung (21) und Transparistahl (4). */
+/** Durastahl-Legierung (21) und Kunststoff (4). */
 export const DOME_COSTS: ReadonlyArray<{
   commodityId: number;
   amount: number;
