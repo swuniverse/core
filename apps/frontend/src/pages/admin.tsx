@@ -307,6 +307,7 @@ function NewsControl() {
 
 function SendOrder66() {
   const [message, setMessage] = useState('');
+  const [faction, setFaction] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -314,7 +315,7 @@ function SendOrder66() {
   const send = async () => {
     if (
       !window.confirm(
-        'Nachricht an ALLE Spieler senden? Sie erscheint als Overlay, bis sie bestätigt wird.',
+        `Nachricht an ${faction === 'REBEL_ALLIANCE' ? 'alle REBELLEN' : faction === 'GALACTIC_EMPIRE' ? 'alle IMPERIALEN' : 'ALLE Spieler'} senden? Sie erscheint als Overlay, bis sie bestätigt wird.`,
       )
     )
       return;
@@ -322,7 +323,7 @@ function SendOrder66() {
     setError(null);
     setDone(false);
     try {
-      await api.post('/order-broadcasts', { message });
+      await api.post('/order-broadcasts', { message, ...(faction ? { faction } : {}) });
       setMessage('');
       setDone(true);
     } catch (err) {
@@ -354,6 +355,16 @@ function SendOrder66() {
           placeholder="Nachricht an alle Spieler"
           onChange={(event) => setMessage(event.target.value)}
         />
+        <select
+          aria-label="Empfänger"
+          className="block w-full rounded border border-swu-border bg-swu-bg px-3 py-2 text-swu-text"
+          value={faction}
+          onChange={(event) => setFaction(event.target.value)}
+        >
+          <option value="">Alle Spieler</option>
+          <option value="REBEL_ALLIANCE">Nur Rebellen</option>
+          <option value="GALACTIC_EMPIRE">Nur Imperium</option>
+        </select>
         <div className="flex items-center gap-3">
           <button
             type="button"

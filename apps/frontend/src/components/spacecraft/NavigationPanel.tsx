@@ -11,7 +11,7 @@ import { api } from '../../services/api';
 import { shipCursorImage } from '../../lib/assets';
 import { CombatReportDialog } from './CombatReportDialog';
 import { tutorialEvent } from '../tutorial/useTutorial';
-import { DirectionalControls } from './DirectionalControls';
+import { DirectionalControls, HUNTER_SIGNAL_STYLE } from './DirectionalControls';
 import { LssMap } from './LssMap';
 import type { LocalMapResponse } from './LssMap';
 
@@ -58,6 +58,8 @@ export function NavigationPanel({
   onLocalMapChange,
 }: NavigationPanelProps) {
   const [localMap, setLocalMap] = useState<LocalMapResponse | null>(null);
+  const hunterSignal =
+    localMap?.mode === 'galaxy' ? (localMap.bountyHunterSignal ?? null) : null;
   const [navMessage, setNavMessage] = useState<string | null>(null);
   const [combatReports, setCombatReports] = useState<CombatReportDto[]>([]);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -382,7 +384,15 @@ export function NavigationPanel({
           )}
         </div>
       ) : (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+        <div
+          className="flex flex-col gap-3 sm:flex-row sm:items-start"
+          data-testid="lss-signal-frame"
+          style={
+            hunterSignal
+              ? { boxShadow: HUNTER_SIGNAL_STYLE[hunterSignal].glow }
+              : undefined
+          }
+        >
           <LssMap
             onScanExpired={fetchLocalMap}
             localMap={localMap}
@@ -402,6 +412,7 @@ export function NavigationPanel({
                 stepSize={stepSize}
                 onStepChange={setStepSize}
                 disabled={!isDocked || moving || changingSystem}
+                signal={hunterSignal}
               />
             )}
           </div>

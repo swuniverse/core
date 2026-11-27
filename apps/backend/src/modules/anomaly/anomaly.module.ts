@@ -6,6 +6,10 @@ import { SeasonalAnomalyHandler } from './seasonal-anomaly.handler';
 import { SeasonalAnomalyController } from './seasonal-anomaly.controller';
 import { Module, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AwardsModule } from '../awards/awards.module';
+import { AwardService } from '../awards/award.service';
+import { OrderBroadcastModule } from '../order-broadcast/order-broadcast.module';
+import { OrderBroadcastService } from '../order-broadcast/order-broadcast.service';
 import { MessagingModule } from '../messaging/messaging.module';
 import { MessagingService } from '../messaging/messaging.service';
 import { SubspaceEllipseHandler } from './subspace-ellipse.handler';
@@ -20,7 +24,7 @@ import { createAnomalyRandom } from './stu-random';
 import { AnomalyService } from './anomaly.service';
 
 @Module({
-  imports: [MessagingModule, PrestigeModule],
+  imports: [MessagingModule, PrestigeModule, AwardsModule, OrderBroadcastModule],
   controllers: [SeasonalAnomalyController],
   providers: [
     {
@@ -29,8 +33,25 @@ import { AnomalyService } from './anomaly.service';
         db: DataSource,
         config: ConfigService,
         prestige: PrestigeService,
-      ) => new SeasonalAnomalyService(db, config, prestige),
-      inject: [DataSource, ConfigService, PrestigeService],
+        awards: AwardService,
+        orders: OrderBroadcastService,
+      ) =>
+        new SeasonalAnomalyService(
+          db,
+          config,
+          prestige,
+          undefined,
+          undefined,
+          awards,
+          orders,
+        ),
+      inject: [
+        DataSource,
+        ConfigService,
+        PrestigeService,
+        AwardService,
+        OrderBroadcastService,
+      ],
     },
     AnomalyRegistry,
     AnomalyService,

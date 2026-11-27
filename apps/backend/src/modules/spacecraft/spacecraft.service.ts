@@ -4926,6 +4926,15 @@ export class SpacecraftService {
       shipX: location.x,
       shipY: location.y,
       sensorRange,
+      bountyHunterSignal:
+        ship.location?.galaxyField?.layerId != null
+          ? ((await this.anomalyQuery?.hunterSignal(
+              ship.location.galaxyField.layerId,
+              location.x,
+              location.y,
+              sensorRange,
+            )) ?? null)
+          : null,
       bounds,
       warning: sensorView.warning,
       fields: sensorView.fields.map((f) => {

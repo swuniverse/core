@@ -2,6 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AnomalyRegistry } from './anomaly-registry';
 import { Anomaly } from './entities/anomaly.entity';
+import { berlinDay } from './seasonal-calendar';
+import { SEASONAL_TYPES } from './seasonal-anomaly.service';
+
+/** Winter event (1–24 Dec): ion storms and subspace ellipses rest while the bounty hunter is hunted. */
+export function winterEventActive(now: Date = new Date()): boolean {
+  const today = berlinDay(now),
+    year = today.slice(0, 4);
+  return today >= `${year}-12-01` && today < `${year}-12-25`;
+}
 
 @Injectable()
 export class AnomalyService {
@@ -24,6 +33,8 @@ export class AnomalyService {
       if (inserted.length === 0) return;
 
       const repository = manager.getRepository(Anomaly);
+      const winter = winterEventActive();
+      const seasonal = new Set<string>(Object.keys(SEASONAL_TYPES));
       const anomalies = await repository.find({
         select: { id: true },
         order: { id: 'ASC' },
@@ -34,6 +45,10 @@ export class AnomalyService {
           relations: ['type'],
         });
         if (!anomaly) continue;
+        if (winter && !seasonal.has(anomaly.type.key)) {
+          await repository.remove(anomaly);
+          continue;
+        }
         const handler = this.registry.get(anomaly.type.key);
         await handler.handleTick(anomaly, manager, { manager, afterCommit });
         anomaly.remainingTicks -= 1;
@@ -45,6 +60,7 @@ export class AnomalyService {
         }
       }
       for (const handler of this.registry.all()) {
+        if (winter && !seasonal.has(handler.key)) continue;
         await handler.checkForCreation(manager, { manager, afterCommit });
       }
     });

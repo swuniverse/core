@@ -119,8 +119,12 @@ export interface LocalMapContext {
   };
 }
 
+export type BountyHunterSignal = 'YELLOW' | 'ORANGE' | 'RED';
+
 export interface LocalMapGalaxy {
   tachyonScanExpiresAt?: number | null;
+  /** Winter event: colour of the nearest bounty hunter, null outside the event. */
+  bountyHunterSignal?: BountyHunterSignal | null;
   mode: 'galaxy';
   shipX: number;
   shipY: number;

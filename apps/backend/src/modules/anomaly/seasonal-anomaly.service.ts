@@ -17,12 +17,21 @@ import { PrestigeService } from '../prestige/prestige.service';
 import { Anomaly } from './entities/anomaly.entity';
 import { AnomalyType } from './entities/anomaly-type.entity';
 import { addDays, berlinDay, easterSunday } from './seasonal-calendar';
+import {
+  WINTER_ANNOUNCEMENT,
+  WINTER_AWARD_KEYS,
+  WINTER_CAUGHT,
+  WINTER_DAILY,
+} from './seasonal-event-texts';
+import { Faction } from '@swuniverse/shared';
+import type { AwardService } from '../awards/award.service';
+import type { OrderBroadcastService } from '../order-broadcast/order-broadcast.service';
 
 export const SEASONAL_TYPES = {
   LIFE_DAY_GIFT: {
-    name: 'Lebenstag-Geschenk',
+    name: 'Kopfgeldjäger',
     commodityId: 60,
-    commodityName: 'Lebenstag-Marke',
+    commodityName: 'Gefangener',
   },
   SPRING_CAPSULE: {
     name: 'Frühlings-Kapsel',
@@ -46,6 +55,8 @@ export class SeasonalAnomalyService {
     private readonly prestige: PrestigeService,
     private readonly now: () => Date = () => new Date(),
     private readonly random: () => number = Math.random,
+    private readonly awards?: AwardService,
+    private readonly orders?: OrderBroadcastService,
   ) {}
 
   enabled(): boolean {
@@ -79,6 +90,73 @@ export class SeasonalAnomalyService {
       for (const key of Object.keys(SEASONAL_TYPES) as SeasonalKey[])
         await this.checkForCreation(manager, key);
     });
+    await this.sendOrders();
+    await this.grantAwards();
+  }
+
+  /** Order 66 of the winter event: announcement on 1 Dec, daily reminder, final message on 25 Dec. */
+  private async sendOrders(): Promise<void> {
+    if (!this.orders) return;
+    const today = berlinDay(this.now()),
+      year = Number(today.slice(0, 4)),
+      start = `${year}-12-01`,
+      end = `${year}-12-25`;
+    if (today < start || today > end) return;
+    const marker = `ORDER66_${today.slice(5)}`;
+    const inserted = await this.db.query(
+      'INSERT INTO seasonal_anomaly_runs (key, year) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING key',
+      [marker, year],
+    );
+    if (!inserted.length) return;
+    try {
+      for (const faction of [Faction.REBEL_ALLIANCE, Faction.GALACTIC_EMPIRE]) {
+        const text =
+          today === start
+            ? WINTER_ANNOUNCEMENT[faction]
+            : today === end
+              ? WINTER_CAUGHT
+              : WINTER_DAILY;
+        await this.orders.send(text, null, faction);
+      }
+    } catch (error) {
+      await this.db.query(
+        'DELETE FROM seasonal_anomaly_runs WHERE key = $1 AND year = $2',
+        [marker, year],
+      );
+      throw error;
+    }
+  }
+
+  /** From 25 Dec 0:00 every player who collected prestige at least once receives the award. */
+  private async grantAwards(): Promise<void> {
+    if (!this.awards) return;
+    const today = berlinDay(this.now()),
+      year = Number(today.slice(0, 4));
+    if (today < `${year}-12-25`) return;
+    if (
+      (
+        await this.db.query(
+          "SELECT 1 FROM seasonal_anomaly_runs WHERE key = 'LIFE_DAY_AWARDS' AND year = $1",
+          [year],
+        )
+      ).length
+    )
+      return;
+    const rows: { userId: number; faction: Faction | null }[] =
+      await this.db.query(
+        `SELECT DISTINCT o."userId", u.faction FROM seasonal_anomaly_openings o
+         JOIN users u ON u.id = o."userId"
+         WHERE o.key = 'LIFE_DAY_GIFT' AND o.day >= $1 AND o.day < $2`,
+        [`${year}-12-01`, `${year}-12-25`],
+      );
+    // Granting is idempotent per player, so a failed run can safely be repeated.
+    for (const row of rows)
+      if (row.faction)
+        await this.awards.grant(row.userId, WINTER_AWARD_KEYS[row.faction]);
+    await this.db.query(
+      "INSERT INTO seasonal_anomaly_runs (key, year) VALUES ('LIFE_DAY_AWARDS', $1) ON CONFLICT DO NOTHING",
+      [year],
+    );
   }
   private lock(manager: EntityManager) {
     // Same order as the framework tick, so opens cannot race creation/movement/expiry.
@@ -118,14 +196,15 @@ export class SeasonalAnomalyService {
     type ??= await manager.save(AnomalyType, { key });
     await manager.delete(Anomaly, { typeId: type.id });
     const candidates = await this.candidates(manager);
-    if (!candidates || (await candidates.getCount()) < 5) return;
+    const count = key === 'LIFE_DAY_GIFT' ? 3 : 5;
+    if (!candidates || (await candidates.getCount()) < count) return;
     const inserted = await manager.query(
       'INSERT INTO seasonal_anomaly_runs (key, year) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING key',
       [key, year],
     );
     if (!inserted.length) return;
     await this.clearOldGoods(manager, SEASONAL_TYPES[key].commodityId);
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < count; i++) {
       const locationId = await this.randomLocation(manager);
       if (locationId === null)
         throw new Error('Seasonal anomaly location pool changed');
@@ -263,36 +342,46 @@ export class SeasonalAnomalyService {
       if (ship.crew < ship.crewRequired)
         throw new BadRequestException('Nicht genügend Crew');
       const today = berlinDay(this.now());
-      if (
-        key === 'LIFE_DAY_GIFT' &&
-        (
-          await manager.query(
-            'SELECT 1 FROM seasonal_anomaly_openings WHERE "userId" = $1 AND day = $2 AND key = $3',
-            [userId, today, key],
+      const isHunter = key === 'LIFE_DAY_GIFT';
+      // Bounty hunter: 100 Prestige per day, on 6 Dec a second opening for 500; the prisoner comes on 24 Dec.
+      const opened = isHunter
+        ? Number(
+            (
+              await manager.query(
+                'SELECT COUNT(*) AS n FROM seasonal_anomaly_openings WHERE "userId" = $1 AND day = $2 AND key = $3',
+                [userId, today, key],
+              )
+            )[0].n,
           )
-        ).length
-      )
+        : 0;
+      if (isHunter && opened >= (today.endsWith('-12-06') ? 2 : 1))
         throw new BadRequestException(
-          'Du hast heute bereits ein Geschenk geöffnet',
+          'Du hast heute bereits Spuren des Kopfgeldjägers ausgewertet',
         );
+      const givesGoods = !isHunter || today.endsWith('-12-24');
       const used =
         (await manager
           .getRepository(CargoItem)
           .sum('amount', { spacecraftId: shipId })) ?? 0;
-      if (used >= ship.cargoMax)
+      if (givesGoods && used >= ship.cargoMax)
         throw new BadRequestException('Der Frachtraum ist voll');
       await manager.query(
         'INSERT INTO seasonal_anomaly_openings ("userId", key, day, "anomalyId") VALUES ($1, $2, $3, $4)',
         [userId, key, today, anomalyId],
       );
       const reward = SEASONAL_TYPES[key];
-      await manager.query(
-        'INSERT INTO cargo_items ("spacecraftId", "commodityId", amount) VALUES ($1, $2, 1) ON CONFLICT ("spacecraftId", "commodityId") DO UPDATE SET amount = cargo_items.amount + 1',
-        [shipId, reward.commodityId],
-      );
-      await manager.update(Spacecraft, { id: shipId }, { cargoUsed: used + 1 });
-      let prestigeAwarded =
-        key === 'LIFE_DAY_GIFT' && today.endsWith('-12-06') ? 500 : 0;
+      if (givesGoods) {
+        await manager.query(
+          'INSERT INTO cargo_items ("spacecraftId", "commodityId", amount) VALUES ($1, $2, 1) ON CONFLICT ("spacecraftId", "commodityId") DO UPDATE SET amount = cargo_items.amount + 1',
+          [shipId, reward.commodityId],
+        );
+        await manager.update(
+          Spacecraft,
+          { id: shipId },
+          { cargoUsed: used + 1 },
+        );
+      }
+      let prestigeAwarded = isHunter ? (opened === 0 ? 100 : 500) : 0;
       if (key === 'SPRING_CAPSULE') {
         await manager.delete(Anomaly, anomaly.id);
         if (
@@ -306,16 +395,18 @@ export class SeasonalAnomalyService {
         await this.prestige.change(
           userId,
           prestigeAwarded,
-          key === 'LIFE_DAY_GIFT'
-            ? '500 Prestige für das erste Lebenstag-Geschenk am 6. Dezember'
+          isHunter
+            ? `${prestigeAwarded} Prestige für die Jagd auf den Kopfgeldjäger`
             : '500 Prestige für die letzte Frühlings-Kapsel',
           manager,
         );
       return {
-        commodityId: reward.commodityId,
-        amount: 1,
+        commodityId: givesGoods ? reward.commodityId : null,
+        amount: givesGoods ? 1 : 0,
         prestigeAwarded,
-        message: `1 ${reward.commodityName} erhalten${prestigeAwarded ? ` und ${prestigeAwarded} Prestige` : ''}.`,
+        message: givesGoods
+          ? `1 ${reward.commodityName} erhalten${prestigeAwarded ? ` und ${prestigeAwarded} Prestige` : ''}.`
+          : `${prestigeAwarded} Prestige erhalten.`,
       };
     });
   }
