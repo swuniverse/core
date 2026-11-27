@@ -85,6 +85,12 @@ describe('Seasonal anomalies (PostgreSQL, fixed Berlin clock)', () => {
     db
       .getRepository(Anomaly)
       .find({ relations: ['type'], order: { id: 'ASC' } });
+  // The bounty hunter escapes after each collection; the ship follows it.
+  const follow = async (shipId: number, anomalyId: number) =>
+    db.getRepository(Spacecraft).update(shipId, {
+      locationId: (await db.getRepository(Anomaly).findOneByOrFail({ id: anomalyId }))
+        .locationId!,
+    });
   const ship = (userId: number, locationId: number, cargoMax = 10) =>
     db.getRepository(Spacecraft).save({
       userId,
@@ -108,21 +114,26 @@ describe('Seasonal anomalies (PostgreSQL, fixed Berlin clock)', () => {
       new SeasonalAnomalyHandler('LIFE_DAY_GIFT', service).present(gifts[0]),
     ).toEqual({ id: gifts[0].id, canOpen: true });
   });
-  it('clears prior collectible cargo without losing other goods or corrupting cargo capacity', async () => {
+  it('keeps prisoners from earlier winter events and leaves cargo capacity untouched', async () => {
     const old = await ship(owner, locations.at(-1)!.id);
     await db.getRepository(CargoItem).save([
-      { spacecraftId: old.id, commodityId: 60, amount: 2 },
+      { spacecraftId: old.id, commodityId: 76, amount: 2 },
       { spacecraftId: old.id, commodityId: 1, amount: 3 },
     ]);
     await db.getRepository(Spacecraft).update(old.id, { cargoUsed: 5 });
     await service.generate();
     expect(
-      await db.getRepository(CargoItem).findBy({ spacecraftId: old.id }),
-    ).toEqual([expect.objectContaining({ commodityId: 1, amount: 3 })]);
+      await db
+        .getRepository(CargoItem)
+        .find({ where: { spacecraftId: old.id }, order: { commodityId: 'ASC' } }),
+    ).toEqual([
+      expect.objectContaining({ commodityId: 1, amount: 3 }),
+      expect.objectContaining({ commodityId: 76, amount: 2 }),
+    ]);
     expect(
       (await db.getRepository(Spacecraft).findOneByOrFail({ id: old.id }))
         .cargoUsed,
-    ).toBe(3);
+    ).toBe(5);
   });
   it('pays 100 prestige per day, 100 and 500 on December 6, and no goods before December 24', async () => {
     await service.generate();
@@ -135,16 +146,23 @@ describe('Seasonal anomalies (PostgreSQL, fixed Berlin clock)', () => {
       amount: 0,
       prestigeAwarded: 100,
     });
+    expect(
+      (await db.getRepository(Anomaly).findOneByOrFail({ id: gifts[0].id }))
+        .locationId,
+    ).not.toBe(gifts[0].locationId);
     await expect(service.open(owner, b.id, gifts[1].id)).rejects.toThrow(
       'heute bereits',
     );
     now = new Date('2026-12-05T23:00:00Z');
+    await follow(a.id, gifts[0].id);
     expect((await service.open(owner, a.id, gifts[0].id)).prestigeAwarded).toBe(
       100,
     );
-    expect((await service.open(owner, b.id, gifts[1].id)).prestigeAwarded).toBe(
+    await follow(b.id, gifts[0].id);
+    expect((await service.open(owner, b.id, gifts[0].id)).prestigeAwarded).toBe(
       500,
     );
+    await follow(a.id, gifts[0].id);
     await expect(service.open(owner, a.id, gifts[0].id)).rejects.toThrow(
       'heute bereits',
     );
@@ -170,7 +188,7 @@ describe('Seasonal anomalies (PostgreSQL, fixed Berlin clock)', () => {
     expect(await db.getRepository(PrestigeHistoryEntry).count()).toBe(0);
     await db.getRepository(CargoItem).delete({ spacecraftId: a.id });
     expect(await service.open(owner, a.id, gift.id)).toMatchObject({
-      commodityId: 60,
+      commodityId: 76,
       amount: 1,
       prestigeAwarded: 100,
     });
@@ -266,6 +284,14 @@ describe('Seasonal anomalies (PostgreSQL, fixed Berlin clock)', () => {
       new SeasonalAnomalyHandler('LIFE_DAY_GIFT', service).present(gift)
         .canOpen,
     ).toBe(false);
+  });
+  it('moves the bounty hunter on every tick', async () => {
+    await service.generate();
+    const gift = (await anomalies())[0];
+    now = new Date('2026-12-01T12:00:00Z');
+    const before = gift.locationId;
+    await service.handleTick(gift, db.manager);
+    expect(gift.locationId).not.toBe(before);
   });
   it('creates spring capsules on computed Easter Sunday and awards only the last claimed capsule', async () => {
     now = new Date('2026-04-04T21:59:59Z');

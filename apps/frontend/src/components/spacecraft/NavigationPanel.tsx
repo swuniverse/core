@@ -42,6 +42,8 @@ interface NavigationPanelProps {
   onShipUpdate: () => Promise<void> | void;
   cartography?: CartographyPlanDto | null;
   onLocalMapChange?: (localMap: LocalMapResponse | null) => void;
+  /** Bumped by the page after ship-affecting actions; reloads the LSS without clearing it. */
+  refreshVersion?: number;
 }
 
 const STOP_MESSAGES: Record<MovementStopReason, string> = {
@@ -56,6 +58,7 @@ export function NavigationPanel({
   onShipUpdate,
   cartography,
   onLocalMapChange,
+  refreshVersion = 0,
 }: NavigationPanelProps) {
   const [localMap, setLocalMap] = useState<LocalMapResponse | null>(null);
   const hunterSignal =
@@ -135,6 +138,14 @@ export function NavigationPanel({
     ship.runtimeSystems?.TACHYON_SCANNER?.lastScanAt,
     navigationLocationKey,
   ]);
+
+  // Silent reload (e.g. after collecting the bounty hunter, which then moves away).
+  useEffect(() => {
+    if (refreshVersion === 0 || !ship.runtimeSystems?.LONG_RANGE_SENSORS?.active)
+      return;
+    void fetchLocalMap();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshVersion]);
 
   useEffect(() => {
     setChangingSystem(false);

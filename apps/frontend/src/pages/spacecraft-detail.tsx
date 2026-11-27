@@ -219,6 +219,7 @@ export function SpacecraftDetailPage() {
             <NavigationPanel
               ship={ship}
               onShipUpdate={refreshShipAndStorage}
+              refreshVersion={shipRefreshVersion}
               cartography={cartography}
             />
           </div>

@@ -9,7 +9,6 @@ import { DataSource, EntityManager } from 'typeorm';
 import { FieldEffect } from '@swuniverse/shared';
 import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { CargoItem } from '../spacecraft/entities/cargo-item.entity';
-import { ColonyStorage } from '../colony/entities/colony-storage.entity';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { Layer } from '../starmap/entities/layer.entity';
 import { User } from '../auth/user.entity';
@@ -30,7 +29,7 @@ import type { OrderBroadcastService } from '../order-broadcast/order-broadcast.s
 export const SEASONAL_TYPES = {
   LIFE_DAY_GIFT: {
     name: 'Kopfgeldjäger',
-    commodityId: 60,
+    commodityId: 76,
     commodityName: 'Gefangener',
   },
   SPRING_CAPSULE: {
@@ -203,7 +202,6 @@ export class SeasonalAnomalyService {
       [key, year],
     );
     if (!inserted.length) return;
-    await this.clearOldGoods(manager, SEASONAL_TYPES[key].commodityId);
     for (let i = 0; i < count; i++) {
       const locationId = await this.randomLocation(manager);
       if (locationId === null)
@@ -254,38 +252,6 @@ export class SeasonalAnomalyService {
     return selected?.id ?? null;
   }
 
-  private async clearOldGoods(
-    manager: EntityManager,
-    commodityId: number,
-  ): Promise<void> {
-    const cargo = await manager.find(CargoItem, {
-      where: { commodityId },
-      select: { spacecraftId: true },
-    });
-    const ids = [...new Set(cargo.map((item) => item.spacecraftId))].sort(
-      (a, b) => a - b,
-    );
-    if (ids.length) {
-      await manager
-        .getRepository(Spacecraft)
-        .createQueryBuilder('ship')
-        .where('ship.id IN (:...ids)', { ids })
-        .orderBy('ship.id', 'ASC')
-        .setLock('pessimistic_write')
-        .getMany();
-      await manager.delete(CargoItem, { commodityId });
-      await manager.query(
-        'UPDATE spacecraft SET "cargoUsed" = (SELECT COALESCE(SUM(amount), 0) FROM cargo_items WHERE "spacecraftId" = spacecraft.id) WHERE id = ANY($1)',
-        [ids],
-      );
-    }
-    await manager.delete(ColonyStorage, { commodityId });
-    await manager.query(
-      'DELETE FROM trade_account_storage WHERE "commodityId" = $1',
-      [commodityId],
-    );
-  }
-
   async handleTick(anomaly: Anomaly, manager: EntityManager): Promise<void> {
     if (!this.active(anomaly)) {
       anomaly.remainingTicks = 1;
@@ -300,12 +266,10 @@ export class SeasonalAnomalyService {
           3600000,
       ) + 1,
     );
-    const today = berlinDay(this.now());
-    if (anomaly.type.key === 'SPRING_CAPSULE' || data.lastMovedOn !== today) {
-      const locationId = await this.randomLocation(manager);
-      if (locationId !== null) anomaly.locationId = locationId;
-      anomaly.data = { ...data, lastMovedOn: today };
-    }
+    // Both seasonal anomalies hop to a new field on every tick.
+    const locationId = await this.randomLocation(manager);
+    if (locationId !== null) anomaly.locationId = locationId;
+    anomaly.data = { ...data, lastMovedOn: berlinDay(this.now()) };
   }
 
   async open(userId: number, shipId: number, anomalyId: number) {
@@ -400,13 +364,19 @@ export class SeasonalAnomalyService {
             : '500 Prestige für die letzte Frühlings-Kapsel',
           manager,
         );
+      // The bounty hunter escapes to a new field right after every collection.
+      if (isHunter) {
+        const locationId = await this.randomLocation(manager);
+        if (locationId !== null)
+          await manager.update(Anomaly, anomaly.id, { locationId });
+      }
       return {
         commodityId: givesGoods ? reward.commodityId : null,
         amount: givesGoods ? 1 : 0,
         prestigeAwarded,
         message: givesGoods
-          ? `1 ${reward.commodityName} erhalten${prestigeAwarded ? ` und ${prestigeAwarded} Prestige` : ''}.`
-          : `${prestigeAwarded} Prestige erhalten.`,
+          ? `1 ${reward.commodityName} erhalten${prestigeAwarded ? ` und ${prestigeAwarded} Prestige` : ''}.${isHunter ? ' Der Kopfgeldjäger ist entkommen.' : ''}`
+          : `${prestigeAwarded} Prestige erhalten. Der Kopfgeldjäger ist entkommen.`,
       };
     });
   }

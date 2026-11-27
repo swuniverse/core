@@ -3,6 +3,8 @@ import type { AnomalyViewDto } from '@swuniverse/shared';
 import { anomalyImage } from '../../lib/assets';
 
 export function formatAnomaly(anomaly: AnomalyViewDto): string {
+  // Seasonal anomalies (with an id) jump every tick, so a remaining-time counter is meaningless.
+  if (anomaly.id != null) return anomaly.name;
   const duration = `noch ${anomaly.remainingTicks} ${anomaly.remainingTicks === 1 ? 'Tick' : 'Ticks'}`;
   return anomaly.intensity == null
     ? `${anomaly.name} (${duration})`
