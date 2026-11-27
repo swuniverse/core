@@ -3,6 +3,7 @@ import { ColonySocialService } from '../colony/colony-social.service';
 import { MapRegion } from '../starmap/entities/map-region.entity';
 import { RegionDiscovery } from '../starmap/entities/region-discovery.entity';
 import { DatabaseRegionCatalogService } from './database-region-catalog.service';
+import { DatabaseCrewService } from './database-crew.service';
 import { DatabaseTypeDetailService } from './database-type-detail.service';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
 import { LayerKnowledge } from '../starmap/entities/layer-knowledge.entity';
@@ -124,6 +125,7 @@ import { StarmapModule } from '../starmap/starmap.module';
     ColonySocialService,
     DatabaseRegionCatalogService,
     DatabaseTypeDetailService,
+    DatabaseCrewService,
     DatabaseCompletionService,
     DatabaseDiscoveryListener,
     ColonyScanProjectionService,

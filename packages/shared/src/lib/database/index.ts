@@ -1,6 +1,6 @@
 import type { AllianceRefDto } from '../alliance/index.js';
 import type { Faction } from '../auth/index.js';
-import type { StarmapLayerDto } from '../starmap/index.js';
+import type { SpaceLocationDto, StarmapLayerDto } from '../starmap/index.js';
 
 export type DatabaseLayerChoiceDto = Pick<StarmapLayerDto, 'id' | 'name'>;
 
@@ -239,4 +239,57 @@ export interface DatabaseSettlerListDto {
   page: number;
   pageCount: number;
   total: number;
+}
+
+/** STU `crewManagement.twig`: where a crew member of the player serves. */
+export type DatabaseCrewLocationType =
+  | 'SHIP'
+  | 'STATION'
+  | 'COLONY'
+  | 'TRADE_POST'
+  | 'ESCAPE_POD';
+
+export interface DatabaseCrewLocationDto {
+  type: DatabaseCrewLocationType;
+  /** Spacecraft, colony, trade post or escape pod id. */
+  id: number;
+  name: string;
+  /** The player owns the ship, station or colony; foreign hosts are not linkable. */
+  own: boolean;
+  shipClassId: number | null;
+  shipClassKey: string | null;
+  /** Sector of ships, stations, trade posts and pods; null on colonies. */
+  sector: SpaceLocationDto | null;
+}
+
+export interface DatabaseCrewMemberDto {
+  id: number;
+  name: string;
+  rank: string;
+  rankLabel: string;
+  /** Expertise the rank needs, for sorting by rank. */
+  rankExpertise: number;
+  highestExpertise: number;
+  skills: Array<{ position: string; positionLabel: string; expertise: number }>;
+  /** Only on ships and stations; never in pods. */
+  position: string | null;
+  positionLabel: string | null;
+  location: DatabaseCrewLocationDto | null;
+  inEscapePod: boolean;
+  onForeignStation: boolean;
+  /** Foreign station without a post: trade post crew or no position. */
+  onForeignStationInactive: boolean;
+}
+
+export interface DatabaseCrewDto {
+  members: DatabaseCrewMemberDto[];
+  ranks: Array<{ rank: string; label: string; expertise: number }>;
+  positions: Array<{ position: string; label: string }>;
+}
+
+export interface DatabaseCrewDismissResultDto {
+  dismissed: number;
+  /** Requested ids that are not the player's crew (foreign or unknown). */
+  skippedIds: number[];
+  removedEscapePods: number;
 }

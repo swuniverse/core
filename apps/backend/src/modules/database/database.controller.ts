@@ -1,6 +1,7 @@
 import { DatabaseRegionCatalogService } from './database-region-catalog.service';
 import {
   BadRequestException,
+  Body,
   Controller,
   DefaultValuePipe,
   Get,
@@ -8,11 +9,13 @@ import {
   NotFoundException,
   ParseEnumPipe,
   ParseIntPipe,
+  Post,
   Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { ArrayMaxSize, IsArray, IsInt, Max, Min } from 'class-validator';
 import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { DatabaseService } from './database.service';
 import { parseSettlerListQuery } from './settler-list.query';
@@ -20,8 +23,18 @@ import { STATISTIC_UNITS, type StatisticUnit, type DatabaseRegionsDto, type Data
 import { StatisticsService } from '../statistics/statistics.service';
 import { CommodityOverviewService } from './commodity-overview.service';
 import { DatabaseTypeDetailService } from './database-type-detail.service';
+import { DatabaseCrewService } from './database-crew.service';
 import { LayerAccessGuard } from '../starmap/layer-access.guard';
 import { LayerAccessService, type LayerReader } from '../starmap/layer-access.service';
+
+export class DismissCrewRequest {
+  @IsArray()
+  @ArrayMaxSize(500)
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  @Max(2147483647, { each: true })
+  crewIds: number[];
+}
 
 @Controller('database')
 export class DatabaseController {
@@ -32,6 +45,7 @@ export class DatabaseController {
     private readonly layerAccess: LayerAccessService,
     private readonly regionCatalog: DatabaseRegionCatalogService,
     private readonly typeDetail: DatabaseTypeDetailService,
+    private readonly crewService: DatabaseCrewService,
   ) {}
 
   private async catalogLayers(user: LayerReader, layerId?: number) {
@@ -79,6 +93,23 @@ export class DatabaseController {
     return this.databaseService.getSettlers(
       parseSettlerListQuery({ page, sort, order, search }),
     );
+  }
+
+  @Get('crew')
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'))
+  getCrew(@Request() req: { user: { sub: number } }) {
+    return this.crewService.list(req.user.sub);
+  }
+
+  @Post('crew/dismiss')
+  @RequiresGameAccess()
+  @UseGuards(AuthGuard('jwt'))
+  dismissCrew(
+    @Request() req: { user: { sub: number } },
+    @Body() body: DismissCrewRequest,
+  ) {
+    return this.crewService.dismiss(req.user.sub, body.crewIds);
   }
 
   @Get('npcs')
