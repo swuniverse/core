@@ -17,6 +17,7 @@ import { DatabaseProgress } from '../components/database/DatabaseProgress';
 import { PageHeader } from '../components/PageHeader';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { PmLink } from '../components/PmLink';
+import { CrewOverview } from './database-crew';
 import { PageNumbers } from '../components/messaging/MessageCard';
 import { commodityImage, shipImage, systemTypeImage } from '../lib/assets';
 import { formatNumber } from '../lib/format';
@@ -25,6 +26,7 @@ import type {
   CommodityLocationsOverviewDto,
   CommodityOverviewEntryDto,
   DatabaseHullCatalogDto,
+  DatabaseCrewDto,
   DatabaseLayerChoiceDto,
   DatabaseSystemTypesDto,
   DatabasePlanetTypesDto,
@@ -76,6 +78,7 @@ type View =
   | 'commodity-overview'
   | 'trade-posts'
   | 'npcs'
+  | 'crew'
   | 'statistics';
 
 type NpcAdminEntry = {
@@ -215,6 +218,7 @@ const groups: Array<{
         ranking: 'rpg',
       },
       { label: 'Höchstes Prestige', view: 'rankings', ranking: 'prestige' },
+      { label: 'Crew', view: 'crew' },
     ],
   },
   {
@@ -286,6 +290,7 @@ export function DatabasePage() {
   const layerId = params.get('layerId');
   const settlerQuery = view === 'settlers' ? settlerQueryString(params) : '';
   const isLayerCatalog = view === 'system-types' || view === 'planet-types' || view === 'regions';
+  const [reloadKey, setReloadKey] = useState(0);
   const loadedViewRef = useRef<View | null>(null);
   const [data, setData] = useState<unknown>(null);
   const [layerChoices, setLayerChoices] = useState<DatabaseLayerChoiceDto[]>([]);
@@ -293,8 +298,8 @@ export function DatabasePage() {
 
   useEffect(() => {
     if (!view || view === 'statistics') return void setData(null);
-    // Paging, sorting or searching the settler list keeps the table (and the search field) mounted.
-    if (!(view === 'settlers' && loadedViewRef.current === 'settlers')) setData(null);
+    // Paging, sorting or searching the settler list, or reloading the crew list, keeps the table (and its state) mounted.
+    if (!((view === 'settlers' || view === 'crew') && loadedViewRef.current === view)) setData(null);
     loadedViewRef.current = view;
     let current = true;
     setLayerChoices([]);
@@ -322,7 +327,7 @@ export function DatabasePage() {
     return () => {
       current = false;
     };
-  }, [view, ranking, isLayerCatalog, layerId, settlerQuery]);
+  }, [view, ranking, isLayerCatalog, layerId, settlerQuery, reloadKey]);
 
   const select = (next: View, nextRanking?: RankingKey) =>
     setParams(
@@ -370,7 +375,7 @@ export function DatabasePage() {
               </select>
             </label>
           )}
-          <Detail view={view} data={data} />
+          <Detail view={view} data={data} reload={() => setReloadKey((key) => key + 1)} />
         </>
       )}
     </section>
@@ -626,7 +631,8 @@ function Hub({
   );
 }
 
-function Detail({ view, data }: { view: View; data: unknown }) {
+function Detail({ view, data, reload }: { view: View; data: unknown; reload: () => void }) {
+  if (view === 'crew') return <CrewOverview data={data as DatabaseCrewDto} onChanged={reload} />;
   if (view === 'system-types')
     return <SystemTypes data={data as SystemTypes} />;
   if (view === 'regions') return <Regions data={data as DatabaseRegionsDto} />;
@@ -1458,6 +1464,7 @@ function titleFor(view: View) {
       'commodity-overview': 'Warenübersicht',
       'trade-posts': 'Handelsstationen',
       npcs: 'NPCs & Administratoren',
+      crew: 'Crew',
       statistics: 'Statistiken',
     } as Record<View, string>
   )[view];

@@ -8,6 +8,7 @@ vi.mock('../components/database/DatabaseProgress', () => ({ DatabaseProgress: ()
 
 const apiMocks = vi.hoisted(() => ({
   get: vi.fn(),
+  post: vi.fn(),
   delete: vi.fn(),
 }));
 
@@ -1056,5 +1057,180 @@ describe('DatabasePage', () => {
       ).toBeTruthy();
       expect(screen.queryByRole('img', { name: 'Spieler' })).toBeNull();
     });
+  });
+});
+
+describe('DatabasePage crew overview', () => {
+  const member = (overrides: Record<string, unknown>) => ({
+    id: 1,
+    name: 'Anna',
+    rank: 'CADET',
+    rankLabel: 'Kadett',
+    rankExpertise: 0,
+    highestExpertise: 0,
+    skills: [],
+    position: null,
+    positionLabel: null,
+    location: null,
+    inEscapePod: false,
+    onForeignStation: false,
+    onForeignStationInactive: false,
+    ...overrides,
+  });
+  const place = (type: string, name: string, extra: Record<string, unknown> = {}) => ({
+    type, id: 5, name, own: true, shipClassId: null, shipClassKey: null, sector: null, ...extra,
+  });
+  const crewDto = () => ({
+    members: [
+      member({
+        id: 1, name: 'Anna', rank: 'ENSIGN', rankLabel: 'Fähnrich', rankExpertise: 300, highestExpertise: 400,
+        skills: [{ position: 'CAPTAIN', positionLabel: 'Captain', expertise: 400 }],
+        position: 'CAPTAIN', positionLabel: 'Captain',
+        location: place('SHIP', 'Falke', { shipClassId: 3, shipClassKey: 'X', sector: { scope: 'GALAXY', locationId: 1, layerId: 1, x: 2, y: 3 } }),
+      }),
+      member({ id: 2, name: 'Bert', location: place('COLONY', 'Heimat') }),
+      member({ id: 3, name: 'Cleo', location: place('ESCAPE_POD', 'Altschiff'), inEscapePod: true }),
+      member({
+        id: 4, name: 'Dora', location: place('STATION', 'Fremdbasis', { own: false }),
+        onForeignStation: true, onForeignStationInactive: true,
+      }),
+    ],
+    ranks: [
+      { rank: 'CADET', label: 'Kadett', expertise: 0 },
+      { rank: 'ENSIGN', label: 'Fähnrich', expertise: 300 },
+    ],
+    positions: [{ position: 'CAPTAIN', label: 'Captain' }],
+  });
+
+  beforeEach(() => {
+    apiMocks.get.mockReset();
+    apiMocks.post.mockReset();
+    apiMocks.get.mockImplementation((url: string) =>
+      url === '/database/crew'
+        ? Promise.resolve(crewDto())
+        : Promise.resolve({ settlers: 0, colonies: 0, ships: 0, totalTechs: 0, sections: [] }),
+    );
+  });
+
+  const open = async () => {
+    render(
+      <MemoryRouter initialEntries={['/database?view=crew']}>
+        <DatabasePage />
+      </MemoryRouter>,
+    );
+    await screen.findByText('Anna');
+  };
+  const names = () =>
+    screen.getAllByRole('row').slice(1).map((row) => row.querySelector('td.font-semibold')?.textContent);
+
+  it('lists the crew by highest expertise with place, rank and skills', async () => {
+    await open();
+
+    expect(names()).toEqual(['Anna', 'Bert', 'Cleo', 'Dora']);
+    expect(screen.getByText('4 von 4 Crewmitgliedern')).toBeTruthy();
+    const row = screen.getByText('Anna').closest('tr') as HTMLElement;
+    expect(within(row).getByText('Fähnrich')).toBeTruthy();
+    expect(within(row).getByRole('link', { name: 'Falke' }).getAttribute('href')).toBe('/spacecraft/5');
+    expect(within(row).getByText('2|3')).toBeTruthy();
+    expect(within(row).getByText('400 XP')).toBeTruthy();
+    // Foreign station: no link to a ship the player cannot open.
+    expect(within(screen.getByText('Dora').closest('tr') as HTMLElement).queryByRole('link')).toBeNull();
+  });
+
+  it('filters by name, place, rank, position and the station flags, and counts the hits', async () => {
+    await open();
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'ber' } });
+    expect(names()).toEqual(['Bert']);
+    expect(screen.getByText('1 von 4 Crewmitgliedern')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Filter leeren' }));
+
+    fireEvent.change(screen.getByLabelText('Kolonie'), { target: { value: 'heim' } });
+    expect(names()).toEqual(['Bert']);
+    fireEvent.click(screen.getByRole('button', { name: 'Filter leeren' }));
+
+    fireEvent.click(screen.getByLabelText('Fähnrich'));
+    expect(names()).toEqual(['Anna']);
+    fireEvent.click(screen.getByRole('button', { name: 'Filter leeren' }));
+
+    fireEvent.click(screen.getByLabelText('Captain'));
+    expect(names()).toEqual(['Anna']);
+    fireEvent.click(screen.getByRole('button', { name: 'Filter leeren' }));
+
+    fireEvent.click(screen.getByLabelText('Nur Rettungskapseln'));
+    expect(names()).toEqual(['Cleo']);
+    fireEvent.click(screen.getByRole('button', { name: 'Filter leeren' }));
+
+    fireEvent.click(screen.getByLabelText('Auf fremden Stationen nicht im Einsatz'));
+    expect(names()).toEqual(['Dora']);
+    fireEvent.click(screen.getByLabelText('Auf fremden Stationen nicht im Einsatz'));
+    fireEvent.click(screen.getByLabelText('Auf fremden Stationen'));
+    expect(names()).toEqual(['Dora']);
+    expect(screen.getByText('1 von 4 Crewmitgliedern')).toBeTruthy();
+  });
+
+  it('sorts by name and by rank', async () => {
+    await open();
+
+    fireEvent.change(screen.getByLabelText('Sortierung'), { target: { value: 'rank' } });
+    expect(names()[0]).toBe('Anna');
+    fireEvent.change(screen.getByLabelText('Sortierung'), { target: { value: 'ship' } });
+    expect(names()).toEqual(['Bert', 'Cleo', 'Anna', 'Dora']);
+  });
+
+  it('dismisses the selection only after a confirmation and reloads the list', async () => {
+    apiMocks.post.mockResolvedValue({ dismissed: 2, skippedIds: [], removedEscapePods: 1 });
+    await open();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Entlassen' }));
+    fireEvent.click(screen.getByLabelText('Bert auswählen'));
+    fireEvent.click(screen.getByLabelText('Cleo auswählen'));
+    fireEvent.click(screen.getByRole('button', { name: 'Bestätigen (2)' }));
+    expect(apiMocks.post).not.toHaveBeenCalled();
+    expect(screen.getByRole('alertdialog').textContent).toContain('2 Crewmitglied(er) endgültig entlassen');
+
+    apiMocks.get.mockImplementation(() =>
+      Promise.resolve({ ...crewDto(), members: crewDto().members.filter((entry) => entry.id !== 2 && entry.id !== 3) }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Ja, entlassen' }));
+
+    await waitFor(() => expect(names()).toEqual(['Anna', 'Dora']));
+    expect(apiMocks.post).toHaveBeenCalledWith('/database/crew/dismiss', { crewIds: [2, 3] });
+    expect(screen.getByRole('status').textContent).toContain('2 Crewmitglied(er) entlassen');
+    expect(screen.getByRole('status').textContent).toContain('1 leere Rettungskapsel(n) entfernt');
+  });
+
+  it('keeps the list when the dismissal is cancelled or fails', async () => {
+    apiMocks.post.mockRejectedValue(new Error('Entlassen nicht möglich'));
+    await open();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Entlassen' }));
+    fireEvent.click(screen.getByLabelText('Bert auswählen'));
+    fireEvent.click(screen.getByRole('button', { name: 'Bestätigen (1)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Zurück' }));
+    expect(apiMocks.post).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Bestätigen (1)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ja, entlassen' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe('Entlassen nicht möglich');
+    expect(names()).toEqual(['Anna', 'Bert', 'Cleo', 'Dora']);
+  });
+
+  it('offers the crew view in the database hub', async () => {
+    apiMocks.get.mockImplementation((url: string) =>
+      url === '/database/crew'
+        ? Promise.resolve(crewDto())
+        : Promise.resolve({ settlers: 0, colonies: 0, ships: 0, totalTechs: 0, sections: [] }),
+    );
+    render(
+      <MemoryRouter>
+        <DatabasePage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Crew' }));
+
+    expect(await screen.findByText('Anna')).toBeTruthy();
   });
 });
