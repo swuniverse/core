@@ -41,7 +41,7 @@ import { StationClassDiscovery } from '../spacecraft/entities/station-class-disc
 import { ShipClassDef } from '../spacecraft/entities/ship-class-def.entity';
 import { PrestigeHistoryEntry } from '../prestige/entities/prestige-history-entry.entity';
 import { CelestialClassDiscovery } from '../starmap/entities/celestial-class-discovery.entity';
-import { CelestialObject } from '../starmap/entities/celestial-object.entity';
+import { CelestialObject, CelestialObjectType } from '../starmap/entities/celestial-object.entity';
 import {
   resolveSwuPlanetType,
   type SwuPlanetType,
@@ -985,12 +985,18 @@ export class DatabaseService {
     }
     const definitions = [...types.values()].sort(
       (a, b) =>
+        Number(a.objectType === CelestialObjectType.ASTEROID) -
+          Number(b.objectType === CelestialObjectType.ASTEROID) ||
         a.classId - b.classId ||
         a.rotation.localeCompare(b.rotation) ||
         a.bodyFeature.localeCompare(b.bodyFeature),
     );
     const objectTypeLabel = (type: SwuPlanetType) =>
-      type.bodyFeature === 'moon' ? 'Mond' : 'Planet';
+      type.objectType === CelestialObjectType.ASTEROID
+        ? 'Asteroid'
+        : type.bodyFeature === 'moon'
+          ? 'Mond'
+          : 'Planet';
     return {
       discovered: definitions.filter((d) => discoveredByKey.has(d.key)).length,
       total: definitions.length,

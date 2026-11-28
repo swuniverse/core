@@ -15,6 +15,15 @@ import { SYSTEM_TYPE_BY_ID } from '../starmap/starmap-system-types';
 
 /** Planet type key as listed by `getPlanetTypes`, e.g. `90010:RB`. */
 function planetTypeFromKey(key: string) {
+  const asteroid = /^(\d+):AS$/.exec(key);
+  if (asteroid) {
+    const type = resolveSwuPlanetType({
+      classId: Number(asteroid[1]),
+      name: null,
+      objectType: CelestialObjectType.ASTEROID,
+    });
+    return type?.key === key ? type : null;
+  }
   const match = /^(\d+):([GR])([RMB])$/.exec(key);
   if (!match) return null;
   const classId = Number(match[1]);
@@ -59,7 +68,12 @@ export class DatabaseTypeDetailService {
       imageName: type.imageName,
       name: type.name,
       description: type.description,
-      objectType: type.bodyFeature === 'moon' ? 'Mond' : 'Planet',
+      objectType:
+        type.objectType === CelestialObjectType.ASTEROID
+          ? 'Asteroid'
+          : type.bodyFeature === 'moon'
+            ? 'Mond'
+            : 'Planet',
       zones,
     };
   }

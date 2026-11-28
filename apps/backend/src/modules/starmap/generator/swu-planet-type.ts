@@ -16,6 +16,7 @@ import {
 import { findArchetypeBySwuClassId } from './swu-archetype-registry';
 import { getSwuArchetypeForStuClassId } from './swu-stu-class-mapping';
 import { buildSwuTestClassId } from './swu-system-generator';
+import { STU_SURFACE_CLASS_CONFIGS } from './stu-surface-class-configs';
 
 export interface SwuPlanetType {
   /** Eindeutiger Schluessel, z.B. "90010:RB". */
@@ -52,11 +53,30 @@ function decodeSwuClassId(
   return archetype ? { typeId: archetype.typeId, variant: archetype.variant } : null;
 }
 
+/** Asteroid classes are database types too (STU lists them next to the planet classes). */
+function resolveAsteroidType(classId: number): SwuPlanetType | null {
+  const config = STU_SURFACE_CLASS_CONFIGS[classId];
+  if (!config || !/Asteroid/.test(config.name)) return null;
+  return {
+    key: `${classId}:AS`,
+    classId,
+    typeId: classId,
+    variant: null,
+    rotation: 'rotating',
+    bodyFeature: 'base',
+    name: `${config.name} (${classId})`,
+    description: null,
+    objectType: CelestialObjectType.ASTEROID,
+    imageName: '',
+  };
+}
+
 export function resolveSwuPlanetType(
   source: SwuTypeSource,
 ): SwuPlanetType | null {
-  if (source.classId == null || source.objectType === CelestialObjectType.ASTEROID) {
-    return null;
+  if (source.classId == null) return null;
+  if (source.objectType === CelestialObjectType.ASTEROID) {
+    return resolveAsteroidType(source.classId);
   }
   const isMoon = source.objectType === CelestialObjectType.MOON;
   let typeId: number;

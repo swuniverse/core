@@ -213,12 +213,16 @@ export class DatabaseCompletionService implements OnApplicationBootstrap {
     return (await this.layerAccess.getLayers({ sub: userId })).map((layer) => layer.id);
   }
 
-  /** Hull catalog split by the OLDTIMER faction: wrecks vs. all other hulls. */
+  /**
+   * Hull catalog split into wrecks vs. all other hulls. Wrecks are the OLDTIMER
+   * faction plus every salvage hull (SALVAGE_ keys), e.g. the droid ships that
+   * are faction DROIDS but are still found as wrecks.
+   */
   private async hullView(userId: number, oldtimer: boolean) {
     const catalog = await this.database.getShipClasses(userId);
     const rows: Array<{ key: string }> = await this.userRepo.manager.query(
       `SELECT sc."key" FROM "ship_class_defs" sc
-       JOIN "factions" f ON f."id" = sc."factionId" WHERE f."key" = $1`,
+       JOIN "factions" f ON f."id" = sc."factionId" WHERE f."key" = $1 OR sc."key" LIKE 'SALVAGE\\_%'`,
       [OLDTIMER_FACTION_KEY],
     );
     const oldtimerKeys = new Set(rows.map((row) => row.key));

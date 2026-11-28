@@ -47,7 +47,7 @@ export const FACTION_AWARDS = {
     imageEmpire: `${AWARD_IMAGE_DIR}/AIS1.png`,
     order:
       'Eure Kundschafter konnten ihre Datenbanken komplettieren! Behaltet den Kundschafter-Droiden. Wir brauchen ihn nicht mehr.',
-    effects: ['Schaltet die Forschung Leichte Asteroiden-Kolonisierung frei'],
+    effects: ['Schaltet die Forschung Mittlere Asteroiden-Kolonisierung frei'],
   },
   ASTRO_DROID: {
     name: 'Astro-Droide',
@@ -56,7 +56,7 @@ export const FACTION_AWARDS = {
     imageEmpire: `${AWARD_IMAGE_DIR}/AIS2.png`,
     order:
       'Eure Kundschafter konnten ihre Datenbanken komplettieren! Wir programmieren gerade einen R5 Droiden mit den neuesten Daten, er wird euch sicher eine Hilfe sein.',
-    effects: ['Schaltet die Forschung Mittlere Asteroiden-Kolonisierung frei', 'Hyperantrieb: +5 % (aufgerundet)'],
+    effects: ['Schaltet die Forschung Leichte Asteroiden-Kolonisierung frei', 'Hyperantrieb: +5 % (aufgerundet)'],
   },
   NAVIGATOR: {
     name: 'Navigator',
