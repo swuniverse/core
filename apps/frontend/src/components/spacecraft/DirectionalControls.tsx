@@ -14,7 +14,7 @@ interface DirectionalControlsProps {
   stepSize: number;
   onStepChange: (step: number) => void;
   disabled: boolean;
-  /** Winter event: nearest bounty hunter colours the buttons and shows a hint. */
+  /** Nearest active anomaly colours the buttons and shows a hint. */
   signal?: BountyHunterSignal | null;
 }
 

@@ -123,7 +123,7 @@ export type BountyHunterSignal = 'YELLOW' | 'ORANGE' | 'RED';
 
 export interface LocalMapGalaxy {
   tachyonScanExpiresAt?: number | null;
-  /** Winter event: colour of the nearest bounty hunter, null outside the event. */
+  /** Colour of the nearest active anomaly (ion storm, seasonal, ...), null if none within 3 ranges. */
   bountyHunterSignal?: BountyHunterSignal | null;
   mode: 'galaxy';
   shipX: number;

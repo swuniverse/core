@@ -27,8 +27,8 @@ export class AnomalyQueryService {
   }
 
   /**
-   * Winter event sensor tuning: colour of the nearest bounty hunter by field distance
-   * (largest coordinate difference) in LSS ranges. Inside the range red, up to 2 ranges orange,
+   * Anomaly warning (always on, ion storms and seasonal anomalies alike): colour of the nearest
+   * active anomaly by field distance (largest coordinate difference) in LSS ranges. Inside the range red, up to 2 ranges orange,
    * up to 3 yellow, farther none. No direction is revealed.
    */
   async hunterSignal(
@@ -41,12 +41,10 @@ export class AnomalyQueryService {
     const row = await this.dataSource
       .getRepository(Anomaly)
       .createQueryBuilder('a')
-      .innerJoin('a.type', 't')
       .innerJoin('a.location', 'l')
       .innerJoin('l.galaxyField', 'f')
       .select('MIN(GREATEST(ABS(f.cx - :x), ABS(f.cy - :y)))', 'distance')
-      .where("t.key = 'LIFE_DAY_GIFT'")
-      .andWhere('a.remainingTicks > 0 AND f.layerId = :layerId')
+      .where('a.remainingTicks > 0 AND f.layerId = :layerId')
       .setParameters({ x, y, layerId })
       .getRawOne<{ distance: string | null }>();
     if (row?.distance == null) return null;
