@@ -28,6 +28,10 @@ export class ResearchRetirementService implements OnApplicationBootstrap {
       if (retired > 0) {
         this.logger.log(`Retired ${retired} frigate research entries`);
       }
+      const cancelled = await this.research.cancelAwardLockedResearch();
+      if (cancelled > 0) {
+        this.logger.log(`Cancelled ${cancelled} award-locked research entries`);
+      }
     } catch (error) {
       this.logger.error(
         `Research retirement failed: ${error instanceof Error ? error.message : error}`,

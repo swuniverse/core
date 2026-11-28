@@ -271,7 +271,10 @@ export class ShipbuildingCoreService {
         repairSnapshot: null,
         retrofitSnapshot: null,
         // buildTimeTicks are seconds (STU: finish_date = time() + buildtime).
-        finishesAt: this.timing.dateAfterScaledSeconds(shipBuildSeconds(hull)),
+        finishesAt: await this.timing.dateAfterShipWorkSeconds(
+          request.userId,
+          shipBuildSeconds(hull),
+        ),
         stoppedAt: null,
         status: ColonyShipBuildQueueStatus.QUEUED,
       });
@@ -382,7 +385,12 @@ export class ShipbuildingCoreService {
       );
       const installed = this.createModules(ship.id, { modules });
       if (installed.length) await manager.save(SpacecraftModule, installed);
-      this.stats.applyStats(ship, hull, installed);
+      this.stats.applyStats(
+        ship,
+        hull,
+        installed,
+        await this.stats.warpdriveFactor(ship.userId),
+      );
       ship.crewRequired = crewRequired;
       ship.crewMax = Math.max(ship.crewMax, crewRequired);
       ship.modules = installed;

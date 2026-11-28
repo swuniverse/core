@@ -4,6 +4,7 @@ import { PassportModule } from '@nestjs/passport';
 import { GameStatusModule } from '../game-status/game-status.module';
 import { ConfigModule } from '@nestjs/config';
 import { MessagingModule } from '../messaging/messaging.module';
+import { OrderBroadcastModule } from '../order-broadcast/order-broadcast.module';
 import { PrestigeModule } from '../prestige/prestige.module';
 import { AwardService } from './award.service';
 import { AdminAwardsController } from './admin-awards.controller';
@@ -21,6 +22,7 @@ import { UserAward } from './entities/user-award.entity';
     ConfigModule,
     MessagingModule,
     PrestigeModule,
+    OrderBroadcastModule,
   ],
   controllers: [AdminAwardsController],
   providers: [AwardService, AdminGuard, JwtStrategy],

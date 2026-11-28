@@ -5,7 +5,7 @@ import { Award } from './award.entity';
 
 /** STU `DatabaseCategoryAward`: award for a completed category (per layer for star systems). */
 @Entity('database_category_awards')
-@Check('CHK_database_category_awards_category', `"category" IN ('SHIP_HULLS', 'PLANET_TYPES', 'SYSTEM_TYPES', 'SYSTEMS')`)
+@Check('CHK_database_category_awards_category', `"category" IN ('SHIP_HULLS', 'SHIP_HULLS_OLDTIMER', 'PLANET_TYPES', 'SYSTEM_TYPES', 'SYSTEMS')`)
 @Check('CHK_database_category_awards_layer', `("category" = 'SYSTEMS') = ("layerId" IS NOT NULL)`)
 @Index('UQ_database_category_awards_category', ['category'], { unique: true, where: '"layerId" IS NULL' })
 @Index('UQ_database_category_awards_layer', ['category', 'layerId'], { unique: true, where: '"layerId" IS NOT NULL' })

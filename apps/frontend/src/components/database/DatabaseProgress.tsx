@@ -9,6 +9,7 @@ import { api } from '../../services/api';
 
 const LABELS: Record<DatabaseAwardCategory, string> = {
   SHIP_HULLS: 'Schiffsrümpfe',
+  SHIP_HULLS_OLDTIMER: 'Oldtimer-Rümpfe',
   PLANET_TYPES: 'Planetentypen',
   SYSTEM_TYPES: 'Sternensystemtypen',
   SYSTEMS: 'Sternensysteme',

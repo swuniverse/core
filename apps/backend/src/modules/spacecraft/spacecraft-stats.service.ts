@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { GameDataService, ModuleDef } from '../game-data/game-data.service';
 import { ShipClassDef } from './entities/ship-class-def.entity';
 import { Spacecraft } from './entities/spacecraft.entity';
@@ -19,9 +20,26 @@ export interface CalculatedSpacecraftStats {
   evadeChance: number;
 }
 
+/** Award `ASTRO_DROID_*` (Astro-Droide): Hyperantrieb +5 %, rounded up. */
+export const WARPDRIVE_AWARD_PREFIX = 'ASTRO_DROID_';
+export const WARPDRIVE_AWARD_FACTOR = 1.05;
+
 @Injectable()
 export class SpacecraftStatsService {
-  constructor(private readonly gameData: GameDataService) {}
+  constructor(
+    private readonly gameData: GameDataService,
+    @Optional() private readonly dataSource?: DataSource,
+  ) {}
+
+  /** Player-specific factor on the maximum Hyperantrieb (awards); pass it to `applyStats`. */
+  async warpdriveFactor(userId: number | null | undefined): Promise<number> {
+    if (userId == null || !this.dataSource) return 1;
+    const rows: unknown[] = await this.dataSource.query(
+      `SELECT 1 FROM "user_awards" WHERE "userId" = $1 AND "awardKey" LIKE $2 LIMIT 1`,
+      [userId, `${WARPDRIVE_AWARD_PREFIX}%`],
+    );
+    return rows.length > 0 ? WARPDRIVE_AWARD_FACTOR : 1;
+  }
 
   calculateStats(
     shipClass: ShipClassDef,
@@ -55,6 +73,7 @@ export class SpacecraftStatsService {
     ship: Spacecraft,
     shipClass: ShipClassDef,
     modules: SpacecraftModule[] = [],
+    warpdriveFactor = 1,
   ): Spacecraft {
     const stats = this.calculateStats(shipClass, modules);
     ship.hullMax = stats.hullMax;
@@ -72,7 +91,10 @@ export class SpacecraftStatsService {
       stats.reactorOutput * reactorProfile.capacityMultiplier,
     );
     ship.reactorFuel = Math.min(ship.reactorFuel ?? 0, ship.reactorFuelMax);
-    ship.warpdriveMax = stats.warpdriveMax;
+    ship.warpdriveMax =
+      warpdriveFactor === 1
+        ? stats.warpdriveMax
+        : Math.ceil(stats.warpdriveMax * warpdriveFactor);
     ship.evadeChance = stats.evadeChance;
 
     ship.hull = Math.min(ship.hull, ship.hullMax);

@@ -496,7 +496,7 @@ export function OnboardingPage() {
             <section className="bg-swu-surface border border-swu-border rounded-lg p-6">
               <h2 className="text-lg font-bold mb-4">1. Fraktion</h2>
               <div className="grid gap-3 sm:grid-cols-2">
-                {factions.map((faction) => {
+                {factions.filter((faction) => Object.values(Faction).includes(faction.key)).map((faction) => {
                   return (
                     <button
                       key={faction.id}

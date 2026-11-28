@@ -11,6 +11,17 @@ import { FactionModifier } from './entities/faction-modifier.entity';
 import { User } from '../auth/user.entity';
 import { nonNpcUsers } from '../auth/non-npc-users';
 
+/** Factions that are never open to players; they only classify hulls and NPC content. */
+export const NON_PLAYER_FACTIONS: ReadonlyArray<{ key: string; name: string; colorPrimary: string; colorSecondary: string }> = [
+  { key: 'DROIDS', name: 'Droiden', colorPrimary: '#a3a3a3', colorSecondary: '#e5e5e5' },
+  { key: 'NEUTRAL', name: 'Neutral', colorPrimary: '#78716c', colorSecondary: '#d6d3d1' }, // reserved for later
+  { key: 'OLDTIMER', name: 'Oldtimer', colorPrimary: '#a16207', colorSecondary: '#fde68a' },
+];
+
+export function isPlayerFactionKey(key: string): boolean {
+  return (Object.values(Faction) as string[]).includes(key);
+}
+
 const DEFAULT_FACTIONS: Array<{
   key: Faction;
   name: string;
@@ -80,7 +91,7 @@ export async function lockJoinableFaction(
     lock: { mode: 'pessimistic_write' },
   });
   if (!faction) throw new BadRequestException('Unbekannte Fraktion.');
-  if (!faction.isSelectable) {
+  if (!isPlayerFactionKey(faction.key) || !faction.isSelectable) {
     throw new BadRequestException('Diese Fraktion ist derzeit nicht wählbar.');
   }
   if (!hasFreePlayerSlots(faction, await countFactionPlayers(manager, faction.id))) {
@@ -103,12 +114,18 @@ export class FactionService {
   ) {}
 
   async seedDefaults(): Promise<void> {
-    const count = await this.factionRepo.count();
-    if (count > 0) {
-      return;
+    // Seed by key so databases that predate a faction (or a migration-created one) get it too.
+    for (const definition of NON_PLAYER_FACTIONS) {
+      if (await this.factionRepo.existsBy({ key: definition.key })) continue;
+      const faction = await this.factionRepo.save(
+        this.factionRepo.create({ ...definition, isSelectable: false }),
+      );
+      await this.factionModifierRepo.save(
+        this.factionModifierRepo.create({ factionId: faction.id, researchMultiplier: 1 }),
+      );
     }
-
     for (const definition of DEFAULT_FACTIONS) {
+      if (await this.factionRepo.existsBy({ key: definition.key })) continue;
       const faction = await this.factionRepo.save(
         this.factionRepo.create({
           key: definition.key,

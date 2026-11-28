@@ -83,6 +83,7 @@ export interface CommodityOverviewEntryDto {
 /** Database categories whose completion grants an award (regions follow later). */
 export const DATABASE_AWARD_CATEGORIES = [
   'SHIP_HULLS',
+  'SHIP_HULLS_OLDTIMER',
   'PLANET_TYPES',
   'SYSTEM_TYPES',
   'SYSTEMS',
