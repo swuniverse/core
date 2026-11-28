@@ -28,18 +28,47 @@ describe('wreck repair', () => {
     expect(bonus.durationMinutes).toBe(10);
   });
 
-  it('favours ARC-170 and Vulture Droid in the loot table', () => {
+  it('splits wrecks 40:60 between droids and oldtimers, bigger ships rarer', () => {
     const counts: Record<string, number> = {};
-    for (let i = 0; i < 7000; i++) {
-      const key = pickWreckShip(i / 7000);
+    const n = 10000;
+    for (let i = 0; i < n; i++) {
+      const key = pickWreckShip(i / n);
       counts[key] = (counts[key] ?? 0) + 1;
     }
+    expect(
+      counts.SALVAGE_FIGHTER_VULTURE_DROID +
+        counts.SALVAGE_FIGHTER_VULTURE_B_DROID,
+    ).toBe(n * 0.4);
+    expect(counts.SALVAGE_FIGHTER_VULTURE_DROID).toBeGreaterThan(
+      counts.SALVAGE_FIGHTER_VULTURE_B_DROID,
+    );
     expect(counts.SALVAGE_FIGHTER_ARC_170).toBeGreaterThan(
       counts.SALVAGE_FIGHTER_N1,
     );
-    expect(counts.SALVAGE_FIGHTER_VULTURE_DROID).toBeGreaterThan(
-      counts.SALVAGE_FIGHTER_DELTA_7,
+    expect(counts.SALVAGE_FIGHTER_N1).toBeGreaterThan(
+      counts.SALVAGE_CORVETTE_LAAT_I,
     );
-    expect(Object.keys(counts)).toHaveLength(5);
+    expect(counts.SALVAGE_CORVETTE_LAAT_I).toBeGreaterThan(
+      counts.SALVAGE_CORVETTE_ST_70,
+    );
+    expect(counts.SALVAGE_CORVETTE_ST_70).toBeGreaterThan(
+      counts.SALVAGE_CORVETTE_C70_CHARGER,
+    );
+    expect(counts.SALVAGE_CORVETTE_C9979).toBeGreaterThan(
+      counts.SALVAGE_CRUISER_LUCREHULK,
+    );
+    expect(counts.SALVAGE_CORVETTE_C70_CHARGER).toBeGreaterThan(
+      counts.SALVAGE_CRUISER_VENATOR,
+    );
+    expect(counts.SALVAGE_FRIGATE_PELTA).toBeGreaterThan(
+      counts.SALVAGE_CRUISER_VENATOR,
+    );
+    expect(counts.SALVAGE_FRIGATE_MUNIFICENT).toBeGreaterThan(
+      counts.SALVAGE_CRUISER_PROVIDENCE,
+    );
+    expect(counts.SALVAGE_CRUISER_PROVIDENCE).toBeGreaterThan(
+      counts.SALVAGE_CRUISER_LUCREHULK,
+    );
+    expect(Object.keys(counts)).toHaveLength(15);
   });
 });

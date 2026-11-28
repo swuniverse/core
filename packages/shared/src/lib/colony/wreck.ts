@@ -16,31 +16,68 @@ export const WRECK_SYSTEM_COMPONENT_COMMODITY_ID = 10002;
 export const WRECK_MIN_DAMAGE = 10;
 export const WRECK_MAX_DAMAGE = 100;
 
-/** Gewichtete Beute-Tabelle; ARC-170 und Vulture Droid sind haeufiger. */
-export const WRECK_SHIP_LOOT: ReadonlyArray<{
-  shipClassKey: string;
-  weight: number;
-}> = [
-  { shipClassKey: 'SALVAGE_FIGHTER_N1', weight: 10 },
-  { shipClassKey: 'SALVAGE_FIGHTER_ETA_2', weight: 10 },
-  { shipClassKey: 'SALVAGE_FIGHTER_DELTA_7', weight: 10 },
-  { shipClassKey: 'SALVAGE_FIGHTER_ARC_170', weight: 20 },
-  { shipClassKey: 'SALVAGE_FIGHTER_VULTURE_DROID', weight: 20 },
+type WreckLootEntry = { shipClassKey: string; weight: number };
+
+/**
+ * Beute-Pool Droiden (Oldtimer-Schiffe brauchen Crew, Droidenschiffe ab
+ * Fregatte aufwaerts nur 10 % davon). Je groesser das Schiff, desto kleiner
+ * das Gewicht.
+ */
+export const WRECK_LOOT_DROIDS: ReadonlyArray<WreckLootEntry> = [
+  { shipClassKey: 'SALVAGE_FIGHTER_VULTURE_DROID', weight: 60 },
+  { shipClassKey: 'SALVAGE_FIGHTER_VULTURE_B_DROID', weight: 40 },
+  { shipClassKey: 'SALVAGE_CORVETTE_C9979', weight: 20 },
+  { shipClassKey: 'SALVAGE_FRIGATE_MUNIFICENT', weight: 5 },
+  { shipClassKey: 'SALVAGE_CRUISER_PROVIDENCE', weight: 2 },
+  { shipClassKey: 'SALVAGE_CRUISER_LUCREHULK', weight: 1 },
 ];
+
+/**
+ * Beute-Pool Oldtimer: sehr viele Jaeger (ARC-170 haeufiger), viele LAAT/I,
+ * weniger ST-70 und C70. Groessere Schiffe (Kreuzer) kommen hier mit sehr
+ * kleinem Gewicht dazu.
+ */
+export const WRECK_LOOT_OLDTIMER: ReadonlyArray<WreckLootEntry> = [
+  { shipClassKey: 'SALVAGE_FIGHTER_N1', weight: 12 },
+  { shipClassKey: 'SALVAGE_FIGHTER_ETA_2', weight: 12 },
+  { shipClassKey: 'SALVAGE_FIGHTER_DELTA_7', weight: 12 },
+  { shipClassKey: 'SALVAGE_FIGHTER_ARC_170', weight: 24 },
+  { shipClassKey: 'SALVAGE_CORVETTE_LAAT_I', weight: 20 },
+  { shipClassKey: 'SALVAGE_CORVETTE_ST_70', weight: 10 },
+  { shipClassKey: 'SALVAGE_CORVETTE_C70_CHARGER', weight: 8 },
+  { shipClassKey: 'SALVAGE_FRIGATE_PELTA', weight: 4 },
+  { shipClassKey: 'SALVAGE_CRUISER_VENATOR', weight: 2 },
+];
+
+/** Chance, dass ein Wrack aus dem Droiden-Pool stammt (sonst Oldtimer). */
+export const WRECK_DROID_CHANCE = 0.4;
+
+function pickWeighted(pool: ReadonlyArray<WreckLootEntry>, roll: number) {
+  const total = pool.reduce((sum, entry) => sum + entry.weight, 0);
+  let threshold = roll * total;
+  for (const entry of pool) {
+    if (threshold < entry.weight) return entry.shipClassKey;
+    threshold -= entry.weight;
+  }
+  return pool[pool.length - 1].shipClassKey;
+}
 
 export function isWreckField(categories: readonly string[] | undefined) {
   return categories?.includes(WRECK_FIELD_CATEGORY) ?? false;
 }
 
-/** Waehlt per Wurf (0 <= roll < 1) ein Schiff entsprechend der Gewichte. */
+/**
+ * Waehlt per Wurf (0 <= roll < 1): zuerst 40:60 Droiden- oder Oldtimer-Pool,
+ * dann gewichtet ein Schiff aus dem Pool (aus demselben Wurf, neu skaliert).
+ */
 export function pickWreckShip(roll: number): string {
-  const total = WRECK_SHIP_LOOT.reduce((sum, entry) => sum + entry.weight, 0);
-  let threshold = roll * total;
-  for (const entry of WRECK_SHIP_LOOT) {
-    if (threshold < entry.weight) return entry.shipClassKey;
-    threshold -= entry.weight;
+  if (roll < WRECK_DROID_CHANCE) {
+    return pickWeighted(WRECK_LOOT_DROIDS, roll / WRECK_DROID_CHANCE);
   }
-  return WRECK_SHIP_LOOT[WRECK_SHIP_LOOT.length - 1].shipClassKey;
+  return pickWeighted(
+    WRECK_LOOT_OLDTIMER,
+    (roll - WRECK_DROID_CHANCE) / (1 - WRECK_DROID_CHANCE),
+  );
 }
 
 /**

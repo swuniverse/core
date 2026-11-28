@@ -165,6 +165,12 @@ const SHIP_CLASS_KEY_FILES: Record<string, string> = {
   SALVAGE_FIGHTER_ETA_2: 'eta-2.png',
   SALVAGE_FIGHTER_DELTA_7: 'delta-7.png',
   SALVAGE_FIGHTER_VULTURE_DROID: 'vulture-droid.png',
+  SALVAGE_FIGHTER_VULTURE_B_DROID: 'vulture-b-droid.png',
+  SALVAGE_CRUISER_VENATOR: '5191.png',
+  SALVAGE_FRIGATE_PELTA: 'pelta-frigate.png',
+  SALVAGE_CORVETTE_ST_70: 'st-70-gunship.png',
+  SALVAGE_CORVETTE_LAAT_I: 'laat-i-gunship.png',
+  SALVAGE_CORVETTE_C70_CHARGER: 'c70-charger-corvette.png',
 };
 
 /** Top-down graphic drawn on the overview map in place of the position marker. */
@@ -201,6 +207,11 @@ const SHIP_CLASS_KEY_CURSOR_FILES: Record<string, string> = {
   SALVAGE_FIGHTER_ETA_2: 'eta-2-cursor.png',
   SALVAGE_FIGHTER_DELTA_7: 'delta-7-cursor.png',
   SALVAGE_FIGHTER_VULTURE_DROID: 'vulture-droid-cursor.png',
+  SALVAGE_FIGHTER_VULTURE_B_DROID: 'vulture-b-droid-cursor.png',
+  SALVAGE_FRIGATE_PELTA: 'pelta-frigate-cursor.png',
+  SALVAGE_CORVETTE_ST_70: 'st-70-gunship-cursor.png',
+  SALVAGE_CORVETTE_LAAT_I: 'laat-i-gunship-cursor.png',
+  SALVAGE_CORVETTE_C70_CHARGER: 'c70-charger-corvette-cursor.png',
 };
 
 export function shipCursorImage(shipClassKey?: string | null): string | null {
