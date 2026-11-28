@@ -2227,8 +2227,9 @@ describe('alliance roles (soc-AUD-09b)', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderAt('/alliances/1/edit');
 
+    await card('Vize-Präsident');
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Neue Rolle hinzufügen' }),
+      screen.getByRole('button', { name: 'Neue Rolle hinzufügen' }),
     );
     const fresh = await card('Neue Rolle');
     fireEvent.change(
@@ -2240,9 +2241,10 @@ describe('alliance roles (soc-AUD-09b)', () => {
     fireEvent.click(
       within(fresh).getByRole('checkbox', { name: /^Kann Allianzdepots/ }),
     );
-    fireEvent.change(screen.getByLabelText('Titel der Rolle Vize-Präsident'), {
-      target: { value: 'Admiral' },
-    });
+    fireEvent.change(
+      await screen.findByLabelText('Titel der Rolle Vize-Präsident'),
+      { target: { value: 'Admiral' } },
+    );
     fireEvent.click(
       within(await card('Archivar')).getByRole('button', { name: 'Löschen' }),
     );
@@ -2321,9 +2323,10 @@ describe('alliance roles (soc-AUD-09b)', () => {
     fireEvent.click(
       within(await card('Archivar')).getByRole('button', { name: 'Löschen' }),
     );
-    fireEvent.change(screen.getByLabelText('Titel der Rolle Vize-Präsident'), {
-      target: { value: 'Admiral' },
-    });
+    fireEvent.change(
+      await screen.findByLabelText('Titel der Rolle Vize-Präsident'),
+      { target: { value: 'Admiral' } },
+    );
     const loads = apiMocks.get.mock.calls.length;
     save();
 
