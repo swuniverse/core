@@ -12,6 +12,23 @@ export type OrderBroadcast = {
   createdAt: string;
 };
 
+const ORDER_EFFECT_MARKER = '\n[[effect]]';
+
+/** Text before the first effect marker, then one yellow line per effect. */
+export function OrderMessageText({ message }: { message: string }) {
+  const [text, ...effects] = message.split(ORDER_EFFECT_MARKER);
+  return (
+    <>
+      {text}
+      {effects.map((effect, index) => (
+        <span key={index} className="mt-2 block text-yellow-400">
+          {effect}
+        </span>
+      ))}
+    </>
+  );
+}
+
 /** Neueste Nachricht zuerst; doppelte IDs (Push + Nachladen) werden entfernt. */
 export function mergeBroadcasts(
   current: OrderBroadcast[],
@@ -82,7 +99,7 @@ export function OrderBroadcastOverlay() {
             className="size-24"
           />
           <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm text-swu-primary">
-            {current.message}
+            <OrderMessageText message={current.message} />
           </p>
         </div>
         <footer className="flex justify-end border-t border-swu-border px-3 py-2">

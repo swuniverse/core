@@ -15,6 +15,8 @@ export interface FactionAwardDef {
   imageEmpire: string;
   /** Order 66 sent to the player on the first grant. */
   order: string;
+  /** Effect lines appended to the order (shown in yellow by the client). */
+  effects?: readonly string[];
 }
 
 const AWARD_IMAGE_DIR = '/assets/awards';
@@ -27,6 +29,7 @@ export const FACTION_AWARDS = {
     imageEmpire: `${AWARD_IMAGE_DIR}/AIHI.png`,
     order:
       'Gratulation, Ihre unermüdliche Analysearbeit hat dafür gesorgt, dass unsere Mechaniker künftig auf komplette Datenbank bestände zugreifen können.\nAls Dank übergeben wir euch einen WAC-47 Reperatur Droiden, wir wissen, dass diese Baureihe leichte Mängel hat, dennoch wird er sicher hilfreich sein',
+    effects: ['Bau- und Reparaturzeit von Schiffen und Stationen: -10 %'],
   },
   SCRAP_NOMAD: {
     name: 'Schrottplatz Nomade',
@@ -35,6 +38,7 @@ export const FACTION_AWARDS = {
     imageEmpire: `${AWARD_IMAGE_DIR}/AISH.png`,
     order:
       'Ihr habt Schiffe gefunden, die nicht einmal mehr in Museen stehen — und das aus gutem Grund.\nDamit Ihr das nächste mal, wenn Ihr vor uns steht, nicht wieder so ölverschmiert seid, überstellen wir euch eine B2EMO Bergungsunterstützungseinheit.',
+    effects: ['Demontage von Schiffen und Modulen: +20 % Erfolgschance'],
   },
   SCOUT: {
     name: 'Kundschafter',
@@ -43,6 +47,7 @@ export const FACTION_AWARDS = {
     imageEmpire: `${AWARD_IMAGE_DIR}/AIS1.png`,
     order:
       'Eure Kundschafter konnten ihre Datenbanken komplettieren! Behaltet den Kundschafter-Droiden. Wir brauchen ihn nicht mehr.',
+    effects: ['Schaltet die Forschung Leichte Asteroiden-Kolonisierung frei'],
   },
   ASTRO_DROID: {
     name: 'Astro-Droide',
@@ -51,6 +56,7 @@ export const FACTION_AWARDS = {
     imageEmpire: `${AWARD_IMAGE_DIR}/AIS2.png`,
     order:
       'Eure Kundschafter konnten ihre Datenbanken komplettieren! Wir programmieren gerade einen R5 Droiden mit den neuesten Daten, er wird euch sicher eine Hilfe sein.',
+    effects: ['Schaltet die Forschung Mittlere Asteroiden-Kolonisierung frei', 'Hyperantrieb: +5 % (aufgerundet)'],
   },
   NAVIGATOR: {
     name: 'Navigator',
@@ -59,6 +65,7 @@ export const FACTION_AWARDS = {
     imageEmpire: `${AWARD_IMAGE_DIR}/AIS3.png`,
     order:
       'Eure Kundschafter konnten ihre Datenbanken komplettieren! Wir programmieren gerade einen Navigations Droiden mit den neuesten Daten, er wird euch sicher eine Hilfe sein.',
+    effects: ['Schaltet die Forschung Schwere Asteroiden-Kolonisierung frei', 'Systemreichweite: +5 % (aufgerundet)'],
   },
   RPG_SILVER: {
     name: 'Protokoll Droide',
@@ -103,6 +110,9 @@ export function factionAwardRows(
   ];
 }
 
+/** Starts an effect line in an order message; the client renders these lines in yellow. */
+export const ORDER_EFFECT_MARKER = '\n[[effect]]';
+
 /** Order 66 when a database award is withdrawn because new entries made the category incomplete again. */
 export const AWARD_REVOKED_ORDER =
   'Leider sind ihre Datenbanken veraltet — der Droide kann so nicht funktionieren!';
@@ -111,5 +121,7 @@ export const AWARD_REVOKED_ORDER =
 export function awardOrderMessage(key: string): string | null {
   const match = /^([A-Z_]+?)_(?:REBEL|EMPIRE)(?:_L\d+)?$/.exec(key);
   const name = match?.[1] as FactionAwardName | undefined;
-  return name && name in FACTION_AWARDS ? FACTION_AWARDS[name].order : null;
+  if (!name || !(name in FACTION_AWARDS)) return null;
+  const def: FactionAwardDef = FACTION_AWARDS[name];
+  return [def.order, ...(def.effects ?? []).map((effect) => `${ORDER_EFFECT_MARKER}Effekt: ${effect}`)].join('');
 }
