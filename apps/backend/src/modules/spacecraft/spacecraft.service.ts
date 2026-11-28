@@ -1685,12 +1685,11 @@ export class SpacecraftService {
         amount: Math.max(50, Math.round(shipClass.hullBase * 1.5)),
       },
       {
-        commodityId: 3,
-        amount: Math.max(20, Math.round(shipClass.shieldBase * 0.5)),
-      },
-      {
+        // Kunststoff: shield share (formerly Tibanna-Gas) plus EPS share
         commodityId: 4,
-        amount: Math.max(0, Math.round(shipClass.epsBase * 0.1)),
+        amount:
+          Math.max(20, Math.round(shipClass.shieldBase * 0.5)) +
+          Math.max(0, Math.round(shipClass.epsBase * 0.1)),
       },
       {
         commodityId: 6,
@@ -1701,21 +1700,6 @@ export class SpacecraftService {
         amount: Math.max(20, Math.round(shipClass.epsBase * 0.4)),
       },
     ];
-  }
-
-  calculateBuildCosts(shipClass: ShipClassDef): Record<string, number> {
-    return {
-      credits: Math.max(100, Math.round(shipClass.hullBase * 4)),
-      durastahl: Math.max(50, Math.round(shipClass.hullBase * 1.5)),
-      tibannaGas: Math.max(20, Math.round(shipClass.shieldBase * 0.5)),
-      kyberKristalle: Math.max(0, Math.round(shipClass.epsBase * 0.1)),
-      beskar: 0,
-      kristallinesSilizium: Math.max(
-        20,
-        Math.round(shipClass.cargoCapacity * 0.25),
-      ),
-      energiemodule: Math.max(20, Math.round(shipClass.epsBase * 0.4)),
-    };
   }
 
   private async shieldRegenerationFor(ship: Spacecraft, crew: number, crewRequired: number): Promise<number> {

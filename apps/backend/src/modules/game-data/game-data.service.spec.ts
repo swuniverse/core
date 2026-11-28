@@ -356,7 +356,7 @@ describe('GameDataService fabrication items', () => {
         { commodityId: 35, amount: 1 },
         { commodityId: 36, amount: 1 },
         { commodityId: 29, amount: 1 },
-        { commodityId: 32, amount: 1 },
+        { commodityId: 4, amount: 1 },
       ],
     });
   });
