@@ -5,9 +5,10 @@ import type {
   ColonyField,
   ColonyStorageItem,
   CommodityDef,
+  FieldCategoriesSummary,
 } from '../types';
 import { BMCOL_LABELS } from '../constants';
-import { canAfford } from '../utils';
+import { buildingAllowedOnField, canAfford } from '../utils';
 
 // STU build menu column order: Soziales, Industrie, Infrastruktur, Energie.
 const BUILDING_COLUMNS = [1, 2, 3, 4] as const;
@@ -20,6 +21,7 @@ type PanelBuildProps = {
   energy: number;
   commodityMap: Record<number, CommodityDef>;
   selectedBuilding: BuildingDef | null;
+  fieldCategories?: FieldCategoriesSummary;
   fieldFilter?: { field: ColonyField; label: string } | null;
   commodityFilterId?: number | null;
   onClearFieldFilter?: () => void;
@@ -68,6 +70,7 @@ export function PanelBuild({
   energy,
   commodityMap,
   selectedBuilding,
+  fieldCategories = { tiles: {}, anyCategories: [] },
   fieldFilter = null,
   commodityFilterId = null,
   onClearFieldFilter,
@@ -80,10 +83,7 @@ export function PanelBuild({
       if (building.id === 1) continue;
       if (
         fieldFilter &&
-        !building.allowedFieldTypes.includes(fieldFilter.field.fieldType) &&
-        !building.allowedFieldTypes.includes(
-          fieldFilter.field.terrainTileId ?? fieldFilter.field.fieldType,
-        )
+        !buildingAllowedOnField(building, fieldFilter.field, fieldCategories)
       ) {
         continue;
       }
@@ -104,7 +104,7 @@ export function PanelBuild({
       cols[Number(col)].sort((a, b) => a.name.localeCompare(b.name, 'de'));
     }
     return cols;
-  }, [buildingDefs, commodityFilterId, fieldFilter]);
+  }, [buildingDefs, commodityFilterId, fieldFilter, fieldCategories]);
 
   return (
     <section className="border border-swu-border bg-swu-surface p-2">

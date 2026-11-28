@@ -1480,6 +1480,7 @@ export function ColonyDetail({
           {renderContextView()}
           {!contextView && mainView === 'build' && (
             <PanelBuild
+              fieldCategories={fieldCategories}
               buildingDefs={buildingDefs}
               fields={fields}
               storage={storage}
