@@ -129,7 +129,7 @@ export class StationRepairService {
         throw new BadRequestException('Das Schiff kartographiert derzeit und kann daher nicht repariert werden');
       }
       const queued = (await manager.countBy(StationShipRepair, { stationId })) > 0;
-      const finishesAt = queued ? null : this.stepEnd(ship);
+      const finishesAt = queued ? null : await this.stepEnd(ship);
       await manager.save(
         manager.create(StationShipRepair, {
           stationId,
@@ -139,7 +139,7 @@ export class StationRepairService {
           isStopped: false,
         }),
       );
-      const estimate = this.estimate(ship, modules);
+      const estimate = await this.estimate(ship, modules);
       return { station, ship, queued, estimate };
     });
     const { station, ship, queued, estimate } = outcome;
@@ -194,19 +194,19 @@ export class StationRepairService {
       if (jobs.length === 0) throw new BadRequestException('Die Reparaturwarteschlange ist leer');
       const now = new Date();
       const canRepair = mayRepairShips(station.stationRole) && this.hasCrew(station);
-      jobs.forEach((job, index) => {
+      for (const [index, job] of jobs.entries()) {
         job.isStopped = false;
         if (index > 0 || !canRepair) {
           job.stoppedAt = null;
-          return;
+          continue;
         }
         if (job.finishesAt && job.stoppedAt) {
           job.finishesAt = new Date(job.finishesAt.getTime() + (now.getTime() - job.stoppedAt.getTime()));
         } else if (!job.finishesAt) {
-          job.finishesAt = this.stepEnd(job.ship);
+          job.finishesAt = await this.stepEnd(job.ship);
         }
         job.stoppedAt = null;
-      });
+      }
       await manager.save(jobs);
     });
     return { message: 'Die Reparaturwarteschlange wurde reaktiviert' };
@@ -332,7 +332,7 @@ export class StationRepairService {
       job.stoppedAt = null;
     }
     if (!job.finishesAt) {
-      job.finishesAt = this.stepEnd(job.ship);
+      job.finishesAt = await this.stepEnd(job.ship);
       await manager.save(job);
       return;
     }
@@ -358,9 +358,14 @@ export class StationRepairService {
     }
     applyRepairStep(ship, step);
     if (step.modules.length > 0) await manager.save(step.modules);
-    if (ship.shipClass) this.stats.applyStats(ship, ship.shipClass, modules);
+    if (ship.shipClass) this.stats.applyStats(
+      ship,
+      ship.shipClass,
+      modules,
+      await this.stats.warpdriveFactor(ship.userId),
+    );
     if (needsRepair(ship, modules)) {
-      job.finishesAt = this.stepEnd(ship);
+      job.finishesAt = await this.stepEnd(ship);
       await manager.save([ship, job]);
       return;
     }
@@ -375,7 +380,7 @@ export class StationRepairService {
     });
     const next = live[1];
     if (next) {
-      next.finishesAt = this.stepEnd(next.ship);
+      next.finishesAt = await this.stepEnd(next.ship);
       next.stoppedAt = null;
       await manager.save(next);
     }
@@ -417,15 +422,15 @@ export class StationRepairService {
     return station.crewRequired <= 0 || station.crew >= station.crewRequired;
   }
 
-  private stepEnd(ship: Spacecraft): Date {
+  private async stepEnd(ship: Spacecraft): Promise<Date> {
     const minutes = Math.max(1, Math.ceil((ship.shipClass?.buildTimeTicks ?? 2) / 2));
-    return this.timing.dateAfterScaledMinutes(minutes);
+    return this.timing.dateAfterShipWorkSeconds(ship.userId, minutes * 60);
   }
 
-  private estimate(ship: Spacecraft, modules: SpacecraftModule[]): string {
+  private async estimate(ship: Spacecraft, modules: SpacecraftModule[]): Promise<string> {
     const steps = Math.max(1, estimateRepairSteps(ship, modules));
     const minutes = Math.max(1, Math.ceil((ship.shipClass?.buildTimeTicks ?? 2) / 2));
-    const finish = this.timing.dateAfterScaledMinutes(minutes * steps);
+    const finish = await this.timing.dateAfterShipWorkSeconds(ship.userId, minutes * 60 * steps);
     return finish.toLocaleString('de-DE', { timeZone: 'Europe/Berlin' });
   }
 

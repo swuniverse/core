@@ -571,8 +571,9 @@ export class ColonyShipyardService {
         costs: repairPlan.costs,
       },
       retrofitSnapshot: null,
-      finishesAt: this.timing.dateAfterScaledMinutes(
-        repairPlan.durationMinutes,
+      finishesAt: await this.timing.dateAfterShipWorkSeconds(
+        userId,
+        repairPlan.durationMinutes * 60,
       ),
       stoppedAt: startsActive ? null : new Date(),
       status: startsActive
@@ -703,7 +704,7 @@ export class ColonyShipyardService {
         returnedModuleCommodityIds: [],
         consumedModuleCommodityIds,
       },
-      finishesAt: this.timing.dateAfterScaledSeconds(buildSeconds),
+      finishesAt: await this.timing.dateAfterShipWorkSeconds(userId, buildSeconds),
       status: ColonyShipBuildQueueStatus.QUEUED,
     });
 
@@ -1521,7 +1522,12 @@ export class ColonyShipyardService {
     if (modulesToRepair.length > 0) {
       await manager.save(SpacecraftModule, modulesToRepair);
     }
-    this.spacecraftStatsService.applyStats(ship, shipClass, modules);
+    this.spacecraftStatsService.applyStats(
+      ship,
+      shipClass,
+      modules,
+      await this.spacecraftStatsService.warpdriveFactor(ship.userId),
+    );
     ship.shields = Math.min(ship.shieldsMax, Math.max(ship.shields, 0));
     ship.energy = Math.min(ship.energyMax, Math.max(ship.energy, 0));
     await manager.save(Spacecraft, ship);
@@ -1671,7 +1677,12 @@ export class ColonyShipyardService {
     }
 
     const finalModules = [...modulesToKeep, ...createdModules];
-    this.spacecraftStatsService.applyStats(ship, shipClass, finalModules);
+    this.spacecraftStatsService.applyStats(
+      ship,
+      shipClass,
+      finalModules,
+      await this.spacecraftStatsService.warpdriveFactor(ship.userId),
+    );
     ship.crewRequired = this.calculateCrewRequired(
       shipClass,
       desiredSelections,

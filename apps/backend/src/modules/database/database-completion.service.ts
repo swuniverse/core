@@ -1,20 +1,25 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import {
+  Faction,
   WsEventType,
   type DatabaseAwardCategory,
   type DatabaseCategoryProgressDto,
 } from '@swuniverse/shared';
 import { User } from '../auth/user.entity';
 import { AwardService } from '../awards/award.service';
+import { factionAwardKey } from '../awards/faction-awards';
 import { DatabaseCategoryAward } from '../awards/entities/database-category-award.entity';
 import { GameGateway } from '../websocket/game.gateway';
 import { DatabaseService } from './database.service';
 
 type Progress = { discovered: number; total: number };
 
-const FLAT_CATEGORIES = ['SHIP_HULLS', 'PLANET_TYPES', 'SYSTEM_TYPES'] as const;
+const FLAT_CATEGORIES = ['SHIP_HULLS', 'SHIP_HULLS_OLDTIMER', 'PLANET_TYPES', 'SYSTEM_TYPES'] as const;
+
+/** Internal faction key of the wreck hulls; they have their own database award. */
+const OLDTIMER_FACTION_KEY = 'OLDTIMER';
 
 /**
  * STU `checkForCategoryCompletion`, category-neutral: compares a player's
@@ -22,7 +27,9 @@ const FLAT_CATEGORIES = ['SHIP_HULLS', 'PLANET_TYPES', 'SYSTEM_TYPES'] as const;
  * award once a category (star systems: per layer) is complete.
  */
 @Injectable()
-export class DatabaseCompletionService {
+export class DatabaseCompletionService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(DatabaseCompletionService.name);
+
   constructor(
     @InjectRepository(DatabaseCategoryAward)
     private readonly mappingRepo: Repository<DatabaseCategoryAward>,
@@ -33,15 +40,60 @@ export class DatabaseCompletionService {
     private readonly gateway: GameGateway,
   ) {}
 
+  /** New catalog entries (e.g. hulls) can make a completed category incomplete: re-check all holders. */
+  async onApplicationBootstrap(): Promise<void> {
+    try {
+      const revoked = await this.revokeIncomplete();
+      if (revoked > 0) this.logger.log(`Revoked ${revoked} outdated database awards`);
+    } catch (error) {
+      this.logger.error(
+        `Database award re-check failed: ${error instanceof Error ? error.message : error}`,
+      );
+    }
+  }
+
+  /**
+   * Withdraws the awards of holders whose category is no longer complete (the denominator is
+   * live). Effects end with the award; prestige stays, a re-grant pays it out again.
+   */
+  async revokeIncomplete(userIds?: number[]): Promise<number> {
+    const mappings = await this.mappingRepo.find();
+    let revoked = 0;
+    for (const mapping of mappings) {
+      const keys = [
+        factionAwardKey(mapping.awardKey, Faction.REBEL_ALLIANCE),
+        factionAwardKey(mapping.awardKey, Faction.GALACTIC_EMPIRE),
+      ];
+      for (const holder of await this.awards.findHolders(keys, userIds)) {
+        const progress =
+          mapping.layerId == null
+            ? await this.flatProgress(
+                holder.userId,
+                mapping.category as (typeof FLAT_CATEGORIES)[number],
+              )
+            : await this.layerProgress(holder.userId, mapping.layerId);
+        // No progress (layer not visible to the player) is not evidence of incompleteness.
+        if (!progress || isComplete(progress)) continue;
+        if (await this.awards.revoke(holder.userId, holder.awardKey)) revoked++;
+      }
+    }
+    return revoked;
+  }
+
   /**
    * Progress of every award category for the hub; star systems only for the
    * given (known) layers, all visible layers when omitted.
    */
   async progress(userId: number, layerIds?: number[]): Promise<DatabaseCategoryProgressDto[]> {
+    await this.revokeIncomplete([userId]);
     const mappings = await this.mappingRepo.find();
-    const awardKey = (category: DatabaseAwardCategory, layerId: number | null) =>
-      mappings.find((mapping) => mapping.category === category && mapping.layerId === layerId)
-        ?.awardKey ?? null;
+    const faction = (await this.userRepo.findOneBy({ id: userId }))?.faction;
+    const awardKey = (category: DatabaseAwardCategory, layerId: number | null) => {
+      const stored = mappings.find(
+        (mapping) => mapping.category === category && mapping.layerId === layerId,
+      )?.awardKey;
+      return stored ? factionAwardKey(stored, faction) : null;
+    };
     const rows: Array<Omit<DatabaseCategoryProgressDto, 'awarded'>> = [];
     for (const category of FLAT_CATEGORIES) {
       const progress = await this.flatProgress(userId, category);
@@ -82,6 +134,21 @@ export class DatabaseCompletionService {
     category: DatabaseAwardCategory,
     layerId?: number | null,
   ): Promise<string[]> {
+    // A hull discovery may complete either hull award (regular hulls or wrecks).
+    if (category === 'SHIP_HULLS') {
+      return [
+        ...(await this.checkCategory(userId, 'SHIP_HULLS', layerId)),
+        ...(await this.checkCategory(userId, 'SHIP_HULLS_OLDTIMER', layerId)),
+      ];
+    }
+    return this.checkCategory(userId, category, layerId);
+  }
+
+  private async checkCategory(
+    userId: number,
+    category: DatabaseAwardCategory,
+    layerId?: number | null,
+  ): Promise<string[]> {
     const user = await this.userRepo.findOneBy({ id: userId });
     if (!user || user.isNpc) return [];
     const mappings = await this.mappingRepo.find({
@@ -99,11 +166,12 @@ export class DatabaseCompletionService {
           ? await this.flatProgress(userId, mapping.category as (typeof FLAT_CATEGORIES)[number])
           : await this.layerProgress(userId, mapping.layerId);
       if (!progress || !isComplete(progress)) continue;
-      const result = await this.awards.grant(userId, mapping.awardKey);
+      const awardKey = factionAwardKey(mapping.awardKey, user.faction);
+      const result = await this.awards.grant(userId, awardKey);
       if (!result.granted) continue;
-      granted.push(mapping.awardKey);
+      granted.push(awardKey);
       this.gateway.emitToUser(userId, WsEventType.AWARD_GRANTED, {
-        awardKey: mapping.awardKey,
+        awardKey,
         description: mapping.award.description,
       });
     }
@@ -115,14 +183,29 @@ export class DatabaseCompletionService {
     category: (typeof FLAT_CATEGORIES)[number],
   ): Promise<Progress> {
     const view =
-      category === 'SHIP_HULLS'
-        ? await this.database.getShipClasses(userId)
+      category === 'SHIP_HULLS' || category === 'SHIP_HULLS_OLDTIMER'
+        ? await this.hullView(userId, category === 'SHIP_HULLS_OLDTIMER')
         : category === 'PLANET_TYPES'
           ? await this.database.getPlanetTypes(userId)
           : await this.database.getSystemTypes(userId);
     // Count listed entries only: discoveries outside the catalog never count.
     const entries = view.entries as Array<{ discovered: boolean }>;
     return { discovered: entries.filter((entry) => entry.discovered).length, total: entries.length };
+  }
+
+  /** Hull catalog split by the OLDTIMER faction: wrecks vs. all other hulls. */
+  private async hullView(userId: number, oldtimer: boolean) {
+    const catalog = await this.database.getShipClasses(userId);
+    const rows: Array<{ key: string }> = await this.userRepo.manager.query(
+      `SELECT sc."key" FROM "ship_class_defs" sc
+       JOIN "factions" f ON f."id" = sc."factionId" WHERE f."key" = $1`,
+      [OLDTIMER_FACTION_KEY],
+    );
+    const oldtimerKeys = new Set(rows.map((row) => row.key));
+    const entries = (catalog.entries as Array<{ key: string; discovered: boolean }>).filter(
+      (entry) => oldtimerKeys.has(entry.key) === oldtimer,
+    );
+    return { entries };
   }
 
   private async layerProgress(userId: number, layerId: number): Promise<Progress | null> {

@@ -1307,6 +1307,7 @@ export class ColonyService {
       savedShip,
       shipClass,
       installedModules,
+      await this.spacecraftStatsService.warpdriveFactor(savedShip.userId),
     );
     savedShip.crewRequired = hangarDef.crewRequired;
     savedShip.crewMax = Math.max(savedShip.crewMax, savedShip.crewRequired);

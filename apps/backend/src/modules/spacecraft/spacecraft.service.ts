@@ -2165,6 +2165,7 @@ export class SpacecraftService {
       savedShip,
       shipClass,
       createdModules,
+      await this.spacecraftStatsService.warpdriveFactor(savedShip.userId),
     );
     this.spacecraftCrewService.applyRequiredCrew(
       savedShip,

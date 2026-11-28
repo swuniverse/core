@@ -196,7 +196,12 @@ export class ResearchRewardShipService {
         ),
       );
     }
-    this.statsService.applyStats(ship, shipClass, modules);
+    this.statsService.applyStats(
+      ship,
+      shipClass,
+      modules,
+      await this.statsService.warpdriveFactor(ship.userId),
+    );
     this.crewService.applyRequiredCrew(ship, shipClass.crewMin, modules);
     const systems = this.runtimeStateService.initialize(ship);
     for (const state of Object.values(systems)) {

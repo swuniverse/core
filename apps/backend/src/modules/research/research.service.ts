@@ -678,6 +678,69 @@ export class ResearchService {
     return rows.length;
   }
 
+  /**
+   * Technologies that need an award: running or queued research of players without that
+   * award is cancelled and its spent points are credited to their other active research.
+   * Completed technologies stay. Idempotent: the cancelled rows no longer run.
+   */
+  async cancelAwardLockedResearch(): Promise<number> {
+    const locked = this.gameData
+      .getTechTree()
+      .filter((tech) => tech.neededAwardKey);
+    if (locked.length === 0) return 0;
+    const rows = await this.researchRepo.find({
+      where: {
+        techId: In(locked.map((tech) => tech.id)),
+        status: In([ResearchStatus.IN_PROGRESS, ResearchStatus.QUEUED]),
+      },
+    });
+    const refundByUser = new Map<number, number>();
+    const namesByUser = new Map<number, string[]>();
+    const cancelled: Research[] = [];
+    for (const row of rows) {
+      const tech = this.gameData.getTech(row.techId);
+      if (!tech?.neededAwardKey) continue;
+      if (await this.awardService?.hasAward(row.userId, tech.neededAwardKey)) continue;
+      refundByUser.set(
+        row.userId,
+        (refundByUser.get(row.userId) ?? 0) + (row.spentPoints ?? 0),
+      );
+      namesByUser.set(row.userId, [...(namesByUser.get(row.userId) ?? []), tech.name]);
+      row.status = ResearchStatus.AVAILABLE;
+      row.spentPoints = 0;
+      row.progress = 0;
+      row.remainingPoints = null;
+      row.finishesAt = null;
+      row.queuePosition = null;
+      row.targetTechId = null;
+      row.blockedReason = null;
+      cancelled.push(row);
+    }
+    if (cancelled.length === 0) return 0;
+    await this.researchRepo.save(cancelled);
+    for (const [userId, refund] of refundByUser) {
+      await this.promoteIfIdle(userId);
+      await this.reorderQueue(userId);
+      const credited = refund > 0 ? await this.creditPoints(userId, refund) : 0;
+      await this.messagingService.sendSystem(
+        userId,
+        `Die Forschung ${[...new Set(namesByUser.get(userId))].join(', ')} erfordert einen Award und wurde abgebrochen. ` +
+          `${credited} von ${refund} Forschungspunkten wurden Ihren aktiven Forschungen gutgeschrieben.`,
+        `research-award-locked:${userId}:${Date.now()}`,
+        MessageFolder.COLONY,
+      );
+    }
+    return cancelled.length;
+  }
+
+  private async promoteIfIdle(userId: number): Promise<void> {
+    const active = await this.researchRepo.existsBy({
+      userId,
+      status: ResearchStatus.IN_PROGRESS,
+    });
+    if (!active) await this.promoteQueued(userId);
+  }
+
   /** Applies points to the active research, then to the queue; returns what was used. */
   async creditPoints(userId: number, points: number): Promise<number> {
     let leftover = points;

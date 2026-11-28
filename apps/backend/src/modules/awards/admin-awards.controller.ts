@@ -14,6 +14,7 @@ import { RequiresGameAccess } from '../game-status/game-status.guard';
 import { User } from '../auth/user.entity';
 import { AdminAwardsGrantDto } from './admin-awards-grant.dto';
 import { AwardService } from './award.service';
+import { factionAwardKey } from './faction-awards';
 import { Award } from './entities/award.entity';
 
 @Controller('admin/awards')
@@ -38,13 +39,16 @@ export class AdminAwardsController {
   @RequiresGameAccess()
   @Post('grant')
   async grant(@Body() input: AdminAwardsGrantDto) {
-    if (!(await this.userRepository.existsBy({ id: input.playerId }))) {
+    const player = await this.userRepository.findOneBy({ id: input.playerId });
+    if (!player) {
       throw new NotFoundException(`Player ${input.playerId} not found`);
     }
-    if (!(await this.awardRepository.existsBy({ key: input.awardKey }))) {
+    // Faction awards can be given by their Rebel or Empire key; the player's own variant is granted.
+    const awardKey = factionAwardKey(input.awardKey, player.faction);
+    if (!(await this.awardRepository.existsBy({ key: awardKey }))) {
       throw new NotFoundException(`Award ${input.awardKey} not found`);
     }
-    return this.awardService.grant(input.playerId, input.awardKey, {
+    return this.awardService.grant(input.playerId, awardKey, {
       incrementExisting: input.incrementExisting,
     });
   }
