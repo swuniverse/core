@@ -24,6 +24,7 @@ import { Spacecraft } from '../spacecraft/entities/spacecraft.entity';
 import { GalaxyField } from '../starmap/entities/galaxy-field.entity';
 import { GalaxyFieldType } from '../starmap/entities/galaxy-field-type.entity';
 import { Layer } from '../starmap/entities/layer.entity';
+import { LayerAccessService } from '../starmap/layer-access.service';
 import { SpaceLocation } from '../starmap/entities/space-location.entity';
 import { StarSystem } from '../starmap/entities/star-system.entity';
 import { SystemExploration } from '../starmap/entities/system-exploration.entity';
@@ -87,6 +88,12 @@ describe('database category completion (PostgreSQL)', () => {
         },
         DatabaseService,
         DatabaseCompletionService,
+        {
+          provide: LayerAccessService,
+          useValue: {
+            getLayers: async () => (await dataSource.getRepository(Layer).find()),
+          },
+        },
         { provide: PrestigeService, useValue: prestige },
         { provide: DATABASE_DISCOVERY, useValue: port },
         ShipClassDiscoveryService,

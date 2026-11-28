@@ -11,6 +11,7 @@ import { User } from '../auth/user.entity';
 import { AwardService } from '../awards/award.service';
 import { factionAwardKey } from '../awards/faction-awards';
 import { DatabaseCategoryAward } from '../awards/entities/database-category-award.entity';
+import { LayerAccessService } from '../starmap/layer-access.service';
 import { GameGateway } from '../websocket/game.gateway';
 import { DatabaseService } from './database.service';
 
@@ -38,6 +39,7 @@ export class DatabaseCompletionService implements OnApplicationBootstrap {
     private readonly database: DatabaseService,
     private readonly awards: AwardService,
     private readonly gateway: GameGateway,
+    private readonly layerAccess: LayerAccessService,
   ) {}
 
   /** New catalog entries (e.g. hulls) can make a completed category incomplete: re-check all holders. */
@@ -50,6 +52,15 @@ export class DatabaseCompletionService implements OnApplicationBootstrap {
         `Database award re-check failed: ${error instanceof Error ? error.message : error}`,
       );
     }
+  }
+
+  /** Grants every award of a category the player has completed but not been given yet. */
+  async grantComplete(userId: number): Promise<string[]> {
+    const granted: string[] = [];
+    for (const category of [...FLAT_CATEGORIES, 'SYSTEMS'] as const) {
+      granted.push(...(await this.checkCompletion(userId, category)));
+    }
+    return granted;
   }
 
   /**
@@ -86,6 +97,7 @@ export class DatabaseCompletionService implements OnApplicationBootstrap {
    */
   async progress(userId: number, layerIds?: number[]): Promise<DatabaseCategoryProgressDto[]> {
     await this.revokeIncomplete([userId]);
+    await this.grantComplete(userId);
     const mappings = await this.mappingRepo.find();
     const faction = (await this.userRepo.findOneBy({ id: userId }))?.faction;
     const awardKey = (category: DatabaseAwardCategory, layerId: number | null) => {
@@ -186,11 +198,19 @@ export class DatabaseCompletionService implements OnApplicationBootstrap {
       category === 'SHIP_HULLS' || category === 'SHIP_HULLS_OLDTIMER'
         ? await this.hullView(userId, category === 'SHIP_HULLS_OLDTIMER')
         : category === 'PLANET_TYPES'
-          ? await this.database.getPlanetTypes(userId)
-          : await this.database.getSystemTypes(userId);
+          ? await this.database.getPlanetTypes(userId, await this.knownLayerIds(userId))
+          : await this.database.getSystemTypes(userId, await this.knownLayerIds(userId));
     // Count listed entries only: discoveries outside the catalog never count.
     const entries = view.entries as Array<{ discovered: boolean }>;
     return { discovered: entries.filter((entry) => entry.discovered).length, total: entries.length };
+  }
+
+  /**
+   * Planet and system types count only on layers the player can reach, like the map catalog
+   * (not the whole type list: an unreachable legacy layer must not block the award).
+   */
+  private async knownLayerIds(userId: number): Promise<number[]> {
+    return (await this.layerAccess.getLayers({ sub: userId })).map((layer) => layer.id);
   }
 
   /** Hull catalog split by the OLDTIMER faction: wrecks vs. all other hulls. */
