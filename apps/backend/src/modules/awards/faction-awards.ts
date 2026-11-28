@@ -1,4 +1,5 @@
-import { Faction } from '@swuniverse/shared';
+// Type-only: migrations load this file through ts-node/CJS, where the ESM shared package cannot be required.
+import type { Faction } from '@swuniverse/shared';
 
 /**
  * Awards that exist once per faction (own artwork, same text and prestige).
@@ -86,7 +87,7 @@ export function layerNavigatorAwardKey(layerId: number, faction: 'REBEL' | 'EMPI
 
 /** Key of the faction variant of a stored (Rebel) or already faction-specific award key. */
 export function factionAwardKey(key: string, faction: Faction | null | undefined): string {
-  if (faction === Faction.GALACTIC_EMPIRE) return key.replace(REBEL_SUFFIX, '_EMPIRE');
+  if (String(faction) === 'GALACTIC_EMPIRE') return key.replace(REBEL_SUFFIX, '_EMPIRE');
   return key.replace(EMPIRE_SUFFIX, '_REBEL');
 }
 
