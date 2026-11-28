@@ -9,6 +9,8 @@ import { Tooltip } from '../Tooltip';
 import { ShipQuickActions } from './ShipQuickActions';
 import { SYSTEM_ASSETS } from './ShipControlCenter';
 import { SHIP_SYSTEMS } from './ship-system-presentation';
+import { validateShipName } from '@swuniverse/shared';
+import { ShipName } from '../ShipName';
 
 interface ShipHeaderTableProps {
   ship: {
@@ -589,8 +591,9 @@ function RenameForm({
   /** Missing on a construction, where STU offers no self-destruct. */
   onSelfDestruct?: () => void;
 }) {
+  const nameError = draftName.trim() ? validateShipName(draftName) : null;
   return (
-    <div className="flex min-w-[220px] items-center gap-1">
+    <div className="flex min-w-[220px] flex-wrap items-center gap-1">
       <label className="sr-only" htmlFor="ship-name-input">
         Schiffsname
       </label>
@@ -604,11 +607,17 @@ function RenameForm({
       <button
         type="button"
         onClick={onSave}
-        disabled={saving || disabled}
+        disabled={saving || disabled || !!nameError}
         className="rounded border border-swu-accent/60 bg-swu-accent/10 px-2 py-1 text-xs font-bold text-swu-accent hover:bg-swu-accent/20 disabled:cursor-not-allowed disabled:opacity-40"
       >
         {saving ? 'Speichere…' : 'Ändern'}
       </button>
+      {draftName.includes('[') && (
+        <div className="basis-full text-xs">
+          Vorschau: <ShipName name={draftName} />
+          {nameError && <span className="ml-2 text-red-300">{nameError}</span>}
+        </div>
+      )}
       {onSelfDestruct && (
         <button
           type="button"

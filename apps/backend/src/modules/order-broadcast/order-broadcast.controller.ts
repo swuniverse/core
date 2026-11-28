@@ -7,7 +7,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ArrayMaxSize, IsArray, IsInt, IsString, MaxLength, MinLength } from 'class-validator';
+import { Faction } from '@swuniverse/shared';
+import { ArrayMaxSize, IsArray, IsEnum, IsInt, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { AdminGuard } from '../auth/admin.guard';
 import { OrderBroadcastService } from './order-broadcast.service';
 
@@ -16,6 +17,10 @@ class SendOrderBroadcastDto {
   @MinLength(1)
   @MaxLength(2000)
   message: string;
+
+  @IsOptional()
+  @IsEnum(Faction)
+  faction?: Faction;
 }
 
 class AcknowledgeDto {
@@ -47,6 +52,6 @@ export class OrderBroadcastController {
   @UseGuards(AdminGuard)
   @Post()
   send(@Body() body: SendOrderBroadcastDto) {
-    return this.service.send(body.message);
+    return this.service.send(body.message, null, body.faction ?? null);
   }
 }

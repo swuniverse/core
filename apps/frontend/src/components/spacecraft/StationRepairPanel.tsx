@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { SpacecraftDetailDto, StationRepairDto } from '@swuniverse/shared';
 import { api } from '../../services/api';
+import { ShipName } from '../ShipName';
 
 const REPAIRING_ROLES = ['SHIPYARD', 'BASE'];
 
@@ -147,7 +148,7 @@ export function StationRepairPanel({
               className="flex items-center justify-between gap-2 border-b border-swu-border/50 px-3 py-2 last:border-0"
             >
               <span>
-                {entry.name}
+                <ShipName name={entry.name} />
                 <span className="ml-2 text-swu-muted">
                   {entry.hull}/{entry.hullMax} · {entry.steps} Schritte
                 </span>

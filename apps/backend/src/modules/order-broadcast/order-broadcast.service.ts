@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { WsEventType } from '@swuniverse/shared';
+import { WsEventType, type Faction } from '@swuniverse/shared';
+import { User } from '../auth/user.entity';
 import { GameGateway } from '../websocket/game.gateway';
 import { OrderBroadcast } from './entities/order-broadcast.entity';
 import { OrderBroadcastAck } from './entities/order-broadcast-ack.entity';
@@ -19,6 +20,8 @@ export class OrderBroadcastService {
     private readonly broadcasts: Repository<OrderBroadcast>,
     @InjectRepository(OrderBroadcastAck)
     private readonly acks: Repository<OrderBroadcastAck>,
+    @InjectRepository(User)
+    private readonly users: Repository<User>,
     private readonly gateway: GameGateway,
   ) {}
 
@@ -26,13 +29,25 @@ export class OrderBroadcastService {
   async send(
     message: string,
     targetUserId: number | null = null,
+    targetFaction: Faction | null = null,
   ): Promise<OrderBroadcastDto> {
     const saved = await this.broadcasts.save(
-      this.broadcasts.create({ message: message.trim(), targetUserId }),
+      this.broadcasts.create({
+        message: message.trim(),
+        targetUserId,
+        targetFaction,
+      }),
     );
     const dto = this.toDto(saved);
     // Online-Spieler sofort benachrichtigen; alle anderen holen sie beim Login ab.
-    if (targetUserId == null) {
+    if (targetUserId == null && targetFaction) {
+      const members = await this.users.find({
+        where: { faction: targetFaction },
+        select: { id: true },
+      });
+      for (const member of members)
+        this.gateway.emitToUser(member.id, WsEventType.ORDER_BROADCAST, dto);
+    } else if (targetUserId == null) {
       this.gateway.emitToAll(WsEventType.ORDER_BROADCAST, dto);
     } else {
       this.gateway.emitToUser(targetUserId, WsEventType.ORDER_BROADCAST, dto);
@@ -49,6 +64,7 @@ export class OrderBroadcastService {
       .andWhere('(b."targetUserId" IS NULL OR b."targetUserId" = :userId)', {
         userId,
       })
+      .andWhere('(b."targetFaction" IS NULL OR b."targetFaction" = u.faction)')
       .andWhere(
         `NOT EXISTS (SELECT 1 FROM order_broadcast_acks a WHERE a."broadcastId" = b.id AND a."userId" = :userId)`,
         { userId },

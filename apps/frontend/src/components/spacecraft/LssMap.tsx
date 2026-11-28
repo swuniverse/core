@@ -119,8 +119,12 @@ export interface LocalMapContext {
   };
 }
 
+export type BountyHunterSignal = 'YELLOW' | 'ORANGE' | 'RED';
+
 export interface LocalMapGalaxy {
   tachyonScanExpiresAt?: number | null;
+  /** Colour of the nearest active anomaly (ion storm, seasonal, ...), null if none within 3 ranges. */
+  bountyHunterSignal?: BountyHunterSignal | null;
   mode: 'galaxy';
   shipX: number;
   shipY: number;

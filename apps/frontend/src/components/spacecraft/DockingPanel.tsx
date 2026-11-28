@@ -7,6 +7,8 @@ import type {
 import { api } from '../../services/api';
 import { DockResult } from './DockResult';
 import { TransferDialog } from './TransferDialog';
+import { ShipName } from '../ShipName';
+import { stripShipNameBbCode } from '@swuniverse/shared';
 
 type DockingPanelProps = {
   ship: SpacecraftDetailDto;
@@ -83,7 +85,7 @@ export function DockingPanel({ ship, onChanged }: DockingPanelProps) {
                   to={`/spacecraft/${entry.id}`}
                   className="text-swu-primary"
                 >
-                  {entry.name}
+                  <ShipName name={entry.name} />
                 </Link>
                 <span className="flex items-center gap-2">
                   {entry.shipClassName} · Hülle {entry.hull}/{entry.hullMax}
@@ -97,7 +99,7 @@ export function DockingPanel({ ship, onChanged }: DockingPanelProps) {
                     }
                     className="border border-swu-border px-2 py-0.5 disabled:opacity-40"
                   >
-                    {`${entry.name} abdocken`}
+                    {`${stripShipNameBbCode(entry.name)} abdocken`}
                   </button>
                   <button
                     type="button"
@@ -157,7 +159,7 @@ export function DockingPanel({ ship, onChanged }: DockingPanelProps) {
         <TransferDialog
           shipId={ship.id}
           targetShipId={transfer.target.id}
-          targetName={transfer.target.name}
+          targetName={stripShipNameBbCode(transfer.target.name)}
           direction={transfer.direction}
           onClose={() => setTransfer(null)}
           onTransfer={() => void onChanged()}

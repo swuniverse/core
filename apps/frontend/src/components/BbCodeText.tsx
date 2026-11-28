@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { ALLIANCE_BANNER_URL_PATTERN } from '@swuniverse/shared';
+import { ALLIANCE_BANNER_URL_PATTERN, SHIP_NAME_BB_TAGS } from '@swuniverse/shared';
 
 export type BbCodeTextProps = {
   text: string | null | undefined;
@@ -9,6 +9,8 @@ export type BbCodeTextProps = {
   allowBannerImages?: boolean;
   /** Renders validated HTTPS image URLs in player profiles and HoloNet posts. */
   allowExternalImages?: boolean;
+  /** Only inline formatting (b, i, u, s, color); other tags stay literal text. */
+  inlineOnly?: boolean;
 };
 
 type Tag =
@@ -302,6 +304,7 @@ function parseBbCode(
   text: string,
   allowBannerImages: boolean,
   allowExternalImages: boolean,
+  inlineOnly = false,
 ): ReactNode[] {
   const root: Part[] = [];
   const stack: Frame[] = [];
@@ -316,6 +319,11 @@ function parseBbCode(
     const tokenIndex = match.index;
 
     if (rawTag.toLowerCase() !== 'color' && token.endsWith('=]')) continue;
+    if (
+      inlineOnly &&
+      !(SHIP_NAME_BB_TAGS as readonly string[]).includes(rawTag.toLowerCase())
+    )
+      continue;
 
     if (tokenIndex > lastIndex) {
       appendPart(stack, root, textPart(text.slice(lastIndex, tokenIndex)));
@@ -387,12 +395,13 @@ export function BbCodeText({
   as = 'div',
   allowBannerImages = false,
   allowExternalImages = false,
+  inlineOnly = false,
 }: BbCodeTextProps) {
   const Component = as;
 
   return (
     <Component className={className}>
-      {parseBbCode(text ?? '', allowBannerImages, allowExternalImages)}
+      {parseBbCode(text ?? '', allowBannerImages, allowExternalImages, inlineOnly)}
     </Component>
   );
 }

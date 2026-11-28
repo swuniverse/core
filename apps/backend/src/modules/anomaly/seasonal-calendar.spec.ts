@@ -14,3 +14,15 @@ describe('Seasonal calendar', () => {
     expect(berlinDay(new Date('2026-04-04T22:00:00Z'))).toBe('2026-04-05');
   });
 });
+
+import { winterEventActive } from './anomaly.service';
+describe('Winter event window', () => {
+  it.each([
+    ['2026-11-30T22:59:59Z', false],
+    ['2026-11-30T23:00:00Z', true],
+    ['2026-12-24T22:59:59Z', true],
+    ['2026-12-24T23:00:00Z', false],
+  ])('at %s is %s', (iso, expected) =>
+    expect(winterEventActive(new Date(iso))).toBe(expected),
+  );
+});

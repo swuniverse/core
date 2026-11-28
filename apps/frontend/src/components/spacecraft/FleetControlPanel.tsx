@@ -5,6 +5,7 @@ import type {
   SpacecraftAlertState,
 } from '@swuniverse/shared';
 import { api } from '../../services/api';
+import { stripShipNameBbCode } from '@swuniverse/shared';
 
 const SYSTEMS: Array<[FleetSwitchableSystemKey, string, string, string]> = [
   ['SHORT_RANGE_SENSORS', 'kss1', 'kss2', 'Nahbereichssensoren'],
@@ -48,7 +49,7 @@ export function FleetControlPanel({
     try {
       const { failed } = await request();
       setFailures(
-        failed.map(({ shipName, reason }) => `${shipName}: ${reason}`),
+        failed.map(({ shipName, reason }) => `${stripShipNameBbCode(shipName)}: ${reason}`),
       );
       onUpdate();
     } catch (err: unknown) {

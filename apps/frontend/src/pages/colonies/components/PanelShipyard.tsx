@@ -10,6 +10,7 @@ import type {
   ShipModuleSelection,
   ShipyardQueueMode,
 } from '../types';
+import { ShipName } from '../../../components/ShipName';
 
 type ShipyardView =
   | 'shipyardSelect'
@@ -1319,7 +1320,7 @@ export function PanelShipyard({
                 >
                   <div>
                     <div className="font-bold text-swu-primary">
-                      {ship.name}
+                      <ShipName name={ship.name} />
                     </div>
                     <div className="text-[10px] text-swu-muted">
                       {ship.shipClassName ?? `Klasse #${ship.shipClassId}`} ·

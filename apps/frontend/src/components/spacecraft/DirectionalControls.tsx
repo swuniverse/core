@@ -1,8 +1,21 @@
+import type { BountyHunterSignal } from './LssMap';
+
+export const HUNTER_SIGNAL_STYLE: Record<
+  BountyHunterSignal,
+  { button: string; glow: string; text: string }
+> = {
+  YELLOW: { button: 'border-yellow-400 bg-yellow-500/20 text-yellow-200', glow: '0 0 18px 3px rgba(250,204,21,0.55)', text: 'text-yellow-300' },
+  ORANGE: { button: 'border-orange-400 bg-orange-500/20 text-orange-200', glow: '0 0 18px 3px rgba(251,146,60,0.6)', text: 'text-orange-300' },
+  RED: { button: 'border-red-500 bg-red-500/25 text-red-200', glow: '0 0 20px 4px rgba(239,68,68,0.65)', text: 'text-red-300' },
+};
+
 interface DirectionalControlsProps {
   onMove: (dx: number, dy: number) => void;
   stepSize: number;
   onStepChange: (step: number) => void;
   disabled: boolean;
+  /** Nearest active anomaly colours the buttons and shows a hint. */
+  signal?: BountyHunterSignal | null;
 }
 
 export function DirectionalControls({
@@ -10,10 +23,12 @@ export function DirectionalControls({
   stepSize,
   onStepChange,
   disabled,
+  signal = null,
 }: DirectionalControlsProps) {
+  const signalStyle = signal ? HUNTER_SIGNAL_STYLE[signal] : null;
   const btnClass = disabled
     ? 'border-swu-border/40 text-swu-muted/40 cursor-not-allowed'
-    : 'border-swu-border bg-swu-surface text-swu-primary hover:border-swu-accent hover:bg-swu-accent/10 active:scale-95';
+    : `${signalStyle?.button ?? 'border-swu-border bg-swu-surface text-swu-primary'} hover:border-swu-accent hover:bg-swu-accent/10 active:scale-95`;
 
   return (
     <div
@@ -75,6 +90,15 @@ export function DirectionalControls({
       >
         ▼
       </button>
+      {signalStyle && (
+        <div
+          role="status"
+          data-testid="hunter-signal"
+          className={`mt-1 text-center text-xs font-bold ${signalStyle.text}`}
+        >
+          Raumanomalie erkannt
+        </div>
+      )}
     </div>
   );
 }

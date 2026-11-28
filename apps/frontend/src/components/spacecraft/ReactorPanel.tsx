@@ -5,6 +5,8 @@ import type {
 } from '@swuniverse/shared';
 import { api } from '../../services/api';
 import { SignatureMaskRow } from './SignatureMaskRow';
+import { ShipName } from '../ShipName';
+import { stripShipNameBbCode } from '@swuniverse/shared';
 
 interface ReactorPanelProps {
   shipId: number;
@@ -74,7 +76,7 @@ export function ReactorPanel({
         await request(member.id);
       } catch (err: unknown) {
         failures.push(
-          `${member.name}: ${err instanceof Error ? err.message : 'fehlgeschlagen'}`,
+          `${stripShipNameBbCode(member.name)}: ${err instanceof Error ? err.message : 'fehlgeschlagen'}`,
         );
       }
     }
@@ -340,10 +342,10 @@ export function ReactorPanel({
             {transferTargets.map((target) => (
               <label key={target.shipId} className="flex items-center gap-2">
                 <span className="flex-1">
-                  {target.name} {target.reactorFuel}/{target.reactorFuelMax}
+                  <ShipName name={target.name} /> {target.reactorFuel}/{target.reactorFuelMax}
                 </span>
                 <input
-                  aria-label={`${target.name} Transfermenge`}
+                  aria-label={`${stripShipNameBbCode(target.name)} Transfermenge`}
                   type="number"
                   min={0}
                   max={target.reactorFuelMax - target.reactorFuel}

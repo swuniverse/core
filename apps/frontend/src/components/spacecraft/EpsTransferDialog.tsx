@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { SpacecraftEpsTransferResultDto } from '@swuniverse/shared';
 import { api } from '../../services/api';
+import { ShipName } from '../ShipName';
 
 export function EpsTransferDialog({
   shipId,
@@ -47,7 +48,7 @@ export function EpsTransferDialog({
       <section className="w-full max-w-sm border border-swu-border bg-swu-bg p-3 text-xs">
         <header className="mb-2 flex justify-between border-b border-swu-border pb-2">
           <h3 className="font-bold text-swu-primary">
-            Energie zur {target.name} transferieren
+            Energie zur <ShipName name={target.name} /> transferieren
           </h3>
           <button type="button" onClick={onClose}>
             Schließen

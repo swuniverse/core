@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { StationUplinkDto } from '@swuniverse/shared';
 import { api } from '../../services/api';
+import { ShipName } from '../ShipName';
 
 export function StationUplinkPanel({
   shipId,
@@ -83,7 +84,7 @@ export function StationUplinkPanel({
       )}
       {uplink.guests.map((guest) => (
         <div key={guest.id}>
-          {guest.name} · {guest.ownerName}
+          <ShipName name={guest.name} /> · {guest.ownerName}
         </div>
       ))}
       {error && <p role="alert">{error}</p>}

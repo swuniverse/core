@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { commodityImage, shipImage } from '../../../lib/assets';
 import { api } from '../../../services/api';
+import { ShipName } from '../../../components/ShipName';
 
 type ManagementSource = {
   energy: number;
@@ -269,7 +270,7 @@ export function OrbitalManagementPanel({
                     href={`/spacecraft/${ship.id}`}
                     className="hover:text-swu-accent"
                   >
-                    {ship.name}
+                    <ShipName name={ship.name} />
                   </a>
                   {ship.cargo && (
                     <div className="text-[10px] font-normal text-swu-muted">
@@ -599,7 +600,7 @@ function ShuttleTransferDialog({
       <section className="w-full max-w-md border border-swu-border bg-swu-bg text-xs">
         <header className="flex items-center justify-between border-b border-swu-border px-3 py-2">
           <h3 className="font-bold text-swu-primary">
-            Shuttle-Transfer: {ship.name}
+            Shuttle-Transfer: <ShipName name={ship.name} />
           </h3>
           <button type="button" onClick={onClose}>
             Schließen

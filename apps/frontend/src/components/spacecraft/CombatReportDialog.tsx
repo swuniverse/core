@@ -1,3 +1,5 @@
+import { ShipName } from '../ShipName';
+import { stripShipNameBbCode } from '@swuniverse/shared';
 type Report = {
   attacker?: { name: string };
   defender?: { name: string };
@@ -37,8 +39,8 @@ export function CombatReportDialog({
       <section className="w-full max-w-2xl border border-swu-border bg-swu-bg text-sm">
         <header className="flex items-center justify-between border-b border-swu-border px-3 py-2">
           <h3 className="font-bold text-swu-primary">
-            Kampfbericht · {report.attacker?.name ?? 'Angreifer'} gegen{' '}
-            {report.defender?.name ?? 'Verteidiger'}
+            Kampfbericht · <ShipName name={report.attacker?.name ?? 'Angreifer'} /> gegen{' '}
+            <ShipName name={report.defender?.name ?? 'Verteidiger'} />
           </h3>
           <button type="button" onClick={onClose}>
             Schließen
@@ -54,7 +56,7 @@ export function CombatReportDialog({
                   </h4>
                   {report.parties?.[side].map((ship) => (
                     <p key={ship.id} className={ship.destroyed ? 'text-red-300' : ''}>
-                      {ship.name}{ship.destroyed ? ' · zerstört' : ''}
+                      <ShipName name={ship.name} />{ship.destroyed ? ' · zerstört' : ''}
                     </p>
                   ))}
                 </div>
@@ -79,7 +81,7 @@ export function CombatReportDialog({
             Ergebnis:{' '}
             {report.outcome.winner === 'draw'
               ? 'Unentschieden'
-              : `${report.outcome.winner === 'attacker' ? (report.attacker?.name ?? 'Angreifer') : (report.defender?.name ?? 'Verteidiger')} gewinnt`}
+              : `${stripShipNameBbCode(report.outcome.winner === 'attacker' ? (report.attacker?.name ?? 'Angreifer') : (report.defender?.name ?? 'Verteidiger'))} gewinnt`}
           </p>
         </div>
       </section>
