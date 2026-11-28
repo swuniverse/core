@@ -11,6 +11,7 @@ import {
 } from '@swuniverse/shared';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { ApiError, api } from '../services/api';
+import { ShipName } from '../components/ShipName';
 
 const dateTimeFormatter = new Intl.DateTimeFormat('de-DE', {
   day: '2-digit',
@@ -193,7 +194,7 @@ function MemberRow({
                   <ul>
                     {group.ships.map((ship) => (
                       <li key={ship.id} className="text-xs">
-                        {ship.name} – {formatLocation(ship.location)}
+                        <ShipName name={ship.name} /> – {formatLocation(ship.location)}
                       </li>
                     ))}
                   </ul>

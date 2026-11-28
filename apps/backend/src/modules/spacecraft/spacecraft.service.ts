@@ -120,6 +120,7 @@ import {
   FLEET_SWITCHABLE_SYSTEM_KEYS,
   type FleetSwitchableSystemKey,
   type FleetSystemToggleResultDto,
+  validateShipName,
 } from '@swuniverse/shared';
 import { Colony } from '../colony/entities/colony.entity';
 import {
@@ -1251,8 +1252,10 @@ export class SpacecraftService {
     userId: number,
     name: string,
   ): Promise<Spacecraft> {
+    const nameError = validateShipName(name);
+    if (nameError) throw new BadRequestException(nameError);
     const ship = await this.findOne(shipId, userId);
-    ship.name = name;
+    ship.name = name.trim();
     return this.shipRepo.save(ship);
   }
 

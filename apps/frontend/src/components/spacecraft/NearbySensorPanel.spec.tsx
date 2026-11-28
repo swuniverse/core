@@ -406,7 +406,7 @@ describe('NearbySensorPanel', () => {
 
     expect(await screen.findByText('Angreifer (2)')).toBeTruthy();
     expect(screen.getByText('Verteidiger (1)')).toBeTruthy();
-    expect(screen.getByText(/Wing.*zerstört/)).toBeTruthy();
+    expect(screen.getByText((_, element) => element?.tagName === 'P' && /Wing.*zerstört/.test(element.textContent ?? ''))).toBeTruthy();
     expect(screen.getByText(/Turbolaser.*12 Schaden/)).toBeTruthy();
   });
 

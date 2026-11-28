@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { alertStateImage, shipImage } from '../lib/assets';
 import { ShipStorageTooltip } from '../components/spacecraft/ShipStoragePanel';
+import { ShipName } from '../components/ShipName';
 
 const ALERT_LABELS = {
   GREEN: 'Grüner Alarm',
@@ -374,7 +375,7 @@ function FleetJoinDialog({
                       checked={chosen.includes(ship.id)}
                       onChange={(event) => setChosen((current) => event.target.checked ? [...current, ship.id] : current.filter((id) => id !== ship.id))}
                     />
-                    {ship.name}
+                    <ShipName name={ship.name} />
                   </label>
                 </li>
               ))}

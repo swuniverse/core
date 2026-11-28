@@ -1,4 +1,5 @@
 import type { SpacecraftDockResultDto } from '@swuniverse/shared';
+import { ShipName } from '../ShipName';
 
 const STATUS_LABEL = {
   docked: 'angedockt',
@@ -21,7 +22,7 @@ export function DockResult({ result }: { result: SpacecraftDockResultDto }) {
                 entry.status === 'aborted' ? 'text-red-300' : undefined
               }
             >
-              {entry.name}: {STATUS_LABEL[entry.status]}
+              <ShipName name={entry.name} />: {STATUS_LABEL[entry.status]}
               {entry.reason && ` – ${entry.reason}`}
             </li>
           ))}

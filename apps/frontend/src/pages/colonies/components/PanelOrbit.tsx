@@ -4,6 +4,7 @@ import { shipImage } from '../../../lib/assets';
 import { TransferDialog } from '../../../components/spacecraft/TransferDialog';
 import type { ColonyDetailV2, CommodityDef } from '../types';
 import { OrbitalManagementPanel } from './OrbitalManagementPanel';
+import { ShipName } from '../../../components/ShipName';
 
 type OrbitShip = ColonyDetailV2['orbitShips'][number];
 type ForeignOrbitShip = NonNullable<ColonyDetailV2['foreignOrbitShips']>[number];
@@ -270,7 +271,7 @@ function OrbitEntryCard({ entry, openShip }: { entry: OrbitEntry; openShip?: boo
   return (
     <div className="p-2">
       <div className="mb-1 font-bold text-swu-primary">
-        {ship.name}{' '}
+        <ShipName name={ship.name} />{' '}
         <span className="font-normal text-swu-muted">
           | von {ship.ownerName ?? 'Unbekannt'}
         </span>
@@ -301,7 +302,7 @@ function OrbitShipCard({
   const content = (
     <>
       <div className="mb-1 font-bold text-swu-primary">
-        {ship.name}{' '}
+        <ShipName name={ship.name} />{' '}
         <span className="font-normal text-swu-muted">
           | {ship.canManage ? 'Eigene Flotte' : 'Fremdes Schiff'}
         </span>

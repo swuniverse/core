@@ -4,6 +4,7 @@ import { Tooltip, TooltipTable } from '../Tooltip';
 import { formatNumber } from '../../lib/format';
 import { api } from '../../services/api';
 import { CargoDisposeDialog } from './CargoDisposeDialog';
+import { stripShipNameBbCode } from '@swuniverse/shared';
 
 export interface CargoItem {
   id: number;
@@ -128,7 +129,7 @@ export function ShipStorageTooltip({
     >
       <button
         type="button"
-        aria-label={`Lager von ${shipName}`}
+        aria-label={`Lager von ${stripShipNameBbCode(shipName)}`}
         className="block cursor-help"
       >
         <img src={imageSrc} alt={shipName} className="h-8 w-auto object-contain" />

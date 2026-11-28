@@ -1453,3 +1453,4 @@ export interface StationSensorScanDto {
   }>;
   fadedSignatures: { uncloaked: number; cloaked: number };
 }
+export * from './ship-name.js';

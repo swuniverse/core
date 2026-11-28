@@ -7,6 +7,7 @@ import type {
 } from '@swuniverse/shared';
 import { formatDateTime, formatNumber } from '../../lib/format';
 import { api } from '../../services/api';
+import { stripShipNameBbCode } from '@swuniverse/shared';
 
 type PaymentChoice = `ship:${number}` | `account:${number}`;
 
@@ -200,7 +201,7 @@ function PurchaseForm({
   const choices: Array<{ value: PaymentChoice; label: string }> = [
     ...menu.purchase.payShips.map((ship) => ({
       value: `ship:${ship.id}` as const,
-      label: `Frachtraum ${ship.name} (${formatNumber(ship.amount)})`,
+      label: `Frachtraum ${stripShipNameBbCode(ship.name)} (${formatNumber(ship.amount)})`,
     })),
     ...menu.accounts.map((account) => ({
       value: `account:${account.tradePostId}` as const,

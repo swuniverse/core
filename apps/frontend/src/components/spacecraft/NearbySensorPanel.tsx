@@ -15,13 +15,14 @@ import type {
 import { shipImage } from '../../lib/assets';
 import { api } from '../../services/api';
 import { useSocket } from '../../hooks/use-socket';
-import { WsEventType } from '@swuniverse/shared';
+import { WsEventType, stripShipNameBbCode } from '@swuniverse/shared';
 import { TransferDialog } from './TransferDialog';
 import { EpsTransferDialog } from './EpsTransferDialog';
 import { TargetScanDialog } from './TargetScanDialog';
 import { QuickPmDialog } from '../messaging/QuickPmDialog';
 import { CombatReportDialog } from './CombatReportDialog';
 import { DockResult } from './DockResult';
+import { ShipName } from '../ShipName';
 
 export function NearbySensorPanel({
   shipId,
@@ -310,12 +311,12 @@ export function NearbySensorPanel({
           <button
             type="button"
             onClick={() => void dock(`dock/${target.id}`)}
-            title={`An ${target.name} andocken`}
+            title={`An ${stripShipNameBbCode(target.name)} andocken`}
             className="mr-1"
           >
             <img
               src="/assets/buttons/dock1.png"
-              alt={`An ${target.name} andocken`}
+              alt={`An ${stripShipNameBbCode(target.name)} andocken`}
               className="inline size-4"
             />
           </button>
@@ -328,7 +329,7 @@ export function NearbySensorPanel({
               target.actions.attackReason ??
               (target.cloaked
                 ? 'Getarntes Ziel angreifen'
-                : `${target.name} angreifen`)
+                : `${stripShipNameBbCode(target.name)} angreifen`)
             }
             className="mr-1 disabled:opacity-40"
             disabled={!target.actions.attack}
@@ -347,7 +348,7 @@ export function NearbySensorPanel({
             <button
               type="button"
               onClick={() => void track(target)}
-              title={`${target.name} mit Peilsender markieren`}
+              title={`${stripShipNameBbCode(target.name)} mit Peilsender markieren`}
               className="mr-1"
             >
               <img
@@ -378,7 +379,7 @@ export function NearbySensorPanel({
           <button
             type="button"
             onClick={() => void startTakeover(target)}
-            title={`${target.name} übernehmen`}
+            title={`${stripShipNameBbCode(target.name)} übernehmen`}
             className="mr-1"
           >
             Übernehmen
@@ -388,7 +389,7 @@ export function NearbySensorPanel({
           <button
             type="button"
             onClick={() => void board(target)}
-            title={`${target.name} entern`}
+            title={`${stripShipNameBbCode(target.name)} entern`}
             className="mr-1"
           >
             <img
@@ -402,7 +403,7 @@ export function NearbySensorPanel({
           <button
             type="button"
             onClick={() => void intercept(target)}
-            title={`${target.name} aus dem Hyperraum zwingen`}
+            title={`${stripShipNameBbCode(target.name)} aus dem Hyperraum zwingen`}
             className="mr-1"
           >
             <img
@@ -430,7 +431,7 @@ export function NearbySensorPanel({
           <button
             type="button"
             onClick={() => void scan(target)}
-            title={`${target.name} scannen`}
+            title={`${stripShipNameBbCode(target.name)} scannen`}
           >
             <img
               src="/assets/buttons/lupe1.png"
@@ -443,7 +444,7 @@ export function NearbySensorPanel({
           <button
             type="button"
             onClick={() => void activateTractor(target)}
-            title={`${target.name} mit Traktorstrahl erfassen`}
+            title={`${stripShipNameBbCode(target.name)} mit Traktorstrahl erfassen`}
             className="ml-1"
           >
             <img
@@ -457,12 +458,12 @@ export function NearbySensorPanel({
           <button
             type="button"
             onClick={() => setEpsTarget(target)}
-            title={`Energie zur ${target.name} transferieren`}
+            title={`Energie zur ${stripShipNameBbCode(target.name)} transferieren`}
             className="ml-1"
           >
             <img
               src="/assets/buttons/e_trans2.png"
-              alt={`Energie zur ${target.name} transferieren`}
+              alt={`Energie zur ${stripShipNameBbCode(target.name)} transferieren`}
               className="inline size-4"
             />
           </button>
@@ -472,24 +473,24 @@ export function NearbySensorPanel({
             <button
               type="button"
               onClick={() => setTransfer({ target, direction: 'TO_TARGET' })}
-              title={`Fracht an ${target.name} übergeben`}
+              title={`Fracht an ${stripShipNameBbCode(target.name)} übergeben`}
               className="ml-1"
             >
               <img
                 src="/assets/buttons/b_down1.png"
-                alt={`Fracht an ${target.name} übergeben`}
+                alt={`Fracht an ${stripShipNameBbCode(target.name)} übergeben`}
                 className="inline size-4"
               />
             </button>
             <button
               type="button"
               onClick={() => setTransfer({ target, direction: 'FROM_TARGET' })}
-              title={`Fracht von ${target.name} übernehmen`}
+              title={`Fracht von ${stripShipNameBbCode(target.name)} übernehmen`}
               className="ml-1"
             >
               <img
                 src="/assets/buttons/b_up1.png"
-                alt={`Fracht von ${target.name} übernehmen`}
+                alt={`Fracht von ${stripShipNameBbCode(target.name)} übernehmen`}
                 className="inline size-4"
               />
             </button>
@@ -533,7 +534,7 @@ export function NearbySensorPanel({
             to={`/spacecraft/${target.id}`}
             className="hover:text-swu-accent"
           >
-            {target.name}
+            <ShipName name={target.name} />
           </Link>
         ) : (
           target.name
@@ -861,7 +862,7 @@ export function NearbySensorPanel({
         <TransferDialog
           shipId={shipId}
           targetShipId={transfer.target.id}
-          targetName={transfer.target.name}
+          targetName={stripShipNameBbCode(transfer.target.name)}
           direction={transfer.direction}
           onClose={() => setTransfer(null)}
           onTransfer={onUpdate}

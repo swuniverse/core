@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { DashboardData } from './types';
+import { ShipName } from '../../components/ShipName';
 
 const ALERT_PRESENTATION = {
   RED: { title: 'Alarmstufe Rot', color: 'bg-swu-negative' },
@@ -40,7 +41,7 @@ export function DashboardFleet({ data }: { data: DashboardData }) {
                 title={alert.title}
               />
               <strong className="min-w-0 flex-1 truncate text-swu-text">
-                {ship.name}
+                <ShipName name={ship.name} />
               </strong>
               <span className="text-swu-muted">Bereit</span>
             </Link>

@@ -23,7 +23,7 @@ it('shows owner crew, foreign player slots and tick EPS and permits manual activ
   render(
     <StationUplinkPanel shipId={2} refreshKey="first" onUpdate={update} />,
   );
-  expect(await screen.findByText('Gast · Pilot')).toBeTruthy();
+  expect(await screen.findByText((_, element) => element?.tagName === 'DIV' && element.textContent === 'Gast · Pilot')).toBeTruthy();
   expect(
     screen.getByText(/Eigene Crew: 2\/2 · Fremdspielerplätze: 1\/3/),
   ).toBeTruthy();

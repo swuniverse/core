@@ -190,3 +190,15 @@ describe('BbCodeText', () => {
     });
   });
 });
+
+describe('BbCodeText inlineOnly', () => {
+  it('renders only inline tags and keeps others literal', () => {
+    const { container } = render(
+      <BbCodeText text="[b]Fal[/b][h2]con[/h2] [url=https://x.de]l[/url]" inlineOnly />,
+    );
+    expect(container.querySelector('strong')?.textContent).toBe('Fal');
+    expect(container.querySelector('h2')).toBeNull();
+    expect(container.querySelector('a')).toBeNull();
+    expect(container.textContent).toContain('[h2]con[/h2]');
+  });
+});

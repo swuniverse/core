@@ -5,6 +5,7 @@ import type {
   LostCrewShipDto,
 } from '@swuniverse/shared';
 import { api } from '../../../services/api';
+import { ShipName } from '../../../components/ShipName';
 
 /** "Verschollene Crew": escape pods that hold crew of the player. */
 export function LostCrewSection() {
@@ -137,7 +138,7 @@ export function LostCrewSection() {
           <h3 className="font-bold">Crew auf fremden Schiffen</h3>
           {ships.map((member) => (
             <div key={member.crewId}>
-              {member.name} · {member.shipName}{' '}
+              {member.name} · <ShipName name={member.shipName} />{' '}
               <button
                 disabled={loading}
                 onClick={() => void withdraw(member)}
